@@ -38,6 +38,9 @@ import { getProgramTimeZone } from "./program/time-zone";
 import {
   schoolCalendarWrite,
   schoolCalendarHoliday,
+  schoolCalendarHolidayUpdate,
+  schoolCalendarHolidayReset,
+  schoolCalendarHolidayUnionDates,
   schoolCalendarReset,
 } from "~/lib/school-calendar";
 import { schoolHoursLock, validateSchoolHoursSettings } from "./school-hours";
@@ -712,6 +715,22 @@ export async function proposalTargets(
       await import("./program/school-calendar");
     await lockSchoolCalendarHoliday(client, schoolCalendarHoliday.parse(input));
   }
+  if (operation === "student.updateCalendarHoliday") {
+    const { lockSchoolCalendarHolidayUpdate } =
+      await import("./program/school-calendar");
+    await lockSchoolCalendarHolidayUpdate(
+      client,
+      schoolCalendarHolidayUpdate.parse(input),
+    );
+  }
+  if (operation === "student.resetCalendarHoliday") {
+    const { lockSchoolCalendarHolidayReset } =
+      await import("./program/school-calendar");
+    await lockSchoolCalendarHolidayReset(
+      client,
+      schoolCalendarHolidayReset.parse(input),
+    );
+  }
   if (operation === "program.setNameFields") {
     await lockUsernameNamespace(client);
     const settings = await client.programSettings.findUnique({
@@ -1084,14 +1103,26 @@ export async function proposalTargets(
   if (primary === "SchoolCalendarDay")
     targets.calendar = await client.schoolCalendarDay.findMany({
       where:
-        operation === "student.setCalendarHoliday"
+        operation === "student.setCalendarHoliday" ||
+        operation === "student.resetCalendarHoliday"
           ? {
               date: {
                 gte: z.string().parse(fields.from),
                 lte: z.string().parse(fields.to),
               },
             }
-          : { date: z.string().parse(fields.date) },
+          : operation === "student.updateCalendarHoliday"
+            ? {
+                date: {
+                  in: schoolCalendarHolidayUnionDates(
+                    z.string().parse(fields.originalFrom),
+                    z.string().parse(fields.originalTo),
+                    z.string().parse(fields.from),
+                    z.string().parse(fields.to),
+                  ),
+                },
+              }
+            : { date: z.string().parse(fields.date) },
       orderBy: { date: "asc" },
     });
   if (primary === "StudentSettings")

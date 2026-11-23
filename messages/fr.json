@@ -3629,7 +3629,11 @@
         "archivedOfferings": "Matières proposées à archiver",
         "timetableWeekday": "Jour de l’emploi du temps",
         "scheduleRevision": "Révision du programme",
-        "actionId": "Identifiant d’action d’admission enregistrée"
+        "actionId": "Identifiant d’action d’admission enregistrée",
+        "from": "Date de début",
+        "to": "Date de fin",
+        "originalFrom": "Ancienne date de début",
+        "originalTo": "Ancienne date de fin"
       },
       "values": {
         "ACTIVE": "Actif",
@@ -3869,7 +3873,9 @@
         "admin_cancelRefresh": "Cancel a scheduled program refresh",
         "monthlyHours_save": "Modifier la planification des rapports mensuels des heures",
         "schoolHours_save": "Modifier la planification des rapports d’heures pour l’école",
-        "student_setCalendarHoliday": "Ajouter une période de vacances scolaires"
+        "student_setCalendarHoliday": "Ajouter une période de vacances scolaires",
+        "student_updateCalendarHoliday": "Modifier une période de vacances scolaires",
+        "student_resetCalendarHoliday": "Réinitialiser une période de vacances scolaires"
       },
       "decisionRequestHelp": "Approuver et appliquer exécute l’action demandée, y compris un rejet demandé. Rejeter avec un commentaire refuse cette proposition sans rien modifier. Ajoutez une note pour expliquer votre décision.",
       "confirmPassword": "Confirmez le mot de passe de votre compte",
@@ -6129,7 +6135,7 @@
     "reload": "Recharger le brouillon",
     "loadFailed": "Impossible de charger les avis de tutorat.",
     "loading": "Chargement des avis de tutorat…",
-    "add": "Ajouter une période",
+    "add": "Ajouter une pause ou un avis de tutorat",
     "date": "Période",
     "startDate": "Date de début",
     "endDate": "Date de fin",
@@ -6163,7 +6169,15 @@
     "impactRetain": "Séances supplémentaires confirmées et reports expressément convenus conservés : {count}",
     "impactConfirm": "Confirmation explicite nécessaire : {count}",
     "impactRestore": "Candidats au rétablissement : {count}",
-    "impactRule": "L’enregistrement revérifie les accords et conflits actuels. Les participants concernés sont informés des annulations par e-mail. Les séances commencées et les présences enregistrées restent inchangées."
+    "impactRule": "L’enregistrement revérifie les accords et conflits actuels. Les participants concernés sont informés des annulations par e-mail. Les séances commencées et les présences enregistrées restent inchangées.",
+    "combinedTitle": "Vacances et pauses de tutorat",
+    "combinedHelp": "Gérez les vacances scolaires (école fermée) ainsi que les pauses ou avis de tutorat (école ouverte). Les vacances suspendent le tutorat régulier et le décompte des jours de cours pour les appels ; les pauses de tutorat ne modifient pas les jours de cours.",
+    "combinedEmpty": "Aucune vacance scolaire ni avis de tutorat.",
+    "denied": "Les avis et pauses de tutorat ne sont pas disponibles.",
+    "holidayEffect": "Vacances scolaires (École fermée)",
+    "pauseEffectTable": "Pause de tutorat (Jour de cours)",
+    "noticeEffectTable": "Avis uniquement (Jour de cours)",
+    "reasonOrNote": "Motif / Note"
   },
   "roomOrder": {
     "title": "Ordre d’affichage des salles",
@@ -7328,7 +7342,23 @@
     "invalidRange": "Choisissez des dates valides, avec une fin au plus tôt au début et 366 jours maximum.",
     "holidayReplaces": "L’enregistrement remplace les {count} exceptions ci-dessous, y compris leurs notes.",
     "saveHoliday": "Enregistrer les vacances",
-    "reloadHoliday": "Recharger la période actuelle"
+    "reloadHoliday": "Recharger la période actuelle",
+    "weekdayOverridesTitle": "Remplacements d’emploi du temps",
+    "weekdayOverridesHelp": "Définissez l’emploi du temps d’un jour de la semaine suivi à une date précise, y compris les jours de cours rattrapés le week-end. Les dates listées ici sont des jours de cours ; les vacances sont gérées ci-dessus.",
+    "weekdayOverridesEmpty": "Aucun remplacement d’emploi du temps. Les jours de cours suivent leur propre jour de la semaine.",
+    "addWeekdayOverride": "Ajouter un remplacement d’emploi du temps",
+    "editWeekdayOverride": "Modifier le remplacement d’emploi du temps",
+    "saveWeekdayOverride": "Enregistrer le remplacement d’emploi du temps",
+    "weekdayReplacesExisting": "L’enregistrement remplacera l’entrée existante du calendrier scolaire pour cette date, y compris sa note.",
+    "editHoliday": "Modifier les vacances",
+    "holidayDetailsTitle": "Vacances scolaires",
+    "holidayDaysCount": "{count, plural, one {# jour} other {# jours}}",
+    "noStaffNote": "Aucune note interne",
+    "staffNotePrivate": "Les notes internes ne sont pas envoyées aux participants.",
+    "holidayResets": "Dates rétablies à la normale lors de l’enregistrement : {count}.",
+    "holidayChangedExternally": "Ces vacances ont été modifiées ou supprimées ailleurs. Fermez cette fenêtre pour consulter le calendrier mis à jour.",
+    "resetHolidayTitle": "Réinitialiser ces vacances scolaires ?",
+    "resetHolidayHelp": "Rétablit les règles normales de jour de cours et d’emploi du temps pour chaque date de ces vacances. L’historique et les séances convenues sont conservés."
   },
   "recordInspector": {
     "backToRecord": "Back to record",

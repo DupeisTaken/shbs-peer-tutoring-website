@@ -3629,7 +3629,11 @@
         "archivedOfferings": "拟归档的科目开设项",
         "timetableWeekday": "课表星期",
         "scheduleRevision": "课表版本",
-        "actionId": "恢复编号"
+        "actionId": "恢复编号",
+        "from": "开始日期",
+        "to": "结束日期",
+        "originalFrom": "原开始日期",
+        "originalTo": "原结束日期"
       },
       "values": {
         "ACTIVE": "参与中",
@@ -3869,7 +3873,9 @@
         "admin_cancelRefresh": "取消项目刷新预约",
         "monthlyHours_save": "更改月度服务时数报告计划",
         "schoolHours_save": "更改学校服务时数报告计划",
-        "student_setCalendarHoliday": "添加学校假期日期范围"
+        "student_setCalendarHoliday": "添加学校假期日期范围",
+        "student_updateCalendarHoliday": "编辑学校假期日期范围",
+        "student_resetCalendarHoliday": "恢复学校假期日期范围的常规安排"
       },
       "decisionRequestHelp": "“批准并执行”将执行申请的操作，包括申请中要求的拒绝决定。“拒绝并反馈”只拒绝此申请，不做任何更改。两种决定都需要说明。",
       "confirmPassword": "确认您的账户密码",
@@ -6129,7 +6135,7 @@
     "reload": "重新加载草稿",
     "loadFailed": "无法加载辅导通知。",
     "loading": "正在加载辅导通知…",
-    "add": "添加日期范围",
+    "add": "添加辅导暂停或通知",
     "date": "日期范围",
     "startDate": "开始日期",
     "endDate": "结束日期",
@@ -6163,7 +6169,15 @@
     "impactRetain": "保留的已确认额外辅导及已明确同意改期辅导：{count}",
     "impactConfirm": "须明确确认：{count}",
     "impactRestore": "可能恢复的安排：{count}",
-    "impactRule": "保存时会重新核对当前协议及冲突，并通过邮件通知受影响参与者有关取消的安排。已开始的辅导和已记录的出勤保持不变。"
+    "impactRule": "保存时会重新核对当前协议及冲突，并通过邮件通知受影响参与者有关取消的安排。已开始的辅导和已记录的出勤保持不变。",
+    "combinedTitle": "假期与辅导暂停",
+    "combinedHelp": "管理学校假期（不上课）与辅导暂停或通知（正常上课）。学校假期会暂停常规辅导并跳过申诉期限的上课日计数；辅导暂停不改变上课日及申诉规则。",
+    "combinedEmpty": "暂无学校假期或辅导通知。",
+    "denied": "无法访问辅导通知与暂停安排。",
+    "holidayEffect": "学校假期（不上课）",
+    "pauseEffectTable": "暂停常规辅导（正常上课）",
+    "noticeEffectTable": "仅作通知（正常上课）",
+    "reasonOrNote": "原因 / 备注"
   },
   "roomOrder": {
     "title": "教室显示顺序",
@@ -7328,7 +7342,23 @@
     "invalidRange": "请选择有效日期，结束日期不得早于开始日期，且不得超过366天。",
     "holidayReplaces": "保存将替换下列{count}个现有日期设置及其备注。",
     "saveHoliday": "保存假期",
-    "reloadHoliday": "重新加载当前日期范围"
+    "reloadHoliday": "重新加载当前日期范围",
+    "weekdayOverridesTitle": "星期课表调整",
+    "weekdayOverridesHelp": "设置指定日期采用的星期课表，包括周末调休补课日。此处列出的日期均为上课日；放假与停课请在上方管理。",
+    "weekdayOverridesEmpty": "暂无星期课表调整，上课日默认按当天对应的星期课表上课。",
+    "addWeekdayOverride": "添加课表调整",
+    "editWeekdayOverride": "编辑课表调整",
+    "saveWeekdayOverride": "保存课表调整",
+    "weekdayReplacesExisting": "保存将替换此日期现有的校历设置及其备注。",
+    "editHoliday": "编辑假期",
+    "holidayDetailsTitle": "学校假期",
+    "holidayDaysCount": "{count}天",
+    "noStaffNote": "无工作人员备注",
+    "staffNotePrivate": "工作人员备注仅供内部查看，不会发送给参与者。",
+    "holidayResets": "保存后恢复常规安排的日期共{count}天。",
+    "holidayChangedExternally": "此假期已在别处被更改或移除。请关闭此窗口查看最新日历。",
+    "resetHolidayTitle": "恢复此学校假期的常规安排？",
+    "resetHolidayHelp": "恢复此假期范围内所有日期的常规上课日及星期课表规则。保留历史记录及已明确约定的辅导安排。"
   },
   "recordInspector": {
     "backToRecord": "返回记录",

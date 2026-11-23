@@ -765,3 +765,237 @@ it("keeps an approved holiday proposal pending if transactional publication fail
     await db.approvalRequest.findUnique({ where: { id: proposal.id } }),
   ).toMatchObject({ state: "PENDING" });
 });
+
+it.each(["HEAD", "ADMIN"] as const)(
+  "lets %s mass-edit a grouped holiday (extend, shrink, shift, note-only) atomically with one planning reconciliation",
+  async (role) => {
+    const initial = await caller(role).student.setCalendarHoliday(
+      holidayInput("2026-11-26", "2026-11-28"),
+    );
+    vi.mocked(notifySchoolCalendarChange).mockClear();
+
+    // Note-only edit preserves scheduleRevision and emits no operational notices.
+    const noteOnly = await caller(role).student.updateCalendarHoliday({
+      originalFrom: "2026-11-26",
+      originalTo: "2026-11-28",
+      from: "2026-11-26",
+      to: "2026-11-28",
+      note: "Updated Thanksgiving note",
+      expectedVersions: initial.map((day) => ({
+        date: day.date,
+        version: day.version,
+      })),
+    });
+    expect(
+      noteOnly.every(
+        (day) =>
+          day.active &&
+          !day.isSchoolDay &&
+          day.note === "Updated Thanksgiving note" &&
+          day.version === 2 &&
+          day.scheduleRevision === 1,
+      ),
+    ).toBe(true);
+    expect(notifySchoolCalendarChange).not.toHaveBeenCalled();
+
+    // Shift & shrink: 2026-11-26 is reset, 2026-11-27..28 stay closed, 2026-11-29 is newly closed.
+    const planning = vi.spyOn(sessionPlanning, "ensureSessionPlanningWindow");
+    try {
+      const shifted = await caller(role).student.updateCalendarHoliday({
+        originalFrom: "2026-11-26",
+        originalTo: "2026-11-28",
+        from: "2026-11-27",
+        to: "2026-11-29",
+        note: "Shifted Thanksgiving",
+        expectedVersions: [
+          ...noteOnly.map((day) => ({ date: day.date, version: day.version })),
+          { date: "2026-11-29", version: 0 },
+        ],
+      });
+      expect(planning).toHaveBeenCalledTimes(1);
+      // Only removed 2026-11-26 and newly closed 2026-11-29 changed schedule meaning.
+      expect(notifySchoolCalendarChange).toHaveBeenCalledTimes(2);
+      const byDate = new Map(shifted.map((day) => [day.date, day]));
+      expect(byDate.get("2026-11-26")).toMatchObject({
+        active: false,
+        version: 3,
+        scheduleRevision: 2,
+      });
+      expect(byDate.get("2026-11-27")).toMatchObject({
+        active: true,
+        isSchoolDay: false,
+        note: "Shifted Thanksgiving",
+        version: 3,
+        scheduleRevision: 1,
+      });
+      expect(byDate.get("2026-11-28")).toMatchObject({
+        active: true,
+        isSchoolDay: false,
+        note: "Shifted Thanksgiving",
+        version: 3,
+        scheduleRevision: 1,
+      });
+      expect(byDate.get("2026-11-29")).toMatchObject({
+        active: true,
+        isSchoolDay: false,
+        note: "Shifted Thanksgiving",
+        version: 1,
+        scheduleRevision: 1,
+      });
+    } finally {
+      planning.mockRestore();
+    }
+  },
+);
+
+it("rejects stale versions and non-holiday original dates in updateCalendarHoliday without partial writes", async () => {
+  const closed = await caller().student.setCalendarHoliday(
+    holidayInput("2026-11-26", "2026-11-27"),
+  );
+  const schoolDay = await caller().student.setCalendarDay({
+    ...mapping,
+    date: "2026-11-28",
+  });
+  vi.mocked(notifySchoolCalendarChange).mockClear();
+
+  // Attempting to include an active school day inside originalFrom..originalTo fails with BAD_REQUEST.
+  await expect(
+    caller().student.updateCalendarHoliday({
+      originalFrom: "2026-11-26",
+      originalTo: "2026-11-28",
+      from: "2026-11-26",
+      to: "2026-11-27",
+      note: "Cannot reset make-up day as holiday",
+      expectedVersions: [
+        ...closed.map((day) => ({ date: day.date, version: day.version })),
+        { date: schoolDay.date, version: schoolDay.version },
+      ],
+    }),
+  ).rejects.toMatchObject({ code: "BAD_REQUEST" });
+
+  // Stale version on newly covered date fails with CONFLICT and changes nothing.
+  await expect(
+    caller().student.updateCalendarHoliday({
+      originalFrom: "2026-11-26",
+      originalTo: "2026-11-27",
+      from: "2026-11-26",
+      to: "2026-11-28",
+      note: "Stale replacement",
+      expectedVersions: [
+        ...closed.map((day) => ({ date: day.date, version: day.version })),
+        { date: "2026-11-28", version: 0 },
+      ],
+    }),
+  ).rejects.toMatchObject({ code: "CONFLICT" });
+  expect(
+    await db.schoolCalendarDay.findUniqueOrThrow({
+      where: { date: "2026-11-28" },
+    }),
+  ).toEqual(schoolDay);
+  expect(notifySchoolCalendarChange).not.toHaveBeenCalled();
+
+  // Capturing the real version allows replacing the make-up day intentionally.
+  const replaced = await caller().student.updateCalendarHoliday({
+    originalFrom: "2026-11-26",
+    originalTo: "2026-11-27",
+    from: "2026-11-26",
+    to: "2026-11-28",
+    note: "Replaced with holiday",
+    expectedVersions: [
+      ...closed.map((day) => ({ date: day.date, version: day.version })),
+      { date: schoolDay.date, version: schoolDay.version },
+    ],
+  });
+  expect(replaced.find((day) => day.date === "2026-11-28")).toMatchObject({
+    active: true,
+    isSchoolDay: false,
+    timetableWeekday: null,
+    version: schoolDay.version + 1,
+    scheduleRevision: schoolDay.scheduleRevision + 1,
+  });
+});
+
+it("mass-resets a holiday atomically, refuses active school days, and queues Coordinator proposals", async () => {
+  const closed = await caller().student.setCalendarHoliday(
+    holidayInput("2026-11-26", "2026-11-28"),
+  );
+  const schoolDay = await caller().student.setCalendarDay({
+    ...mapping,
+    date: "2026-11-29",
+  });
+  vi.mocked(notifySchoolCalendarChange).mockClear();
+
+  // Active school day cannot be reset through resetCalendarHoliday.
+  await expect(
+    caller().student.resetCalendarHoliday({
+      from: "2026-11-28",
+      to: "2026-11-29",
+      expectedVersions: [
+        { date: "2026-11-28", version: closed[2]!.version },
+        { date: "2026-11-29", version: schoolDay.version },
+      ],
+    }),
+  ).rejects.toMatchObject({ code: "BAD_REQUEST" });
+
+  // Coordinator update proposal captures full union evidence and rejects stale replay.
+  await expect(
+    caller("COORDINATOR").student.updateCalendarHoliday({
+      originalFrom: "2026-11-26",
+      originalTo: "2026-11-28",
+      from: "2026-11-26",
+      to: "2026-11-27",
+      note: "Coordinator shortened holiday",
+      expectedVersions: closed.map((day) => ({
+        date: day.date,
+        version: day.version,
+      })),
+    }),
+  ).rejects.toMatchObject({ code: "PRECONDITION_FAILED" });
+  const editProposal = await db.approvalRequest.findFirstOrThrow({
+    where: { operation: "student.updateCalendarHoliday" },
+  });
+  expect(editProposal.targets).toMatchObject({
+    calendar: closed.map(({ date, version }) => ({ date, version })),
+  });
+  await caller("ADMIN").approval.decide({
+    id: editProposal.id,
+    approve: true,
+    note: "Approved shortened holiday",
+  });
+  expect(
+    await db.schoolCalendarDay.findUniqueOrThrow({
+      where: { date: "2026-11-28" },
+    }),
+  ).toMatchObject({ active: false, version: 2, scheduleRevision: 2 });
+
+  // Coordinator reset proposal resets remaining holiday dates atomically on approval.
+  const remaining = await db.schoolCalendarDay.findMany({
+    where: { date: { gte: "2026-11-26", lte: "2026-11-27" } },
+    orderBy: { date: "asc" },
+  });
+  await expect(
+    caller("COORDINATOR").student.resetCalendarHoliday({
+      from: "2026-11-26",
+      to: "2026-11-27",
+      expectedVersions: remaining.map((day) => ({
+        date: day.date,
+        version: day.version,
+      })),
+    }),
+  ).rejects.toMatchObject({ code: "PRECONDITION_FAILED" });
+  const resetProposal = await db.approvalRequest.findFirstOrThrow({
+    where: { operation: "student.resetCalendarHoliday" },
+  });
+  vi.mocked(notifySchoolCalendarChange).mockClear();
+  await caller("ADMIN").approval.decide({
+    id: resetProposal.id,
+    approve: true,
+    note: "Approved holiday reset",
+  });
+  expect(notifySchoolCalendarChange).toHaveBeenCalledTimes(2);
+  expect(
+    await db.schoolCalendarDay.count({
+      where: { active: true, isSchoolDay: false },
+    }),
+  ).toBe(0);
+});
