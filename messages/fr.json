@@ -2855,6 +2855,7 @@
     "collapseAll": "Tout réduire",
     "languagesHeading": "Langues",
     "languagesHelp": "Seules les langues activées apparaissent dans les menus publics. Les langues masquées restent modifiables ici jusqu’à ce que leurs traductions soient prêtes.",
+    "languagesReadFailed": "Les paramètres de langue n’ont pas pu être chargés.",
     "builtIn": "intégré",
     "enabled": "activée",
     "disabled": "masquée",

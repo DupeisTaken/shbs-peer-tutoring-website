@@ -1669,6 +1669,13 @@ If you need a different role or access to your own participation record, request
 
 Translator access requires an explicit Admin/Head-approved assignment, even for management accounts. **Translations** opens the integrated editor: **Interface text**, **Website text**, and **Draft review**. Management without Translator assignment can review drafts. Management also has a **Languages** tab to show/hide languages in the public selector, move them up/down, and remove custom languages. These controls do not require Translator assignment; English remains enabled as the fallback. Assigned translators use the same tab to add languages, which start hidden until Admin/Head enable them. Admin/Head apply language visibility, ordering and deletion; Coordinators request Admin/Head review. Choose the correct language and destination, preserve meaning, and submit for review. Interface text submits when focus leaves a changed field; website text has an explicit submission button.
 
+If **Languages** cannot load its saved settings, it shows an error instead of a
+fresh-install catalogue. If a later refresh fails, previously loaded rows and
+unfinished language fields stay visible with changes disabled until **Try again**
+succeeds. This button only reads the settings; after an accepted catalogue change,
+it refreshes the result without repeating the change. Public pages retain their
+normal language fallback during a read outage.
+
 Within the open editor, changing the website content type, language or destination
 keeps separate text drafts. Interface-text drafts and their pending/error states
 survive search, group collapse and language changes. A successful submission followed

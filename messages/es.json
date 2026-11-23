@@ -2855,6 +2855,7 @@
     "collapseAll": "Contraer todo",
     "languagesHeading": "Idiomas",
     "languagesHelp": "Solo los idiomas habilitados aparecen en los menús públicos. Los idiomas ocultos se pueden seguir editando aquí hasta completar sus traducciones.",
+    "languagesReadFailed": "No se pudieron cargar los ajustes de idioma.",
     "builtIn": "integrado",
     "enabled": "habilitado",
     "disabled": "oculto",
