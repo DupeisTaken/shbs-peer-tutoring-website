@@ -14,19 +14,12 @@ import type { ReactNode } from "react";
 import en from "../../../messages/en.json";
 import zh from "../../../messages/zh.json";
 import { ProgramEmailSettings } from "./program-email-settings";
+import type { RouterOutputs } from "~/trpc/react";
 
 type ChannelState = "READY" | "UNAVAILABLE" | "UNCONFIGURED" | "LOCAL";
 const mock = vi.hoisted(() => ({
   settings: undefined as
-    | undefined
-    | {
-        enabled: boolean;
-        secondaryEmailBindingEnabled: boolean;
-        canEdit: boolean;
-        canApply?: boolean;
-        deliveryAvailable: boolean;
-        failed: number;
-      },
+    undefined | RouterOutputs["program"]["emailNotificationSettings"],
   settingsError: null as (Error & { data?: { code: string } }) | null,
   status: undefined as
     | undefined
@@ -103,6 +96,7 @@ beforeEach(() => {
     enabled: false,
     secondaryEmailBindingEnabled: true,
     canEdit: true,
+    canApply: true,
     deliveryAvailable: true,
     failed: 0,
   };
@@ -171,10 +165,10 @@ it("shows the quota on Delivery settings and removes it after access is denied",
   expect(screen.queryByText("Email Quota")).toBeNull();
 });
 
-// Diagnostics and operational retry survive the governance merge: an Admin's
-// setting request stays unapplied and must not appear as a failed save.
+// Coordinator proposal authority keeps diagnostics and settings requests available,
+// but never grants the immediate Admin/Head-only resend action.
 it.each([false, true])(
-  "retains mail diagnostics and direct retry alongside a pending Admin setting request (Chinese=%s)",
+  "retains diagnostics and a Coordinator's pending setting request without resend (Chinese=%s)",
   (chinese) => {
     mock.settings!.canApply = false;
     mock.status!.failed = 1;
@@ -189,15 +183,25 @@ it.each([false, true])(
       screen.getByText(messages.programEmail.channel.SECURITY),
     ).toBeTruthy();
     expect(
-      screen.getByRole<HTMLButtonElement>("button", {
+      screen.queryByRole("button", {
         name: messages.programEmail.resendStuck,
-      }).disabled,
-    ).toBe(false);
+      }),
+    ).toBeNull();
+    expect(screen.getByText(messages.approvals.sensitiveHelp)).toBeTruthy();
+    expect(screen.queryByText(messages.programEmail.resendHelp)).toBeNull();
     expect(
       screen.getByRole("checkbox", {
         name: messages.approvals.requestChange.replace(
           "{setting}",
           messages.programEmail.enable,
+        ),
+      }),
+    ).toBeTruthy();
+    expect(
+      screen.getByRole("checkbox", {
+        name: messages.approvals.requestChange.replace(
+          "{setting}",
+          messages.programEmail.bindingEnable,
         ),
       }),
     ).toBeTruthy();
@@ -208,6 +212,7 @@ it.each([false, true])(
         name: "Other program draft",
       }).value,
     ).toBe("Unchanged draft");
+    expect(mock.resend).not.toHaveBeenCalled();
   },
 );
 
@@ -380,10 +385,23 @@ it("admits one refresh before React disables its button", async () => {
   expect(button.textContent).toBe(en.programEmail.refreshStatus);
 });
 
-it("leaves a coordinator's diagnostic reads available without exposing setting writes", async () => {
-  mock.settings!.canEdit = false;
-  render(content());
-  expect(screen.queryByRole("checkbox")).toBeNull();
+it("removes resend after a Coordinator permission refresh while retaining proposals and diagnostics", async () => {
+  mock.status!.failed = 1;
+  const view = render(content());
+  expect(
+    screen.getByRole<HTMLButtonElement>("button", {
+      name: en.programEmail.resendStuck,
+    }).disabled,
+  ).toBe(false);
+  mock.settings!.canApply = false;
+  view.rerender(content());
+  expect(screen.getAllByRole("checkbox")).toHaveLength(2);
+  expect(
+    screen.getByText(en.programEmail.failed.replace("{count}", "1")),
+  ).toBeTruthy();
+  expect(
+    screen.queryByRole("button", { name: en.programEmail.resendStuck }),
+  ).toBeNull();
   fireEvent.click(
     screen.getByRole("button", { name: en.programEmail.refreshStatus }),
   );
@@ -397,6 +415,7 @@ it("leaves a coordinator's diagnostic reads available without exposing setting w
   );
   expect(mock.mutate).not.toHaveBeenCalled();
   expect(mock.binding).not.toHaveBeenCalled();
+  expect(mock.resend).not.toHaveBeenCalled();
 });
 
 it("does not mount diagnostics before an authorized settings result and recovers settings errors", () => {
@@ -442,7 +461,7 @@ it("preserves toggle payloads and freezes cached controls after a failed setting
 });
 
 it.each([false, true])(
-  "queues an explicit batch and reports queued, not delivered (Chinese=%s)",
+  "queues an explicit Admin/Head batch and reports queued, not delivered (Chinese=%s)",
   async (chinese) => {
     mock.status!.failed = 4;
     mock.resend.mockResolvedValue({ queued: 4 });
@@ -595,11 +614,13 @@ it("allows retry after a rejected write without treating it as accepted", async 
 
 it("hides resend for read-only staff and disables it without trustworthy queue/settings data", () => {
   mock.settings!.canEdit = false;
+  mock.settings!.canApply = false;
   const view = render(content());
   expect(
     screen.queryByRole("button", { name: en.programEmail.resendStuck }),
   ).toBeNull();
   mock.settings!.canEdit = true;
+  mock.settings!.canApply = true;
   view.rerender(content());
   expect(
     screen.getByRole<HTMLButtonElement>("button", {

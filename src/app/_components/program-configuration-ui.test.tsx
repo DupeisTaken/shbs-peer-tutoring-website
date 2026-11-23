@@ -89,9 +89,30 @@ vi.mock("~/trpc/react", () => {
         program: {
           calendarSettings: { invalidate: mocks.invalidate },
           calendar: { invalidate: mocks.invalidate },
+          schoolCalendar: { invalidate: mocks.invalidate },
           nameFieldSettings: { fetch: mocks.fetch },
         },
+        student: {
+          calendar: { invalidate: mocks.invalidate },
+        },
       }),
+      account: {
+        me: {
+          useQuery: () => ({
+            data: {
+              role: mocks.canEdit
+                ? mocks.canApply
+                  ? "HEAD"
+                  : "COORDINATOR"
+                : "VIEWER",
+            },
+            error: null,
+            isSuccess: true,
+            isFetching: false,
+            refetch: mocks.refetch,
+          }),
+        },
+      },
       program: {
         calendarSettings,
         setCalendarDay: { useMutation },
@@ -104,6 +125,20 @@ vi.mock("~/trpc/react", () => {
           }),
         },
         setNameFields: { useMutation },
+      },
+      student: {
+        calendar: {
+          useQuery: () => ({
+            data: [],
+            error: null,
+            isSuccess: true,
+            isFetching: false,
+            refetch: mocks.refetch,
+          }),
+        },
+        setCalendarHoliday: { useMutation },
+        updateCalendarHoliday: { useMutation },
+        resetCalendarHoliday: { useMutation },
       },
       admin: { reorderRooms: { useMutation } },
     },
@@ -539,7 +574,7 @@ it("keeps long calendar reasons in a full readonly Details reader without granti
   expect(
     screen
       .getByText(mocks.reason.slice(0, 80) + "…")
-      .classList.contains("line-clamp-2"),
+      .classList.contains("truncate"),
   ).toBe(true);
   expect(
     screen.queryByRole("button", { name: en.programCalendar.edit }),

@@ -276,6 +276,26 @@ it("preserves panels larger than three and enforces the eight-slot limit", () =>
   for (let i = 0; i < 5; i++) fireEvent.click(remove);
   expect(remove.disabled).toBe(true);
 });
+it.each([3, 4, 8])(
+  "saves all %i distinct panelists with one chair and the original version",
+  (count) => {
+    const panel = tutors.slice(0, count);
+    show({
+      interviewers: panel.map((tutor, index) => ({
+        isHead: index === 0,
+        tutor,
+      })),
+    });
+    expect(save().disabled).toBe(false);
+    fireEvent.click(save());
+    expect(mocks.mutate).toHaveBeenCalledExactlyOnceWith({
+      applicationId: "app",
+      tutorIds: panel.map((tutor) => tutor.id),
+      headTutorId: "a",
+      expectedUpdatedAt: updatedAt,
+    });
+  },
+);
 it("does not mislabel failed/loading qualifications as unqualified and offers retry", () => {
   mocks.loading = true;
   const view = show();

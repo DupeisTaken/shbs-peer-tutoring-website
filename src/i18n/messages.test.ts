@@ -48,6 +48,7 @@ describe("UI recovery and persistent field labels", () => {
   // Built-in locales do not inherit English. Every newly reachable recovery or
   // label state needs its own message, including states reached only on failure.
   const paths = [
+    "public.signupFormLoadFailed",
     "participantRecovery.loading",
     "participantRecovery.loadFailed",
     "participantRecovery.refreshFailed",
@@ -76,7 +77,10 @@ describe("UI recovery and persistent field labels", () => {
     "admin.meetings.refreshFailed",
     "admin.landing.translation.titleLabel",
     "admin.landing.translation.bodyLabel",
+    "admin.landing.addressRefreshFailed",
+    "admin.landing.refreshAddress",
     "translationEditor.refreshFailed",
+    "translationEditor.pageTarget.missingRecovery",
     "admin.crew.originalApplication",
     "admin.crew.originalRequest",
     "actionReview.galleryRevokeScenario",
@@ -379,5 +383,59 @@ describe("English heading and navigation capitalization", () => {
     expect(errors).toEqual([]);
     expect(en.messaging.supervision).toBe("Message Supervision");
     expect(en.signupFields.title).toBe("Signup Forms");
+  });
+});
+
+describe("copy quality and EN/ZH consistency regressions (#825-#828)", () => {
+  it("contains no corrupted mojibake strings and fixes 2FA verifying punctuation", () => {
+    function scan(obj: Record<string, unknown>, locale: string, prefix = "") {
+      for (const [k, v] of Object.entries(obj)) {
+        const p = prefix ? `${prefix}.${k}` : k;
+        if (typeof v === "string") {
+          expect(v, `${locale}:${p}`).not.toMatch(/\?{2,}|\uFFFD/);
+        } else if (v && typeof v === "object" && !Array.isArray(v)) {
+          scan(v as Record<string, unknown>, locale, p);
+        }
+      }
+    }
+    scan(en, "en");
+    scan(zh, "zh");
+    expect(en.auth.twoFactor.verifying).toBe("Verifying…");
+    expect(zh.auth.twoFactor.title).toBe("验证码");
+  });
+
+  it("keeps attendance labels free of raw asterisks and provides new UI keys in every locale", () => {
+    for (const locale of LOCALES) {
+      const m = bundledMessages[locale];
+      expect(m.tutor.attendance.comments).not.toMatch(/\*$/);
+      expect(m.tutor.attendance.tutorAbsentReason).not.toMatch(/\*$/);
+      expect(m.signupAppeal.action.trim()).not.toBe("");
+      expect(m.messaging.privacyDetails.trim()).not.toBe("");
+      expect(m.admin.nav.sections.dataRecovery.trim()).not.toBe("");
+    }
+  });
+
+  it("keeps Chinese register and core vocabulary consistent", () => {
+    const zhValues: string[] = [];
+    const enValues: string[] = [];
+    function collect(obj: Record<string, unknown>, out: string[]) {
+      for (const v of Object.values(obj)) {
+        if (typeof v === "string") out.push(v);
+        else if (v && typeof v === "object" && !Array.isArray(v)) {
+          collect(v as Record<string, unknown>, out);
+        }
+      }
+    }
+    collect(zh, zhValues);
+    collect(en, enValues);
+    for (const text of zhValues) {
+      expect(text).not.toContain("您");
+      expect(text).not.toContain("账户");
+      expect(text).not.toContain("载入");
+      expect(text).not.toMatch(/\bHEAD\b/);
+    }
+    for (const text of enValues) {
+      expect(text).not.toMatch(/\bHEAD\b/);
+    }
   });
 });

@@ -1,5 +1,5 @@
 import { db } from "~/server/db";
-import { processDueScheduledRefreshes } from "./scheduled-refresh";
+import { sweepScheduledRefreshes } from "./scheduled-refresh";
 
 const state = globalThis as typeof globalThis & {
   scheduledRefreshWorker?: ReturnType<typeof setInterval>;
@@ -13,10 +13,10 @@ export function startScheduledRefreshWorker() {
     if (running) return;
     running = true;
     try {
-      await processDueScheduledRefreshes(db);
+      await sweepScheduledRefreshes(db);
     } catch {
       console.error(
-        "[scheduled-refresh] sweep failed; due schedules will retry on the next sweep.",
+        "[scheduled-refresh] sweep failed; schedules will retry on the next sweep.",
       );
     } finally {
       running = false;

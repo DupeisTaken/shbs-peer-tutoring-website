@@ -3,11 +3,13 @@ import { act, cleanup, fireEvent, render, screen } from "@testing-library/react"
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { NextIntlClientProvider } from "next-intl";
 import en from "../../../../../messages/en.json";
+import fr from "../../../../../messages/fr.json";
 import zh from "../../../../../messages/zh.json";
 import LandingAdminPage from "./landing-editor";
 import type * as SessionViewState from "~/app/_components/session-view-state";
 import { SessionViewProvider } from "~/app/_components/session-view-state";
 import { viewStateKey, writeViewState } from "~/lib/session-view-state";
+import type { LandingEditorView } from "~/lib/landing-editor-view";
 
 const state = vi.hoisted(() => {
   const records: Record<string, unknown[]> = {};
@@ -15,6 +17,7 @@ const state = vi.hoisted(() => {
   write: vi.fn<(name: string, input: unknown) => Promise<unknown>>(),
   read: vi.fn<(name: string) => Promise<{ data?: unknown[]; error?: unknown }>>(),
   records, news: undefined as unknown[] | undefined,
+  mutationError: null as null | { procedure: "updatePage" | "updateSection"; message: string; data?: { approvalId?: string } },
   error: null as null | { message: string; data?: { code?: string } }, scroll: vi.fn(), mutate: vi.fn() };
 });
 vi.mock("~/app/_components/session-view-state", async (original) => ({
@@ -26,15 +29,163 @@ vi.mock("~/trpc/react", () => {
   const home = new Proxy({}, { get: (_target, name) => ({
     useQuery: () => ({ data: name === "news" ? state.news : state.records[String(name)] ?? [], error: name === "news" ? state.error : null,
       isLoading: name === "news" && !state.news, isSuccess: name !== "news" || !!state.news && !state.error, isFetching: false, refetch: () => state.read(String(name)) }),
-    useMutation: () => ({ mutate: state.mutate, mutateAsync: (input: unknown) => { state.mutate(input); return state.write(String(name), input); }, isPending: false }), invalidate: vi.fn(),
+    useMutation: () => ({ mutate: state.mutate, mutateAsync: (input: unknown) => { state.mutate(input); return state.write(String(name), input); }, isPending: false, error: name === state.mutationError?.procedure ? state.mutationError : null }), invalidate: vi.fn(),
   }) });
   return { api: { home, useUtils: () => ({ home }), i18n: { languages: { useQuery: () => ({ data: [{ code: "en", label: "English" }], isSuccess: true }) } } } };
 });
-const tree = (locale: "en" | "zh" = "en") => <SessionViewProvider identity="head" pathname="/admin/landing" verified>
-  <NextIntlClientProvider locale={locale} messages={locale === "zh" ? zh : en}><LandingAdminPage /></NextIntlClientProvider>
-</SessionViewProvider>;
-beforeEach(() => { window.sessionStorage.clear(); state.news = undefined; state.records = {}; state.error = null; state.scroll.mockClear(); state.mutate.mockClear(); state.write.mockReset().mockResolvedValue({ ok: true }); state.read.mockReset().mockImplementation(async (name) => ({ data: state.records[name] ?? [] })); });
+const catalogs = { en, zh, fr };
+const tree = (
+  locale: keyof typeof catalogs = "en",
+  initialView?: LandingEditorView,
+  verified = true,
+) => (
+  <SessionViewProvider identity="head" pathname="/admin/landing" verified={verified}>
+    <NextIntlClientProvider locale={locale} messages={catalogs[locale]}>
+      <LandingAdminPage initialView={initialView} />
+    </NextIntlClientProvider>
+  </SessionViewProvider>
+);
+beforeEach(() => { window.sessionStorage.clear(); state.news = undefined; state.records = {}; state.error = null; state.mutationError = null; state.scroll.mockClear(); state.mutate.mockClear(); state.write.mockReset().mockResolvedValue({ ok: true }); state.read.mockReset().mockImplementation(async (name) => ({ data: state.records[name] ?? [] })); });
 afterEach(cleanup);
+afterEach(() => vi.restoreAllMocks());
+
+it.each(["en", "zh"] as const)(
+  "reports effective %s page navigation while retaining its saved preference",
+  (locale) => {
+    const messages = locale === "zh" ? zh : en;
+    const record = (published: boolean, showInNav: boolean) => ({
+      id: "navigation-preference",
+      slug: "navigation-preference",
+      title: { en: "Synthetic navigation preference" },
+      published,
+      showInNav,
+      navOrder: 0,
+      createdByName: null,
+      updatedAt: new Date("2026-01-01"),
+    });
+    state.records.pages = [record(false, true)];
+    const page = render(tree(locale, "pages"));
+    const preference = screen.getByRole<HTMLInputElement>("checkbox", {
+      name: messages.admin.landing.pages.showInNav,
+    });
+    expect(
+      screen.getByText(messages.admin.landing.sections.statusHidden),
+    ).toBeTruthy();
+    expect(screen.queryByText(messages.admin.landing.pages.inNav)).toBeNull();
+    expect(preference.checked).toBe(true);
+
+    state.records.pages = [record(true, true)];
+    page.rerender(tree(locale, "pages"));
+    expect(
+      screen.getByText(messages.admin.landing.sections.statusVisible),
+    ).toBeTruthy();
+    expect(screen.getByText(messages.admin.landing.pages.inNav)).toBeTruthy();
+    expect(preference.checked).toBe(true);
+
+    state.records.pages = [record(true, false)];
+    page.rerender(tree(locale, "pages"));
+    expect(
+      screen.getByText(messages.admin.landing.sections.statusVisible),
+    ).toBeTruthy();
+    expect(screen.queryByText(messages.admin.landing.pages.inNav)).toBeNull();
+    expect(preference.checked).toBe(false);
+    expect(state.mutate).not.toHaveBeenCalled();
+  },
+);
+
+it.each([
+  ["en", "pages"],
+  ["en", "sections"],
+  ["zh", "pages"],
+  ["zh", "sections"],
+] as const)(
+  "returns to the %s %s owner over a remembered tab and retains its draft",
+  (locale, view) => {
+    const messages = locale === "zh" ? zh : en;
+    const key = viewStateKey("head", "/admin/landing", "landing.tab.v1", "");
+    writeViewState(window.sessionStorage, key, "news");
+    state.news = [];
+    const page = render(tree(locale, view));
+    const ownerTab = screen.getByRole("tab", {
+      name: messages.admin.landing.tabs[view],
+    });
+    expect(ownerTab.getAttribute("aria-selected")).toBe("true");
+    const placeholder =
+      view === "pages"
+        ? messages.admin.landing.pages.new.placeholder
+        : messages.admin.landing.sections.new.titlePlaceholder;
+    const input = screen.getByPlaceholderText<HTMLInputElement>(placeholder);
+    fireEvent.change(input, { target: { value: "Unsaved synthetic title" } });
+    // Arrow navigation preserves manual activation; focus alone must not switch tabs.
+    fireEvent.keyDown(ownerTab, { key: "Home" });
+    const layoutTab = screen.getByRole("tab", {
+      name: messages.admin.landing.tabs.layout,
+    });
+    expect(document.activeElement).toBe(layoutTab);
+    expect(ownerTab.getAttribute("aria-selected")).toBe("true");
+    fireEvent.click(layoutTab);
+    page.rerender(tree(locale, view));
+    expect(layoutTab.getAttribute("aria-selected")).toBe("true");
+    fireEvent.click(ownerTab);
+    expect(screen.getByPlaceholderText(placeholder)).toBe(input);
+    expect(input.value).toBe("Unsaved synthetic title");
+    expect(JSON.stringify(window.sessionStorage)).not.toContain(
+      "Unsaved synthetic title",
+    );
+    expect(state.mutate).not.toHaveBeenCalled();
+  },
+);
+
+it.each(["pages", "sections"] as const)(
+  "selects an explicit %s return when browser storage is unavailable",
+  (view) => {
+    vi.spyOn(Storage.prototype, "getItem").mockImplementation(() => {
+      throw new Error("Storage unavailable");
+    });
+    vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => {
+      throw new Error("Storage unavailable");
+    });
+    render(tree("en", view));
+    expect(
+      screen
+        .getByRole("tab", { name: en.admin.landing.tabs[view] })
+        .getAttribute("aria-selected"),
+    ).toBe("true");
+    expect(state.mutate).not.toHaveBeenCalled();
+  },
+);
+
+it("keeps an explicit arrival through identity verification and consumes a changed owner once", () => {
+  writeViewState(
+    window.sessionStorage,
+    viewStateKey("head", "/admin/landing", "landing.tab.v1", ""),
+    "news",
+  );
+  state.news = [];
+  const page = render(tree("en", "pages", false));
+  page.rerender(tree("en", "pages"));
+  expect(
+    screen
+      .getByRole("tab", { name: en.admin.landing.tabs.pages })
+      .getAttribute("aria-selected"),
+  ).toBe("true");
+  page.rerender(tree("en", "sections"));
+  expect(
+    screen
+      .getByRole("tab", { name: en.admin.landing.tabs.sections })
+      .getAttribute("aria-selected"),
+  ).toBe("true");
+  fireEvent.click(
+    screen.getByRole("tab", { name: en.admin.landing.tabs.pages }),
+  );
+  page.rerender(tree("en", "sections"));
+  expect(
+    screen
+      .getByRole("tab", { name: en.admin.landing.tabs.pages })
+      .getAttribute("aria-selected"),
+  ).toBe("true");
+  expect(state.mutate).not.toHaveBeenCalled();
+});
 
 it.each([
   ["en", "pages"], ["en", "sections"],
@@ -63,6 +214,11 @@ it.each([
     const helper = document.getElementById(input.getAttribute("aria-describedby")!);
     expect(helper?.textContent).toBe(messages.saveBoundary.blur);
     expect(label?.contains(helper)).toBe(false);
+  }
+  for (const link of screen.getAllByRole("link", { name: new RegExp(messages.admin.landing.sections.viewPage) })) {
+    expect(link.getAttribute("target")).toBe("_blank");
+    expect(link.getAttribute("rel")).toBe("noopener noreferrer");
+    expect(link.getAttribute("href")).toMatch(/^\/p\/(first|second)$/);
   }
   expect(state.mutate).not.toHaveBeenCalled();
 });
@@ -122,7 +278,12 @@ it.each(["pages", "sections"] as const)("preserves a dirty %s slug through refre
 });
 
 
-it.each(["pages", "sections"] as const)("uses the canonical %s slug only from the accepted write's fresh read", async (tab) => {
+it.each([
+  ["en", "pages"], ["en", "sections"],
+  ["zh", "pages"], ["zh", "sections"],
+  ["fr", "pages"], ["fr", "sections"],
+] as const)("recovers the saved %s %s address through localized reads without replaying the write", async (locale, tab) => {
+  const messages = catalogs[locale];
   const record = (slug: string) => ({
     id: "collision", slug, title: { en: "Synthetic collision page" }, published: true,
     showInNav: false, navOrder: 0, sortOrder: 0, openByDefault: false, mode: "PAGE",
@@ -130,32 +291,51 @@ it.each(["pages", "sections"] as const)("uses the canonical %s slug only from th
   });
   state.records[tab] = [record("original")];
   state.read.mockRejectedValue(new Error("Fresh read failed"));
-  const page = render(tree());
-  fireEvent.click(screen.getByRole("tab", { name: en.admin.landing.tabs[tab] }));
+  const page = render(tree(locale));
+  fireEvent.click(screen.getByRole("tab", { name: messages.admin.landing.tabs[tab] }));
   const input = screen.getByDisplayValue<HTMLInputElement>("original");
   fireEvent.change(input, { target: { value: "example" } });
   await act(async () => { fireEvent.blur(input); fireEvent.blur(input); });
   expect(state.mutate).toHaveBeenCalledExactlyOnceWith({ id: "collision", slug: "example" });
+  expect(state.write).toHaveBeenCalledExactlyOnceWith(tab === "pages" ? "updatePage" : "updateSection", { id: "collision", slug: "example" });
   expect(state.read).toHaveBeenCalledExactlyOnceWith(tab);
+  expect(input.value).toBe("example");
+  expect(screen.getByRole("link", { name: new RegExp(messages.admin.landing.sections.viewPage) }).getAttribute("href")).toBe("/p/original");
+  expect(screen.getByRole("alert").textContent).toContain(messages.admin.landing.addressRefreshFailed);
+  expect(screen.queryByText(messages.uiPatterns.loadFailed)).toBeNull();
+  expect(screen.getByRole("textbox", {
+    name: messages.admin.landing.pageAddress,
+    description: `${messages.saveBoundary.blur} ${messages.admin.landing.addressRefreshFailed}`,
+  })).toBe(input);
+  const refresh = screen.getByRole("button", { name: messages.admin.landing.refreshAddress });
+  refresh.focus();
+  expect(document.activeElement).toBe(refresh);
+  // Failed recovery is another read, never another write or lost requested input.
+  await act(async () => { fireEvent.click(refresh); });
+  fireEvent.blur(input);
+  expect(state.read).toHaveBeenCalledTimes(2);
+  expect(state.mutate).toHaveBeenCalledTimes(1);
+  expect(input.value).toBe("example");
   // An arbitrary cache update is not acknowledgement, even when text matches.
   state.records[tab] = [record("example")];
-  page.rerender(tree());
+  page.rerender(tree(locale));
   fireEvent.blur(input);
   expect(state.mutate).toHaveBeenCalledTimes(1);
-  expect(screen.getByRole("button", { name: en.uiPatterns.retry })).toBeTruthy();
   state.read.mockResolvedValue({ data: [record("example-2")] });
-  await act(async () => { fireEvent.click(screen.getByRole("button", { name: en.uiPatterns.retry })); });
+  await act(async () => { fireEvent.click(screen.getByRole("button", { name: messages.admin.landing.refreshAddress })); });
+  expect(state.read).toHaveBeenCalledTimes(3);
   // The canonical receipt arrives before the parent query prop catches up.
   expect(input.value).toBe("example-2");
   fireEvent.blur(input);
   expect(state.mutate).toHaveBeenCalledTimes(1);
   state.records[tab] = [record("example-2")];
-  page.rerender(tree());
+  page.rerender(tree(locale));
   expect(input.value).toBe("example-2");
-  expect(screen.getByRole("link", { name: /View page/ }).getAttribute("href")).toBe("/p/example-2");
+  expect(screen.getByRole("link", { name: new RegExp(messages.admin.landing.sections.viewPage) }).getAttribute("href")).toBe("/p/example-2");
   fireEvent.blur(input);
   expect(state.mutate).toHaveBeenCalledTimes(1);
   expect(screen.queryByRole("alert")).toBeNull();
+  expect(input.getAttribute("aria-describedby")?.split(" ")).toHaveLength(1);
 });
 
 it.each(["pages", "sections"] as const)("preserves a newer same-text %s edit while the earlier slug read completes", async (tab) => {
@@ -165,6 +345,7 @@ it.each(["pages", "sections"] as const)("preserves a newer same-text %s edit whi
     translations: [], createdByName: null, createdAt: new Date("2026-01-01"), updatedAt: new Date("2026-01-01"),
   });
   let finishRead!: (result: { data: unknown[] }) => void;
+  state.read.mockRejectedValueOnce(new Error("Fresh read failed"));
   state.read.mockImplementationOnce(() => new Promise((resolve) => { finishRead = resolve; }));
   state.records[tab] = [record("original")];
   const page = render(tree());
@@ -172,8 +353,12 @@ it.each(["pages", "sections"] as const)("preserves a newer same-text %s edit whi
   const input = screen.getByDisplayValue<HTMLInputElement>("original");
   fireEvent.change(input, { target: { value: "example" } });
   await act(async () => { fireEvent.blur(input); });
+  expect(screen.getByText(en.admin.landing.addressRefreshFailed)).toBeTruthy();
+  await act(async () => { fireEvent.click(screen.getByRole("button", { name: en.admin.landing.refreshAddress })); });
   fireEvent.change(input, { target: { value: "newer" } });
   fireEvent.change(input, { target: { value: "example" } });
+  fireEvent.blur(input);
+  expect(state.mutate).toHaveBeenCalledTimes(1);
   state.records[tab] = [record("example-2")];
   page.rerender(tree());
   await act(async () => { finishRead({ data: state.records[tab]! }); });
@@ -194,14 +379,41 @@ it.each(["pages", "sections"] as const)("retains a rejected %s slug write as an 
     translations: [], createdByName: null, createdAt: new Date("2026-01-01"), updatedAt: new Date("2026-01-01"),
   }];
   state.write.mockRejectedValue(new Error("Synthetic write rejection"));
-  render(tree());
+  const page = render(tree());
   fireEvent.click(screen.getByRole("tab", { name: en.admin.landing.tabs[tab] }));
   const input = screen.getByDisplayValue<HTMLInputElement>("original");
   fireEvent.change(input, { target: { value: "Retry my draft" } });
   await act(async () => { fireEvent.blur(input); });
+  state.mutationError = { procedure: tab === "pages" ? "updatePage" : "updateSection", message: "Synthetic write rejection" };
+  page.rerender(tree());
   expect(input.value).toBe("retry-my-draft");
+  expect(screen.getAllByText("Synthetic write rejection").length).toBeGreaterThan(0);
   expect(state.read).not.toHaveBeenCalled();
-  expect(screen.queryByRole("button", { name: en.uiPatterns.retry })).toBeNull();
+  expect(screen.queryByText(en.admin.landing.addressRefreshFailed)).toBeNull();
+  expect(screen.queryByRole("button", { name: en.admin.landing.refreshAddress })).toBeNull();
   await act(async () => { fireEvent.blur(input); });
   expect(state.mutate).toHaveBeenCalledTimes(2);
+});
+
+it.each(["pages", "sections"] as const)("keeps a queued %s address proposal distinct from saved-address recovery", async (tab) => {
+  state.records[tab] = [{
+    id: "queued", slug: "original", title: { en: "Synthetic queued page" }, published: true,
+    showInNav: false, navOrder: 0, sortOrder: 0, openByDefault: false, mode: "PAGE",
+    translations: [], createdByName: null, createdAt: new Date("2026-01-01"), updatedAt: new Date("2026-01-01"),
+  }];
+  state.write.mockRejectedValue(new Error("Synthetic queued proposal"));
+  const page = render(tree());
+  fireEvent.click(screen.getByRole("tab", { name: en.admin.landing.tabs[tab] }));
+  const input = screen.getByDisplayValue<HTMLInputElement>("original");
+  fireEvent.change(input, { target: { value: "Proposed address" } });
+  await act(async () => { fireEvent.blur(input); });
+  state.mutationError = { procedure: tab === "pages" ? "updatePage" : "updateSection", message: "Synthetic queued proposal", data: { approvalId: "synthetic-approval" } };
+  page.rerender(tree());
+  expect(input.value).toBe("proposed-address");
+  expect(screen.getAllByRole("status").some((status) => status.textContent?.includes(en.approvals.queuedBody))).toBe(true);
+  expect(screen.queryByText("Synthetic queued proposal")).toBeNull();
+  expect(screen.queryByText(en.admin.landing.addressRefreshFailed)).toBeNull();
+  expect(screen.queryByRole("button", { name: en.admin.landing.refreshAddress })).toBeNull();
+  expect(state.read).not.toHaveBeenCalled();
+  expect(state.mutate).toHaveBeenCalledExactlyOnceWith({ id: "queued", slug: "proposed-address" });
 });

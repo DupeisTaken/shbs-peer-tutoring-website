@@ -338,7 +338,8 @@ export function AttendanceForm({
           {tutorStatus === "TUTOR_ABSENT" && (
             <label className="block space-y-1">
               <span className="label">
-                {t("tutor.attendance.tutorAbsentReason")}
+                {t("tutor.attendance.tutorAbsentReason")}{" "}
+                <FieldRequirement state="required" />
               </span>
               <input {...register("tutorAbsentReason")} className="input" />
             </label>
@@ -579,7 +580,8 @@ export function AttendanceForm({
           {/* Comments (required) */}
           <div className="space-y-1">
             <label className="label" htmlFor="attendance-comments">
-              {t("tutor.attendance.comments")}
+              {t("tutor.attendance.comments")}{" "}
+              <FieldRequirement state="required" />
             </label>
             <textarea
               {...register("comments")}

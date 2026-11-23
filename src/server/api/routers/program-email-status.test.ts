@@ -33,8 +33,14 @@ function fixture(role: Session["role"], claimedRole = role) {
   };
   const mock = {
     user: { findUnique: vi.fn(() => Promise.resolve({ ...actor })) },
+    programSettings: {
+      findUnique: vi.fn().mockResolvedValue({
+        emailNotificationsEnabled: false,
+        secondaryEmailBindingEnabled: true,
+      }),
+    },
     auditLog: { create: vi.fn() },
-    emailDelivery: { count: vi.fn() },
+    emailDelivery: { count: vi.fn().mockResolvedValue(1) },
   };
   return {
     mock,
@@ -51,6 +57,25 @@ function fixture(role: Session["role"], claimedRole = role) {
     }),
   };
 }
+
+it.each(["HEAD", "ADMIN", "COORDINATOR"] as const)(
+  "returns separate proposal and direct-apply email permissions for live %s",
+  async (role) => {
+    const { caller, mock } = fixture(role, "ADMIN");
+    const { deliveryAvailable, ...settings } =
+      await caller.program.emailNotificationSettings();
+    expect(settings).toEqual({
+      enabled: false,
+      secondaryEmailBindingEnabled: true,
+      canEdit: true,
+      canApply: role !== "COORDINATOR",
+      failed: 1,
+    });
+    expect(typeof deliveryAvailable).toBe("boolean");
+    expect(mock.auditLog.create).not.toHaveBeenCalled();
+    expect(mocks.resend).not.toHaveBeenCalled();
+  },
+);
 
 it.each(["HEAD", "ADMIN", "COORDINATOR"] as const)(
   "allows %s to read diagnostics without writes",

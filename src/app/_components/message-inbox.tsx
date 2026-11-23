@@ -246,7 +246,12 @@ export function MessageInbox({
       <InlineNotice>
         <p className="font-semibold">{m("privacyTitle")}</p>
         <p className="mt-1">{m("disclosure")}</p>
-        <p className="mt-2 text-xs">{m("legacyHelp")}</p>
+        <details className="mt-2 text-xs">
+          <summary className="cursor-pointer font-medium hover:underline">
+            {m("privacyDetails")}
+          </summary>
+          <p className="mt-1">{m("legacyHelp")}</p>
+        </details>
       </InlineNotice>
       <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]">
         <form
@@ -522,9 +527,9 @@ export function MessageInbox({
                   })}
                 </time>
               </div>
-              <p className="muted mt-2 text-xs">
-                {msg.supervisable ? m("supervised") : m("legacy")}
-              </p>
+              {!msg.supervisable && (
+                <p className="muted mt-2 text-xs">{m("legacy")}</p>
+              )}
               <p className="my-4 break-words whitespace-pre-wrap">
                 {msg.hiddenAt ? m("hiddenMessage") : msg.body}
               </p>

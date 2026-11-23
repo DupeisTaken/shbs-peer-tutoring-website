@@ -318,6 +318,10 @@ export const protectedProcedure = t.procedure
         }
       }
     }
+    // Keep source-aware completion conflicts behind the existing staff boundary.
+    if (type === "mutation" && path === "interviewManagement.complete" &&
+        !["HEAD", "ADMIN", "COORDINATOR"].includes(account.role))
+      throw new TRPCError({ code: "FORBIDDEN", message: "Admin access required." });
     // Text-only translator mutations validate and create destination-bound drafts in
     // their resolvers. Other coordinator website changes use the general approval queue.
     const translationDraftWrite = [

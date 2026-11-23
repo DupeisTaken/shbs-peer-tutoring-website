@@ -109,6 +109,10 @@ import {
 } from "~/server/room-allocation";
 import { pairingGroupEligibility } from "~/lib/pairing-group-eligibility";
 import { pairingEntries } from "~/lib/pairing-groups";
+import {
+  MEETING_EXCUSE_CUTOFF_MINUTES,
+  canExcusePersonalMeeting,
+} from "~/lib/personal-schedule";
 
 const TUTOR_STATUS = [
   "PRESENT",
@@ -117,9 +121,6 @@ const TUTOR_STATUS = [
   "TUTOR_ABSENT",
 ] as const;
 const TUTEE_STATUS = ["PRESENT", "EXCUSED_ABSENT", "UNEXCUSED_ABSENT"] as const;
-
-/** A tutor may self-excuse a meeting absence only up to this many minutes before it starts. */
-const MEETING_EXCUSE_CUTOFF_MIN = 60;
 
 const rating = z.number().int().min(1).max(5).optional();
 const RATING_KEYS = [
@@ -2436,7 +2437,7 @@ export const tutorRouter = createTRPCRouter({
     }),
 
   // --------------------------------------------------------------------------
-  // Tutor meetings — self-excuse an upcoming absence (up to 60 min before the meeting).
+  // Tutor meetings — self-excuse an upcoming absence (up to 45 min before the meeting).
   // --------------------------------------------------------------------------
   meetingPeriods: tutorProcedure.query(({ ctx }) =>
     meetingPeriods(ctx.db, ctx.session.tutorId),
@@ -2488,10 +2489,7 @@ export const tutorRouter = createTRPCRouter({
           reason: own?.reason ?? null,
           upcoming: meeting.date >= now,
           excused: own?.status === "EXCUSED_ABSENT" && own.excusedAt != null,
-          canExcuse:
-            !historical &&
-            now.getTime() <=
-              meeting.date.getTime() - MEETING_EXCUSE_CUTOFF_MIN * 60_000,
+          canExcuse: !historical && canExcusePersonalMeeting(meeting.date, now),
         };
       });
     }),
@@ -2520,17 +2518,15 @@ export const tutorRouter = createTRPCRouter({
         date: m.date,
         reason: mine?.reason ?? null,
         excused: mine?.status === "EXCUSED_ABSENT" && mine.excusedAt != null,
-        // True until the cutoff (60 min before the meeting) passes.
-        canExcuse:
-          now.getTime() <=
-          m.date.getTime() - MEETING_EXCUSE_CUTOFF_MIN * 60_000,
+        // True until the cutoff (45 min before the meeting) passes.
+        canExcuse: canExcusePersonalMeeting(m.date, now),
       };
     });
   }),
 
   /**
    * Self-excuse an absence from an upcoming meeting (sets the tutor's attendance to EXCUSED_ABSENT
-   * with a reason + timestamp). Allowed only until 60 min before the meeting; an active tutor only.
+   * with a reason + timestamp). Allowed only until 45 min before the meeting; an active tutor only.
    * Surfaces to coordinators on /admin/meetings (panel + notification). Clears any stray
    * unexcused-absence deduction for this meeting.
    */
@@ -2552,13 +2548,10 @@ export const tutorRouter = createTRPCRouter({
           code: "NOT_FOUND",
           message: "Meeting not found.",
         });
-      if (
-        Date.now() >
-        meeting.date.getTime() - MEETING_EXCUSE_CUTOFF_MIN * 60_000
-      ) {
+      if (!canExcusePersonalMeeting(meeting.date, new Date())) {
         throw new TRPCError({
           code: "BAD_REQUEST",
-          message: "Too late to excuse — this meeting is within 60 minutes.",
+          message: `Too late to excuse — this meeting is within ${MEETING_EXCUSE_CUTOFF_MINUTES} minutes.`,
         });
       }
       const reason = input.reason?.trim() ? input.reason.trim() : null;
@@ -2598,7 +2591,7 @@ export const tutorRouter = createTRPCRouter({
       return { ok: true };
     }),
 
-  /** Cancel a self-excuse (only one the tutor submitted, and only while still >60 min out). */
+  /** Cancel a self-excuse (only one the tutor submitted, and only while still >=45 min out). */
   cancelMeetingExcuse: activeTutorProcedure
     .input(z.object({ meetingId: z.string().cuid() }))
     .mutation(async ({ ctx, input }) => {
@@ -2612,13 +2605,10 @@ export const tutorRouter = createTRPCRouter({
           code: "NOT_FOUND",
           message: "Meeting not found.",
         });
-      if (
-        Date.now() >
-        meeting.date.getTime() - MEETING_EXCUSE_CUTOFF_MIN * 60_000
-      ) {
+      if (!canExcusePersonalMeeting(meeting.date, new Date())) {
         throw new TRPCError({
           code: "BAD_REQUEST",
-          message: "Too late to change — this meeting is within 60 minutes.",
+          message: `Too late to change — this meeting is within ${MEETING_EXCUSE_CUTOFF_MINUTES} minutes.`,
         });
       }
       // Only remove a tutor-submitted excuse (excusedAt set), never an admin-recorded status.

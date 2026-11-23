@@ -16,6 +16,7 @@ import en from "../../../messages/en.json";
 import zh from "../../../messages/zh.json";
 import { attendanceOccurrence } from "~/app/(tutor)/_components/attendance-test-data";
 import { SessionAgenda, SessionResponseDeadline } from "./session-agenda";
+import { SESSION_REFRESH_BOUNDARY_ERROR } from "~/lib/session-planning";
 
 type Agenda = RouterOutputs["sessionPlanning"]["agenda"];
 const state = vi.hoisted(() => ({
@@ -421,6 +422,20 @@ it("keeps a rejected cancellation draft, admits one pending submit and recovers 
   });
 });
 
+it.each(["en", "zh"] as const)("explains a newly imposed refresh cutoff without discarding the reviewed draft (%s)", async (locale) => {
+  futureExtra();
+  const text = (locale === "en" ? en : zh).sessionPlanning;
+  state.proposeCancellation.mockRejectedValueOnce(new Error(SESSION_REFRESH_BOUNDARY_ERROR));
+  show("tutor", locale);
+  fireEvent.click(screen.getByRole("button", { name: text.cancelExtra }));
+  fireEvent.click(within(screen.getByRole("dialog")).getByRole("button", { name: text.review }));
+  await act(async () => fireEvent.click(within(screen.getByRole("dialog")).getByRole("button", { name: text.sendCancellation })));
+  expect(screen.getAllByText(text.refreshBoundary).length).toBeGreaterThan(0);
+  expect(screen.queryByText(SESSION_REFRESH_BOUNDARY_ERROR)).toBeNull();
+  expect(screen.getByRole("dialog")).toBeTruthy();
+  expect(state.proposeCancellation).toHaveBeenCalledTimes(1);
+});
+
 it("blocks a retained cancellation review when current tutor write access is revoked", () => {
   futureExtra();
   const view = show();
@@ -680,6 +695,17 @@ it.each(["en", "zh"] as const)(
     ).toBeTruthy();
     for (const heading of screen.getAllByRole("heading"))
       expect(heading.textContent?.trim()).not.toBe("");
+  },
+);
+it.each(["tutor", "tutee"] as const)(
+  "does not present a stale program-wide preparation count as %s work",
+  (role) => {
+    // Older cached responses can still contain the removed global diagnostic.
+    Object.assign(state.data!.weeklyPublication, { unavailable: 4 });
+    state.data!.cohorts = [{ ...attendanceOccurrence, unavailable: true }];
+    show(role);
+    expect(screen.queryByText(/weekly arrangement\(s\) need review/)).toBeNull();
+    expect(screen.getByText(en.sessionPlanning.scheduleUnavailableHelp)).toBeTruthy();
   },
 );
 it("keeps the final Sunday and older incomplete attendance reachable", () => {
@@ -1462,8 +1488,10 @@ it("a denied history read conceals tutoring caches while keeping independent fil
   expect(state.historyRetry).toHaveBeenCalledOnce();
 });
 
-it.each(["en", "zh"] as const)("hides a paused card while keeping its source available for an extra exception in %s", (locale) => {
-  const catalog = locale === "en" ? en : zh;
+it.each([
+  ["en", en, "Jan 1, 2099 · Thu 15:00–15:45"],
+  ["zh", zh, "2099年1月1日 · 周四 15:00–15:45"],
+] as const)("hides a paused card while keeping its source available for an extra exception in %s", (locale, catalog, expectedSlot) => {
   state.data!.windowStart = "2099-01-01";
   state.data!.windowEnd = "2099-01-14";
   state.data!.tutoringPauses = [{ date: "2099-01-01", endDate: "2099-01-14", schedulingEffect: "PAUSE_REGULAR", active: true }];
@@ -1474,10 +1502,89 @@ it.each(["en", "zh"] as const)("hides a paused card while keeping its source ava
   expect(screen.queryByRole("article")).toBeNull();
   expect(screen.queryByRole("button", { name: catalog.sessionPlanning.record })).toBeNull();
   fireEvent.click(screen.getByRole("button", { name: "Global extra" }));
-  fireEvent.click(within(screen.getByRole("dialog")).getByRole("button", { name: catalog.sessionPlanning.arrangeException }));
+  const picker = screen.getByRole("dialog");
+  expect(within(picker).getByText(expectedSlot)).toBeTruthy();
+  fireEvent.click(within(picker).getByRole("button", { name: catalog.sessionPlanning.arrangeException }));
   expect(screen.getByRole("dialog").textContent).toContain(catalog.sessionPlanning.tutoringPauseProposal);
   expect(state.propose).not.toHaveBeenCalled();
 });
+
+it.each([
+  ["en", en, "Tue 17:10–17:55", "Nov 24, 2026 · Tue 17:10–17:55", "Nov 28, 2026 · Sat 17:10–17:55"],
+  ["zh", zh, "周二 17:10–17:55", "2026年11月24日 · 周二 17:10–17:55", "2026年11月28日 · 周六 17:10–17:55"],
+] as const)(
+  "shows the detailed date before the weekday only on arrange-exception rows in %s",
+  (locale, catalog, recurringSlot, pausedRegularSlot, pausedMappedSlot) => {
+    const recurringSchedule = {
+      scheduleConfirmed: true,
+      dayOfWeek: 2,
+      startMin: 1030,
+      endMin: 1075,
+    };
+    state.data!.cohorts = [
+      {
+        ...attendanceOccurrence,
+        id: "normal-extra-source",
+        subjects: ["AP Chemistry"],
+        date: "2099-12-01",
+        startMin: 1030,
+        endMin: 1075,
+        startsAt: new Date("2099-12-01T09:10:00Z"),
+        endsAt: new Date("2099-12-01T09:55:00Z"),
+        recurringSchedule,
+        needsAttendance: false,
+        canRecordAttendance: false,
+      },
+      {
+        ...attendanceOccurrence,
+        id: "paused-regular-source",
+        subjects: ["AP Chemistry"],
+        date: "2026-11-24",
+        startMin: 1030,
+        endMin: 1075,
+        startsAt: new Date("2099-11-24T09:10:00Z"),
+        endsAt: new Date("2099-11-24T09:55:00Z"),
+        status: "CANCELLED",
+        tutoringPaused: true,
+        canArrangeException: true,
+        pausedTutees: [{ id: "carys", name: "Carys yu" }],
+        tutees: [],
+        recurringSchedule,
+        needsAttendance: false,
+        canRecordAttendance: false,
+      },
+      {
+        ...attendanceOccurrence,
+        id: "paused-mapped-source",
+        subjects: ["AP Chemistry"],
+        date: "2026-11-28",
+        startMin: 1030,
+        endMin: 1075,
+        startsAt: new Date("2099-11-28T09:10:00Z"),
+        endsAt: new Date("2099-11-28T09:55:00Z"),
+        status: "CANCELLED",
+        tutoringPaused: true,
+        canArrangeException: true,
+        pausedTutees: [{ id: "carys", name: "Carys yu" }],
+        tutees: [],
+        recurringSchedule,
+        needsAttendance: false,
+        canRecordAttendance: false,
+      },
+    ];
+    render(
+      <NextIntlClientProvider locale={locale} timeZone="Asia/Shanghai" messages={catalog}>
+        <UnifiedAgenda />
+      </NextIntlClientProvider>,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Global extra" }));
+    const picker = screen.getByRole("dialog");
+    expect(within(picker).getByText(recurringSlot)).toBeTruthy();
+    expect(within(picker).getByText(pausedRegularSlot)).toBeTruthy();
+    expect(within(picker).getByText(pausedMappedSlot)).toBeTruthy();
+    expect(picker.textContent).not.toContain("2099");
+  },
+);
 
 it.each(["tutor", "tutee"] as const)("keeps only confirmed upcoming session cards while retaining cancelled evidence for %s", (role) => {
   const scheduled = futureExtra();

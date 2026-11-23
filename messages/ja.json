@@ -5,6 +5,7 @@
     "consumed": "This recovery draft has already been submitted. Continue with the verification email for your new request, or open your account to view its status."
   },
   "sessionPlanning": {
+    "refreshBoundary": "セッションは予定された期間更新の時刻までに終了する必要があります。最新の予定を再読み込みしてください。",
     "deadlineMissedTitle": "対応が必要です：期限切れの日程申請を確認してください",
     "deadlineMissedHelp": "通知の返答期限が、日程処理を利用できない間に過ぎました。過去にさかのぼる日時変更は行っていません。チューターと元の予定と提案された時間を確認してください。出席・欠席は自動判断していません。",
     "scheduleUnavailable": "予定の確認が必要",
@@ -507,7 +508,8 @@
     "replyContext": "{name} に返信中",
     "cancelReply": "返信をキャンセル",
     "replyDraftHelp": "以前の下書きは保持されます。キャンセルしても、この返信の下書きはこのページに保持されます。",
-    "permissionsDestination": "プログラム設定のメッセージ権限"
+    "permissionsDestination": "プログラム設定のメッセージ権限",
+    "privacyDetails": "過去のメッセージについて"
   },
   "common": {
     "cancel": "キャンセル",
@@ -521,7 +523,8 @@
     "close": "閉じる",
     "collapseAll": "すべて折りたたむ",
     "expandAll": "すべて展開",
-    "loading": "Loading…"
+    "loading": "Loading…",
+    "retry": "再試行"
   },
   "auth": {
     "signinTitle": "サインイン",
@@ -705,7 +708,8 @@
       "draftBadge": "下書き"
     },
     "detail": {
-      "hiddenNote": "このセクションが表示されるまで、このページは訪問者に非表示です。"
+      "hiddenNote": "このセクションが表示されるまで、このページは訪問者に非表示です。",
+      "hiddenPageNote": "このページが表示に設定されるまで、訪問者には非表示です。"
     }
   },
   "dashboard": {
@@ -928,7 +932,8 @@
         "tutors": "チューター",
         "tutees": "生徒",
         "schedulingRecords": "スケジュールと記録",
-        "administration": "管理"
+        "administration": "管理",
+        "dataRecovery": "データと復元"
       },
       "links": {
         "dashboard": "ダッシュボード",
@@ -1264,7 +1269,8 @@
       "columns": {
         "when": "日時",
         "who": "操作者",
-        "action": "操作"
+        "action": "記録された操作",
+        "actions": "行の操作"
       },
       "undone": "取り消し済み",
       "undo": "元に戻す",
@@ -1723,6 +1729,7 @@
     "applications": {
       "title": "チューター応募",
       "intro": "応募者を審査し、{n}名の面接パネルを割り当てます（代表を1名指定）。行をクリックして展開できます。代表が面接の日程を設定し、自分のダッシュボードから結果を記録します。",
+      "panelRangeIntro": "応募者を審査し、{min}～{max}名のチューターで面接パネルを構成して、その中から代表を1名指定します。行をクリックして展開できます。代表が面接の日程を設定し、自分のダッシュボードから結果を記録します。",
       "empty": "応募はまだありません。",
       "status": {
         "PENDING": "保留中",
@@ -1733,6 +1740,7 @@
       },
       "noCourses": "科目なし",
       "panelSummary": "パネル {n}/{total}",
+      "panelCount": "パネル {n}名（最低{min}名）",
       "votesSummary": "投票 {accepts}/{total}",
       "accept": "合格",
       "reject": "不合格",
@@ -1747,6 +1755,7 @@
       },
       "noQualification": "資格情報なし",
       "panelHeading": "面接パネル（{n}名を選択し、代表を1名指定）",
+      "panelRangeHeading": "面接パネル（{min}～{max}名、代表1名）",
       "scheduled": "予定日時：{when}（代表が設定）",
       "panelistSlot": "— 審査員 {n} —",
       "head": "代表",
@@ -1754,6 +1763,7 @@
       "savePanel": "パネルを保存",
       "saved": "保存しました。",
       "pickHint": "{n}名のチューターと代表を選んでください。",
+      "pickRangeHint": "異なるチューターを{min}～{max}名選び、その中から代表を1名指定してください。",
       "votesDecisionHeading": "投票と判定",
       "voteTally": "{accepts} 合格 · {rejects} 不合格",
       "noVotes": "まだ投票がありません。",
@@ -2069,6 +2079,8 @@
     },
     "landing": {
       "pageAddress": "ページアドレス",
+      "addressRefreshFailed": "アドレスは保存されましたが、更新後のアドレスを読み込めませんでした。再保存せずにアドレスを更新してください。",
+      "refreshAddress": "アドレスを更新",
       "title": "トップページ",
       "subtitle": "公開サイトの文章、ニュース、画像を編集します。コーディネーターの変更と翻訳担当者の文章編集には審査が必要です。管理者・責任者による権限内の変更は直接反映されます。ニュースの下書きは公開するまで非公開です。",
       "loading": "読み込み中…",
@@ -2351,7 +2363,7 @@
     },
     "meetings": {
       "title": "今後の会議",
-      "help": "会議に出られませんか？開始 60 分前まで欠席を申告できます。",
+      "help": "会議に出られませんか？開始 45 分前まで欠席を申告できます。",
       "excuseBtn": "欠席を申告",
       "submitExcuse": "欠席理由を送信",
       "cancelExcuse": "申告を取り消す",
@@ -2392,7 +2404,7 @@
         "EXTRA": "追加セッション",
         "TUTOR_ABSENT": "チューター欠席"
       },
-      "tutorAbsentReason": "チューター欠席の理由 *",
+      "tutorAbsentReason": "チューター欠席の理由",
       "start": "開始",
       "end": "終了",
       "now": "現在",
@@ -2418,7 +2430,7 @@
         "4": "とても良い",
         "5": "優秀"
       },
-      "comments": "コメント *",
+      "comments": "コメント",
       "cardsTitle": "指導カード（任意）",
       "cardsHelp": "簡単な理由とともにイエローまたはレッドカードを発行します。チームが確認してからカウントされます。（無断欠席には自動的にレッドカードが発行されます。）",
       "noCard": "カードなし",
@@ -2614,6 +2626,7 @@
     }
   },
   "public": {
+    "signupFormLoadFailed": "申込フォームに必要な情報を読み込めませんでした。もう一度お試しください。",
     "applicationRetryNotice": "このメールアドレスの申請がすでに審査中の場合、最初の申請が保持されます。変更するには、プログラムの担当チームに連絡してください。",
     "signup": {
       "title": "チューターを申請",
@@ -2872,6 +2885,7 @@
     "collapseAll": "すべて折りたたむ",
     "languagesHeading": "言語",
     "languagesHelp": "有効な言語だけが公開言語メニューに表示されます。非表示の言語も、翻訳が完成するまでここで編集できます。",
+    "languagesReadFailed": "言語設定を読み込めませんでした。",
     "builtIn": "組み込み",
     "enabled": "有効",
     "disabled": "非表示",
@@ -3045,6 +3059,17 @@
     "news": "News",
     "sections": "Website Sections",
     "pages": "Page Titles",
+    "pageTarget": {
+      "current": "現在保存されているページ",
+      "currentHelp": "現在の保存内容であり、提出時点の記録ではありません。",
+      "missing": "このページは削除されています。",
+      "missingRecovery": "このページは削除されているため、この下書きは公開できません。管理者または責任者は下書きを却下し、履歴に残すことができます。",
+      "untitled": "対象言語と英語の保存済みタイトルはありません。",
+      "language": "タイトルの言語：{locale}",
+      "fallbackLanguage": "タイトルの言語：{locale}（代替言語）",
+      "address": "現在のページアドレス",
+      "reference": "ページ参照 ID"
+    },
     "fields": {
       "locale": "Language Code",
       "key": "Content to Translate",
@@ -3634,7 +3659,11 @@
         "archivedOfferings": "アーカイブする科目の開設項目",
         "timetableWeekday": "時間割の曜日",
         "scheduleRevision": "時間割の改訂番号",
-        "actionId": "記録済み入会承認の操作 ID"
+        "actionId": "記録済み入会承認の操作 ID",
+        "from": "開始日",
+        "to": "終了日",
+        "originalFrom": "変更前の開始日",
+        "originalTo": "変更前の終了日"
       },
       "values": {
         "ACTIVE": "有効",
@@ -3874,7 +3903,9 @@
         "admin_cancelRefresh": "Cancel a scheduled program refresh",
         "monthlyHours_save": "月次サービス時間レポートのスケジュールを変更",
         "schoolHours_save": "学校向け奉仕時間報告のスケジュールを変更",
-        "student_setCalendarHoliday": "学校の休暇期間を追加"
+        "student_setCalendarHoliday": "学校の休暇期間を追加",
+        "student_updateCalendarHoliday": "学校の休暇期間を編集",
+        "student_resetCalendarHoliday": "学校の休暇期間を通常に戻す"
       },
       "decisionRequestHelp": "「承認して適用」は、元の申請を却下する操作も含め、提案された操作を実行します。「フィードバックを付けて却下」は、この提案を却下し、変更を行いません。どちらの場合も判断の理由を備考に記入してください。",
       "confirmPassword": "アカウントのパスワードを確認",
@@ -6134,7 +6165,7 @@
     "reload": "下書きを再読み込み",
     "loadFailed": "チュータリングのお知らせを読み込めませんでした。",
     "loading": "チュータリングのお知らせを読み込み中…",
-    "add": "期間を追加",
+    "add": "チュータリング休止・お知らせを追加",
     "date": "期間",
     "startDate": "開始日",
     "endDate": "終了日",
@@ -6168,7 +6199,15 @@
     "impactRetain": "維持する確定済み追加セッション・明示的に合意した振替：{count}",
     "impactConfirm": "明示的な確認が必要：{count}",
     "impactRestore": "復元候補：{count}",
-    "impactRule": "保存時に現在の合意と競合を再確認し、対象の参加者にキャンセルをメールで通知します。開始済みのセッションと記録済みの出席は変更されません。"
+    "impactRule": "保存時に現在の合意と競合を再確認し、対象の参加者にキャンセルをメールで通知します。開始済みのセッションと記録済みの出席は変更されません。",
+    "combinedTitle": "学校休暇・チュータリング休止",
+    "combinedHelp": "学校休暇とチュータリング休止・お知らせを管理します。学校休暇は通常セッションと異議申立の登校日数カウントを停止します。チュータリング休止は登校日ルールを変更しません。",
+    "combinedEmpty": "学校休暇やチュータリングのお知らせはありません。",
+    "denied": "チュータリングのお知らせと休止設定は利用できません。",
+    "holidayEffect": "学校休暇",
+    "pauseEffectTable": "通常チュータリング休止",
+    "noticeEffectTable": "お知らせのみ",
+    "reasonOrNote": "理由 / メモ"
   },
   "roomOrder": {
     "title": "教室の表示順",
@@ -6308,7 +6347,8 @@
     "proposeUnassign": "割当解除を提案",
     "changed": "入力中に審査情報が変更されました。理由は保持されています。再読み込み後に再試行してください。",
     "reload": "審査を再読み込み",
-    "rejectedTitle": "無効な申込は終了しました"
+    "rejectedTitle": "無効な申込は終了しました",
+    "action": "確認または異議申立て"
   },
   "accountDeletion": {
     "intro": "Permanently delete the login for {name}? Review the account and its records before confirming your password.",
@@ -7333,7 +7373,23 @@
     "invalidRange": "有効な日付を選び、終了日は開始日以降、期間は366日以内にしてください。",
     "holidayReplaces": "保存すると、以下の既存の{count}件の日付設定とメモが置き換えられます。",
     "saveHoliday": "休暇を保存",
-    "reloadHoliday": "現在の期間を再読み込み"
+    "reloadHoliday": "現在の期間を再読み込み",
+    "weekdayOverridesTitle": "曜日時間割の変更",
+    "weekdayOverridesHelp": "特定の日付に適用する曜日時間割を設定します（週末の振替登校日を含みます）。ここに表示される日付は登校日です。休校や休暇は上で管理します。",
+    "weekdayOverridesEmpty": "曜日時間割の変更はありません。登校日は本来の曜日の時間割に従います。",
+    "addWeekdayOverride": "曜日時間割の変更を追加",
+    "editWeekdayOverride": "曜日時間割の変更を編集",
+    "saveWeekdayOverride": "曜日時間割の変更を保存",
+    "weekdayReplacesExisting": "保存すると、この日付の既存の学校カレンダー設定とメモが置き換えられます。",
+    "editHoliday": "休暇を編集",
+    "holidayDetailsTitle": "学校休暇",
+    "holidayDaysCount": "{count}日間",
+    "noStaffNote": "スタッフメモなし",
+    "staffNotePrivate": "スタッフメモは内部用であり、参加者には送信されません。",
+    "holidayResets": "保存時に通常へ戻る日付：{count}件。",
+    "holidayChangedExternally": "この休暇は他の場所で変更または削除されました。このウィンドウを閉じて最新のカレンダーを確認してください。",
+    "resetHolidayTitle": "この学校休暇を通常に戻しますか？",
+    "resetHolidayHelp": "この休暇に含まれるすべての日付を通常の登校日・曜日時間割ルールに戻します。履歴や合意済みのセッションは保持されます。"
   },
   "recordInspector": {
     "backToRecord": "Back to record",

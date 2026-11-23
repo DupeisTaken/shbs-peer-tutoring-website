@@ -11,11 +11,10 @@ import { inTransaction } from "~/server/transactions";
 import { validatePanel } from "~/server/interviews";
 import { tutorDirectoryHref } from "~/lib/tutor-directory-link";
 import { assertFeatureEnabled } from "~/server/program/features";
-import { staleConflict } from "~/server/concurrency";
 import {
   interviewCompletionInput,
   interviewHourRows,
-  sameInterviewCompletionEvidence,
+  reviewInterviewCompletion,
   writeInterviewCompletion,
 } from "~/server/interview-hours";
 
@@ -431,15 +430,10 @@ export const interviewManagementRouter = createTRPCRouter({
           input.applicationId,
           before.interviewers.map((p) => p.tutorId),
         );
-        // Retrying already-applied evidence is read-only, preserving credit identity and
-        // its original period even when the review snapshot has since advanced.
-        if (sameInterviewCompletionEvidence(before, credits, input))
+        // Repeat admission's review under the source lock. An exact receipt keeps
+        // its credit identity and period; a changed recording needs its version.
+        if (reviewInterviewCompletion(before, credits, input) === "EXACT_RECEIPT")
           return { ok: true };
-        if (
-          input.expectedUpdatedAt &&
-          input.expectedUpdatedAt.getTime() !== before.updatedAt.getTime()
-        )
-          staleConflict();
         // The same source-owned write is used by immediate chair approval.
         await writeInterviewCompletion(
           tx,

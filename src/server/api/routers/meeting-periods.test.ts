@@ -310,6 +310,15 @@ it("keeps task counts upcoming-only and does not infer an absence from a missing
     (await api.meetingRecords({ period: "current" })).find(
       (row) => row.id === "current-future",
     )?.canExcuse,
+  ).toBe(true);
+  await db.tutorMeeting.update({
+    where: { id: "current-future" },
+    data: { date: new Date(Date.now() + 44 * 60_000) },
+  });
+  expect(
+    (await api.meetingRecords({ period: "current" })).find(
+      (row) => row.id === "current-future",
+    )?.canExcuse,
   ).toBe(false);
 });
 

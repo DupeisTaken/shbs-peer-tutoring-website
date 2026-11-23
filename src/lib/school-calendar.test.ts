@@ -1,10 +1,14 @@
 import { describe, expect, it } from "vitest";
 import {
   createSchoolCalendarSnapshot,
+  groupSchoolCalendarHolidays,
   resolveSchoolCalendarDay,
   schoolCalendarWrite,
   schoolCalendarReset,
   schoolCalendarHoliday,
+  schoolCalendarHolidayReset,
+  schoolCalendarHolidayUnionDates,
+  schoolCalendarHolidayUpdate,
   schoolCalendarRangeDates,
   type SchoolCalendarOverride,
 } from "./school-calendar";
@@ -93,6 +97,122 @@ describe("inclusive holiday ranges", () => {
         expectedVersions: [...input.expectedVersions].reverse(),
       }).success,
     ).toBe(true);
+  });
+
+  it("groups contiguous closed dates with matching trimmed notes, skips active school days/tombstones, and caps groups at 366 days", () => {
+    const groups = groupSchoolCalendarHolidays([
+      { date: "2026-11-27", isSchoolDay: false, active: true, note: " Thanksgiving ", version: 1 },
+      { date: "2026-11-26", isSchoolDay: false, active: true, note: "Thanksgiving", version: 1 },
+      { date: "2026-11-25", isSchoolDay: true, active: true, note: "Thanksgiving", version: 1 },
+      { date: "2026-11-28", isSchoolDay: false, active: false, note: "Thanksgiving", version: 2 },
+      { date: "2026-11-29", isSchoolDay: false, active: true, note: "Thanksgiving", version: 1 },
+      { date: "2026-11-30", isSchoolDay: false, active: true, note: "Staff training", version: 1 },
+      { date: "2028-02-28", isSchoolDay: false, active: true, note: "", version: 1 },
+      { date: "2028-02-29", isSchoolDay: false, active: true, note: null, version: 1 },
+      { date: "2028-03-01", isSchoolDay: false, active: true, note: "  ", version: 1 },
+    ]);
+    expect(groups.map((group) => ({ from: group.from, to: group.to, note: group.note, count: group.days.length }))).toEqual([
+      { from: "2026-11-26", to: "2026-11-27", note: "Thanksgiving", count: 2 },
+      { from: "2026-11-29", to: "2026-11-29", note: "Thanksgiving", count: 1 },
+      { from: "2026-11-30", to: "2026-11-30", note: "Staff training", count: 1 },
+      { from: "2028-02-28", to: "2028-03-01", note: "", count: 3 },
+    ]);
+
+    const longDays = [
+      ...schoolCalendarRangeDates("2028-01-01", "2028-12-31"),
+      "2029-01-01",
+      "2029-01-02",
+    ].map((date) => ({
+      date,
+      isSchoolDay: false,
+      active: true,
+      note: "Long closure",
+      version: 1,
+    }));
+    const capped = groupSchoolCalendarHolidays(longDays);
+    expect(capped).toHaveLength(2);
+    expect(capped[0]).toMatchObject({ from: "2028-01-01", to: "2028-12-31" });
+    expect(capped[0]!.days).toHaveLength(366);
+    expect(capped[1]).toMatchObject({ from: "2029-01-01", to: "2029-01-02" });
+    expect(capped[1]!.days).toHaveLength(2);
+  });
+
+  it("validates holiday mass-edit union versions and holiday mass-reset positive versions", () => {
+    const union = schoolCalendarHolidayUnionDates(
+      "2026-11-26",
+      "2026-11-27",
+      "2026-11-27",
+      "2026-11-29",
+    );
+    expect(union).toEqual([
+      "2026-11-26",
+      "2026-11-27",
+      "2026-11-28",
+      "2026-11-29",
+    ]);
+    expect(
+      schoolCalendarHolidayUpdate.safeParse({
+        originalFrom: "2026-11-26",
+        originalTo: "2026-11-27",
+        from: "2026-11-27",
+        to: "2026-11-29",
+        note: "Shifted holiday",
+        expectedVersions: [
+          { date: "2026-11-26", version: 2 },
+          { date: "2026-11-27", version: 2 },
+          { date: "2026-11-28", version: 0 },
+          { date: "2026-11-29", version: 0 },
+        ],
+      }).success,
+    ).toBe(true);
+    // Original dates must capture a positive persisted version.
+    expect(
+      schoolCalendarHolidayUpdate.safeParse({
+        originalFrom: "2026-11-26",
+        originalTo: "2026-11-27",
+        from: "2026-11-26",
+        to: "2026-11-27",
+        note: "Invalid zero version",
+        expectedVersions: [
+          { date: "2026-11-26", version: 0 },
+          { date: "2026-11-27", version: 1 },
+        ],
+      }).success,
+    ).toBe(false);
+    // Missing a removed date's version is rejected.
+    expect(
+      schoolCalendarHolidayUpdate.safeParse({
+        originalFrom: "2026-11-26",
+        originalTo: "2026-11-27",
+        from: "2026-11-27",
+        to: "2026-11-28",
+        note: "Missing removed date",
+        expectedVersions: [
+          { date: "2026-11-27", version: 1 },
+          { date: "2026-11-28", version: 0 },
+        ],
+      }).success,
+    ).toBe(false);
+    expect(
+      schoolCalendarHolidayReset.safeParse({
+        from: "2026-11-26",
+        to: "2026-11-27",
+        expectedVersions: [
+          { date: "2026-11-26", version: 1 },
+          { date: "2026-11-27", version: 2 },
+        ],
+      }).success,
+    ).toBe(true);
+    expect(
+      schoolCalendarHolidayReset.safeParse({
+        from: "2026-11-26",
+        to: "2026-11-27",
+        expectedVersions: [
+          { date: "2026-11-26", version: 0 },
+          { date: "2026-11-27", version: 1 },
+        ],
+      }).success,
+    ).toBe(false);
   });
 });
 

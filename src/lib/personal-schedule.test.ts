@@ -76,12 +76,18 @@ it("uses local midnight across DST instead of a fixed elapsed fourteen days", ()
   expect(result.endsBefore.toISOString()).toBe("2026-11-09T05:00:00.000Z");
 });
 
-it("preserves the inclusive sixty-minute meeting cutoff", () => {
+it("preserves the inclusive 45-minute meeting cutoff after the 1-hour reminder", () => {
   const date = new Date("2026-10-28T10:00:00Z");
   expect(canExcusePersonalMeeting(date, new Date("2026-10-28T09:00:00Z"))).toBe(
     true,
   );
+  expect(canExcusePersonalMeeting(date, new Date("2026-10-28T09:10:00Z"))).toBe(
+    true,
+  );
+  expect(canExcusePersonalMeeting(date, new Date("2026-10-28T09:15:00Z"))).toBe(
+    true,
+  );
   expect(
-    canExcusePersonalMeeting(date, new Date("2026-10-28T09:00:00.001Z")),
+    canExcusePersonalMeeting(date, new Date("2026-10-28T09:15:00.001Z")),
   ).toBe(false);
 });

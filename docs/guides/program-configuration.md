@@ -397,14 +397,20 @@ prepared openings and consequences. Head saves directly; Admin submits for Head 
 proposal is not an active schedule. The current period stays active until execution.
 A future prepared tutee opening cannot precede the scheduled refresh.
 
-Schedules survive browser closure and server restarts. The server checks due schedules
-on startup and every 30 seconds. After downtime it catches up automatically only if
-the original review and Head authorization still hold; this is not an exact-second
-availability guarantee. A mismatch in reviewed settings requires renewed review.
-Changes to the approving Head's role, suspension or merge identity invalidate the
-authorization even if later reversed. Blocked
-and failed schedules need a new Head-reviewed schedule. Five failed execution
-attempts stop automatic retries. Management receives a completion or needs-review notice.
+Schedules survive browser closure and server restarts. The server checks approved
+schedules on startup and every 30 seconds, including before their execution time.
+On detecting a change to the reviewed settings or the approving Head's authority,
+it marks the schedule **Needs review** and notifies active Admins and Head. Earlier
+detection gives management time to review and replace the schedule before the
+intended refresh time. Saving an unchanged default feature setting keeps the
+authorization valid. Changes to the approving Head's role, suspension or merge
+identity invalidate the authorization even if later reversed.
+
+Head must approve a replacement for a blocked or failed schedule, even if the
+settings are restored after the block. After downtime, valid schedules catch up
+automatically. Five failed execution attempts stop automatic retries. Management
+receives a completion or needs-review notice in the app. Email follows the
+Program notification settings and configured delivery.
 
 Reschedule and cancellation require the displayed version and the same Head approval
 boundary. Reload explicitly after a conflict; background reads retain unfinished edits.
@@ -492,7 +498,9 @@ awaiting approval and has not applied a penalty or another decision.
 
 Open **Hour Adjustments** (`/admin/hour-adjustments`) to add extra hours or a punishment deduction for a tutor and month. Amounts remain positive; the type determines whether they add or deduct hours. The active program period is recorded with each adjustment. The service-hours module must be enabled for writes.
 
-Months remain in `YYYY-MM` format. Desktop tables reserve space for months and wrap long names, reasons and translated labels; a constrained desktop table can scroll within its card. On mobile, each record stacks its labelled fields and delete action so the full reason stays readable. Form controls and row actions support touch and keyboard use.
+The list, details and deletion review display the recorded fractional hours without rounding; for example, a 45-minute credit displays as `0.75` hours.
+
+Months remain in `YYYY-MM` format. The summary table reserves readable space for tutor names and adjustment types, wraps long names, and scrolls within its card when needed on mobile or a constrained desktop. The rightmost Actions column stays reachable while scrolling; open **View details** to read the full reason. Form controls and row actions support touch and keyboard use.
 
 HEAD and ADMIN can apply additions; Coordinator additions require Admin/Head review. Deleting an existing adjustment reverses recorded hours; Admin/Head apply it and Coordinators submit review proposals. Pending proposals leave live hours unchanged. VIEWER has no mutation controls, cannot write through the API, and receives records with private reasons withheld by the server. Tutor accounts cannot access this management listing.
 
@@ -657,6 +665,21 @@ Hiding removes content from participants' responses while retaining it for autho
 
 Use **Landing Page** for public content, menus, media and custom pages. Custom pages and page-mode sections share the same URL namespace. The editor adds a numeric suffix when a slug is occupied; unpublished content still reserves its URL. Check the resulting public link after saving.
 
+**View page** opens the saved page in a separate tab. Eligible landing editors can
+preview unpublished pages; visitors receive a not-found page. In a draft preview,
+**Back to Editor** opens **Pages** for a custom page or **Sections** for a page-mode
+section. Locate and open the relevant card there to continue editing.
+
+**Show in top nav** saves the navigation preference. A hidden page keeps that
+preference for later publication; its **In nav** badge appears only while the page
+is published and the preference is checked.
+
+Custom-page titles, menu labels and content-block text fall back independently
+when a translation is missing. They try English first, then the first entry in
+the stored translations. Each displayed field identifies its actual language for
+assistive technology. The surrounding controls keep the chosen interface language.
+Publishing a title translation does not translate the page's individual content blocks.
+
 Assigned translators submit text drafts for review. If the destination text or language changes before approval, reject the stale draft, reload the current destination and submit again. A coordinator publication decision requires ADMIN/HEAD approval. English and Chinese are visible by default; review wording in hidden catalogs before enabling additional languages. Policy publication uses its own [reviewed revision workflow](policies/README.md).
 
 Translations cover interface strings and supported public text such as news, sections and page titles. Translators can add a language with English fallback; management controls visibility, ordering and deletion of added languages. Built-in language catalogs cannot be deleted. Enabling a UI language does not create a policy translation: publish reviewed policy text separately, or the policy falls back to English.
@@ -689,29 +712,43 @@ Verify the finished print or shared image with a scanner.
 
 ### School calendar and timetable dates
 
-Open **Program Settings → Recruitment and Refresh → School Calendar**. Admin/Head apply
-changes and resets directly; Coordinators submit them for Admin/Head review.
-Pending proposals do not change schedules or send
-operational calendar notices.
+Open **Program Settings → Recruitment and Refresh**. School holidays and tutoring
+pauses are managed together in **Holidays & Tutoring Pauses**, while alternate
+weekday timetables and weekend make-up school days live in the dedicated
+**Weekday Overrides** card below it. Admin/Head apply changes and resets directly;
+Coordinators submit them for Admin/Head review. Pending proposals do not change
+schedules or send operational calendar notices.
 
-Use **Add holiday** for several consecutive days, such as Thanksgiving. Enter the
-start and end dates and a shared staff note. Both dates are included (up to 366 days),
-including weekends. The form shows how many dates will be closed and lists any
-existing overrides that saving will replace, including their notes. Review those
-replacements before saving. The whole range is applied together, or submitted as
-one Coordinator proposal; one changed date requires reloading and reviewing the
-range before retrying. Reloading a range retains its dates and note. Once saved,
-each date can still be edited or reset individually.
+In **Holidays & Tutoring Pauses**, each row clearly indicates whether school is
+closed (**School holiday**) or open (**Tutoring pause** or **Notice only**):
 
-Use **Add date override** for a single holiday, make-up school day or different timetable. Select
-the actual date, whether school is open, an optional timetable weekday, and a note.
-Without an override, Monday–Friday are school days and weekends are closed. An open
-date with no selected timetable weekday follows its own civil weekday. For example,
-an open Sunday can follow Monday's timetable; its displayed and recorded date remains
-Sunday. A closed date cannot also select a timetable weekday. Ordinary recurring
-plans are suppressed on a closed date. The coordinated dated-session workflows
-remain responsible for agreed extras/reschedules and their closure warnings; this
-setting does not rewrite attendance or historical service hours.
+- Use **Add holiday** for one or more consecutive school closure days, such as
+  Thanksgiving. Enter the start and end dates and an optional internal staff note.
+  Both dates are included (up to 366 days), including weekends. Consecutive closed
+  dates that share the same staff note are grouped into one holiday entry so they
+  can be edited or reset together. Click **Edit** on a grouped holiday to shift,
+  extend, shorten, or re-note the range atomically (dates removed from the range
+  are listed and reset to normal; unrelated existing overrides in the updated
+  range are listed before saving). Click **Reset to normal** to restore every date
+  in the holiday at once. Staff notes stay internal and are never sent to
+  participants.
+- Use **Add tutoring pause or notice** for dates when school stays open but
+  regular tutoring is paused or needs an informational notice. Tutoring pauses
+  review affected future regular commitments before saving and do not change
+  school-day status or five-school-day appeal deadlines.
+
+In **Weekday Overrides**, use **Add weekday override** for a make-up school day
+(such as an open Saturday or Sunday) or an alternate weekday timetable (such as
+Wednesday following Friday's timetable). Select the actual date, an optional
+timetable weekday, and a staff note. Without an override, Monday–Friday are school
+days and weekends are closed. An open date with no selected timetable weekday
+follows its own civil weekday. For example, an open Sunday can follow Monday's
+timetable; its displayed and recorded date remains Sunday. Saving a weekday
+override on a date that currently belongs to a school holiday replaces that date's
+closure after warning you, splitting the surrounding holiday automatically. Ordinary
+recurring plans are suppressed on closed dates; the coordinated dated-session
+workflows remain responsible for agreed extras/reschedules and their closure
+warnings, and calendar edits never rewrite attendance or historical service hours.
 
 Edit a saved date deliberately, or use **Reset to normal** to restore ordinary
 weekday/weekend behavior. Reset retains internal version evidence so an older open

@@ -67,6 +67,27 @@ has candidate-specific regression evidence; this manifest makes no baseline
 feature parity or speedup claim. Dependency and historical SQL bytes remain fixed,
 and no comparison policy is relaxed.
 
+PR #756 pins its immediate pre-feature main base
+`4099869f040d66ab39909f8a28cbbef604cab132` for all existing scheduling scenarios.
+Its scoped manifest binds both complete schema hashes, the unchanged dependency
+lock, all 143 historical migrations and the sole
+`20261116010000_session_refresh_boundary` addition. That migration adds a
+default-false `SessionPlanCohort.refreshSuppressed` marker and scheduled-refresh
+dirty-source triggers, extends their integrity verifier and invalidates warm
+maintenance once. It preserves existing cohort identities and participant
+agreement state. Hashes come from immutable Git blob bytes.
+
+The baseline application runs unchanged under this exact candidate schema for
+shared-schema measurements; its separately labelled native-schema cold control
+remains required. The ordinary fixtures do not schedule a quarter refresh, so
+the default-false marker introduces no claimed baseline support for the new
+cutoff behavior. Refresh creation, replacement, cancellation, exact boundaries
+and the personal-agenda diagnostic correction have separate candidate regression
+evidence. This metadata authorizes only the reviewed schema input overlay: it
+does not normalize procedure-result changes, waive semantic parity, establish a
+speedup or alter another PR's source selection. Any such output difference still
+fails the existing comparison until resolved under its declared contract.
+
 The primary control is `223a1b213a7a5167187b057d08a349d30f0087ad`, the original `c113b8efbbfe0c350dc8c0d09aec92c48777d9c6` with newly captured proposal rosters sorted. The catalog-only control is its child `c3947f096a1cf1eb33c02948d0385d46d6838d77`. It adds the ordered room-release helper and its caller. Both catalog arms use the reviewed shared-schema migration that orders sibling invalidations. The original failed measurements remain separately identified.
 
 Each `pr-N-baseline.txt` and `pr-N-catalog-baseline.txt` contains a full SHA followed by LF. Combined PR #570 compares shared captures with the complete identity and recovery projections. Its original-schema cold control captures only the fixed historical projection. Controlled contention diagnostics retain both complete ordered histories. Uncontrolled rounds preserve their independent observed fence order and raw audit chronology.

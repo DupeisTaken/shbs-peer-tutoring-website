@@ -120,7 +120,7 @@ function show() {
   );
 }
 function fill() {
-  fireEvent.change(screen.getByLabelText("tutor.attendance.comments"), {
+  fireEvent.change(screen.getByLabelText(/tutor\.attendance\.comments/), {
     target: { value: "Synthetic attendance draft" },
   });
   for (const field of [
@@ -139,7 +139,7 @@ function fill() {
 }
 async function submit(times = 1) {
   const form = screen
-    .getByLabelText("tutor.attendance.comments")
+    .getByLabelText(/tutor\.attendance\.comments/)
     .closest("form")!;
   await act(async () => {
     // Dispatch in the same turn, before async validation or React can disable
@@ -161,7 +161,7 @@ it("admits one same-turn submission, retains a rejected draft and permits its re
   });
   await screen.findByRole("alert");
   expect(
-    screen.getByLabelText<HTMLTextAreaElement>("tutor.attendance.comments")
+    screen.getByLabelText<HTMLTextAreaElement>(/tutor\.attendance\.comments/)
       .value,
   ).toBe("Synthetic attendance draft");
   await submit();
@@ -224,7 +224,7 @@ it("leaves a locally invalid draft editable without consuming submission admissi
     "tutor.attendance.errors.absenceReason",
   );
   fireEvent.change(
-    screen.getByLabelText("tutor.attendance.tutorAbsentReason"),
+    screen.getByLabelText(/tutor\.attendance\.tutorAbsentReason/),
     {
       target: { value: "Synthetic absence reason" },
     },

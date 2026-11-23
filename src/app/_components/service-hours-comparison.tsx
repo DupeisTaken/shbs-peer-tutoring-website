@@ -5,12 +5,14 @@ import type {
   ServiceHoursRow,
   ServiceHoursView,
 } from "~/lib/service-hours-view";
+import { formatSchoolHours } from "~/lib/school-hours-format";
 import { ParticipantName, participantNameLabel } from "./participant-name";
 import { SortHeader, type Sort } from "./sortable";
 import { SummaryTable, TableActions, TableDetails } from "./ui/summary-table";
 
-/** One table and one feature-owned sort survive changes between compact and
- * comparison views. Row identity always comes from tutorId, never display names. */
+/** One table and one feature-owned numeric sort survive changes between views.
+ * Retain fractional hours in every reader; formatting never feeds calculations.
+ * Row identity always comes from tutorId, never display names. */
 export function ServiceHoursComparison({
   rows,
   panel,
@@ -78,18 +80,18 @@ export function ServiceHoursComparison({
               {breakdown && (
                 <>
                   <td className="text-right tabular-nums">
-                    {row.earned.toFixed(1)}
+                    {formatSchoolHours(row.earned)}
                   </td>
                   <td className="text-right tabular-nums">
-                    {row.extras.toFixed(1)}
+                    {formatSchoolHours(row.extras)}
                   </td>
                   <td className="text-right tabular-nums">
-                    {row.punishments.toFixed(1)}
+                    {formatSchoolHours(row.punishments)}
                   </td>
                 </>
               )}
               <td className="text-right font-semibold tabular-nums">
-                {row.total.toFixed(1)}
+                {formatSchoolHours(row.total)}
               </td>
               {!breakdown && (
                 <TableActions>
@@ -104,13 +106,15 @@ export function ServiceHoursComparison({
                       <dt>{t("admin.summary.columns.sessions")}</dt>
                       <dd>{row.sessions}</dd>
                       <dt>{t("admin.summary.columns.earned")}</dt>
-                      <dd>{row.earned.toFixed(1)}</dd>
+                      <dd>{formatSchoolHours(row.earned)}</dd>
                       <dt>{t("admin.summary.columns.extras")}</dt>
-                      <dd>{row.extras.toFixed(1)}</dd>
+                      <dd>{formatSchoolHours(row.extras)}</dd>
                       <dt>{t("admin.summary.columns.penalties")}</dt>
-                      <dd>{row.punishments.toFixed(1)}</dd>
+                      <dd>{formatSchoolHours(row.punishments)}</dd>
                       <dt>{t("admin.summary.columns.total")}</dt>
-                      <dd className="font-semibold">{row.total.toFixed(1)}</dd>
+                      <dd className="font-semibold">
+                        {formatSchoolHours(row.total)}
+                      </dd>
                     </dl>
                   </TableDetails>
                 </TableActions>

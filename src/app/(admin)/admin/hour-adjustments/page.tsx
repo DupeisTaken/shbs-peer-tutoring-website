@@ -27,6 +27,7 @@ import { PastTutorsToggle } from "~/app/_components/past-tutors-toggle";
 import { useActionReview } from "~/app/_components/ui/action-review";
 import { invalidateAndReport } from "~/lib/invalidate-refresh";
 import { queuedApprovalId } from "~/lib/approval-outcome";
+import { formatSchoolHours } from "~/lib/school-hours-format";
 
 export default function AdjustmentsPage() {
   const t = useTranslations();
@@ -325,16 +326,19 @@ export default function AdjustmentsPage() {
 
       <div className="card">
         {/* Free-form reasons belong to the detail dialog; the month and amount stay easy to scan. */}
-        <SummaryTable label={t("admin.adjustments.title")}>
+        <SummaryTable
+          label={t("admin.adjustments.title")}
+          className={styles.records}
+        >
           <thead role="rowgroup">
             <tr role="row">
-              <th role="columnheader" scope="col">
+              <th role="columnheader" scope="col" className={styles.tutor}>
                 {t("admin.adjustments.table.tutor")}
               </th>
               <th role="columnheader" scope="col">
                 {t("admin.adjustments.table.month")}
               </th>
-              <th role="columnheader" scope="col">
+              <th role="columnheader" scope="col" className={styles.type}>
                 {t("admin.adjustments.table.type")}
               </th>
               <th role="columnheader" scope="col" className="text-right">
@@ -348,19 +352,23 @@ export default function AdjustmentsPage() {
           <tbody role="rowgroup">
             {(list.data ?? []).map((a) => (
               <tr role="row" key={a.id}>
-                <td role="cell">{a.tutor.englishName}</td>
+                <td role="cell" className={styles.tutor}>
+                  {a.tutor.englishName}
+                </td>
                 <td role="cell">
                   <time dateTime={a.month} className={styles.month}>
                     {a.month}
                   </time>
                 </td>
-                <td role="cell" className="text-slate-500">
+                <td role="cell" className={`text-slate-500 ${styles.type}`}>
                   {t(`admin.adjustments.typeLabel.${a.type}`)}
                 </td>
                 <td role="cell" className="text-right">
-                  {/* Decimal amounts are one token; the table scrolls locally
-                      instead of breaking the fractional digits onto another line. */}
-                  <span className={styles.amount}>{a.amount.toFixed(1)}</span>
+                  {/* Retain stored fractional hours in the list, details and review.
+                      Keep the amount one token within the locally scrolling table. */}
+                  <span className={styles.amount}>
+                    {formatSchoolHours(a.amount)}
+                  </span>
                 </td>
                 <TableActions>
                   <TableDetails title={`${a.tutor.englishName} · ${a.month}`}>
@@ -370,7 +378,7 @@ export default function AdjustmentsPage() {
                       </dt>
                       <dd>
                         {t(`admin.adjustments.typeLabel.${a.type}`)} ·{" "}
-                        {a.amount.toFixed(1)}
+                        {formatSchoolHours(a.amount)}
                       </dd>
                       <dt className="font-semibold">
                         {t("admin.adjustments.table.reason")}
@@ -396,7 +404,7 @@ export default function AdjustmentsPage() {
                               <p>
                                 {a.month} ·{" "}
                                 {t(`admin.adjustments.typeLabel.${a.type}`)} ·{" "}
-                                {a.amount.toFixed(1)} h
+                                {formatSchoolHours(a.amount)} h
                               </p>
                               <p className="whitespace-pre-wrap">
                                 {a.reason ?? "—"}

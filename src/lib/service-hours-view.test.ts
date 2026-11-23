@@ -118,4 +118,37 @@ describe("service-hour roster presentation", () => {
       serviceHoursViewParser({ ...defaults, sortKey: "credential" }),
     ).toBeUndefined();
   });
+
+  it.each(["earned", "extras", "punishments", "total"] as const)(
+    "sorts %s by raw numeric precision without changing accounting inputs",
+    (sortKey) => {
+      const source = [10, 0.251, 2, 0.249, -0.25, 0.75].map((value) =>
+        row(String(value), { [sortKey]: value }),
+      );
+      const selected = selectServiceHoursRows(
+        source,
+        { ...defaults, sortKey, sortDir: "asc" },
+        "en",
+      );
+      expect(selected.map((record) => record[sortKey])).toEqual([
+        -0.25, 0.249, 0.251, 0.75, 2, 10,
+      ]);
+      expect(source.map((record) => record[sortKey])).toEqual([
+        10, 0.251, 2, 0.249, -0.25, 0.75,
+      ]);
+      expect(serviceHoursSubtotal(selected)[sortKey]).toBe(13);
+    },
+  );
+
+  it("sums quarter-hour credits before any display formatting", () => {
+    const source = ["one", "two", "three"].map((id) =>
+      row(id, { adjustmentCount: 1, extras: 0.25, total: 0.25 }),
+    );
+    expect(serviceHoursSubtotal(source)).toEqual({
+      earned: 0,
+      extras: 0.75,
+      punishments: 0,
+      total: 0.75,
+    });
+  });
 });

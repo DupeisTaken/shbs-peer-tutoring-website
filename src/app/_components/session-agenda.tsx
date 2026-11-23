@@ -35,7 +35,9 @@ import {
 import { SessionCoordinateMessage } from "./session-coordinate-message";
 import { SessionCalendarSubscription } from "./session-calendar-subscription";
 import { programDateKey } from "~/lib/program-time";
+import { SESSION_REFRESH_BOUNDARY_ERROR } from "~/lib/session-planning";
 import { pairingScheduleText } from "~/lib/pairing-schedule";
+import { formatWeekday, minToHm } from "~/lib/time";
 import { isRegularTutoringPaused } from "~/lib/tutoring-policy";
 import { focusVisibleContext } from "./focus-visible-context";
 import { AgendaBadge, AgendaEventCard } from "./agenda-event-card";
@@ -131,6 +133,16 @@ export function SessionResponseDeadline({
 function cohortLabel(cohort: AgendaCohort, fallback: string) {
   // Unavailable arrangements can omit subjects; every reader still needs a label.
   return cohort.subjects.join(" + ") || fallback;
+}
+
+/** Parse a stored YYYY-MM-DD program calendar date in UTC so display never shifts days. */
+function parseCalendarDate(dateKey: string): Date | null {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(dateKey)) return null;
+  const parsed = new Date(`${dateKey}T00:00:00Z`);
+  return !Number.isNaN(parsed.getTime()) &&
+    parsed.toISOString().slice(0, 10) === dateKey
+    ? parsed
+    : null;
 }
 
 /** One owner keeps editors, accepted receipts and attendance drafts alive across agenda refreshes. */
@@ -335,7 +347,13 @@ export function SessionAgenda({
       await refreshAccepted();
       return true;
     } catch (failure) {
-      setError(failure instanceof Error ? failure.message : t("loadFailed"));
+      setError(
+        failure instanceof Error
+          ? failure.message === SESSION_REFRESH_BOUNDARY_ERROR
+            ? t("refreshBoundary")
+            : failure.message
+          : t("loadFailed"),
+      );
       return false;
     } finally {
       admission.current = false;
@@ -607,6 +625,29 @@ export function SessionAgenda({
   );
   const timeText = (startsAt: Date, endsAt: Date) =>
     `${format.dateTime(startsAt, { weekday: "short", month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })} – ${format.dateTime(endsAt, { hour: "2-digit", minute: "2-digit" })}`;
+  const exceptionScheduleText = (cohort: AgendaCohort) => {
+    const parsedDate = parseCalendarDate(cohort.date);
+    if (!parsedDate) {
+      return cohort.recurringSchedule
+        ? pairingScheduleText(
+            cohort.recurringSchedule,
+            t("scheduleUnavailable"),
+            locale,
+          )
+        : t("scheduleUnavailable");
+    }
+    const isoDay = ((parsedDate.getUTCDay() + 6) % 7) + 1;
+    // Paused exception rows target one paused dated occurrence rather than a
+    // recurring weekly slot, so place the exact calendar date before its weekday.
+    return (
+      <time dateTime={cohort.date}>
+        {`${format.dateTime(parsedDate, {
+          dateStyle: "medium",
+          timeZone: "UTC",
+        })} · ${formatWeekday(isoDay, locale)} ${minToHm(cohort.startMin)}–${minToHm(cohort.endMin)}`}
+      </time>
+    );
+  };
   return (
     <>
       {overview}
@@ -846,47 +887,20 @@ export function SessionAgenda({
                     </>
                   }
                 >
-                  {role === "tutor" && cohort.needsAttendance && (
-                    <p className="mb-3 text-sm text-yellow-900">
-                      {eventText("attendanceNeeded")}
-                    </p>
-                  )}
-                  {(cohort.status === "SCHEDULED" || cohort.canArrangeException) &&
-                    !preview &&
-                    data.cohorts.some((source) => source.id === cohort.id) && (
-                      <div className="flex flex-wrap items-center gap-2 border-t border-slate-100 pt-3">
-                        {!cohort.tutoringPaused && <SessionCoordinateMessage cohortId={cohort.id} />}
-                        {role === "tutor" && data.canTutorWrite && (
-                          <>
-                            <Button
-                              size="compact"
-                              disabled={
-                                blocked ||
-                                cohort.startsAt <= now ||
-                                cohort.unavailable
-                              }
-                              onClick={() =>
-                                setEditor({
-                                  mode: "propose",
-                                  cohort: cohort.tutoringPaused ? { ...cohort, tutees: cohort.pausedTutees ?? [] } : cohort,
-                                  pausedOnly: cohort.tutoringPaused,
-                                  kind: "RESCHEDULE",
-                                })
-                              }
-                            >
-                              {t(
-                                cohort.tutoringPaused
-                                  ? "arrangeException"
-                                  : "reschedule",
-                              )}
-                            </Button>
-                            {cohort.canArrangeException && !cohort.tutoringPaused && (
-                              <Button size="compact" disabled={blocked || cohort.startsAt <= now || cohort.unavailable}
-                                onClick={() => setEditor({ mode: "propose", cohort: { ...cohort, tutees: cohort.pausedTutees ?? [] }, kind: "RESCHEDULE", pausedOnly: true })}>
-                                {t("arrangeException")}
-                              </Button>
-                            )}
-                            {!onViewChange && !cohort.tutoringPaused && (
+                  {/* Keep action rows and every guidance notice in one vertical stack. */}
+                  <div className="flex min-w-0 flex-col gap-3">
+                    {role === "tutor" && cohort.needsAttendance && (
+                      <p className="text-sm text-yellow-900">
+                        {eventText("attendanceNeeded")}
+                      </p>
+                    )}
+                    {(cohort.status === "SCHEDULED" || cohort.canArrangeException) &&
+                      !preview &&
+                      data.cohorts.some((source) => source.id === cohort.id) && (
+                        <div className="flex flex-wrap items-center gap-2 border-t border-slate-100 pt-3">
+                          {!cohort.tutoringPaused && <SessionCoordinateMessage cohortId={cohort.id} />}
+                          {role === "tutor" && data.canTutorWrite && (
+                            <>
                               <Button
                                 size="compact"
                                 disabled={
@@ -897,74 +911,104 @@ export function SessionAgenda({
                                 onClick={() =>
                                   setEditor({
                                     mode: "propose",
-                                    cohort,
-                                    kind: "EXTRA",
+                                    cohort: cohort.tutoringPaused ? { ...cohort, tutees: cohort.pausedTutees ?? [] } : cohort,
+                                    pausedOnly: cohort.tutoringPaused,
+                                    kind: "RESCHEDULE",
                                   })
                                 }
                               >
-                                {t("addExtra")}
+                                {t(
+                                  cohort.tutoringPaused
+                                    ? "arrangeException"
+                                    : "reschedule",
+                                )}
                               </Button>
-                            )}
-                            {cohort.kind === "EXTRA" &&
-                              !cohort.tutoringPaused && (
+                              {cohort.canArrangeException && !cohort.tutoringPaused && (
+                                <Button size="compact" disabled={blocked || cohort.startsAt <= now || cohort.unavailable}
+                                  onClick={() => setEditor({ mode: "propose", cohort: { ...cohort, tutees: cohort.pausedTutees ?? [] }, kind: "RESCHEDULE", pausedOnly: true })}>
+                                  {t("arrangeException")}
+                                </Button>
+                              )}
+                              {!onViewChange && !cohort.tutoringPaused && (
                                 <Button
-                                  variant="danger"
                                   size="compact"
                                   disabled={
                                     blocked ||
-                                    pendingChange ||
                                     cohort.startsAt <= now ||
                                     cohort.unavailable
                                   }
                                   onClick={() =>
-                                    setEditor({ mode: "cancel", cohort })
+                                    setEditor({
+                                      mode: "propose",
+                                      cohort,
+                                      kind: "EXTRA",
+                                    })
                                   }
                                 >
-                                  {t("cancelExtra")}
+                                  {t("addExtra")}
                                 </Button>
                               )}
-                          </>
-                        )}
-                        {role === "tutee" && (
-                          <Button
-                            size="compact"
-                            disabled={
-                              blocked ||
-                              cohort.startsAt <= now ||
-                              cohort.unavailable
-                            }
-                            onClick={() =>
-                              setEditor({ mode: "suggest", cohort: cohort.tutoringPaused ? { ...cohort, tutees: cohort.pausedTutees ?? [] } : cohort, pausedOnly: cohort.tutoringPaused })
-                            }
-                          >
-                            {t("suggest")}
-                          </Button>
-                        )}
-                        {role === "tutor" && cohort.canRecordAttendance && (
-                          <Button
-                            variant="primary"
-                            size="compact"
-                            disabled={blocked || attendanceBusy}
-                            onClick={() => openAttendance(cohort)}
-                          >
-                            {t("record")}
-                          </Button>
-                        )}
-                      </div>
-                    )}
-                  {cohort.unavailable && (
-                    <InlineNotice tone="warning">
-                      {t("scheduleUnavailableHelp")}
-                    </InlineNotice>
-                  )}
-                  {cohort.tutoringPaused && <InlineNotice tone="warning">{t("tutoringPausedHelp")}</InlineNotice>}
-                  {cohort.schoolClosed &&
-                    !cohort.unavailable &&
-                    cohort.status === "SCHEDULED" && (
+                              {cohort.kind === "EXTRA" &&
+                                !cohort.tutoringPaused && (
+                                  <Button
+                                    variant="danger"
+                                    size="compact"
+                                    disabled={
+                                      blocked ||
+                                      pendingChange ||
+                                      cohort.startsAt <= now ||
+                                      cohort.unavailable
+                                    }
+                                    onClick={() =>
+                                      setEditor({ mode: "cancel", cohort })
+                                    }
+                                  >
+                                    {t("cancelExtra")}
+                                  </Button>
+                                )}
+                            </>
+                          )}
+                          {role === "tutee" && (
+                            <Button
+                              size="compact"
+                              disabled={
+                                blocked ||
+                                cohort.startsAt <= now ||
+                                cohort.unavailable
+                              }
+                              onClick={() =>
+                                setEditor({ mode: "suggest", cohort: cohort.tutoringPaused ? { ...cohort, tutees: cohort.pausedTutees ?? [] } : cohort, pausedOnly: cohort.tutoringPaused })
+                              }
+                            >
+                              {t("suggest")}
+                            </Button>
+                          )}
+                          {role === "tutor" && cohort.canRecordAttendance && (
+                            <Button
+                              variant="primary"
+                              size="compact"
+                              disabled={blocked || attendanceBusy}
+                              onClick={() => openAttendance(cohort)}
+                            >
+                              {t("record")}
+                            </Button>
+                          )}
+                        </div>
+                      )}
+                    {cohort.unavailable && (
                       <InlineNotice tone="warning">
-                        {t("schoolClosed")}
+                        {t("scheduleUnavailableHelp")}
                       </InlineNotice>
                     )}
+                    {cohort.tutoringPaused && <InlineNotice tone="warning">{t("tutoringPausedHelp")}</InlineNotice>}
+                    {cohort.schoolClosed &&
+                      !cohort.unavailable &&
+                      cohort.status === "SCHEDULED" && (
+                        <InlineNotice tone="warning">
+                          {t("schoolClosed")}
+                        </InlineNotice>
+                      )}
+                  </div>
                 </AgendaEventCard>
               );
             })}
@@ -999,13 +1043,6 @@ export function SessionAgenda({
           <InlineNotice tone="info">{u("moreAttendance")}</InlineNotice>
         )}
         <p className="muted text-xs">{t("publication")}</p>
-        {data.weeklyPublication.unavailable > 0 && (
-          <InlineNotice tone="warning">
-            {t("publicationUnavailable", {
-              count: data.weeklyPublication.unavailable,
-            })}
-          </InlineNotice>
-        )}
         {!preview &&
           data.notices.some((notice) => notice.status !== "SENT") && (
             <section className="space-y-2" aria-label={t("essentialNotices")}>
@@ -1284,9 +1321,11 @@ export function SessionAgenda({
                       {cohort.tutees.map((person) => person.name).join(", ")}
                     </p>
                     <p className="muted text-sm">
-                      {cohort.recurringSchedule
-                        ? pairingScheduleText(cohort.recurringSchedule, t("scheduleUnavailable"), locale)
-                        : t("scheduleUnavailable")}
+                      {cohort.pausedOnly
+                        ? exceptionScheduleText(cohort)
+                        : cohort.recurringSchedule
+                          ? pairingScheduleText(cohort.recurringSchedule, t("scheduleUnavailable"), locale)
+                          : t("scheduleUnavailable")}
                     </p>
                   </div>
                   <Button

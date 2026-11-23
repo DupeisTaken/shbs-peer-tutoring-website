@@ -72,7 +72,7 @@ export function ProgramEmailSettings({
           )}
           {data && (
             <EmailDeliveryStatus
-              canEdit={data.canEdit}
+              canResend={data.canApply === true}
               settingsReady={!settings.error}
             />
           )}
@@ -203,10 +203,10 @@ export function ProgramEmailSettings({
 
 /** Reads never replay a resend. An accepted batch stays locked until its status read succeeds. */
 function EmailDeliveryStatus({
-  canEdit,
+  canResend,
   settingsReady,
 }: {
-  canEdit: boolean;
+  canResend: boolean;
   settingsReady: boolean;
 }) {
   const t = useTranslations("programEmail");
@@ -255,7 +255,7 @@ function EmailDeliveryStatus({
   const statusFailed = !!status.error || readFailed;
   const queueStuck = async () => {
     if (
-      !canEdit ||
+      !canResend ||
       !settingsReady ||
       statusFailed ||
       status.isFetching ||
@@ -365,7 +365,8 @@ function EmailDeliveryStatus({
           )}
         </>
       )}
-      {canEdit && (
+      {/* Resending applies immediately; proposal authority does not permit it. */}
+      {canResend && (
         <div className="space-y-2 border-t border-slate-200 pt-3">
           <Button
             size="compact"

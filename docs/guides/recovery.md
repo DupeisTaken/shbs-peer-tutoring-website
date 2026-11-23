@@ -80,8 +80,12 @@ not make missing evidence trustworthy.
 
 Older activity records can be inspected, but their historical `undoData` does not
 prove a complete causal chain. They cannot be forced through the new admission
-recovery command. Use the record inspector to establish the actual current facts
-and obtain a separately reviewed correction when no supported plan exists.
+recovery command. Audit Log rows retain **View details** and any related
+**View Request** link; legacy undo data does not provide a row-level recovery
+shortcut. Use **Admission Recovery** in the management navigation to select a
+supported admission or checkpoint. Use the record inspector to establish the
+actual current facts and obtain a separately reviewed correction when no supported
+plan exists.
 
 The operator CLI runs on a trusted host with database credentials. It provides
 JSON reports and typed operations; it does not expose SQL or shell execution in

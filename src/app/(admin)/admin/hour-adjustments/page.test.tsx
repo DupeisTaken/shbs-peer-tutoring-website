@@ -1,4 +1,6 @@
 // @vitest-environment jsdom
+import { readFileSync } from "node:fs";
+import { fileURLToPath, URL as NodeURL } from "node:url";
 import {
   act,
   cleanup,
@@ -10,9 +12,37 @@ import {
 } from "@testing-library/react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { NextIntlClientProvider } from "next-intl";
+import { parse } from "postcss";
 import en from "../../../../../messages/en.json";
 import zh from "../../../../../messages/zh.json";
 import { ReadOnlyProvider } from "~/app/_components/read-only";
+import styles from "./page.module.css";
+
+const layout = parse(
+  // The alias keeps Vite from rewriting this filesystem lookup as a browser asset.
+  readFileSync(
+    fileURLToPath(new NodeURL("./page.module.css", import.meta.url)),
+    "utf8",
+  ),
+);
+
+function layoutFor(element: Element) {
+  const declarations = new Map<string, string>();
+  layout.walkRules((rule) => {
+    // Bind the real module rules to rendered cells. Only base rules apply to
+    // these column constraints; jsdom does not provide browser table geometry.
+    if (rule.parent?.type !== "root") return;
+    const selector = rule.selector.replace(
+      /\.([a-zA-Z][\w-]*)/g,
+      (_match, name: string) => `.${styles[name] ?? name}`,
+    );
+    if (!element.matches(selector)) return;
+    rule.walkDecls((declaration) => {
+      declarations.set(declaration.prop, declaration.value);
+    });
+  });
+  return declarations;
+}
 
 const state = vi.hoisted(() => ({
   create: vi.fn(),
@@ -30,7 +60,7 @@ const state = vi.hoisted(() => ({
       id: "synthetic-adjustment",
       tutor: { englishName: "Alexandra Montgomery-Wellington Synthetic Tutor" },
       month: "2026-09",
-      type: "EXTRA" as const,
+      type: "EXTRA",
       amount: 1.5,
       reason:
         "Synthetic explanation with full detail. " +
@@ -154,6 +184,8 @@ function renderPage(locale = "en", readOnly = false) {
 }
 
 beforeEach(() => {
+  state.rows[0]!.amount = 1.5;
+  state.rows[0]!.type = "EXTRA";
   state.completeCreate = undefined;
   state.failCreate = undefined;
   state.createError = null;
@@ -388,6 +420,73 @@ it.each(["en", "zh"])(
   },
 );
 
+it.each(
+  ["en", "zh"].flatMap((locale) =>
+    [
+      { amount: 0.25, displayed: "0.25", type: "PUNISHMENT" as const },
+      { amount: 0.75, displayed: "0.75", type: "EXTRA" as const },
+      { amount: 0.5, displayed: "0.5", type: "EXTRA" as const },
+      { amount: 2, displayed: "2", type: "EXTRA" as const },
+      { amount: 0.125, displayed: "0.125", type: "PUNISHMENT" as const },
+      {
+        amount: 1 / 60,
+        displayed: "0.016666666666666666",
+        type: "EXTRA" as const,
+      },
+      { amount: 0.00001, displayed: "0.00001", type: "EXTRA" as const },
+      { amount: Number.MIN_VALUE, displayed: "5e-324", type: "EXTRA" as const },
+      {
+        amount: Number.MAX_VALUE,
+        displayed: "1.7976931348623157e+308",
+        type: "EXTRA" as const,
+      },
+    ].map((example) => ({ locale, ...example })),
+  ),
+)(
+  "retains $amount hours in the $locale list, details and deletion review",
+  ({ locale, amount, displayed, type }) => {
+    const adjustment = state.rows[0]!;
+    adjustment.amount = amount;
+    adjustment.type = type;
+    const messages = locale === "zh" ? zh : en;
+    const typeLabel = messages.admin.adjustments.typeLabel[type];
+    renderPage(locale);
+    const row = within(screen.getByRole("table")).getAllByRole("row")[1]!;
+    expect(
+      within(row).getByRole("cell", { name: displayed }),
+    ).toBeTruthy();
+
+    fireEvent.click(
+      within(row).getByRole("button", {
+        name: `${messages.tablePatterns.details}: ${adjustment.tutor.englishName} · ${adjustment.month}`,
+      }),
+    );
+    let dialog = within(screen.getByRole("dialog"));
+    expect(dialog.getByText(`${typeLabel} · ${displayed}`)).toBeTruthy();
+    expect(dialog.getByText(adjustment.reason)).toBeTruthy();
+    fireEvent.click(
+      dialog.getByRole("button", { name: messages.tablePatterns.close }),
+    );
+
+    fireEvent.click(
+      within(row).getByRole("button", {
+        name: `${messages.admin.adjustments.table.delete}: ${adjustment.tutor.englishName}, ${adjustment.month}`,
+      }),
+    );
+    dialog = within(screen.getByRole("dialog"));
+    expect(
+      dialog.getByText(`${adjustment.month} · ${typeLabel} · ${displayed} h`),
+    ).toBeTruthy();
+    fireEvent.click(
+      dialog.getByRole("button", { name: messages.common.cancel }),
+    );
+    expect(state.create).not.toHaveBeenCalled();
+    expect(state.remove).not.toHaveBeenCalled();
+    expect(state.invalidate).not.toHaveBeenCalled();
+    expect(adjustment.amount).toBe(amount);
+  },
+);
+
 it("submits the selected month, half-hour amount and trimmed reason unchanged", () => {
   renderPage();
   fireEvent.click(
@@ -476,3 +575,68 @@ it("announces loading and request errors", () => {
     "Synthetic list failure",
   ]);
 });
+
+it.each([
+  ["en", false],
+  ["zh", false],
+  ["en", true],
+  ["zh", true],
+] as const)(
+  "reserves readable %s identity/type columns in the keyboard-scrollable table (readOnly=%s)",
+  (locale, readOnly) => {
+    renderPage(locale, readOnly);
+    const messages = locale === "zh" ? zh : en;
+    const table = screen.getByRole("table", {
+      name: messages.admin.adjustments.title,
+    });
+    expect(table.classList.contains(styles.records!)).toBe(true);
+    const region = screen.getByRole("region", {
+      name: messages.admin.adjustments.title,
+    });
+    expect(region.contains(table)).toBe(true);
+    expect(region.getAttribute("tabindex")).toBe("0");
+    expect(region.classList.contains("summary-table-scroll")).toBe(true);
+
+    const rows = within(table).getAllByRole("row");
+    for (const row of rows) {
+      const cells = within(row).getAllByRole(
+        row === rows[0] ? "columnheader" : "cell",
+      );
+      const tutor = cells[0]!;
+      const type = cells[2]!;
+      expect(tutor.classList.contains(styles.tutor!)).toBe(true);
+      expect(type.classList.contains(styles.type!)).toBe(true);
+      // At the base font these minima leave >=136px / 88px of content after
+      // shared cell padding. They prevent the former 35px character columns.
+      for (const [cell, minimumRem] of [
+        [tutor, 10],
+        [type, 7],
+      ] as const) {
+        const rules = layoutFor(cell);
+        const minimum = rules.get("min-width") ?? "";
+        expect(minimum).toMatch(/^\d+(?:\.\d+)?rem$/);
+        expect(Number.parseFloat(minimum)).toBeGreaterThanOrEqual(minimumRem);
+        expect(rules.get("white-space")).not.toBe("nowrap");
+        expect(rules.get("overflow") ?? "").not.toMatch(/hidden|clip/);
+        expect(rules.has("line-clamp")).toBe(false);
+      }
+      expect(
+        cells
+          .at(-1)
+          ?.classList.contains(
+            row === rows[0] ? "table-actions-heading" : "table-actions",
+          ),
+      ).toBe(true);
+    }
+    const headings = within(table).getAllByRole("columnheader");
+    for (const heading of headings) {
+      expect(layoutFor(heading).get("overflow-wrap")).toBe("normal");
+      expect(layoutFor(heading).get("word-break")).toBe("keep-all");
+    }
+    const name = within(table).getByText(state.rows[0]!.tutor.englishName);
+    expect(layoutFor(name).get("overflow-wrap")).toBe("anywhere");
+    expect(layoutFor(table).get("table-layout")).not.toBe("fixed");
+    expect(state.create).not.toHaveBeenCalled();
+    expect(state.remove).not.toHaveBeenCalled();
+  },
+);

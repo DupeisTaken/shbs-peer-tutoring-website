@@ -15,8 +15,8 @@ The coverage migration conservatively journals any existing schedule related to
 a tracked admission; it does not change schedule settings or activate a period.
 
 The persistent Node server starts a sweep immediately and every 30 seconds.
-It processes up to ten due schedules serially, using database time and the shared
-period lock. Multiple application instances may run workers safely. An overdue
+It checks up to ten schedules serially, earliest first, using database time and the
+shared period lock. Multiple application instances may run workers safely. An overdue
 schedule catches up after restart only while its exact review and approving Head
 authority remain valid. Do not promise exact-second execution or execution while
 all app instances are offline. Keep a persistent instance running for this workflow.
@@ -24,7 +24,9 @@ all app instances are offline. Keep a persistent instance running for this workf
 Transient execution failures roll back and retry on later sweeps; five recorded
 failures stop execution and notify management. Inspect the schedule status in
 Program Settings, correct the deployment problem, then have Head review a new
-schedule. Review/authority conflicts are blocked immediately. Notification delivery
+schedule. On detecting a review or authority conflict, the worker blocks the schedule
+and records its notice together, even before execution is due. An error during an
+advance check is retried without using an execution attempt. Notification delivery
 failure never repeats a committed activation. Cancellation queued for Head approval
 does not stop a due schedule until approved. See the
 [operator guide](program-configuration.md#schedule-a-refresh).

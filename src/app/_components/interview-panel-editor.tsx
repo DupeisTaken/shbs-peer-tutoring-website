@@ -268,7 +268,9 @@ export function InterviewPanelEditor({
           {assign.isPending ? t("saving") : t("savePanel")}
         </Button>
         {!canAssign && !assign.isPending && (
-          <span className="muted text-xs">{t("pickHint", { n: 3 })}</span>
+          <span className="muted text-xs">
+            {t("pickRangeHint", { min: 3, max: 8 })}
+          </span>
         )}
         {assign.isSuccess && (
           <span role="status" className="text-sm text-green-600">

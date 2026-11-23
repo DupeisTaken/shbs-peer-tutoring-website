@@ -2,7 +2,11 @@ import Link from "next/link";
 import { shortSignupHref } from "~/lib/public-signup-links";
 
 import { Markdown } from "~/app/_components/markdown";
-import { pickLocalized, type Block, type LeafBlock } from "~/lib/page-blocks";
+import {
+  resolveLocalized,
+  type Block,
+  type LeafBlock,
+} from "~/lib/page-blocks";
 
 /**
  * Renderers for the content blocks (RICH_TEXT / IMAGE / BUTTONS / COLUMNS). Shared by the landing
@@ -19,21 +23,35 @@ export function ButtonRow({
   locale: string;
 }) {
   const buttons = block.buttons
-    .map((b) => ({ ...b, label: pickLocalized(b.label, locale) }))
-    .filter((b) => b.label.trim() && b.href);
+    .map((b) => ({ ...b, label: resolveLocalized(b.label, locale) }))
+    .filter((b) => b.label.value.trim() && b.href);
   if (buttons.length === 0) return null;
   return (
-    <div className={`flex flex-wrap gap-3 ${block.align === "center" ? "justify-center" : ""}`}>
+    <div
+      className={`flex flex-wrap gap-3 ${block.align === "center" ? "justify-center" : ""}`}
+    >
       {buttons.map((b, i) => {
         // Public block actions remain comfortable touch targets even when their copy is short.
         const cls = `${b.style === "primary" ? "btn-primary" : "btn-secondary"} min-h-11`;
         return b.href.startsWith("/") ? (
-          <Link key={i} href={shortSignupHref(b.href)} className={cls}>
-            {b.label}
+          <Link
+            key={i}
+            href={shortSignupHref(b.href)}
+            className={cls}
+            lang={b.label.locale}
+          >
+            {b.label.value}
           </Link>
         ) : (
-          <a key={i} href={b.href} className={cls} target="_blank" rel="noopener noreferrer">
-            {b.label}
+          <a
+            key={i}
+            href={b.href}
+            className={cls}
+            target="_blank"
+            rel="noopener noreferrer"
+            lang={b.label.locale}
+          >
+            {b.label.value}
           </a>
         );
       })}
@@ -48,12 +66,15 @@ export function RichTextBlock({
   block: Extract<Block, { type: "RICH_TEXT" }>;
   locale: string;
 }) {
-  const body = pickLocalized(block.text, locale);
-  if (!body.trim()) return null;
+  const body = resolveLocalized(block.text, locale);
+  if (!body.value.trim()) return null;
   return (
     <section className="mx-auto max-w-3xl px-4 py-8">
-      <div className={`text-slate-600 ${block.align === "center" ? "text-center" : ""}`}>
-        <Markdown>{body}</Markdown>
+      <div
+        lang={body.locale}
+        className={`text-slate-600 ${block.align === "center" ? "text-center" : ""}`}
+      >
+        <Markdown>{body.value}</Markdown>
       </div>
     </section>
   );
@@ -68,18 +89,29 @@ export function ImageBlock({
 }) {
   if (!block.imageId) return null;
   const maxW =
-    block.width === "narrow" ? "max-w-md" : block.width === "full" ? "max-w-5xl" : "max-w-3xl";
-  const caption = pickLocalized(block.caption, locale);
+    block.width === "narrow"
+      ? "max-w-md"
+      : block.width === "full"
+        ? "max-w-5xl"
+        : "max-w-3xl";
+  const caption = resolveLocalized(block.caption, locale);
   return (
     <section className="mx-auto max-w-5xl px-4 py-8">
-      <figure className={`mx-auto ${maxW}`}>
+      <figure
+        className={`mx-auto ${maxW}`}
+        lang={caption.value ? caption.locale : undefined}
+      >
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
           src={`/api/images/${block.imageId}`}
-          alt={caption}
+          alt={caption.value}
           className="h-auto w-full rounded-xl border border-slate-200"
         />
-        {caption && <figcaption className="muted mt-2 text-center text-sm">{caption}</figcaption>}
+        {caption.value && (
+          <figcaption className="muted mt-2 text-center text-sm">
+            {caption.value}
+          </figcaption>
+        )}
       </figure>
     </section>
   );
@@ -100,29 +132,42 @@ export function ButtonsBlock({
 }
 
 /** A leaf block rendered bare (no section wrapper) — used inside a COLUMNS column. */
-export function ColumnLeaf({ block, locale }: { block: LeafBlock; locale: string }) {
+export function ColumnLeaf({
+  block,
+  locale,
+}: {
+  block: LeafBlock;
+  locale: string;
+}) {
   switch (block.type) {
     case "RICH_TEXT": {
-      const body = pickLocalized(block.text, locale);
-      if (!body.trim()) return null;
+      const body = resolveLocalized(block.text, locale);
+      if (!body.value.trim()) return null;
       return (
-        <div className={`text-sm text-slate-600 ${block.align === "center" ? "text-center" : ""}`}>
-          <Markdown>{body}</Markdown>
+        <div
+          lang={body.locale}
+          className={`text-sm text-slate-600 ${block.align === "center" ? "text-center" : ""}`}
+        >
+          <Markdown>{body.value}</Markdown>
         </div>
       );
     }
     case "IMAGE": {
       if (!block.imageId) return null;
-      const caption = pickLocalized(block.caption, locale);
+      const caption = resolveLocalized(block.caption, locale);
       return (
-        <figure>
+        <figure lang={caption.value ? caption.locale : undefined}>
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src={`/api/images/${block.imageId}`}
-            alt={caption}
+            alt={caption.value}
             className="h-auto w-full rounded-lg border border-slate-200"
           />
-          {caption && <figcaption className="muted mt-1.5 text-center text-xs">{caption}</figcaption>}
+          {caption.value && (
+            <figcaption className="muted mt-1.5 text-center text-xs">
+              {caption.value}
+            </figcaption>
+          )}
         </figure>
       );
     }
