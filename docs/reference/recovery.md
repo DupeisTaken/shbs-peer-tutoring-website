@@ -469,6 +469,22 @@ only local answers and exact owner/source binding. The owner reviews it at
 fresh mailbox/policy requirements. Draft adoption has its own versioned receipt;
 it neither reopens the terminal source nor restores an earlier signature or proof.
 
+Approved `STUDENT_ABORT` decisions instead capture version 1 of the dedicated
+`STUDENT_QUARTER_WITHDRAWAL` adapter, rooted in the real `StudentRequestReview.id`.
+The existing `STUDENT_WORKFLOW` format and its signup, recall, denial and schedule
+review paths remain unchanged. The aggregate snapshot records bounded exact
+review, ownership, period, source, execution-assignment and session-authority
+evidence without application answers, signatures, reasons or private drafts.
+Inspection uses the shared read-only evidence reader, which also accepts the
+approved review and closed sources after the action.
+
+Quarter-withdrawal recovery is inspection-only. A stable terminal blocker makes
+coverage `UNKNOWN` and `websiteEligible` false; the operator channel cannot bypass
+it. Both channels reject before delivery cancellation, and adapter application
+also rejects defensively. Normal delivery inventory and fingerprinting remain
+enabled. No request is reopened, assignment restored, quarter block removed,
+owner-review draft created or restoration receipt issued by this adapter.
+
 Compensation sets `shbs.recovery_compensating` to the exact action ID. Its own
 capture is suppressed, while overlapping roots record `RECOVERY_COMPENSATION`.
 The former global value `1` is rejected. Domain locks precede sorted recovery

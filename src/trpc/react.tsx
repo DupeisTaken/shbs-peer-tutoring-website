@@ -1,7 +1,7 @@
 "use client";
 
 import { QueryClientProvider } from "@tanstack/react-query";
-import { httpBatchStreamLink, TRPCClientError } from "@trpc/client";
+import { httpBatchStreamLink, httpLink, splitLink, TRPCClientError } from "@trpc/client";
 import { createTRPCReact } from "@trpc/react-query";
 import { type inferRouterInputs, type inferRouterOutputs } from "@trpc/server";
 import {
@@ -16,6 +16,7 @@ import { usePathname } from "next/navigation";
 import { useTranslations } from "next-intl";
 import SuperJSON from "superjson";
 import { TRPC_BATCH_OPTIONS } from "~/lib/trpc-batch";
+import { studentAbortReceiptPath } from "~/lib/student-abort-receipt-transport";
 
 // Pure `import type` (not inline) so Turbopack never traces the server router graph (→ nodemailer)
 // into the client bundle.
@@ -243,15 +244,24 @@ function IdentityQueryProvider(props: {
     api.createClient({
       links: [
         createClientLoggerLink(),
-        httpBatchStreamLink({
-          ...TRPC_BATCH_OPTIONS,
-          transformer: SuperJSON,
-          url: getBaseUrl() + "/api/trpc",
-          headers: () => {
-            const headers = new Headers();
-            headers.set("x-trpc-source", "nextjs-react");
-            return headers;
-          },
+        splitLink({
+          condition: (operation) => operation.path === studentAbortReceiptPath,
+          true: httpLink({
+            transformer: SuperJSON,
+            url: getBaseUrl() + "/api/trpc",
+            methodOverride: "POST",
+            headers: () => ({ "x-trpc-source": "nextjs-react" }),
+          }),
+          false: httpBatchStreamLink({
+            ...TRPC_BATCH_OPTIONS,
+            transformer: SuperJSON,
+            url: getBaseUrl() + "/api/trpc",
+            headers: () => {
+              const headers = new Headers();
+              headers.set("x-trpc-source", "nextjs-react");
+              return headers;
+            },
+          }),
         }),
       ],
     }),

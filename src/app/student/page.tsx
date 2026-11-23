@@ -1,4 +1,5 @@
 import { auth } from "~/server/auth";
+import { randomUUID } from "node:crypto";
 import { accountPortalAccess } from "~/server/portal-access";
 import Link from "next/link";
 import { MessageInbox } from "~/app/_components/message-inbox";
@@ -15,6 +16,13 @@ import { getActivePeriodOrNull } from "~/server/period";
 import { getFeatures } from "~/server/program/features";
 import { getPeriodDisplay } from "~/lib/period";
 import { SessionPagePosition } from "~/app/_components/session-view-state";
+import { inTransaction } from "~/server/transactions";
+import { readStudentSignupRestriction } from "~/server/student-intake-restriction";
+import {
+  StudentSignupAction,
+  StudentSignupRestrictionFeedback,
+  StudentSignupRestrictionProvider,
+} from "./signup-restriction";
 
 export const dynamic = "force-dynamic";
 /** Keep intake and historical links stable while presenting one focused workspace at a time. */
@@ -23,16 +31,32 @@ export default async function StudentPage({
 }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
-  const [params, t, signup, currentPeriod, features, workflows] =
-    await Promise.all([
-      searchParams,
-      getTranslations("tuteePortal"),
-      getTranslations("public.signup"),
-      getActivePeriodOrNull(db),
-      getFeatures(db),
-      getTranslations("workflows"),
-    ]);
   const session = await auth();
+  const [params, t, signup, intake, workflows] = await Promise.all([
+    searchParams,
+    getTranslations("tuteePortal"),
+    getTranslations("public.signup"),
+    // A read snapshot binds the displayed period and restriction without taking
+    // the exclusive period barrier used by signup and refresh writers.
+    inTransaction(
+      db,
+      async (tx) => {
+        const currentPeriod = await getActivePeriodOrNull(tx);
+        const features = await getFeatures(tx);
+        const restriction = session?.user
+          ? await readStudentSignupRestriction(
+              tx,
+              currentPeriod?.termId ?? null,
+              session.user.id,
+            )
+          : null;
+        return { currentPeriod, features, restriction };
+      },
+      { isolationLevel: "RepeatableRead" },
+    ),
+    getTranslations("workflows"),
+  ]);
+  const { currentPeriod, features, restriction } = intake;
   const access = session?.user
     ? await accountPortalAccess(session.user.id)
     : null;
@@ -42,7 +66,15 @@ export default async function StudentPage({
     ? getPeriodDisplay(currentPeriod, features.QUARTER_SYSTEM)
     : null;
   return (
-    <>
+    <StudentSignupRestrictionProvider
+      key={viewScope}
+      snapshotKey={randomUUID()}
+      initialRestriction={{
+        intakeTermId: currentPeriod?.termId ?? null,
+        blocked: restriction?.blocked ?? false,
+        canOpenWorkspace: restriction?.canOpenWorkspace ?? false,
+      }}
+    >
       {view === "account" && (
         <SessionPagePosition id="student-account-v1" scope={viewScope} ready />
       )}
@@ -58,12 +90,12 @@ export default async function StudentPage({
             </p>
           )}
         </div>
-        {!access?.departed && (
-          <Link href="/tutee" className="btn-primary" prefetch={false}>
-            {t("requestTutor")}
-          </Link>
-        )}
+        <StudentSignupAction
+          initiallyBlocked={restriction?.blocked ?? false}
+          departed={access?.departed ?? false}
+        />
       </div>
+      <StudentSignupRestrictionFeedback />
       {(view === "dashboard" || view === "requests") && !access?.departed && (
         <LegacyContinuation key={viewScope} />
       )}
@@ -72,7 +104,10 @@ export default async function StudentPage({
       {view === "account" && <AccountSettings embedded />}
       {view === "requests" && (
         <>
-          <StudentWorkspace viewScope={viewScope} />
+          <StudentWorkspace
+            viewScope={viewScope}
+            quarterBlocked={restriction?.blocked ?? false}
+          />
           <LegacyParticipation />
         </>
       )}
@@ -92,6 +127,6 @@ export default async function StudentPage({
       {(view === "schedule" || view === "attendance" || view === "support") && (
         <StudentPortal key={view} view={view} viewScope={viewScope} />
       )}
-    </>
+    </StudentSignupRestrictionProvider>
   );
 }
