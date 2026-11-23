@@ -318,6 +318,19 @@ acceptance, purpose confusion, attempt limits, resend and failed delivery in tes
 capture both site and email panels at desktop/mobile widths and verify that stripping
 email styles preserves readable instructions, full codes and contrast.
 
+## Writing UI copy
+
+Keep visible interface copy brief, task-oriented and written for high-school participants and student officers rather than engineers. Treat every word, badge and persistent banner as interface chrome that competes with the user's primary task.
+
+1. **Describe the user's outcome, not the implementation.** Omit optimistic-locking versions, draft/snapshot internals, idempotent retry deduplication, SMTP transport handoffs, database keys and audit actors from everyday UI copy.
+2. **State what happens rather than listing everything that does not.** Keep a negative caveat only when a person would otherwise reasonably worry about data loss or an irreversible side effect.
+3. **Keep inline guidance short (1–2 sentences) and use progressive disclosure.** Put secondary historical rules, edge-case specifications or archival footnotes inside a collapsed disclosure (`<details>` / `DisclosureSection`) or tooltip so primary workflows stay scannable.
+4. **Avoid redundant chrome and leaked internal IDs.** Do not repeat a page-level notice as a badge on every standard card when only exceptions differ (for example, `MessageInbox` keeps the supervision notice at the top and marks only legacy participant-only messages). Show technical disambiguators such as database record IDs in participant tables only when visible names collide, while keeping accessible labels and detail dialogs complete.
+5. **Put prerequisite inputs before the gated actions they explain.** When a field unlocks or authorizes adjacent buttons (such as `Current password` gating `Make primary` and `Remove` in `AccountEmails`), place the prerequisite field above the controls it governs so disabled states explain themselves immediately.
+6. **Make recovery copy actionable.** State what happened and the next step (for example, `"Saved, but the page could not refresh. Try refreshing."`) instead of explaining how read-only retries avoid replaying writes.
+7. **Keep labels audience-appropriate and free of manual requirement markers.** Never reuse staff-prefixed titles on participant actions, keep shared participant copy role-neutral when both tutors and tutees read it, and never embed `*` or `(optional)` inside translation strings—render `FieldRequirement` beside the label.
+8. **Follow one English/Chinese glossary and register.** Use **tutor** / **tutee** (`辅导伙伴` / `学习伙伴`) per [implementation wording](implementation.md#english-peer-tutoring-wording), Title Case **Head** (`负责人`, never raw `HEAD` or `Admin` in Chinese prose), **巡查队** / **巡查成员** / **巡查** for Crew, **服务时数** for service hours, **账号** (not `账户`), **加载** (not `载入`), and peer-friendly **你** (not `您`) consistently across Chinese UI catalogs.
+
 ## Evolving the conventions
 
 Before adding or changing a design rule, inspect the current component, gallery

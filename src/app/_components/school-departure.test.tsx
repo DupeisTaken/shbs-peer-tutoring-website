@@ -377,7 +377,7 @@ it("requires a reason and consequence review before requesting a departure", () 
   });
   fireEvent.click(screen.getByRole("button", { name: "Request change" }));
   expect(fixture.request).not.toHaveBeenCalled();
-  expect(screen.getByText(/Current assignments are detached/)).toBeTruthy();
+  expect(screen.getByText(messages.schoolDeparture.consequences)).toBeTruthy();
   fireEvent.click(screen.getByRole("button", { name: "Confirm change" }));
   expect(fixture.request).toHaveBeenCalledWith({
     action: "TRANSFERRED",

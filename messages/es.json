@@ -507,7 +507,8 @@
     "replyContext": "Respondiendo a {name}",
     "cancelReply": "Cancelar Respuesta",
     "replyDraftHelp": "Se conserva tu borrador anterior. Al cancelar, también se conserva este borrador de respuesta en la página.",
-    "permissionsDestination": "Permisos de mensajería en Configuración del programa"
+    "permissionsDestination": "Permisos de mensajería en Configuración del programa",
+    "privacyDetails": "Más sobre mensajes anteriores"
   },
   "common": {
     "cancel": "Cancelar",
@@ -922,7 +923,8 @@
         "tutors": "Tutores",
         "tutees": "Estudiantes",
         "schedulingRecords": "Programación y registros",
-        "administration": "Administración"
+        "administration": "Administración",
+        "dataRecovery": "Datos y recuperación"
       },
       "links": {
         "dashboard": "Panel",
@@ -2372,7 +2374,7 @@
         "EXTRA": "Sesión extra",
         "TUTOR_ABSENT": "Tutor ausente"
       },
-      "tutorAbsentReason": "Motivo de la ausencia del tutor *",
+      "tutorAbsentReason": "Motivo de la ausencia del tutor",
       "start": "Inicio",
       "end": "Fin",
       "now": "Ahora",
@@ -2398,7 +2400,7 @@
         "4": "Muy bueno",
         "5": "Excelente"
       },
-      "comments": "Comentarios *",
+      "comments": "Comentarios",
       "cardsTitle": "Tarjetas disciplinarias (opcional)",
       "cardsHelp": "Asigna una tarjeta amarilla o roja con un motivo breve. El equipo revisa cada una antes de que cuente. (Una ausencia injustificada arriba emite automáticamente una tarjeta roja.)",
       "noCard": "Sin tarjeta",
@@ -6323,7 +6325,8 @@
     "proposeUnassign": "Proponer liberar la asignación",
     "changed": "La revisión cambió mientras escribías. Tu motivo se conserva. Recarga antes de reintentar.",
     "reload": "Recargar revisión",
-    "rejectedTitle": "Solicitud inválida cerrada"
+    "rejectedTitle": "Solicitud inválida cerrada",
+    "action": "Revisar o apelar"
   },
   "accountDeletion": {
     "intro": "Permanently delete the login for {name}? Review the account and its records before confirming your password.",
