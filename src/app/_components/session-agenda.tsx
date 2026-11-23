@@ -37,6 +37,7 @@ import { SessionCalendarSubscription } from "./session-calendar-subscription";
 import { programDateKey } from "~/lib/program-time";
 import { SESSION_REFRESH_BOUNDARY_ERROR } from "~/lib/session-planning";
 import { pairingScheduleText } from "~/lib/pairing-schedule";
+import { formatWeekday, minToHm } from "~/lib/time";
 import { isRegularTutoringPaused } from "~/lib/tutoring-policy";
 import { focusVisibleContext } from "./focus-visible-context";
 import { AgendaBadge, AgendaEventCard } from "./agenda-event-card";
@@ -132,6 +133,16 @@ export function SessionResponseDeadline({
 function cohortLabel(cohort: AgendaCohort, fallback: string) {
   // Unavailable arrangements can omit subjects; every reader still needs a label.
   return cohort.subjects.join(" + ") || fallback;
+}
+
+/** Parse a stored YYYY-MM-DD program calendar date in UTC so display never shifts days. */
+function parseCalendarDate(dateKey: string): Date | null {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(dateKey)) return null;
+  const parsed = new Date(`${dateKey}T00:00:00Z`);
+  return !Number.isNaN(parsed.getTime()) &&
+    parsed.toISOString().slice(0, 10) === dateKey
+    ? parsed
+    : null;
 }
 
 /** One owner keeps editors, accepted receipts and attendance drafts alive across agenda refreshes. */
@@ -614,6 +625,29 @@ export function SessionAgenda({
   );
   const timeText = (startsAt: Date, endsAt: Date) =>
     `${format.dateTime(startsAt, { weekday: "short", month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })} – ${format.dateTime(endsAt, { hour: "2-digit", minute: "2-digit" })}`;
+  const exceptionScheduleText = (cohort: AgendaCohort) => {
+    const parsedDate = parseCalendarDate(cohort.date);
+    if (!parsedDate) {
+      return cohort.recurringSchedule
+        ? pairingScheduleText(
+            cohort.recurringSchedule,
+            t("scheduleUnavailable"),
+            locale,
+          )
+        : t("scheduleUnavailable");
+    }
+    const isoDay = ((parsedDate.getUTCDay() + 6) % 7) + 1;
+    // Paused exception rows target one paused dated occurrence rather than a
+    // recurring weekly slot, so place the exact calendar date before its weekday.
+    return (
+      <time dateTime={cohort.date}>
+        {`${format.dateTime(parsedDate, {
+          dateStyle: "medium",
+          timeZone: "UTC",
+        })} · ${formatWeekday(isoDay, locale)} ${minToHm(cohort.startMin)}–${minToHm(cohort.endMin)}`}
+      </time>
+    );
+  };
   return (
     <>
       {overview}
@@ -1287,9 +1321,11 @@ export function SessionAgenda({
                       {cohort.tutees.map((person) => person.name).join(", ")}
                     </p>
                     <p className="muted text-sm">
-                      {cohort.recurringSchedule
-                        ? pairingScheduleText(cohort.recurringSchedule, t("scheduleUnavailable"), locale)
-                        : t("scheduleUnavailable")}
+                      {cohort.pausedOnly
+                        ? exceptionScheduleText(cohort)
+                        : cohort.recurringSchedule
+                          ? pairingScheduleText(cohort.recurringSchedule, t("scheduleUnavailable"), locale)
+                          : t("scheduleUnavailable")}
                     </p>
                   </div>
                   <Button

@@ -37,10 +37,14 @@ the source neither submits a proposal nor changes a recurring assignment; the
 existing 45-minute, agreement, version and conflict rules still govern submission.
 An unavailable source leaves the action disabled; Pairings remains directly available in the workspace tabs.
 The picker displays the current primary pairing's localized weekly slot rather
-than the source occurrence's date. A moved or timetable-mapped date never becomes
-the displayed recurring weekday. Distinct source cohorts retain their captured
-audience, identity and version even when their weekly labels match; an unavailable
-current slot is shown as unavailable rather than inferred from the occurrence.
+than the source occurrence's date for ordinary extra-session sources. A moved or
+timetable-mapped date never becomes the displayed recurring weekday. Distinct
+source cohorts retain their captured audience, identity and version even when
+their weekly labels match; an unavailable current slot is shown as unavailable
+rather than inferred from the occurrence. Paused exception rows (**Arrange
+exception**) display the paused occurrence's localized calendar date before its
+calendar weekday and planned time so dated exceptions remain distinct from
+recurring-slot extra sources.
 The tutor picker requests this enrichment with `includeRecurringSchedule: true`.
 Omitted or false flags preserve the existing agenda response shape and avoid the
 current-pairing lookup; historical readers remain captured evidence only.

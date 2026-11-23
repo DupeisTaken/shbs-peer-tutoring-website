@@ -686,9 +686,12 @@ program-wide count as though it were your own arrangements needing repair.
 Tutees can suggest a time from their schedule. Tutors use **Reschedule Session**
 or **Add Extra Session**. Check **Include all tutees in this session**, or uncheck
 it and choose one tutee. For a single-person session, the person is shown directly.
-The extra-session picker identifies each source by the pairing's weekly slot,
-such as Thursday 15:50–16:35, rather than a previous occurrence date. Different
-dated sources can share that slot while retaining their own participants.
+The extra-session picker identifies each ordinary source by the pairing's weekly
+slot, such as Thursday 15:50–16:35, rather than a previous occurrence date.
+Different dated sources can share that slot while retaining their own
+participants. Paused **Arrange exception** rows include the specific paused date
+before the weekday and time so you can distinguish them from ordinary
+extra-session rows.
 Choose **In person — room assigned automatically** or **Online**. Review checks
 availability and shows the assigned room before sending. Review does not reserve
 the room; if it becomes unavailable, edit and review again. The system never
