@@ -1,3 +1,4 @@
+import { pageMetadata } from "~/server/branding-metadata";
 import Link from "next/link";
 import { SessionPagePosition } from "~/app/_components/session-view-state";
 import { getFormatter, getTranslations } from "next-intl/server";
@@ -18,6 +19,10 @@ const STATUS_TONE: Record<string, string> = {
   RESCHEDULED: "badge-amber",
   TUTOR_ABSENT: "badge-red",
 };
+
+export async function generateMetadata() {
+  return pageMetadata("admin.nav.links.dashboard");
+}
 
 export default async function AdminHome() {
   const programFormat = await getFormatter();
@@ -79,7 +84,7 @@ export default async function AdminHome() {
           <p className="mt-2 text-5xl font-bold tracking-tight text-slate-900 tabular-nums sm:text-6xl">
             {heroFigure}
           </p>
-          <p className="mt-1 text-sm font-medium text-slate-500">{heroUnit}</p>
+          <p className="mt-1 text-sm font-medium text-slate-600">{heroUnit}</p>
           {sh && (
             <dl className="mt-5 flex flex-wrap justify-center gap-x-6 gap-y-2 lg:justify-start">
               <Metric
@@ -162,7 +167,7 @@ export default async function AdminHome() {
           </p>
           <p className="mt-1 mb-4 text-3xl font-bold text-slate-900 tabular-nums">
             {presentRate}%{" "}
-            <span className="text-sm font-medium text-slate-400">
+            <span className="text-sm font-medium text-slate-600">
               {t("admin.dashboard.attendance.present")}
             </span>
           </p>
@@ -194,7 +199,7 @@ export default async function AdminHome() {
           <p className="section-title">{t("admin.dashboard.pipeline.title")}</p>
           <p className="mt-1 mb-4 text-3xl font-bold text-slate-900 tabular-nums">
             {activeTutees}{" "}
-            <span className="text-sm font-medium text-slate-400">
+            <span className="text-sm font-medium text-slate-600">
               {t("admin.dashboard.pipeline.active")}
             </span>
           </p>
@@ -384,13 +389,13 @@ function Metric({
 }) {
   const color =
     tone === "emerald"
-      ? "text-emerald-600"
+      ? "text-green-700"
       : tone === "red"
-        ? "text-red-600"
+        ? "text-red-700"
         : "text-slate-900";
   return (
     <div>
-      <dt className="text-[11px] font-semibold tracking-[0.08em] text-slate-400 uppercase">
+      <dt className="text-xs font-semibold tracking-[0.08em] text-slate-600 uppercase">
         {label}
       </dt>
       <dd className={`text-lg font-semibold tabular-nums ${color}`}>{value}</dd>

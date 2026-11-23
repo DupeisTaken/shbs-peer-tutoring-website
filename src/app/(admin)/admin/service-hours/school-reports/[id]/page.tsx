@@ -1,7 +1,12 @@
+import { pageMetadata } from "~/server/branding-metadata";
 import { redirect } from "next/navigation";
 import { SchoolHoursReport } from "~/app/_components/school-hours-report";
 import { auth } from "~/server/auth";
 import { accountPortalAccess } from "~/server/portal-access";
+
+export async function generateMetadata() {
+  return pageMetadata("admin.nav.links.serviceHours");
+}
 
 export default async function SchoolReportPage({
   params,

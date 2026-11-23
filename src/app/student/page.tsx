@@ -1,3 +1,4 @@
+import { pageMetadata } from "~/server/branding-metadata";
 import { auth } from "~/server/auth";
 import { accountPortalAccess } from "~/server/portal-access";
 import Link from "next/link";
@@ -18,6 +19,10 @@ import { SessionPagePosition } from "~/app/_components/session-view-state";
 
 export const dynamic = "force-dynamic";
 /** Keep intake and historical links stable while presenting one focused workspace at a time. */
+export async function generateMetadata() {
+  return pageMetadata("tuteePortal.title");
+}
+
 export default async function StudentPage({
   searchParams,
 }: {

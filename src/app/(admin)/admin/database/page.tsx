@@ -1,4 +1,9 @@
+import { pageMetadata } from "~/server/branding-metadata";
 import { DatabaseInspector } from "~/app/_components/database-inspector";
+
+export async function generateMetadata() {
+  return pageMetadata("recordInspector.nav");
+}
 
 export default async function DatabasePage({
   searchParams,

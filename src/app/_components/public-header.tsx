@@ -11,9 +11,13 @@ import { ThemeSwitcher } from "./theme-switcher";
 export function PublicHeader({
   navigation,
   sticky = true,
+  skipLabel,
+  skipToId = "main-content",
 }: {
   navigation?: ReactNode;
   sticky?: boolean;
+  skipLabel?: string;
+  skipToId?: string;
 }) {
   const { APP_TITLE } = useBranding();
   return (
@@ -21,6 +25,8 @@ export function PublicHeader({
       title={APP_TITLE}
       navigation={navigation}
       sticky={sticky}
+      skipLabel={skipLabel}
+      skipToId={skipToId}
       language={<LanguageSwitcher compactAtDesktop />}
       theme={<ThemeSwitcher compactAtDesktop />}
     />
@@ -35,18 +41,27 @@ export function PublicHeaderFrame({
   language,
   theme,
   sticky = true,
+  skipLabel,
+  skipToId = "main-content",
 }: {
   title: string;
   language: ReactNode;
   theme: ReactNode;
   navigation?: ReactNode;
   sticky?: boolean;
+  skipLabel?: string;
+  skipToId?: string;
 }) {
   return (
     <header
       data-sticky-header={sticky || undefined}
       className={`${sticky ? "sticky top-0 z-20" : ""} border-b border-slate-200 bg-white`}
     >
+      {skipLabel ? (
+        <a href={`#${skipToId}`} className="skip-link">
+          {skipLabel}
+        </a>
+      ) : null}
       <div className="mx-auto grid max-w-6xl grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 gap-y-2 px-4 py-3 lg:flex">
         <Link
           href="/"

@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import { getTranslations } from "next-intl/server";
 
-import { brandingMetadata } from "~/server/branding-metadata";
+import { pageMetadata } from "~/server/branding-metadata";
 import { auth } from "~/server/auth";
 import { api } from "~/trpc/server";
 import { SignOutButton } from "~/app/_components/sign-out-button";
@@ -12,7 +12,7 @@ import {
 } from "~/app/_components/public-form-page";
 
 export async function generateMetadata() {
-  return brandingMetadata("Account suspended");
+  return pageMetadata("suspended.title");
 }
 
 /** Shown to a suspended account in place of any normal area: the reason + an appeal form. */

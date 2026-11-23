@@ -523,7 +523,8 @@
     "collapseAll": "Collapse All",
     "expandAll": "Expand All",
     "loading": "Loading…",
-    "retry": "Try again"
+    "retry": "Try again",
+    "skipToContent": "Skip to main content"
   },
   "auth": {
     "signinTitle": "Sign In",
@@ -673,7 +674,8 @@
       "becomeTutor": "Become a Tutor",
       "teamSignin": "Sign In",
       "becomeCrew": "Join the Crew",
-      "viewerSignup": "Follow the Program"
+      "viewerSignup": "Follow the Program",
+      "landmark": "Site Navigation"
     },
     "tagline": "Peer Tutoring Program",
     "heroTitle": "Learn together. Grow together.",
@@ -2818,7 +2820,8 @@
     "notifications": {
       "title": "Notifications",
       "markAllRead": "Mark All Read",
-      "empty": "Nothing yet."
+      "empty": "Nothing yet.",
+      "unreadLabel": "{title} ({count} unread)"
     },
     "signOut": {
       "label": "Sign Out"
@@ -5764,7 +5767,10 @@
   },
   "pageRecovery": {
     "title": "Page Not Found",
-    "body": "This page may have moved or is no longer available. Return to the home page or sign in to continue."
+    "body": "This page may have moved or is no longer available. Return to the home page or sign in to continue.",
+    "errorTitle": "Something Went Wrong",
+    "errorBody": "We could not load this page. Try again or return to the home page.",
+    "loadingTitle": "Loading Page…"
   },
   "historicalAcademics": {
     "graduatedRecorded": "The original record also marked academic graduation. This correction does not change participation or school-departure status.",

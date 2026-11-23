@@ -3,10 +3,15 @@ import { getTranslations } from "next-intl/server";
 
 import { auth } from "~/server/auth";
 import { db } from "~/server/db";
+import { pageMetadata } from "~/server/branding-metadata";
 import { getFeatures } from "~/server/program/features";
 import { SignOutButton } from "~/app/_components/sign-out-button";
 import { WorkspaceHeader } from "~/app/_components/workspace-header";
 import { TEAM_TITLE } from "~/lib/branding";
+
+export async function generateMetadata() {
+  return pageMetadata("crew.patrol.title");
+}
 
 /**
  * Gates the crew patrol portal. Requires a signed-in user flagged `isCrew` (a tutor can also be
@@ -49,6 +54,7 @@ export default async function PatrolLayout({
       <WorkspaceHeader
         href="/patrol"
         title={t("crew.brand", { team: TEAM_TITLE })}
+        skipLabel={t("common.skipToContent")}
         items={[
           ...(session.role !== "VIEWER"
             ? [{ href: "/student", label: t("components.userMenu.enterTutee") }]
@@ -66,7 +72,9 @@ export default async function PatrolLayout({
         }
       />
 
-      <main className="mx-auto max-w-3xl px-4 py-8">{children}</main>
+      <main id="main-content" className="mx-auto max-w-3xl px-4 py-8">
+        {children}
+      </main>
     </div>
   );
 }

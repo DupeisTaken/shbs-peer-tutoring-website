@@ -523,7 +523,8 @@
     "collapseAll": "Contraer todo",
     "expandAll": "Expandir todo",
     "loading": "Loading…",
-    "retry": "Intentar de nuevo"
+    "retry": "Intentar de nuevo",
+    "skipToContent": "Saltar al contenido principal"
   },
   "auth": {
     "signinTitle": "Iniciar sesión",
@@ -673,7 +674,8 @@
       "becomeTutor": "Hazte tutor",
       "teamSignin": "Iniciar sesión",
       "becomeCrew": "Unirse a la ronda",
-      "viewerSignup": "Seguir el Programa"
+      "viewerSignup": "Seguir el Programa",
+      "landmark": "Navegación del sitio"
     },
     "tagline": "Programa de Tutoría entre Pares",
     "heroTitle": "Aprendamos juntos. Crezcamos juntos.",
@@ -2818,7 +2820,8 @@
     "notifications": {
       "title": "Notificaciones",
       "markAllRead": "Marcar todo como leído",
-      "empty": "Nada por ahora."
+      "empty": "Nada por ahora.",
+      "unreadLabel": "{title} ({count} sin leer)"
     },
     "signOut": {
       "label": "Cerrar sesión"
@@ -5730,7 +5733,10 @@
   },
   "pageRecovery": {
     "title": "Página No Encontrada",
-    "body": "Esta página puede haberse movido o ya no estar disponible. Vuelve al inicio o inicia sesión para continuar."
+    "body": "Esta página puede haberse movido o ya no estar disponible. Vuelve al inicio o inicia sesión para continuar.",
+    "errorTitle": "Algo salió mal",
+    "errorBody": "No pudimos cargar esta página. Inténtalo de nuevo o vuelve a la página principal.",
+    "loadingTitle": "Cargando página…"
   },
   "historicalAcademics": {
     "graduatedRecorded": "The original record also marked academic graduation. This correction does not change participation or school-departure status.",

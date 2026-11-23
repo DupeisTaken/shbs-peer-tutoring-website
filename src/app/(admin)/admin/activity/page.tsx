@@ -624,7 +624,10 @@ function Panel({
             </span>
           )}
         </div>
-        <Link href={href} className="link text-sm">
+        <Link
+          href={href}
+          className="link inline-flex min-h-11 items-center text-sm lg:min-h-8"
+        >
           {manageLabel}
         </Link>
       </div>

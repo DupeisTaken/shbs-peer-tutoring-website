@@ -6,13 +6,16 @@ import { PublicHeader } from "./public-header";
 export function PublicPageNavigation({
   backLabel,
   backHref = "/",
+  skipLabel,
 }: {
   backLabel: string;
   backHref?: string;
+  skipLabel?: string;
 }) {
   return (
     <PublicHeader
       sticky={false}
+      skipLabel={skipLabel}
       navigation={
         <Link href={backHref} className="public-form-link text-sm">
           {backLabel}
@@ -29,6 +32,7 @@ export function PublicFormPage({
   description,
   backLabel,
   backHref,
+  skipLabel,
   children,
   footer,
   notice,
@@ -39,6 +43,7 @@ export function PublicFormPage({
   backLabel: string;
   /** The owning form selects its return route; ordinary public forms return home. */
   backHref?: string;
+  skipLabel?: string;
   children: ReactNode;
   footer?: ReactNode;
   notice?: ReactNode;
@@ -46,8 +51,13 @@ export function PublicFormPage({
 }) {
   return (
     <div className="min-h-screen">
-      <PublicPageNavigation backLabel={backLabel} backHref={backHref} />
+      <PublicPageNavigation
+        backLabel={backLabel}
+        backHref={backHref}
+        skipLabel={skipLabel}
+      />
       <main
+        id="main-content"
         className={`public-form mx-auto w-full px-4 pt-6 pb-12 sm:px-6 sm:pt-10 ${wide ? "max-w-3xl" : "max-w-lg"}`}
       >
         <header className="mb-7 text-center">

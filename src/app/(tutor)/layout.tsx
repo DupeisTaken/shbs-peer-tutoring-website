@@ -133,6 +133,7 @@ export default async function TutorLayout({
         href="/dashboard"
         title={APP_TITLE}
         items={workspaceItems}
+        skipLabel={t("common.skipToContent")}
         identity={
           <Link
             href="/settings"

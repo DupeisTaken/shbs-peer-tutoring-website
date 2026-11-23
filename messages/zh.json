@@ -523,7 +523,8 @@
     "collapseAll": "全部收起",
     "expandAll": "全部展开",
     "loading": "正在加载…",
-    "retry": "重试"
+    "retry": "重试",
+    "skipToContent": "跳到主要内容"
   },
   "auth": {
     "signinTitle": "登录",
@@ -673,7 +674,8 @@
       "becomeTutor": "成为辅导伙伴",
       "teamSignin": "登录",
       "becomeCrew": "加入巡查队",
-      "viewerSignup": "关注项目"
+      "viewerSignup": "关注项目",
+      "landmark": "网站导航"
     },
     "tagline": "朋辈辅导项目",
     "heroTitle": "一起学习，共同成长。",
@@ -2818,7 +2820,8 @@
     "notifications": {
       "title": "通知",
       "markAllRead": "全部标为已读",
-      "empty": "暂无内容。"
+      "empty": "暂无内容。",
+      "unreadLabel": "{title}（{count} 条未读）"
     },
     "signOut": {
       "label": "退出登录"
@@ -5764,7 +5767,10 @@
   },
   "pageRecovery": {
     "title": "页面不存在",
-    "body": "此页面可能已移动或不再可用。请返回首页，或登录后继续。"
+    "body": "此页面可能已移动或不再可用。请返回首页，或登录后继续。",
+    "errorTitle": "页面加载出错",
+    "errorBody": "暂时无法加载此页面。请重试或返回主页。",
+    "loadingTitle": "正在加载页面…"
   },
   "historicalAcademics": {
     "graduatedRecorded": "原始资料另有已毕业标记；本次更正不会改变参与资格或离校状态。",

@@ -1,3 +1,4 @@
+import { pageMetadata } from "~/server/branding-metadata";
 import Link from "next/link";
 import { getTranslations } from "next-intl/server";
 import { auth } from "~/server/auth";
@@ -6,6 +7,10 @@ import { HistoryAccountSetup } from "./history-account-setup";
 import { PublicFormPage } from "~/app/_components/public-form-page";
 import { SUPPORT_EMAIL } from "~/lib/branding";
 import { switchHistoryAccount } from "./actions";
+
+export async function generateMetadata() {
+  return pageMetadata("tuteeHistory.claimTitle");
+}
 
 export default async function HistoryClaimPage({
   searchParams,

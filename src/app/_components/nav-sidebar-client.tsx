@@ -58,11 +58,13 @@ export function NavSidebarClient({
   sections,
   collapseAllLabel,
   expandAllLabel,
+  navLabel,
   sticky = true,
 }: {
   sections: NavSection[];
   collapseAllLabel: string;
   expandAllLabel: string;
+  navLabel?: string;
   sticky?: boolean;
 }) {
   const stored = useSyncExternalStore(
@@ -97,7 +99,10 @@ export function NavSidebarClient({
     persist(Object.fromEntries(sections.map((s) => [s.key, value])));
 
   return (
-    <nav className={sticky ? "sticky top-20 space-y-3" : "space-y-3"}>
+    <nav
+      aria-label={navLabel}
+      className={sticky ? "sticky top-20 space-y-3" : "space-y-3"}
+    >
       <Button
         variant="ghost"
         size="compact"

@@ -31,7 +31,7 @@ import { PublicHeader } from "~/app/_components/public-header";
  */
 export async function LandingView({ preview = false }: { preview?: boolean }) {
   const locale = await getLocale();
-  const [features, overrides, news, sections, layout, navPages, t] =
+  const [features, overrides, news, sections, layout, navPages, t, tc] =
     await Promise.all([
       getFeatures(db),
       getHomeOverrides(db, locale),
@@ -40,6 +40,7 @@ export async function LandingView({ preview = false }: { preview?: boolean }) {
       getLandingLayout(db),
       getNavPages(db, locale),
       getTranslations("landing"),
+      getTranslations("common"),
     ]);
 
   // Resolve a landing text slot: an admin override (with {appTitle} substituted) wins, else the
@@ -209,8 +210,12 @@ export async function LandingView({ preview = false }: { preview?: boolean }) {
       {preview && <PreviewRibbon />}
 
       <PublicHeader
+        skipLabel={tc("skipToContent")}
         navigation={
-          <HeaderMenuGroup className="flex min-w-0 flex-wrap items-center gap-2">
+          <HeaderMenuGroup
+            label={t("nav.landmark")}
+            className="flex min-w-0 flex-wrap items-center gap-2"
+          >
             <div className="lg:hidden">
               <HeaderMenu
                 label={t("nav.menu")}
@@ -255,7 +260,7 @@ export async function LandingView({ preview = false }: { preview?: boolean }) {
         }
       />
 
-      <main className="flex-1">
+      <main id="main-content" className="flex-1">
         {!primaryHero && <h1 className="sr-only">{APP_TITLE}</h1>}
         {layout.map((block) => (
           <div key={block.id}>{renderBlock(block)}</div>
@@ -321,7 +326,9 @@ function FeatureCard({
 }) {
   return (
     <div className="card p-5 text-center sm:p-6 sm:text-left">
-      <div className="text-2xl">{emoji}</div>
+      <div aria-hidden="true" className="text-2xl">
+        {emoji}
+      </div>
       <h2 className="mt-3 font-semibold text-slate-900">{title}</h2>
       <p className="muted mt-1 text-sm">{body}</p>
     </div>
@@ -330,23 +337,13 @@ function FeatureCard({
 
 function GradientTitle({ text, primary }: { text: string; primary: boolean }) {
   const Heading = primary ? "h1" : "h2";
-  const words = text.trim().split(/\s+/).filter(Boolean);
+  // Stay within accent-800..accent-600 across the whole headline so large text exceeds WCAG AA
+  // contrast in every accent theme (including amber, sky and emerald) and across EN/ZH scripts.
   return (
-    <Heading className="mx-auto flex max-w-sm flex-wrap justify-center gap-x-2 text-3xl leading-tight font-extrabold tracking-tight sm:max-w-none sm:text-5xl lg:text-6xl">
-      {words.length > 0 ? (
-        words.map((word, i) => (
-          <span
-            key={`${word}-${i}`}
-            className="from-accent-700 to-accent-400 bg-gradient-to-r bg-clip-text text-transparent"
-          >
-            {word}
-          </span>
-        ))
-      ) : (
-        <span className="from-accent-700 to-accent-400 bg-gradient-to-r bg-clip-text text-transparent">
-          {text}
-        </span>
-      )}
+    <Heading className="mx-auto max-w-sm text-3xl leading-tight font-extrabold tracking-tight text-balance sm:max-w-none sm:text-5xl lg:text-6xl">
+      <span className="from-accent-800 via-accent-700 to-accent-600 bg-gradient-to-r bg-clip-text text-transparent">
+        {text}
+      </span>
     </Heading>
   );
 }

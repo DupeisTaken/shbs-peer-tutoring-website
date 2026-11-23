@@ -254,7 +254,7 @@ export function LanguagesPanel({ canAdd }: { canAdd: boolean }) {
             className="flex min-h-11 flex-wrap items-center gap-2 py-2"
           >
             <span className="font-medium text-slate-800">{l.label}</span>
-            <code className="text-xs text-slate-400">{l.code}</code>
+            <code className="text-xs text-slate-600">{l.code}</code>
             {l.builtIn && (
               <span className="badge-slate">{t("localization.builtIn")}</span>
             )}
@@ -270,7 +270,7 @@ export function LanguagesPanel({ canAdd }: { canAdd: boolean }) {
                 : t("localization.disabled")}
             </span>
             {l.code === "en" && (
-              <span className="text-xs text-slate-400">
+              <span className="text-xs text-slate-600">
                 {t("localization.required")}
               </span>
             )}

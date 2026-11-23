@@ -16,6 +16,8 @@ export function WorkspaceHeader({
   identity,
   account,
   navigation,
+  skipLabel,
+  skipToId = "main-content",
 }: {
   href: string;
   title: string;
@@ -23,12 +25,19 @@ export function WorkspaceHeader({
   identity: ReactNode;
   account: ReactNode;
   navigation?: ReactNode;
+  skipLabel?: string;
+  skipToId?: string;
 }) {
   return (
     <header
       data-sticky-header
       className="sticky top-0 z-20 shrink-0 border-b border-slate-200 bg-white"
     >
+      {skipLabel ? (
+        <a href={`#${skipToId}`} className="skip-link">
+          {skipLabel}
+        </a>
+      ) : null}
       <div className="grid min-w-0 grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-x-2 gap-y-3 px-4 py-4 lg:flex lg:gap-2 lg:px-6 lg:py-3">
         <Link
           href={href}

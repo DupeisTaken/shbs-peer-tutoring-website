@@ -212,7 +212,7 @@ export function ScrollTable({
         role="region"
         aria-label={label}
         tabIndex={0}
-        className="focus-visible:ring-accent-500 max-w-full overflow-x-auto rounded-lg focus-visible:ring-2 focus-visible:outline-none"
+        className="focus-visible:ring-accent-500 max-w-full overflow-x-auto rounded-lg focus-visible:ring-2 focus-visible:outline-hidden"
       >
         {children}
       </div>

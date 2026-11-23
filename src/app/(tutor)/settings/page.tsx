@@ -396,7 +396,7 @@ export default function SettingsPage() {
   };
 
   return (
-    <main className="mx-auto max-w-2xl space-y-8 px-4 py-8">
+    <main id="main-content" className="mx-auto max-w-2xl space-y-8 px-4 py-8">
       <div>
         <h1 className="page-title">{t("tutor.settings.title")}</h1>
         <p className="muted mt-1">{t("tutor.settings.subtitle")}</p>

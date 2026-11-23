@@ -83,6 +83,8 @@ export default async function AdminLayout({
         href="/admin"
         title={TEAM_TITLE}
         items={workspaceItems}
+        skipLabel={t("common.skipToContent")}
+        skipToId="admin-content"
         identity={
           <Link
             href="/admin/account"

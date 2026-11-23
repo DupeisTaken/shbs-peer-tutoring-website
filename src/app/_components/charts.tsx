@@ -62,7 +62,7 @@ export function BarList({ items, emptyLabel }: { items: BarItem[]; emptyLabel?: 
             {it.href ? (
               <Link
                 href={it.href}
-                className="block rounded-md outline-none transition hover:opacity-80 focus-visible:ring-2 focus-visible:ring-accent-400"
+                className="block rounded-md outline-hidden transition hover:opacity-80 focus-visible:ring-2 focus-visible:ring-accent-400"
               >
                 {body}
               </Link>

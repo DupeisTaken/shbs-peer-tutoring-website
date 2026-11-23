@@ -1,3 +1,4 @@
+import { pageMetadata } from "~/server/branding-metadata";
 import {
   PublicFormPage,
   PublicFormCard,
@@ -13,6 +14,10 @@ import { SignInForm } from "./sign-in-form";
 import { db } from "~/server/db";
 import { getFeatures } from "~/server/program/features";
 import { returnDestination } from "~/lib/return-destination";
+
+export async function generateMetadata() {
+  return pageMetadata("auth.signinTitle");
+}
 
 export default async function SignInPage({
   searchParams,

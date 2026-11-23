@@ -523,7 +523,8 @@
     "collapseAll": "Alle zuklappen",
     "expandAll": "Alle aufklappen",
     "loading": "Loading…",
-    "retry": "Erneut versuchen"
+    "retry": "Erneut versuchen",
+    "skipToContent": "Zum Hauptinhalt springen"
   },
   "auth": {
     "signinTitle": "Anmelden",
@@ -673,7 +674,8 @@
       "becomeTutor": "Tutor werden",
       "teamSignin": "Anmelden",
       "becomeCrew": "Rundgang beitreten",
-      "viewerSignup": "Programm Verfolgen"
+      "viewerSignup": "Programm Verfolgen",
+      "landmark": "Seitennavigation"
     },
     "tagline": "Peer-Tutoring-Programm",
     "heroTitle": "Gemeinsam lernen. Gemeinsam wachsen.",
@@ -2818,7 +2820,8 @@
     "notifications": {
       "title": "Benachrichtigungen",
       "markAllRead": "Alle als gelesen markieren",
-      "empty": "Noch nichts."
+      "empty": "Noch nichts.",
+      "unreadLabel": "{title} ({count} ungelesen)"
     },
     "signOut": {
       "label": "Abmelden"
@@ -5730,7 +5733,10 @@
   },
   "pageRecovery": {
     "title": "Seite Nicht Gefunden",
-    "body": "Diese Seite wurde möglicherweise verschoben oder ist nicht mehr verfügbar. Kehren Sie zur Startseite zurück oder melden Sie sich an."
+    "body": "Diese Seite wurde möglicherweise verschoben oder ist nicht mehr verfügbar. Kehren Sie zur Startseite zurück oder melden Sie sich an.",
+    "errorTitle": "Ein Fehler ist aufgetreten",
+    "errorBody": "Diese Seite konnte nicht geladen werden. Versuche es erneut oder kehre zur Startseite zurück.",
+    "loadingTitle": "Seite wird geladen…"
   },
   "historicalAcademics": {
     "graduatedRecorded": "The original record also marked academic graduation. This correction does not change participation or school-departure status.",

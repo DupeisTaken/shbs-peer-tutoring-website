@@ -157,7 +157,7 @@
 @utility btn {
   /* Minimum targets, rather than fixed heights, let translated labels wrap on touch screens.
      Desktop keeps its existing row-specific sizes (including compact header controls). */
-  @apply focus-visible:ring-accent-500 inline-flex min-h-11 min-w-11 items-center justify-center gap-2 rounded-md px-4 py-2 text-sm font-semibold whitespace-normal transition focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50 lg:min-h-0 lg:min-w-0 lg:whitespace-nowrap;
+  @apply focus-visible:ring-accent-500 inline-flex min-h-11 min-w-11 items-center justify-center gap-2 rounded-md px-4 py-2 text-sm font-semibold whitespace-normal transition focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-hidden disabled:cursor-not-allowed disabled:opacity-50 lg:min-h-0 lg:min-w-0 lg:whitespace-nowrap;
 }
 @utility badge {
   @apply inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium;
@@ -215,20 +215,20 @@
     @apply min-h-11 min-w-11 px-3 py-2 lg:min-h-8 lg:py-1;
   }
   .choice-control {
-    @apply focus-visible:ring-accent-500 inline-flex items-center justify-center rounded-md border border-slate-300 bg-white text-sm font-medium text-slate-600 focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50;
+    @apply focus-visible:ring-accent-500 inline-flex items-center justify-center rounded-md border border-slate-300 bg-white text-sm font-medium text-slate-600 focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-hidden disabled:cursor-not-allowed disabled:opacity-50;
   }
   .choice-control[aria-pressed="true"] {
     @apply border-accent-500 bg-accent-50 text-accent-800;
   }
   .section-tab {
-    @apply focus-visible:ring-accent-500 -mb-px border-b-2 border-transparent text-sm font-medium text-slate-600 focus-visible:ring-2 focus-visible:outline-none;
+    @apply focus-visible:ring-accent-500 -mb-px border-b-2 border-transparent text-sm font-medium text-slate-600 focus-visible:ring-2 focus-visible:outline-hidden;
   }
   .section-tab[aria-selected="true"],
   .section-tab[aria-current="page"] {
     @apply border-accent-600 text-accent-800;
   }
   .switch-control {
-    @apply focus-visible:ring-accent-500 inline-flex min-h-11 min-w-11 shrink-0 items-center justify-center rounded-md focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none disabled:opacity-50 lg:min-h-8;
+    @apply focus-visible:ring-accent-500 inline-flex min-h-11 min-w-11 shrink-0 items-center justify-center rounded-md focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-hidden disabled:opacity-50 lg:min-h-8;
   }
 
   /* Inline text links (table actions etc.) -------------------------------- */
@@ -239,7 +239,7 @@
   .link-danger {
     /* Destructive text actions stay visibly red and unboxed, including on hover.
        A focus ring is a keyboard affordance, not a persistent button boundary. */
-    @apply inline-flex min-h-6 items-center rounded-sm px-2 py-1 font-medium text-red-700 hover:text-red-800 hover:underline focus-visible:ring-2 focus-visible:ring-red-500 focus-visible:ring-offset-2 focus-visible:outline-none active:text-red-900 disabled:cursor-not-allowed disabled:opacity-50;
+    @apply inline-flex min-h-6 items-center rounded-sm px-2 py-1 font-medium text-red-700 hover:text-red-800 hover:underline focus-visible:ring-2 focus-visible:ring-red-500 focus-visible:ring-offset-2 focus-visible:outline-hidden active:text-red-900 disabled:cursor-not-allowed disabled:opacity-50;
   }
 
   /* Account actions share a quiet, right-aligned stack. No inter-action gap: the
@@ -248,7 +248,7 @@
     @apply flex min-w-28 flex-col items-stretch;
   }
   .table-account-action {
-    @apply focus-visible:ring-accent-500 inline-flex min-h-11 w-full items-center justify-end rounded-sm py-1 text-right text-sm leading-5 whitespace-normal focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50 lg:min-h-7;
+    @apply focus-visible:ring-accent-500 inline-flex min-h-11 w-full items-center justify-end rounded-sm py-1 text-right text-sm leading-5 whitespace-normal focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-hidden disabled:cursor-not-allowed disabled:opacity-50 lg:min-h-7;
   }
 
   /* Form controls --------------------------------------------------------- */
@@ -258,7 +258,7 @@
   .input,
   .select,
   .textarea {
-    @apply focus:border-accent-500 focus:ring-accent-500 min-h-11 w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm shadow-sm placeholder:text-slate-400 focus:ring-1 focus:outline-none lg:min-h-0;
+    @apply focus:border-accent-500 focus:ring-accent-500 min-h-11 w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm shadow-sm placeholder:text-slate-400 focus:ring-1 focus:outline-hidden lg:min-h-0;
   }
 
   /* Standalone text actions (resend, account recovery and table actions) remain usable on
@@ -298,7 +298,7 @@
     @apply mb-1.5;
   }
   .public-form-link {
-    @apply text-accent-700 hover:text-accent-800 focus-visible:ring-accent-500 inline-flex min-h-11 max-w-full items-center justify-center rounded-md px-1 py-1 font-medium text-wrap underline-offset-4 hover:underline focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none lg:min-h-8;
+    @apply text-accent-700 hover:text-accent-800 focus-visible:ring-accent-500 inline-flex min-h-11 max-w-full items-center justify-center rounded-md px-1 py-1 font-medium text-wrap underline-offset-4 hover:underline focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-hidden lg:min-h-8;
   }
 
   /* Data tables ----------------------------------------------------------- */
@@ -330,7 +330,7 @@
   /* Brief summary columns share one trailing text-action column on every viewport.
      Only the table scrolls; sticky actions remain available without hunting sideways. */
   .summary-table-scroll {
-    @apply focus-visible:ring-accent-500 relative max-w-full overflow-x-auto rounded-lg focus-visible:ring-2 focus-visible:outline-none;
+    @apply focus-visible:ring-accent-500 relative max-w-full overflow-x-auto rounded-lg focus-visible:ring-2 focus-visible:outline-hidden;
   }
   /* Header buttons inherit column alignment and the shared compact hit area. */
   .table-sort-button {
@@ -383,10 +383,10 @@
 
   /* Badges ---------------------------------------------------------------- */
   .badge-green {
-    @apply badge bg-green-100 text-green-700;
+    @apply badge bg-green-100 text-green-800;
   }
   .badge-amber {
-    @apply badge bg-amber-100 text-amber-700;
+    @apply badge bg-amber-100 text-amber-800;
   }
   .badge-slate {
     @apply badge bg-slate-100 text-slate-600;
@@ -396,6 +396,9 @@
   }
 
   /* Navigation ------------------------------------------------------------ */
+  .skip-link {
+    @apply sr-only focus:not-sr-only focus:fixed focus:top-3 focus:left-3 focus:z-50 focus:inline-flex focus:min-h-11 focus:items-center focus:rounded-md focus:bg-white focus:px-4 focus:py-2 focus:text-sm focus:font-semibold focus:text-slate-900 focus:shadow-lg focus:ring-2 focus:ring-accent-500 focus:outline-hidden;
+  }
   .nav-link {
     @apply flex min-h-11 items-center gap-2 rounded-md px-3 py-2 text-sm font-medium text-slate-600 transition hover:bg-slate-100 hover:text-slate-900 lg:min-h-0;
   }

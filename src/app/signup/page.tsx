@@ -1,6 +1,6 @@
 import { getTranslations } from "next-intl/server";
 
-import { brandingMetadata } from "~/server/branding-metadata";
+import { pageMetadata } from "~/server/branding-metadata";
 import { SignupForm } from "./signup-form";
 import { db } from "~/server/db";
 import { readPublicSignupTransition } from "~/server/program/public-signup-transition";
@@ -11,7 +11,7 @@ import { TRPCError } from "@trpc/server";
 import { readRecoveryWorkflowDraft } from "~/server/recovery/workflow-draft";
 
 export async function generateMetadata() {
-  return brandingMetadata("Request a tutor");
+  return pageMetadata("public.signup.title");
 }
 
 // This page depends on both current database configuration and the wall clock at request time.

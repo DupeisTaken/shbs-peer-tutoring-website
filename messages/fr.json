@@ -523,7 +523,8 @@
     "collapseAll": "Tout réduire",
     "expandAll": "Tout développer",
     "loading": "Loading…",
-    "retry": "Réessayer"
+    "retry": "Réessayer",
+    "skipToContent": "Aller au contenu principal"
   },
   "auth": {
     "signinTitle": "Connexion",
@@ -673,7 +674,8 @@
       "becomeTutor": "Devenir tuteur",
       "teamSignin": "Connexion",
       "becomeCrew": "Rejoindre la ronde",
-      "viewerSignup": "Suivre le Programme"
+      "viewerSignup": "Suivre le Programme",
+      "landmark": "Navigation du site"
     },
     "tagline": "Programme de tutorat par les pairs",
     "heroTitle": "Apprendre ensemble. Progresser ensemble.",
@@ -2818,7 +2820,8 @@
     "notifications": {
       "title": "Notifications",
       "markAllRead": "Tout marquer comme lu",
-      "empty": "Rien pour l'instant."
+      "empty": "Rien pour l'instant.",
+      "unreadLabel": "{title} ({count} non lues)"
     },
     "signOut": {
       "label": "Se déconnecter"
@@ -5730,7 +5733,10 @@
   },
   "pageRecovery": {
     "title": "Page Introuvable",
-    "body": "Cette page a peut-être été déplacée ou n’est plus disponible. Revenez à l’accueil ou connectez-vous pour continuer."
+    "body": "Cette page a peut-être été déplacée ou n’est plus disponible. Revenez à l’accueil ou connectez-vous pour continuer.",
+    "errorTitle": "Une erreur s’est produite",
+    "errorBody": "Impossible de charger cette page. Réessayez ou retournez à l’accueil.",
+    "loadingTitle": "Chargement de la page…"
   },
   "historicalAcademics": {
     "graduatedRecorded": "The original record also marked academic graduation. This correction does not change participation or school-departure status.",
