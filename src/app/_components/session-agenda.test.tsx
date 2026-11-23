@@ -1462,8 +1462,10 @@ it("a denied history read conceals tutoring caches while keeping independent fil
   expect(state.historyRetry).toHaveBeenCalledOnce();
 });
 
-it.each(["en", "zh"] as const)("hides a paused card while keeping its source available for an extra exception in %s", (locale) => {
-  const catalog = locale === "en" ? en : zh;
+it.each([
+  ["en", en, "Jan 1, 2099 · Thu 15:00–15:45"],
+  ["zh", zh, "2099年1月1日 · 周四 15:00–15:45"],
+] as const)("hides a paused card while keeping its source available for an extra exception in %s", (locale, catalog, expectedSlot) => {
   state.data!.windowStart = "2099-01-01";
   state.data!.windowEnd = "2099-01-14";
   state.data!.tutoringPauses = [{ date: "2099-01-01", endDate: "2099-01-14", schedulingEffect: "PAUSE_REGULAR", active: true }];
@@ -1474,10 +1476,89 @@ it.each(["en", "zh"] as const)("hides a paused card while keeping its source ava
   expect(screen.queryByRole("article")).toBeNull();
   expect(screen.queryByRole("button", { name: catalog.sessionPlanning.record })).toBeNull();
   fireEvent.click(screen.getByRole("button", { name: "Global extra" }));
-  fireEvent.click(within(screen.getByRole("dialog")).getByRole("button", { name: catalog.sessionPlanning.arrangeException }));
+  const picker = screen.getByRole("dialog");
+  expect(within(picker).getByText(expectedSlot)).toBeTruthy();
+  fireEvent.click(within(picker).getByRole("button", { name: catalog.sessionPlanning.arrangeException }));
   expect(screen.getByRole("dialog").textContent).toContain(catalog.sessionPlanning.tutoringPauseProposal);
   expect(state.propose).not.toHaveBeenCalled();
 });
+
+it.each([
+  ["en", en, "Tue 17:10–17:55", "Nov 24, 2026 · Tue 17:10–17:55", "Nov 28, 2026 · Sat 17:10–17:55"],
+  ["zh", zh, "周二 17:10–17:55", "2026年11月24日 · 周二 17:10–17:55", "2026年11月28日 · 周六 17:10–17:55"],
+] as const)(
+  "shows the detailed date before the weekday only on arrange-exception rows in %s",
+  (locale, catalog, recurringSlot, pausedRegularSlot, pausedMappedSlot) => {
+    const recurringSchedule = {
+      scheduleConfirmed: true,
+      dayOfWeek: 2,
+      startMin: 1030,
+      endMin: 1075,
+    };
+    state.data!.cohorts = [
+      {
+        ...attendanceOccurrence,
+        id: "normal-extra-source",
+        subjects: ["AP Chemistry"],
+        date: "2099-12-01",
+        startMin: 1030,
+        endMin: 1075,
+        startsAt: new Date("2099-12-01T09:10:00Z"),
+        endsAt: new Date("2099-12-01T09:55:00Z"),
+        recurringSchedule,
+        needsAttendance: false,
+        canRecordAttendance: false,
+      },
+      {
+        ...attendanceOccurrence,
+        id: "paused-regular-source",
+        subjects: ["AP Chemistry"],
+        date: "2026-11-24",
+        startMin: 1030,
+        endMin: 1075,
+        startsAt: new Date("2099-11-24T09:10:00Z"),
+        endsAt: new Date("2099-11-24T09:55:00Z"),
+        status: "CANCELLED",
+        tutoringPaused: true,
+        canArrangeException: true,
+        pausedTutees: [{ id: "carys", name: "Carys yu" }],
+        tutees: [],
+        recurringSchedule,
+        needsAttendance: false,
+        canRecordAttendance: false,
+      },
+      {
+        ...attendanceOccurrence,
+        id: "paused-mapped-source",
+        subjects: ["AP Chemistry"],
+        date: "2026-11-28",
+        startMin: 1030,
+        endMin: 1075,
+        startsAt: new Date("2099-11-28T09:10:00Z"),
+        endsAt: new Date("2099-11-28T09:55:00Z"),
+        status: "CANCELLED",
+        tutoringPaused: true,
+        canArrangeException: true,
+        pausedTutees: [{ id: "carys", name: "Carys yu" }],
+        tutees: [],
+        recurringSchedule,
+        needsAttendance: false,
+        canRecordAttendance: false,
+      },
+    ];
+    render(
+      <NextIntlClientProvider locale={locale} timeZone="Asia/Shanghai" messages={catalog}>
+        <UnifiedAgenda />
+      </NextIntlClientProvider>,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Global extra" }));
+    const picker = screen.getByRole("dialog");
+    expect(within(picker).getByText(recurringSlot)).toBeTruthy();
+    expect(within(picker).getByText(pausedRegularSlot)).toBeTruthy();
+    expect(within(picker).getByText(pausedMappedSlot)).toBeTruthy();
+    expect(picker.textContent).not.toContain("2099");
+  },
+);
 
 it.each(["tutor", "tutee"] as const)("keeps only confirmed upcoming session cards while retaining cancelled evidence for %s", (role) => {
   const scheduled = futureExtra();
