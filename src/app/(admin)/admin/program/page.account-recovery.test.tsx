@@ -89,7 +89,7 @@ import { api } from "~/trpc/react";
 import { createQueryClient } from "~/trpc/query-client";
 import { SessionViewProvider } from "~/app/_components/session-view-state";
 import { ReadOnlyProvider } from "~/app/_components/read-only";
-import ProgramPage from "./page";
+import ProgramPage from "./program-settings";
 
 const account = { id: "synthetic-head", role: "HEAD" };
 const policy = {

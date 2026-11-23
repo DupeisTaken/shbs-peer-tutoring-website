@@ -530,11 +530,15 @@ Application logs identify the category and failure without printing provider exc
 
 ### Show the Direct Mail quota on the dashboard
 
-The **Email Quota** card in `/admin` shows how many free emails are available today
+The **Email Quota** card on the dashboard and in **Program Settings → Deployment
+Configurations → Delivery settings** shows how many free emails are available today
 out of the published daily cap of 200, plus the total free allowance left. It reads
 `DailyRemainFreeQuota` and `RemainFreeQuota` from the mainland China (Hangzhou)
 Direct Mail account. Paid resource plans and pay-as-you-go are tracked separately in
-Aliyun. The card is visible to Admin and Head accounts. [Account summary API](https://help.aliyun.com/en/direct-mail/api-dm-2015-11-23-descaccountsummary) · [Direct Mail limits](https://help.aliyun.com/en/direct-mail/product-overview/limits)
+Aliyun. Only Admin and Head accounts can see the card. It groups the reset time
+with the daily quota and shows the one-time free balance separately. A low quota
+notice appears at 40 daily emails or 200 total emails remaining. Reaching the daily
+cap and exhausting the one-time free balance have distinct notices. [Account summary API](https://help.aliyun.com/en/direct-mail/api-dm-2015-11-23-descaccountsummary) · [Direct Mail limits](https://help.aliyun.com/en/direct-mail/product-overview/limits)
 
 Set `ALIYUN_DM_ACCESS_KEY_ID` and `ALIYUN_DM_ACCESS_KEY_SECRET` in the app's `.env`
 using a dedicated RAM identity in the same Aliyun account as the SMTP sender. Grant

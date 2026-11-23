@@ -983,14 +983,24 @@
       "reviewNow": "Examiner maintenant →",
       "emailQuota": {
         "title": "Quota d’e-mails",
+        "loading": "Chargement du quota d’e-mails…",
+        "dailyLabel": "Quota gratuit quotidien",
         "dailyCount": "{remaining, number} / {limit, number}",
-        "dailyFree": "e-mails gratuits disponibles aujourd’hui",
+        "dailyFree": "e-mails restants aujourd’hui",
         "dailyUnavailable": "Le quota gratuit quotidien est indisponible.",
-        "balance": "Le solde gratuit permet encore d’envoyer {count, plural, one {# e-mail} other {# e-mails}}.",
+        "balanceLabel": "Solde gratuit total",
+        "balanceUnit": "{count, plural, one {e-mail restant} other {e-mails restants}}",
+        "balanceHint": "Crédit gratuit unique ; ne se réinitialise pas chaque jour.",
+        "balanceExhaustedHint": "Le solde gratuit est épuisé ; la réinitialisation quotidienne n’ajoute pas d’e-mails gratuits.",
         "balanceUnavailable": "Le solde gratuit est indisponible.",
         "resetsAt": "Le quota quotidien est réinitialisé à {time}.",
-        "resetUnknown": "Le quota est réinitialisé chaque jour. L’heure est inconnue.",
-        "unavailable": "Le quota d’e-mails est actuellement indisponible."
+        "resetUnknown": "Le quota quotidien est réinitialisé chaque jour ; l’heure n’est pas configurée.",
+        "unavailable": "Le quota d’e-mails est actuellement indisponible.",
+        "unavailableHelp": "Impossible de lire le quota gratuit Direct Mail. L’envoi d’e-mails n’est pas affecté.",
+        "statusUnavailable": "Indisponible",
+        "statusLow": "Quota faible",
+        "statusDailyExhausted": "Limite quotidienne atteinte",
+        "statusBalanceExhausted": "Solde gratuit épuisé"
       },
       "recentSubmissions": {
         "title": "Soumissions récentes",

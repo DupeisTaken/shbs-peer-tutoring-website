@@ -16,7 +16,7 @@ import { SortHeader, useSort } from "./sortable";
 import { NavSidebarClient } from "./nav-sidebar-client";
 import { AvailabilityEditor } from "../(tutor)/_components/availability-editor";
 import PatrolPage from "../patrol/page";
-import ProgramPage from "../(admin)/admin/program/page";
+import ProgramPage from "../(admin)/admin/program/program-settings";
 import RegistrationCodesPage from "../(admin)/admin/registration-codes/page";
 
 const state = vi.hoisted(() => ({

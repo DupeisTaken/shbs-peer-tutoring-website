@@ -1,10 +1,8 @@
 import Link from "next/link";
-import { Suspense } from "react";
 import { SessionPagePosition } from "~/app/_components/session-view-state";
 import { getFormatter, getTranslations } from "next-intl/server";
 
 import { db } from "~/server/db";
-import { aliyunQuotaEnabled } from "~/server/email/aliyun-quota";
 import { getFeatures } from "~/server/program/features";
 import { api } from "~/trpc/server";
 import { BarList, SegmentBar, type BarItem } from "~/app/_components/charts";
@@ -13,7 +11,7 @@ import {
   TableActions,
   TableDetails,
 } from "~/app/_components/ui/summary-table";
-import { EmailQuotaCard } from "./email-quota-card";
+import { renderEmailQuotaCard } from "./email-quota-card";
 
 const STATUS_TONE: Record<string, string> = {
   PRESENT: "badge-green",
@@ -25,7 +23,7 @@ const STATUS_TONE: Record<string, string> = {
 export default async function AdminHome() {
   const programFormat = await getFormatter();
   const t = await getTranslations();
-  const [pairings, summary, tutees, sessions, crew, features] =
+  const [pairings, summary, tutees, sessions, crew, features, emailQuota] =
     await Promise.all([
       api.admin.pairings(),
       api.admin.periodSummary(),
@@ -33,6 +31,7 @@ export default async function AdminHome() {
       api.admin.sessions(),
       api.admin.crewSummary(),
       getFeatures(db),
+      renderEmailQuotaCard(),
     ]);
 
   const sh = features.SERVICE_HOURS;
@@ -252,11 +251,7 @@ export default async function AdminHome() {
         </div>
       )}
 
-      {aliyunQuotaEnabled() && (
-        <Suspense fallback={null}>
-          <EmailQuotaCard />
-        </Suspense>
-      )}
+      {emailQuota}
 
       {/* Recent submissions. */}
       <section className="card overflow-hidden">

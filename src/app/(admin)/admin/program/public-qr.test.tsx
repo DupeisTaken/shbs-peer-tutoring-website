@@ -11,7 +11,7 @@ import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import en from "../../../../../messages/en.json";
 import zh from "../../../../../messages/zh.json";
 import type { NextRecruitmentSettingsData } from "~/app/_components/next-recruitment-settings";
-import ProgramPage from "./page";
+import ProgramPage from "./program-settings";
 
 const state = vi.hoisted(() => ({
   role: "HEAD",

@@ -4,7 +4,7 @@ import { NextIntlClientProvider } from "next-intl";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { SessionViewProvider } from "~/app/_components/session-view-state";
 import en from "../../../../../messages/en.json";
-import ProgramPage from "./page";
+import ProgramPage from "./program-settings";
 
 type PeriodFixture = {
   termId: string;
