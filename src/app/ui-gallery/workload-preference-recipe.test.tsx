@@ -1,10 +1,17 @@
 /** @vitest-environment jsdom */
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import {
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  within,
+} from "@testing-library/react";
 import { NextIntlClientProvider } from "next-intl";
 import { afterEach, beforeEach, expect, it } from "vitest";
 import en from "../../../messages/en.json";
 import zh from "../../../messages/zh.json";
 import { WorkloadPreferenceRecipe } from "./workload-preference-recipe";
+
 afterEach(cleanup);
 beforeEach(() => {
   Object.defineProperty(HTMLDialogElement.prototype, "showModal", {
@@ -20,20 +27,17 @@ beforeEach(() => {
     },
   });
 });
+
 it.each(["en", "zh"] as const)(
-  "demonstrates a shared block, independent optional draft/save and advisory warning in %s without API access",
+  "uses an entrance card dialog that retains independent drafts, restores focus and exercises advisory warnings in %s",
   (locale) => {
+    const messages = locale === "en" ? en : zh;
     render(
-      <NextIntlClientProvider
-        locale={locale}
-        messages={locale === "en" ? en : zh}
-      >
+      <NextIntlClientProvider locale={locale} messages={messages}>
         <WorkloadPreferenceRecipe />
       </NextIntlClientProvider>,
     );
-    const choice = screen.getByRole("button", { name: "4" });
-    const availability = screen.getByRole("button", { name: "15:00–16:00" });
-    fireEvent.click(availability);
+    expect(screen.queryByRole("dialog")).toBeNull();
     expect(
       screen.getByText(
         locale === "en"
@@ -41,8 +45,31 @@ it.each(["en", "zh"] as const)(
           : /1 个已分配时段.*期望辅导次数：1/,
       ),
     ).toBeTruthy();
-    expect(screen.queryByRole("dialog")).toBeNull();
+
+    const trigger = screen.getByRole("button", {
+      name: new RegExp(messages.dashboard.availability.edit),
+    });
+    trigger.focus();
+    fireEvent.click(trigger);
+
+    const dialog = screen.getByRole("dialog");
+    const availability = within(dialog).getByRole("button", {
+      name: "15:00–16:00",
+    });
+    const choice = within(dialog).getByRole("button", { name: "4" });
+    fireEvent.click(availability);
     fireEvent.click(choice);
+    expect(availability.getAttribute("aria-pressed")).toBe("true");
+    expect(choice.getAttribute("aria-pressed")).toBe("true");
+
+    // Closing the dialog without saving retains both unsaved drafts and restores focus.
+    fireEvent.click(
+      within(dialog).getByRole("button", { name: messages.accountProfile.close }),
+    );
+    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(document.activeElement).toBe(trigger);
+
+    // Advisory warning still reflects saved preference (1), not unsaved draft (4).
     fireEvent.click(
       screen.getByRole("button", {
         name: locale === "en" ? "Try assigning a session" : "尝试分配辅导",
@@ -60,22 +87,34 @@ it.each(["en", "zh"] as const)(
         name: locale === "en" ? "Continue" : "继续",
       }),
     );
+
+    // Reopening the entrance dialog shows retained drafts and permits saving/clearing.
+    fireEvent.click(trigger);
+    const reopened = screen.getByRole("dialog");
+    expect(
+      within(reopened)
+        .getByRole("button", { name: "15:00–16:00" })
+        .getAttribute("aria-pressed"),
+    ).toBe("true");
+    expect(
+      within(reopened)
+        .getByRole("button", { name: "4" })
+        .getAttribute("aria-pressed"),
+    ).toBe("true");
     fireEvent.click(
-      screen.getByRole("button", {
+      within(reopened).getByRole("button", {
         name: locale === "en" ? "Save preference" : "保存偏好",
       }),
     );
-    expect(availability.getAttribute("aria-pressed")).toBe("true");
-    expect(choice.getAttribute("aria-pressed")).toBe("true");
     fireEvent.click(
-      screen.getByRole("button", {
+      within(reopened).getByRole("button", {
         name: locale === "en" ? "Clear preference" : "清除偏好",
       }),
     );
     expect(
       [0, 1, 2, 3, 4].every(
         (value) =>
-          screen
+          within(reopened)
             .getByRole("button", { name: String(value) })
             .getAttribute("aria-pressed") === "false",
       ),

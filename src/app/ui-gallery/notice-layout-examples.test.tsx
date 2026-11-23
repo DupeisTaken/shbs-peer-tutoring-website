@@ -55,17 +55,27 @@ it.each(["en", "zh"] as const)(
     expect(within(group).queryByRole("link")).toBeNull();
     expect(within(group).queryByRole("alert")).toBeNull();
     expect(within(group).queryByRole("status")).toBeNull();
-    for (const value of ["info", "warning", "success", "error"]) {
+    for (const value of ["info", "warning", "success", "error", "accent"]) {
       fireEvent.change(tone, { target: { value } });
       fireEvent.change(announcement, { target: { value: "alert" } });
-      expect(within(group).getByRole("alert").textContent).toContain(
+      const alert = within(group).getByRole("alert");
+      expect(alert.textContent).toContain(
         english
           ? "Previously loaded content is still shown."
           : "之前加载的内容仍然显示。",
       );
+      if (value === "accent") expect(alert.className).toContain("bg-accent-50");
+      if (value === "success") expect(alert.className).toContain("bg-green-50");
       fireEvent.change(announcement, { target: { value: "status" } });
       expect(within(group).queryByRole("alert")).toBeNull();
       expect(within(group).getByRole("status")).toBeTruthy();
     }
+    const titleToggle = within(group).getByRole("checkbox", {
+      name: english ? "Show notice title" : "显示提示标题",
+    });
+    const titleText = english ? "Background refresh notice" : "后台刷新提示";
+    expect(within(group).queryByText(titleText)).toBeNull();
+    fireEvent.click(titleToggle);
+    expect(within(group).getByText(titleText)).toBeTruthy();
   },
 );

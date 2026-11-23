@@ -58,8 +58,8 @@ the real components in the development-only `/ui-gallery`. Gallery examples live
 | Brief records with detail entries                        | `SummaryTable`, `TableActions`, `TableAction`, `TableDetails`                                                       |
 | Collapsible content                                      | `DisclosureSection` with an explicit lifetime                                                                       |
 | Settings and reviewed changes                            | `SettingRow` and `ChangeReview` with feature-owned state                                                            |
-| Initial query state / background recovery                | `StatePanel` / `InlineNotice` alongside retained content                                                            |
-| Public forms and history navigation                      | `PublicFormPage`, `PublicFormCard`, `PublicPageNavigation`                                                          |
+| Initial query state / background recovery                | `StatePanel` / `InlineNotice` (with `accent` tone and optional `title`) alongside retained content; `formatClientError` for plain-language error copy; `RouteError` / `GlobalError` at route boundaries |
+| Header branding, skip navigation and public forms        | `BrandMark`, `.skip-link`, `PublicHeader` / `WorkspaceHeader`, `PublicFormPage`, `PublicFormCard`, `PublicPageNavigation` |
 
 Extend a shared component only when its contract fits every caller; otherwise compose
 existing components. Add a gallery example and behavior tests for a new reusable
