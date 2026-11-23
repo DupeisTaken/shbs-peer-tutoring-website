@@ -705,7 +705,8 @@
       "draftBadge": "Brouillon"
     },
     "detail": {
-      "hiddenNote": "Cette page est masquée aux visiteurs tant que la section n’est pas affichée."
+      "hiddenNote": "Cette page est masquée aux visiteurs tant que la section n’est pas affichée.",
+      "hiddenPageNote": "Cette page est masquée aux visiteurs tant que la page n’est pas affichée."
     }
   },
   "dashboard": {
