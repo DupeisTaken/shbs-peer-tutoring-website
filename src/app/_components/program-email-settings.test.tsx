@@ -10,6 +10,7 @@ import {
   waitFor,
 } from "@testing-library/react";
 import { NextIntlClientProvider } from "next-intl";
+import type { ReactNode } from "react";
 import en from "../../../messages/en.json";
 import zh from "../../../messages/zh.json";
 import { ProgramEmailSettings } from "./program-email-settings";
@@ -19,7 +20,7 @@ type ChannelState = "READY" | "UNAVAILABLE" | "UNCONFIGURED" | "LOCAL";
 const mock = vi.hoisted(() => ({
   settings: undefined as
     undefined | RouterOutputs["program"]["emailNotificationSettings"],
-  settingsError: null as Error | null,
+  settingsError: null as (Error & { data?: { code: string } }) | null,
   status: undefined as
     | undefined
     | {
@@ -42,6 +43,9 @@ const mock = vi.hoisted(() => ({
   binding: vi.fn(),
   query: vi.fn(),
   resend: vi.fn(),
+}));
+vi.mock("./program-notification-locks", () => ({
+  ProgramNotificationLocks: () => null,
 }));
 vi.mock("~/trpc/react", () => ({
   api: {
@@ -124,7 +128,7 @@ beforeEach(() => {
   mock.resend.mockResolvedValue({ queued: 1 });
 });
 afterEach(cleanup);
-function content(chinese = false) {
+function content(chinese = false, deliveryQuota?: ReactNode) {
   return (
     <NextIntlClientProvider
       locale={chinese ? "zh" : "en"}
@@ -132,10 +136,34 @@ function content(chinese = false) {
       timeZone="Asia/Shanghai"
     >
       <input aria-label="Other program draft" defaultValue="Unchanged draft" />
-      <ProgramEmailSettings />
+      <ProgramEmailSettings deliveryQuota={deliveryQuota} />
     </NextIntlClientProvider>
   );
 }
+
+it("shows the quota on Delivery settings and removes it after access is denied", () => {
+  const tree = content(false, <h3>Email Quota</h3>);
+  const quota = () => screen.queryByRole("heading", { name: "Email Quota" });
+  const view = render(tree);
+  expect(
+    screen.getByRole("heading", { name: en.programEmail.deliveryTitle })
+      .compareDocumentPosition(screen.getByRole("heading", { name: "Email Quota" })),
+  ).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
+  fireEvent.click(
+    screen.getByRole("tab", { name: en.notificationLocks.requiredTab }),
+  );
+  expect(quota()).toBeNull();
+  fireEvent.click(
+    screen.getByRole("tab", { name: en.notificationLocks.deliveryTab }),
+  );
+  expect(quota()).toBeTruthy();
+
+  mock.settingsError = Object.assign(new Error("Access denied"), {
+    data: { code: "FORBIDDEN" },
+  });
+  view.rerender(content(false, <h3>Email Quota</h3>));
+  expect(screen.queryByText("Email Quota")).toBeNull();
+});
 
 // Coordinator proposal authority keeps diagnostics and settings requests available,
 // but never grants the immediate Admin/Head-only resend action.

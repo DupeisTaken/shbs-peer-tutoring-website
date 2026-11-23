@@ -6,7 +6,7 @@ import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-li
 import { NextIntlClientProvider } from "next-intl";
 import en from "../../../../../messages/en.json";
 import zh from "../../../../../messages/zh.json";
-import ProgramPage from "./page";
+import ProgramPage from "./program-settings";
 const mutate = vi.hoisted(() => vi.fn());
 const navigation = vi.hoisted(() => ({
   query: "",

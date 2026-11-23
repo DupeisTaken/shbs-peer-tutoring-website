@@ -2366,6 +2366,14 @@ emitter, audience, maintained copy and destination, including email-only account
 
 Every [email sender](../../src/server/email/sender.ts) call declares SECURITY or PROGRAM purpose; configuration selects a complete sender account per purpose. Student signup confirmation uses PROGRAM, while viewer verification and history invitations use SECURITY. The notification outbox retains the event's internal destination; shared link validation and sign-in callbacks preserve it through password/2FA and session recovery, with current permissions checked at the destination. Shared HTML/plain-text rendering uses runtime branding and program-zone notification timestamps. See [sender setup](../guides/deployment.md#email--aliyun-direct-mail-邮件推送) for fallback and delivery checks.
 
+The [dashboard quota card](<../../src/app/(admin)/admin/email-quota-card.tsx>) checks
+the current Admin/Head role before requesting the [Direct Mail free allowance](../../src/server/email/aliyun-quota.ts).
+It streams separately from the program metrics. The server uses one read-only Hangzhou
+`DescAccountSummary` call, shared across concurrent readers and cached for one minute.
+The daily remainder is bounded by the cumulative free balance when both fields are
+available. Separate timeouts and credentials keep the quota read independent of the
+mail sender. See [quota setup](../guides/deployment.md#show-the-direct-mail-quota-on-the-dashboard).
+
 Required direct mail names its operation (verification, recovery, sign-in/step-up,
 invitation or signup) rather than using an unrelated generic update. Account triggers
 capture allowlisted changed-field keys and distinguish password changes from enabling

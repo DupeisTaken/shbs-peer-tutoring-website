@@ -11,6 +11,7 @@ import {
   TableActions,
   TableDetails,
 } from "~/app/_components/ui/summary-table";
+import { renderEmailQuotaCard } from "./email-quota-card";
 
 const STATUS_TONE: Record<string, string> = {
   PRESENT: "badge-green",
@@ -22,7 +23,7 @@ const STATUS_TONE: Record<string, string> = {
 export default async function AdminHome() {
   const programFormat = await getFormatter();
   const t = await getTranslations();
-  const [pairings, summary, tutees, sessions, crew, features] =
+  const [pairings, summary, tutees, sessions, crew, features, emailQuota] =
     await Promise.all([
       api.admin.pairings(),
       api.admin.periodSummary(),
@@ -30,6 +31,7 @@ export default async function AdminHome() {
       api.admin.sessions(),
       api.admin.crewSummary(),
       getFeatures(db),
+      renderEmailQuotaCard(),
     ]);
 
   const sh = features.SERVICE_HOURS;
@@ -248,6 +250,8 @@ export default async function AdminHome() {
           />
         </div>
       )}
+
+      {emailQuota}
 
       {/* Recent submissions. */}
       <section className="card overflow-hidden">
