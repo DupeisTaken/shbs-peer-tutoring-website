@@ -121,6 +121,8 @@ export default async function TuteeLayout({
         href="/student"
         title={APP_TITLE}
         items={workspaceItems}
+        skipLabel={t("common.skipToContent")}
+        containerClassName="mx-auto max-w-6xl"
         identity={
           <Link
             href="/student?view=account"
@@ -140,7 +142,10 @@ export default async function TuteeLayout({
           />
         }
       />
-      <main className="mx-auto max-w-6xl space-y-6 px-4 py-5 sm:py-8">
+      <main
+        id="main-content"
+        className="mx-auto max-w-6xl space-y-6 px-4 py-5 sm:py-8"
+      >
         <DepartureBanner />
         {hasAccess ? (
           <>

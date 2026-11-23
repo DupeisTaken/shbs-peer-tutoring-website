@@ -11,12 +11,16 @@ export default async function NotFound() {
     <PublicFormPage
       title={t("pageRecovery.title")}
       backLabel={t("common.backToMain")}
+      skipLabel={t("common.skipToContent")}
     >
       <PublicFormCard>
         <p className="text-sm leading-6 text-slate-600">
           {t("pageRecovery.body")}
         </p>
         <FormActions>
+          <Link href="/" className="btn-primary control-standard">
+            {t("workflows.home")}
+          </Link>
           <Link href="/signin" className="btn-secondary control-standard">
             {t("auth.register.done.signIn")}
           </Link>

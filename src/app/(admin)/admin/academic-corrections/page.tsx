@@ -1,7 +1,12 @@
+import { pageMetadata } from "~/server/branding-metadata";
 import { redirect } from "next/navigation";
 import { auth } from "~/server/auth";
 import { db } from "~/server/db";
 import { HistoricalAcademicCorrections } from "~/app/_components/historical-academic-corrections";
+
+export async function generateMetadata() {
+  return pageMetadata("historicalAcademics.title");
+}
 
 export default async function AcademicCorrectionsPage({
   searchParams,

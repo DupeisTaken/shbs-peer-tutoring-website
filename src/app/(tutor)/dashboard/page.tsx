@@ -17,6 +17,7 @@ import { SubjectWillingness } from "~/app/(tutor)/_components/subject-willingnes
 import { getTranslations } from "next-intl/server";
 import { DashboardTasks } from "~/app/(tutor)/_components/dashboard-tasks";
 import { DisclosureSection } from "~/app/_components/ui/disclosure-section";
+import { InlineNotice } from "~/app/_components/ui/patterns";
 import { SessionPagePosition } from "~/app/_components/session-view-state";
 
 import { TutorWorkspace } from "~/app/(tutor)/_components/tutor-workspace";
@@ -25,6 +26,11 @@ import { TutorRoomSchedule } from "~/app/(tutor)/_components/tutor-room-schedule
 import { ProgramCalendarNotice } from "~/app/_components/program-calendar";
 import { SchoolCalendarNotice } from "~/app/_components/school-calendar-notice";
 import { PersonalTutorHistory } from "~/app/history/personal-tutor-history";
+import { pageMetadata } from "~/server/branding-metadata";
+
+export async function generateMetadata() {
+  return pageMetadata("admin.nav.links.dashboard");
+}
 
 export default async function TutorDashboard() {
   const session = await auth();
@@ -51,7 +57,10 @@ export default async function TutorDashboard() {
   ]);
 
   return (
-    <div className="mx-auto max-w-6xl space-y-4 px-4 py-5 sm:py-6">
+    <main
+      id="main-content"
+      className="mx-auto max-w-6xl space-y-4 px-4 py-5 sm:py-6"
+    >
       <SessionPagePosition
         id="tutor-dashboard-v1"
         scope={`${me.status}:${total.periodLabel ?? ""}`}
@@ -140,19 +149,19 @@ export default async function TutorDashboard() {
       )}
 
       {inactive && !pending && (
-        <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-4 text-amber-800">
-          <p className="font-semibold">{t("tutor.dashboard.inactive.title")}</p>
-          <p className="mt-1 text-sm">
+        <InlineNotice
+          tone="warning"
+          title={t("tutor.dashboard.inactive.title")}
+        >
+          <p className="mt-1">
             {t("tutor.dashboard.inactive.body", {
               status: t(`tutor.status.${me.status}`),
             })}
           </p>
           {me.status === "OPTED_OUT" && (
-            <p className="mt-2 text-sm">
-              {t("tutor.dashboard.inactive.reentryHint")}
-            </p>
+            <p className="mt-2">{t("tutor.dashboard.inactive.reentryHint")}</p>
           )}
-        </div>
+        </InlineNotice>
       )}
 
       <TutorWorkspace
@@ -236,6 +245,6 @@ export default async function TutorDashboard() {
           </section>
         }
       />
-    </div>
+    </main>
   );
 }

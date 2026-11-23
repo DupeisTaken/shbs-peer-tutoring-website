@@ -87,8 +87,8 @@ function StatsCells({
   if (!s) {
     return (
       <>
-        <td className="text-slate-400">—</td>
-        <td className="text-slate-400">—</td>
+        <td className="text-slate-600">—</td>
+        <td className="text-slate-600">—</td>
       </>
     );
   }
@@ -651,14 +651,14 @@ export default function TuteesPage() {
                         <td className="font-medium text-slate-800">
                           {tutor.englishName}
                         </td>
-                        <td className="text-slate-400" data-sort-value="">
+                        <td className="text-slate-600" data-sort-value="">
                           {t("admin.tutees.noPairings")}
                         </td>
                         <td data-sort-value="">—</td>
                         <td data-sort-value="">—</td>
                         <td data-sort-value={0}>0</td>
                         <TableActions>
-                          <span className="text-slate-400">—</span>
+                          <span className="text-slate-600">—</span>
                         </TableActions>
                       </tr>,
                     ];

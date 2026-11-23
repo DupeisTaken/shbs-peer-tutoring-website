@@ -11,6 +11,7 @@ export default async function HelpLayout({
   return (
     <div className="min-h-screen">
       <PublicHeader
+        skipLabel={t("common.skipToContent")}
         navigation={
           <nav aria-label={t("helpNav.title")} className="flex flex-wrap gap-3">
             <Link

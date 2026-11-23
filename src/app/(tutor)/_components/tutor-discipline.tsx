@@ -124,7 +124,7 @@ export function TutorDiscipline() {
               {d.cards.map((c) => (
                 <li key={c.id} className="text-xs text-slate-600">
                   {dot(c.color)}{" "}
-                  <span className="text-slate-400">
+                  <span className="text-slate-600">
                     {programFormat.dateTime(new Date(c.date), {
                       dateStyle: "medium",
                       timeZone: "UTC",

@@ -1,3 +1,4 @@
+import { pageMetadata } from "~/server/branding-metadata";
 import { redirect } from "next/navigation";
 
 import { authorizeHomeEditor } from "~/server/home/images";
@@ -9,6 +10,10 @@ import { LandingView } from "~/app/_components/landing-view";
  * shell so it's a faithful, full-bleed copy of the real page. Middleware already requires a session;
  * this narrows it to landing editors.
  */
+export async function generateMetadata() {
+  return pageMetadata("landing.preview.ribbon.title");
+}
+
 export default async function LandingPreviewPage() {
   const access = await authorizeHomeEditor();
   if (!access.ok) redirect("/");

@@ -72,6 +72,7 @@ export function AdminMobileNavigation({
           >
             <NavSidebarClient
               sections={sections}
+              navLabel={labels.title}
               collapseAllLabel={labels.collapse}
               expandAllLabel={labels.expand}
               sticky={false}

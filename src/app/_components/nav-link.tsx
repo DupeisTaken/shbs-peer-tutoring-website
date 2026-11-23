@@ -27,6 +27,7 @@ export function NavLink({
   return (
     <Link
       href={href}
+      aria-current={active ? "page" : undefined}
       className={`nav-link ${active ? "nav-link-active" : ""} ${className}`}
     >
       {label}

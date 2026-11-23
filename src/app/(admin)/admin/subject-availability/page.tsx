@@ -1,9 +1,14 @@
+import { pageMetadata } from "~/server/branding-metadata";
 import { redirect } from "next/navigation";
 import { getTranslations } from "next-intl/server";
 import { auth } from "~/server/auth";
 import { SubjectAvailability } from "~/app/_components/subject-availability";
 
 /** Subject approval and teaching intent remain independent of interview enablement. */
+export async function generateMetadata() {
+  return pageMetadata("subjectAvailability.title");
+}
+
 export default async function SubjectAvailabilityPage() {
   const session = await auth();
   if (!session || !["HEAD", "ADMIN", "COORDINATOR"].includes(session.role))

@@ -77,7 +77,7 @@ export default function ActivityPage() {
             key: "matching",
             label: t("workflow.matching"),
             value: activitySummary.data.matching,
-            tone: "accent" as const,
+            tone: "teal" as const,
             href: "/admin/requests",
           },
           {
@@ -129,7 +129,7 @@ export default function ActivityPage() {
             key: "signups",
             label: t("admin.activity.counters.pendingSignups"),
             value: pendingTutees.length,
-            tone: "accent" as const,
+            tone: "teal" as const,
             href: "/admin/requests",
           },
         ]),
@@ -137,7 +137,7 @@ export default function ActivityPage() {
       key: "apps",
       label: t("admin.activity.counters.openApplications"),
       value: openApps.length,
-      tone: "accent",
+      tone: "teal",
       href: "/admin/applications",
     },
     ...(features?.DISCIPLINE
@@ -624,7 +624,10 @@ function Panel({
             </span>
           )}
         </div>
-        <Link href={href} className="link text-sm">
+        <Link
+          href={href}
+          className="link inline-flex min-h-11 items-center text-sm lg:min-h-8"
+        >
           {manageLabel}
         </Link>
       </div>
