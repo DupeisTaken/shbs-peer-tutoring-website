@@ -57,6 +57,7 @@ export async function LandingView({ preview = false }: { preview?: boolean }) {
     ...navPages.map((page) => ({
       href: `/p/${page.slug}`,
       label: page.label,
+      lang: page.labelLocale,
     })),
     ...(features.VIEWER_SIGNUP
       ? [{ href: "/viewer", label: t("nav.viewerSignup") }]

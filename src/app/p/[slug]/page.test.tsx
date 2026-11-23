@@ -94,6 +94,7 @@ it.each([
     const record = {
       id: "synthetic-page",
       title: "Synthetic draft",
+      titleLocale: locale,
       body: "Section body",
       published: false,
     };
@@ -134,6 +135,7 @@ it.each(["pages", "sections"] as const)(
     (owner === "pages" ? state.page : state.section).mockResolvedValue({
       id: "synthetic-page",
       title: "Private draft",
+      titleLocale: "en",
       body: "Private text",
       published: false,
     });
@@ -150,6 +152,7 @@ it.each(["pages", "sections"] as const)(
     (owner === "pages" ? state.page : state.section).mockResolvedValue({
       id: "synthetic-page",
       title: "Public page",
+      titleLocale: "en",
       body: "Public text",
       published: true,
     });

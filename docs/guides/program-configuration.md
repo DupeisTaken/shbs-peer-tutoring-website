@@ -674,6 +674,12 @@ section. Locate and open the relevant card there to continue editing.
 preference for later publication; its **In nav** badge appears only while the page
 is published and the preference is checked.
 
+Custom-page titles, menu labels and content-block text fall back independently
+when a translation is missing. They try English first, then the first entry in
+the stored translations. Each displayed field identifies its actual language for
+assistive technology. The surrounding controls keep the chosen interface language.
+Publishing a title translation does not translate the page's individual content blocks.
+
 Assigned translators submit text drafts for review. If the destination text or language changes before approval, reject the stale draft, reload the current destination and submit again. A coordinator publication decision requires ADMIN/HEAD approval. English and Chinese are visible by default; review wording in hidden catalogs before enabling additional languages. Policy publication uses its own [reviewed revision workflow](policies/README.md).
 
 Translations cover interface strings and supported public text such as news, sections and page titles. Translators can add a language with English fallback; management controls visibility, ordering and deletion of added languages. Built-in language catalogs cannot be deleted. Enabling a UI language does not create a policy translation: publish reviewed policy text separately, or the policy falls back to English.

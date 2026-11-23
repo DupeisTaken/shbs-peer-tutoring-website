@@ -18,6 +18,8 @@ import { useClampedPopover } from "~/app/_components/use-clamped-popover";
 export type HeaderMenuItem = {
   href: string;
   label: string;
+  /** Language of this label, which may fall back independently of the interface. */
+  lang?: string;
   strong?: boolean;
   group?: string;
   separatorBefore?: boolean;
@@ -166,6 +168,7 @@ export function HeaderMenu({
                   ) : null}
                   <Link
                     href={item.href}
+                    lang={item.lang}
                     onClick={close}
                     className={`flex min-h-11 items-center rounded-md px-3 py-2 text-sm leading-snug whitespace-normal text-slate-700 transition hover:bg-slate-50 hover:text-slate-950 ${
                       item.strong ? "font-bold text-slate-950" : "font-medium"

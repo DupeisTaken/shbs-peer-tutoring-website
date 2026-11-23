@@ -2585,6 +2585,17 @@ The custom-page card's **In nav** status follows the public navigation reader's
 `published && showInNav` condition. The separate checkbox still reflects and saves
 `showInNav` while hidden, preserving the preference for later publication.
 
+Custom-page titles, navigation labels and shared content-block text retain the
+language key selected by [the localized field resolver](../../src/lib/page-blocks.ts).
+Resolution tries the requested locale, then English, then the first entry in the
+stored map, then empty text.
+An explicitly empty translation still wins. The heading, each navigation link,
+rich-text leaf, image caption/alt and individual button label carry their own
+resolved `lang`. Mixed-language columns do not inherit a page title's fallback.
+The interface, preview notice and return links retain the selected interface
+language. This presentation metadata changes neither saved content nor publication,
+visibility, slug resolution or Markdown sanitation.
+
 The [landing editor](<../../src/app/(admin)/admin/landing/landing-editor.tsx>)
 normalizes slug text on blur, then reads the canonical slug after the write succeeds.
 Both page and page-mode section address inputs have a persistent localized label;

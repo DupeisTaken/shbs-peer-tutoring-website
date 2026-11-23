@@ -41,6 +41,7 @@ export default async function SlugPage({
       <Shell
         editorView={editorView ? "pages" : null}
         title={page.title}
+        titleLocale={page.titleLocale}
         nav={navPages}
       >
         <PageBlocks blocks={blocks} locale={locale} />
@@ -80,12 +81,14 @@ async function gateUnpublished(published: boolean): Promise<boolean> {
 async function Shell({
   editorView,
   title,
+  titleLocale,
   nav,
   children,
 }: {
   editorView: LandingEditorView | null;
   title: string;
-  nav: { slug: string; label: string }[];
+  titleLocale?: string;
+  nav: { slug: string; label: string; labelLocale: string | undefined }[];
   children: ReactNode;
 }) {
   const [t, tc] = await Promise.all([
@@ -95,6 +98,7 @@ async function Shell({
   const navItems = nav.map((page) => ({
     href: `/p/${page.slug}`,
     label: page.label,
+    lang: page.labelLocale,
   }));
   return (
     <div className="flex min-h-screen flex-col">
@@ -129,7 +133,9 @@ async function Shell({
               )}
             </div>
           )}
-          <h1 className="page-title">{title}</h1>
+          <h1 className="page-title" lang={titleLocale}>
+            {title}
+          </h1>
         </div>
         {children}
         <div className="mx-auto max-w-3xl px-4 pb-12">
