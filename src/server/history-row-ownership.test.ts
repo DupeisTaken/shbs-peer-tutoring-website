@@ -2,6 +2,10 @@ import { afterAll, beforeEach, expect, it } from "vitest";
 import { assertIsolatedTestDatabase } from "~/test/database-guard";
 import { db } from "./db";
 import { notificationOwnershipWhere, quarterBlockAccountWhere, assertHistoryProfileOwner } from "./history-row-ownership";
+import {
+  findStudentQuarterBlock,
+  readStudentSignupRestriction,
+} from "./student-intake-restriction";
 
 assertIsolatedTestDatabase(process.env.DATABASE_URL);
 
@@ -94,6 +98,63 @@ it("quarantines restrictions without restoring access to either unresolved recip
   expect(await restrictions("C")).toEqual(["legacy-block"]);
   expect(await restrictions("other")).toEqual([]);
   expect((await db.studentQuarterBlock.findUniqueOrThrow({ where: { id: "legacy-block" } })).email).toBe("legacy@example.test");
+});
+
+it("reads the same period restriction through retained account ownership after a primary address changes", async () => {
+  await db.user.update({
+    where: { id: "D" },
+    data: { email: "changed-primary@example.test", role: "STUDENT" },
+  });
+  expect(await readStudentSignupRestriction(db, "term", "D")).toEqual({
+    blocked: true,
+    canOpenWorkspace: true,
+  });
+  expect(await readStudentSignupRestriction(db, "next-term", "D")).toEqual({
+    blocked: false,
+    canOpenWorkspace: true,
+  });
+  expect(await readStudentSignupRestriction(db, null, "D")).toEqual({
+    blocked: false,
+    canOpenWorkspace: true,
+  });
+  // A primary-address prohibition also remains effective without an account source.
+  await db.studentQuarterBlock.create({
+    data: { email: "other@example.test", intakeTermId: "term", legacyTuteeId: "tutee" },
+  });
+  expect(await readStudentSignupRestriction(db, "term", "other")).toEqual({
+    blocked: true,
+    canOpenWorkspace: false,
+  });
+});
+
+it("keeps optional alias prohibitions email-specific until a durable account restriction applies", async () => {
+  await db.accountEmail.create({
+    data: { userId: "C", email: "legacy@example.test", verifiedAt: new Date() },
+  });
+  expect(await readStudentSignupRestriction(db, "term", "C")).toEqual({
+    blocked: false,
+    canOpenWorkspace: false,
+  });
+  const account = await db.user.findUniqueOrThrow({ where: { id: "C" } });
+  expect(
+    await findStudentQuarterBlock(db, "term", account, "legacy@example.test"),
+  ).toEqual({ id: "legacy-block" });
+  await db.historyRowOwnership.create({
+    data: {
+      entity: "StudentQuarterBlock",
+      recordId: "legacy-block",
+      readerUserId: "C",
+      receiptId: "synthetic-entry-restriction",
+    },
+  });
+  expect(await readStudentSignupRestriction(db, "term", "C")).toEqual({
+    blocked: true,
+    canOpenWorkspace: false,
+  });
+  expect(await readStudentSignupRestriction(db, "term", "other")).toEqual({
+    blocked: false,
+    canOpenWorkspace: false,
+  });
 });
 
 it.each(["TUTOR", "TUTEE"] as const)("blocks ordinary %s provisioning after exact quarantine, including direct ownership inserts", async (kind) => {

@@ -3098,6 +3098,8 @@ model SessionPlanContinuationMember {
   /// Exactly one original enrollment authority supplies a membership change.
   assignmentId String?
   sourceSurveyId String?
+  /// Exact surveyless enrollment source for a completed withdrawal release.
+  sourceTuteeId String?
   joinedAt DateTime
   releasedAt DateTime?
   @@id([planId, pairingId, tuteeId])

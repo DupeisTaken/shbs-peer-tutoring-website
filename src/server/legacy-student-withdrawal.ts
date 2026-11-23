@@ -1,12 +1,11 @@
 import { TRPCError } from "@trpc/server";
-import type { StudentRequestReview } from "../../generated/prisma";
+import { lockUsernameNamespace } from "./auth/username-namespace";
 import { ownedStudentIds } from "./student-ownership";
 import { requirePolicy } from "./policy-acceptance";
 import {
   inTransaction,
   lockEntity,
   type DomainDb,
-  type TransactionDb,
 } from "./transactions";
 import { consumeStudentAction } from "./student-workflow";
 
@@ -63,6 +62,8 @@ export async function applyLegacyStudentWithdrawal(
   ticket: string,
 ) {
   return inTransaction(db, async (tx) => {
+    await lockEntity(tx, "program:period");
+    await lockUsernameNamespace(tx);
     await lockEntity(tx, `legacy-student:${tuteeId}`);
     const { term, student } = await ownedLegacyParticipation(
       tx,
@@ -114,45 +115,4 @@ export async function applyLegacyStudentWithdrawal(
   });
 }
 
-/** Recheck ownership and term at approval; preserve past attendance and block fresh intake. */
-export async function approveLegacyStudentWithdrawal(
-  tx: TransactionDb,
-  review: StudentRequestReview,
-) {
-  const { term, user, student } = await ownedLegacyParticipation(
-    tx,
-    review.requestedByUserId,
-    review.legacyTuteeId!,
-  );
-  if (term.id !== review.legacyIntakeTermId)
-    invalid("This quarter ended. Decline this outdated withdrawal request.");
-  await tx.studentQuarterBlock.upsert({
-    where: {
-      email_intakeTermId: { email: user.email, intakeTermId: term.id },
-    },
-    update: {},
-    create: {
-      email: user.email,
-      intakeTermId: term.id,
-      userId: user.id,
-      legacyTuteeId: student.id,
-    },
-  });
-  await tx.pairingTutee.deleteMany({
-    where: { tuteeId: student.id, pairing: { termId: term.id } },
-  });
-  await tx.tutee.update({
-    where: { id: student.id },
-    data: { status: "INACTIVE" },
-  });
-  await tx.studentRequestReview.updateMany({
-    where: {
-      legacyTuteeId: student.id,
-      legacyIntakeTermId: term.id,
-      state: "PENDING",
-      id: { not: review.id },
-    },
-    data: { state: "DENIED", resolvedAt: new Date() },
-  });
-}
 import { notificationInAppEvent } from "~/lib/notification-details";

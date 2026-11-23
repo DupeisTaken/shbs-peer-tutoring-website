@@ -288,7 +288,12 @@ it("retains personal history for an empty or missing active period without expos
 it("keeps task counts upcoming-only and does not infer an absence from a missing row", async () => {
   const api = caller("TUTOR").tutor;
   const current = await api.meetingRecords({ period: "current" });
-  expect(await api.meetingRecords({ period: "26-27:Q2" })).toEqual(current);
+  const explicit = await api.meetingRecords({ period: "26-27:Q2" });
+  expect(current.every((row) => row.serverNow instanceof Date)).toBe(true);
+  expect(explicit.every((row) => row.serverNow instanceof Date)).toBe(true);
+  expect(explicit.map(({ serverNow: _, ...row }) => row)).toEqual(
+    current.map(({ serverNow: _, ...row }) => row),
+  );
   expect(current.find((row) => row.id === "current-past")).toMatchObject({
     status: null,
     upcoming: false,

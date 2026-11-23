@@ -1,3 +1,4 @@
+import { createHash, randomUUID } from "node:crypto";
 import { confirmationDelayMs } from "~/lib/confirmation-timing";
 import {
   notificationList,
@@ -18,7 +19,7 @@ import {
 } from "~/server/request-invalidity";
 import { findAccountPolicy } from "./policy-acceptance";
 import { enforceAssignmentQualification } from "./assignment-qualification";
-import { approveLegacyStudentWithdrawal } from "./legacy-student-withdrawal";
+import { applyQuarterWithdrawal, lockQuarterWithdrawalScope } from "./student-quarter-withdrawal";
 import { TRPCError } from "@trpc/server";
 import { approvalScope } from "./db-scope";
 import { ownedStudentIds } from "./student-ownership";
@@ -53,6 +54,7 @@ function fail(message: string): never {
 export const actionNames = [
   "RECALL",
   "ABORT",
+  "SURVEY_ABORT",
   "SCHEDULE",
   "APPROVE",
   "DENY",
@@ -63,6 +65,15 @@ export const actionNames = [
   "SIGNUP_APPEAL",
 ] as const;
 export type StudentAction = (typeof actionNames)[number];
+
+// Old servers cannot consume this internal action as ordinary ABORT proof.
+// The versioned ID preserves its exact-receipt contract after proof collection.
+const surveyAbortProofAction = "SURVEY_ABORT_V1";
+function isReceiptBoundAbortTicket(ticket: string) {
+  return /^survey-abort-v1:[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/.test(
+    ticket,
+  );
+}
 
 export async function prepareStudentAction(
   db: DomainDb,
@@ -77,8 +88,11 @@ export async function prepareStudentAction(
   });
   const ticket = await db.studentActionConfirmation.create({
     data: {
+      ...(action === "SURVEY_ABORT"
+        ? { id: `survey-abort-v1:${randomUUID()}` }
+        : {}),
       userId,
-      action,
+      action: action === "SURVEY_ABORT" ? surveyAbortProofAction : action,
       target,
       readyAt: new Date(now + confirmationDelayMs[action]),
       expiresAt: new Date(now + 30 * 60_000),
@@ -103,12 +117,16 @@ export async function consumeStudentAction(
   action: StudentAction,
   target: string,
 ) {
+  if (action === "SURVEY_ABORT" && !isReceiptBoundAbortTicket(id))
+    fail(
+      "Read the confirmation and wait for its timer before confirming. Reopen it if it expired.",
+    );
   const now = new Date();
   const claimed = await tx.studentActionConfirmation.updateMany({
     where: {
       id,
       userId,
-      action,
+      action: action === "SURVEY_ABORT" ? surveyAbortProofAction : action,
       target,
       readyAt: { lte: now },
       expiresAt: { gt: now },
@@ -439,11 +457,39 @@ export async function applyStudentAbort(
   reason: string,
   ticket: string,
 ) {
+  const reasonHash = studentAbortReasonHash(reason);
+  const accepted = await studentAbortReceipt(
+    db,
+    userId,
+    id,
+    reasonHash,
+    ticket,
+  );
+  if (accepted.status === "ACCEPTED")
+    return { ok: true, reviewId: accepted.reviewId };
   await expireStudentRequests(db);
   return inTransaction(db, async (tx) => {
     await lockEntity(tx, "program:period");
+    await lockEntity(tx, `student-abort:${ticket}`);
+    const receipt = await readStudentAbortReceipt(
+      tx,
+      userId,
+      id,
+      reasonHash,
+      ticket,
+    );
+    // The existing review is the receipt, even after a later decision or rollover.
+    // An ordinary transport retry can only return this exact accepted operation.
+    if (receipt.status === "ACCEPTED")
+      return { ok: true, reviewId: receipt.reviewId };
     const row = await ownedRequest(tx, userId, id);
-    await consumeStudentAction(tx, ticket, userId, "ABORT", id);
+    await consumeStudentAction(
+      tx,
+      ticket,
+      userId,
+      isReceiptBoundAbortTicket(ticket) ? "SURVEY_ABORT" : "ABORT",
+      id,
+    );
     if (!(await studentRequestExecutionAssignments(tx, row)).length)
       fail("This request is unassigned. Use recall instead.");
     if (
@@ -454,15 +500,101 @@ export async function applyStudentAbort(
       fail("Your application is already awaiting review.");
     const review = await tx.studentRequestReview.create({
       data: {
+        id: studentAbortReviewId(userId, id, reasonHash, ticket),
         surveyId: id,
         kind: "STUDENT_ABORT",
         requestedByUserId: userId,
-        reason,
+        reason: reason.trim(),
       },
     });
-    await notifyRequest(tx, row, "student_withdrawal_pending", undefined, undefined,
-      { entity: "StudentRequestReview", recordId: review.id });
-    return { ok: true };
+    await notifyRequest(
+      tx,
+      row,
+      "student_withdrawal_pending",
+      undefined,
+      undefined,
+      { entity: "StudentRequestReview", recordId: review.id },
+    );
+    return { ok: true, reviewId: review.id };
+  });
+}
+
+function studentAbortReasonHash(reason: string) {
+  return createHash("sha256").update(reason.trim()).digest("hex");
+}
+
+/** Domain-separated identity binds the receipt to this actor, source, ticket and
+ * exact normalized intent. Old cuid reviews never masquerade as new receipts. */
+function studentAbortReviewId(
+  userId: string,
+  id: string,
+  reasonHash: string,
+  ticket: string,
+) {
+  return `student-abort:${createHash("sha256")
+    .update(JSON.stringify([userId, id, ticket, reasonHash]))
+    .digest("hex")}`;
+}
+
+async function readStudentAbortReceipt(
+  tx: TransactionDb,
+  userId: string,
+  id: string,
+  reasonHash: string,
+  ticket: string,
+) {
+  const user = await tx.user.findUnique({ where: { id: userId } });
+  const row = await tx.studentSurvey.findUnique({ where: { id } });
+  if (
+    !user ||
+    user.suspendedAt ||
+    user.mergedIntoId ||
+    user.recoveryVoidedAt ||
+    user.role === "VIEWER" ||
+    !row?.tuteeId ||
+    !row.confirmedAt ||
+    !(await ownedStudentIds(tx, userId)).includes(row.tuteeId)
+  )
+    throw new TRPCError({ code: "FORBIDDEN" });
+  const review = await tx.studentRequestReview.findUnique({
+    where: { id: studentAbortReviewId(userId, id, reasonHash, ticket) },
+  });
+  if (
+    review?.surveyId === id &&
+    review.kind === "STUDENT_ABORT" &&
+    review.requestedByUserId === userId &&
+    studentAbortReasonHash(review.reason) === reasonHash
+  )
+    return { status: "ACCEPTED" as const, reviewId: review.id };
+  const proof = await tx.studentActionConfirmation.findUnique({
+    where: { id: ticket },
+  });
+  const versioned = isReceiptBoundAbortTicket(ticket);
+  const boundUnused =
+    proof?.userId === userId &&
+    proof.target === id &&
+    proof.action === (versioned ? surveyAbortProofAction : "ABORT") &&
+    !proof.usedAt;
+  // Every accepted versioned proof commits its exact receipt. Missing or expired
+  // unused proof cannot be consumed later, including after a lost retirement reply.
+  if (versioned && (!proof || (boundUnused && proof.expiresAt <= new Date())))
+    return { status: "NOT_ACCEPTED" as const };
+  // Old consumed/deleted tickets have no durable exact-receipt contract.
+  return { status: "UNCONFIRMED" as const, canRetire: boundUnused };
+}
+
+/** Read-only reconciliation never expires requests, consumes tickets or submits
+ * another review. The lock waits for an already admitted same-ticket write. */
+export function studentAbortReceipt(
+  db: DomainDb,
+  userId: string,
+  id: string,
+  reasonHash: string,
+  ticket: string,
+) {
+  return inTransaction(db, async (tx) => {
+    await lockEntity(tx, `student-abort:${ticket}`);
+    return readStudentAbortReceipt(tx, userId, id, reasonHash, ticket);
   });
 }
 
@@ -614,6 +746,25 @@ export async function resolveStudentReview(
     });
     const { withAutomaticRecoveryCheckpoint } =
       await import("~/server/recovery/checkpoint");
+    if (approve && initial.kind === "STUDENT_ABORT") {
+      // Prelock the complete aggregate before recovery creates its tracking
+      // fences. Capture and mutation share this exact authoritative scope.
+      const scope = await lockQuarterWithdrawalScope(tx, { reviewId: id });
+      return withAutomaticRecoveryCheckpoint(
+        tx,
+        { adapter: "STUDENT_QUARTER_WITHDRAWAL", sourceId: id },
+        { id: userId },
+        async () => {
+          await consumeStudentAction(tx, ticket, userId, "APPROVE", id);
+          await applyQuarterWithdrawal(tx, scope, { actorId: userId, now: new Date() });
+          for (const profile of scope.manual) await notifyLegacySchedule(
+            tx, profile.id, scope.owner!.id, "student_withdrawal_approved", undefined,
+            scope.term!.id, { entity: "StudentRequestReview", recordId: id },
+          );
+          return { ok: true };
+        },
+      );
+    }
     return withAutomaticRecoveryCheckpoint(
       tx,
       initial.surveyId
@@ -635,9 +786,7 @@ export async function resolveStudentReview(
             approve ? "APPROVE" : "DENY",
             id,
           );
-          if (approve && review.kind === "STUDENT_ABORT") {
-            await approveLegacyStudentWithdrawal(tx, review);
-          } else if (approve) {
+          if (approve) {
             if (!review.pairingId || (await supersededPairingIds(tx)).includes(review.pairingId) ||
               await tx.studentRequestExecutionAssignment.count({ where: { pairingId: review.pairingId, tuteeId: review.legacyTuteeId!, releasedAt: null } }))
               fail("This assignment now has exact request ownership. Decline this outdated review and review its current original request.");
@@ -720,35 +869,7 @@ export async function resolveStudentReview(
             resolvedByUserId: userId,
           },
         });
-        if (approve && review.kind === "STUDENT_ABORT") {
-          const owner = row.tuteeId
-            ? await tx.studentProfileOwnership.findUnique({
-                where: { tuteeId: row.tuteeId },
-              })
-            : null;
-          const linked = row.tuteeId
-            ? await tx.user.findUnique({
-                where: { studentId: row.tuteeId },
-                select: { id: true },
-              })
-            : null;
-          await tx.studentQuarterBlock.upsert({
-            where: {
-              email_intakeTermId: {
-                email: row.email,
-                intakeTermId: row.intakeTermId,
-              },
-            },
-            update: {},
-            create: {
-              email: row.email,
-              intakeTermId: row.intakeTermId,
-              surveyId: row.id,
-              userId: owner?.userId ?? linked?.id,
-            },
-          });
-          await closeStudentRequest(tx, row, "ABORTED");
-        } else if (approve) {
+        if (approve) {
           const requester = await tx.user.findUnique({
             where: { id: review.requestedByUserId },
             select: { tutorId: true },

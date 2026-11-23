@@ -263,6 +263,15 @@ settings before enabling its fields. Outside that window, the form is a read-onl
 preview. If the check fails, use Retry; existing requests and their separate email
 confirmation deadlines remain unchanged.
 
+An open signup form checks participation restrictions with its existing settings
+refresh. If withdrawal is approved while you are editing, your answers remain
+visible and new submission is disabled. A saved or uncertain submission still
+offers its existing verification or result-recovery controls. After the program
+actually changes periods, review the new period and renew policy agreement before
+submitting. A failed refresh keeps your draft and blocks further submission until
+the read succeeds. Returning to the tutee workspace also refreshes its shared signup
+restriction; an unreadable restriction does not remove existing request panels.
+
 ### Continue selected pairings into the next quarter
 
 After an official **Q1 → Q2** or **Q3 → Q4** refresh, eligible signed-in tutees
@@ -307,7 +316,9 @@ reopen that request or reactivate an inactive profile.
 
 If submission has an uncertain result, use **Check request result** before
 submitting again. If a saved request cannot be refreshed, Retry only reloads its
-latest state. Outside the continuation window, use the regular signup form when
+latest state. Once the one-hour continuation window ends, the continuation
+interface automatically hides (retaining only an active submission receipt or
+read-only result check). Outside the continuation window, use the regular signup form when
 recruitment is open. Periods whose first-opening history is unknown do not receive
 an invented continuation hour; see [opening and rollout rules](program-configuration.md#continuation-opening-window).
 
@@ -325,7 +336,7 @@ The tutee page uses the same top bar, account menu, theme and card layout as the
 | Messages             | Read and send messages within the tutee workspace                                                                                  |
 | Account              | Manage your shared account within the tutee workspace                                                                              |
 
-While eligible to participate, **Request a Tutor** appears once in the page header of every section and opens the existing request form. A program period is labeled **Quarter** when quarters are enabled and **Semester** when semester mode is applied; request and withdrawal wording follows that setting. A staged mode change does not change the current display.
+While eligible to participate, **Request a Tutor** appears once in the page header of every section and opens the existing request form. After an approved whole-period withdrawal, it is hidden for that period. Opening the signup address while signed in explains the restriction instead of showing a form; use **Requests** to read your retained records. Pending or declined withdrawal requests do not impose this restriction. A new active period restores the normal signup entry, subject to its recruitment window. A planned future opening does not change the active period. A program period is labeled **Quarter** when quarters are enabled and **Semester** when semester mode is applied; request and withdrawal wording follows that setting. A staged mode change does not change the current display.
 
 Current schedules include only active-period assignments on explicitly owned, non-inactive profiles. A new tutor assignment displays **Awaiting schedule** until a tutor or manager chooses a time slot; the assigned tutor remains visible. The dashboard counts only subjects with confirmed schedules. Multiple profiles on the same assignment produce one schedule entry. A matching name or email does not grant access to another person’s records. Historical attendance remains available after a refresh.
 
@@ -412,7 +423,19 @@ own unchanged timing rules.
 
 ### Withdrawal requests
 
-Open **Requests → Participation → Request withdrawal…**. The button names the current quarter or semester and also works for staff-entered enrollments explicitly linked to your account. Give a reason and complete the timed confirmation; check the decision before assuming your participation has ended.
+Open **Requests → Participation → Request withdrawal…**. The button names the current quarter or semester and also works for staff-entered enrollments explicitly linked to your account. Give a reason and complete the timed confirmation. Participation continues while the request is pending. Approval ends all tutoring and pending matching under your account for the current period, including other requests and linked staff-entered enrollments. You can still read your completed attendance and original requests. A declined request leaves participation in place.
+
+If an assigned request's withdrawal submission is interrupted, use **Check
+submission** on the retained notice. It checks that exact attempt without sending
+another application. If accepted, refresh its review status. If no accepted receipt
+is found, **Start fresh review** first retires the unused confirmation and checks
+again. Expired or already retired current confirmations can also be resolved by
+the check, even if the retirement reply was interrupted. A new timed review opens
+with your reason only when current request records still permit withdrawal.
+Otherwise the notice explains its current status and keeps your reason for a later
+status check. An outcome that remains
+unknown stays read only; keep checking or ask Admin for help. An older withdrawal
+or another request's review does not confirm this attempt.
 
 ### Records, feedback and appeals
 
@@ -834,7 +857,7 @@ For a student enrolled outside the survey flow, the tutor can relay the student'
 ### Conflicts, meetings and interviews
 
 - If an assigned tutee’s availability cannot work, submit a reasoned schedule-rejection request. The assignment continues until approval.
-- Submit or cancel your own meeting excuse at least **45 minutes** before the start (leaving a brief window after the 1-hour reminder email). The first three unexcused tutor-meeting absences in a semester have no automatic deduction; each further one deducts **0.25 hours**. Excused absences do not consume this allowance. Staff-recorded statuses require staff correction.
+- Submit or cancel your own meeting excuse at least **45 minutes** before the start (leaving a brief window after the 1-hour reminder email); excuse and cancel controls hide automatically once that 45-minute cutoff passes. The first three unexcused tutor-meeting absences in a semester have no automatic deduction; each further one deducts **0.25 hours**. Excused absences do not consume this allowance. Staff-recorded statuses require staff correction.
 - On an interview panel, review the application and submit your own vote. Every panelist must vote before a final decision. The majority decides; a tie is resolved by the selected Admin or Head chair, regardless of other panelists' rank.
 - On approval, the Admin or Head chair records actual duration and attendance and confirms the combined decision. Acceptance, service hours and initial registration setup apply immediately, and active Admin/Head accounts receive a notification. The current Admin/Head chair also applies rejection directly. Scheduling or voting alone never earns hours.
 
@@ -1503,7 +1526,7 @@ for allocation priorities and the distinction between planned and actual rooms.
 
 ### Review withdrawals and membership
 
-Staff use **Withdrawal Requests & Removals** to review self-submitted requests and their decision history. Tutee requests show their source, scope, submission time and approval-dependent effective date. Tutor-relayed withdrawals remain in a separate section with their existing seven-day recall window and exact scheduled effective time. Tutor relays remain available; staff can cancel them before they take effect.
+Staff use **Withdrawal Requests & Removals** to review self-submitted requests and their decision history. Tutee requests show their source, scope, submission time and approval-dependent effective date. An approved tutee withdrawal ends all of the account’s current-period enrollments. If the originating enrollment changes owners, decline the outdated request and ask the current owner to submit a new one. If the account’s enrollment changes after a Coordinator proposes approval, reject the stale proposal and review the current scope. Tutor-relayed withdrawals remain in a separate section with their existing seven-day recall window and exact scheduled effective time. Tutor relays remain available; staff can cancel them before they take effect.
 
 Tutor and crew opt-out/reentry requests remain pending until reviewed. Opt-out approval requires seven days to have elapsed; reentry has no seven-day wait. Recall controls depend on the request type; crew members can recall a pending opt-out. After approving a tutor opt-out, use the explicit student-requeue action to return affected students for matching. If the member's status has changed since submission, decline the stale request and review the current roster.
 

@@ -1,7 +1,7 @@
 "use client";
 
 import { useFormatter, useTranslations } from "next-intl";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { api } from "~/trpc/react";
 import {
   SessionAgenda,
@@ -9,11 +9,16 @@ import {
   type SessionOverview,
 } from "~/app/_components/session-agenda";
 import { useSessionAccessDenied } from "~/app/_components/session-view-state";
+import { useServerBoundaryClock } from "~/app/_components/use-server-clock";
 import { Button } from "~/app/_components/ui/button";
 import { QueryFeedback } from "~/app/_components/ui/query-feedback";
 import { ScheduleInterviewDetails } from "./schedule-interview-details";
 import { ScheduleMeetingDetails } from "./schedule-meeting-details";
 import { upcomingPreview, type ScheduleView } from "~/lib/schedule-overview";
+import {
+  MEETING_EXCUSE_CUTOFF_MS,
+  canExcusePersonalMeeting,
+} from "~/lib/personal-schedule";
 import { focusVisibleContext } from "~/app/_components/focus-visible-context";
 import {
   AgendaBadge,
@@ -136,6 +141,25 @@ export function TutorSchedule({
       : undefined;
   const meetingRows =
     active && meetingsEnabled && !meetingsDenied ? meetings.data : undefined;
+  const meetingCutoffBoundaries = useMemo(
+    () =>
+      (meetingRows?.actionableTasks ?? []).map(
+        (row) => new Date(row.startsAt).getTime() - MEETING_EXCUSE_CUTOFF_MS + 1,
+      ),
+    [meetingRows],
+  );
+  const meetingNowMs = useServerBoundaryClock(
+    meetingRows?.serverNow?.getTime(),
+    meetingCutoffBoundaries,
+  );
+  const activeMeetingTasks = useMemo(() => {
+    const tasks = meetingRows?.actionableTasks ?? [];
+    if (meetingNowMs === undefined) return tasks;
+    const current = new Date(meetingNowMs);
+    return tasks.filter((row) =>
+      canExcusePersonalMeeting(new Date(row.startsAt), current),
+    );
+  }, [meetingRows, meetingNowMs]);
   const datedInterviews =
     active && interviewsEnabled && !interviewsDenied
       ? (interviewEvents.data?.pages.flatMap((page) => page.appointments) ?? [])
@@ -389,7 +413,7 @@ export function TutorSchedule({
             </Button>
           ),
       })),
-      ...(meetingRows?.actionableTasks ?? []).map((row) => ({
+      ...activeMeetingTasks.map((row) => ({
         id: `meeting:${row.id}`,
         startsAt: row.startsAt,
         sortAt: row.sortAt,

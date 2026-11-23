@@ -25,6 +25,8 @@ const state = vi.hoisted(() => ({
   excused: false,
   cancelError: "",
   canExcuse: true,
+  meetingDate: new Date("2026-10-10T00:00:00Z"),
+  serverNow: undefined as Date | undefined,
   onSuccess: async (): Promise<void> => undefined,
 }));
 vi.mock("~/trpc/react", () => ({
@@ -69,11 +71,12 @@ vi.mock("~/trpc/react", () => ({
                         input.period === "26-27:Q1"
                           ? "Synthetic meeting"
                           : "Historical meeting",
-                      date: new Date("2026-10-10T00:00:00Z"),
+                      date: state.meetingDate,
                       excused: state.excused,
                       canExcuse: state.canExcuse,
                       upcoming: true,
                       status: null,
+                      serverNow: state.serverNow,
                     },
                   ],
           };
@@ -111,6 +114,10 @@ afterEach(() => {
   state.excused = false;
   state.cancelError = "";
   state.canExcuse = true;
+  state.meetingDate = new Date("2026-10-10T00:00:00Z");
+  state.serverNow = undefined;
+  vi.restoreAllMocks();
+  vi.useRealTimers();
 });
 
 it("keeps personal history reachable with an empty current quarter and no history writes", async () => {
@@ -271,5 +278,76 @@ it.each([
       meetingId: "meeting",
       reason: "Exam conflict draft",
     });
+  },
+);
+
+it("auto-hides the open excuse form at the server-anchored 45-minute cutoff and transitions to past status at start", () => {
+  vi.useFakeTimers();
+  let monotonic = 0;
+  vi.spyOn(performance, "now").mockImplementation(() => monotonic);
+  state.meetingDate = new Date("2026-10-10T10:00:00.000Z");
+  state.serverNow = new Date("2026-10-10T09:14:00.000Z"); // 46 min before start
+  start();
+
+  // Exact 45-minute boundary remains inclusive.
+  monotonic = 60_000;
+  act(() => {
+    vi.advanceTimersByTime(60_000);
+  });
+  expect(screen.getByRole("textbox")).toBeTruthy();
+  expect(
+    screen.getByRole("button", { name: messages.tutor.meetings.submitExcuse }),
+  ).toBeTruthy();
+
+  // 1 ms past the 45-minute cutoff auto-hides the inline excuse interface.
+  monotonic = 60_001;
+  act(() => {
+    vi.advanceTimersByTime(1);
+  });
+  expect(screen.queryByRole("textbox")).toBeNull();
+  expect(
+    screen.queryByRole("button", { name: messages.tutor.meetings.submitExcuse }),
+  ).toBeNull();
+  expect(
+    screen.queryByRole("button", { name: messages.tutor.meetings.excuseBtn }),
+  ).toBeNull();
+  expect(screen.getByText(messages.tutor.meetings.tooLate)).toBeTruthy();
+  expect(state.mutate).not.toHaveBeenCalled();
+
+  // Once the meeting start time passes, transition to the past status badge.
+  monotonic = 46 * 60_000 + 1;
+  act(() => {
+    vi.advanceTimersByTime(45 * 60_000);
+  });
+  expect(screen.queryByText(messages.tutor.meetings.tooLate)).toBeNull();
+  expect(screen.getByText(messages.auditEventDetails.notRecorded)).toBeTruthy();
+});
+
+it.each([
+  { locale: "en", catalog: messages },
+  { locale: "zh", catalog: zh },
+])(
+  "auto-hides Cancel Excuse after the 45-minute cutoff passes ($locale)",
+  ({ locale, catalog }) => {
+    vi.useFakeTimers();
+    let monotonic = 0;
+    vi.spyOn(performance, "now").mockImplementation(() => monotonic);
+    state.excused = true;
+    state.meetingDate = new Date("2026-10-10T10:00:00.000Z");
+    state.serverNow = new Date("2026-10-10T09:14:00.000Z");
+    render(element(locale));
+    expect(
+      screen.getByRole("button", { name: catalog.tutor.meetings.cancelExcuse }),
+    ).toBeTruthy();
+
+    monotonic = 60_001;
+    act(() => {
+      vi.advanceTimersByTime(60_001);
+    });
+    expect(
+      screen.queryByRole("button", { name: catalog.tutor.meetings.cancelExcuse }),
+    ).toBeNull();
+    expect(screen.getByText(catalog.tutor.meetings.excusedBadge)).toBeTruthy();
+    expect(state.cancel).not.toHaveBeenCalled();
   },
 );

@@ -207,7 +207,7 @@ function TimedActionInstance({
         <button
           type="button"
           className={
-            ["RECALL", "ABORT", "APPROVE"].includes(action)
+            ["RECALL", "ABORT", "SURVEY_ABORT", "APPROVE"].includes(action)
               ? "btn-danger"
               : "btn-primary"
           }

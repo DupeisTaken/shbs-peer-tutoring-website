@@ -458,4 +458,19 @@ describe("static operator recovery schema review", () => {
       ]),
     ).toThrow("UNREVIEWED_RECOVERY_ENUM_SCHEMA");
   });
+  it("recognizes the manual published-release source without dropping older backup support", () => {
+    const metadata = reviewedRecoverySchemaMetadata;
+    const field = {
+      table_name: "SessionPlanContinuationMember",
+      column_name: "sourceTuteeId",
+      udt_name: "text",
+    };
+    const base = metadata.identityLegacyDeclineColumns;
+    expect(assertReviewedRecoverySchema([...base, field], metadata.enums))
+      .toEqual(assertReviewedRecoverySchema(base, metadata.enums));
+    expect(() => assertReviewedRecoverySchema(
+      [...base, { ...field, udt_name: "uuid" }],
+      metadata.enums,
+    )).toThrow("UNREVIEWED_PUBLIC_RECOVERY_SCHEMA");
+  });
 });

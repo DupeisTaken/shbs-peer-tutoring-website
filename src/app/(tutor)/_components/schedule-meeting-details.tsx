@@ -1,13 +1,15 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useTranslations } from "next-intl";
 
 import { ProfileDialog } from "~/app/_components/profile-dialog";
 import { useSessionAccessDenied } from "~/app/_components/session-view-state";
+import { useServerBoundaryClock } from "~/app/_components/use-server-clock";
 import { QueryFeedback } from "~/app/_components/ui/query-feedback";
 import { api } from "~/trpc/react";
 import {
+  meetingClockBoundaries,
   TutorMeetingBrowser,
   useTutorMeetingController,
 } from "./tutor-meetings";
@@ -63,6 +65,20 @@ export function ScheduleMeetingDetails({
   });
   const browserDenied = useSessionAccessDenied(browserAccess);
   const open = enabled && (!!meetingId || showAll);
+  const activeDetail =
+    open && !showAll && !hideDetail ? selectedDetail : undefined;
+  const boundaries = useMemo(
+    () => (activeDetail ? meetingClockBoundaries([activeDetail]) : []),
+    [activeDetail],
+  );
+  const detailNowMs = useServerBoundaryClock(
+    activeDetail?.serverNow?.getTime(),
+    boundaries,
+  );
+  const effectiveNow = useMemo(
+    () => (detailNowMs === undefined ? undefined : new Date(detailNowMs)),
+    [detailNowMs],
+  );
 
   // The controller lives outside the modal, preserving independent drafts and
   // read-only recovery through Close/reopen and selected/full-source switches.
@@ -117,6 +133,7 @@ export function ScheduleMeetingDetails({
               [selectedDetail],
               false,
               !detail.error && !detail.isLoading,
+              effectiveNow,
             )}
           {!hideDetail && controller.feedback}
         </div>
