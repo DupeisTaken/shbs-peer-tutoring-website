@@ -973,6 +973,17 @@
       },
       "pendingBanner": "{count} {count, plural, one {registro de estudiante} other {registros de estudiantes}} en espera de revisión.",
       "reviewNow": "Revisar ahora →",
+      "emailQuota": {
+        "title": "Cuota de correo",
+        "dailyCount": "{remaining, number} / {limit, number}",
+        "dailyFree": "correos gratuitos disponibles hoy",
+        "dailyUnavailable": "La cuota gratuita diaria no está disponible.",
+        "balance": "El saldo gratuito permite enviar {count, plural, one {# correo más} other {# correos más}}.",
+        "balanceUnavailable": "El saldo gratuito no está disponible.",
+        "resetsAt": "La cuota diaria se restablece a las {time}.",
+        "resetUnknown": "La cuota se restablece a diario. La hora no está disponible.",
+        "unavailable": "La cuota de correo no está disponible en este momento."
+      },
       "recentSubmissions": {
         "title": "Envíos recientes",
         "viewAll": "Ver todos →",

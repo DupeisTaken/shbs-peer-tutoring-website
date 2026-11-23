@@ -981,6 +981,17 @@
       },
       "pendingBanner": "{count} tutee {count, plural, one {signup} other {signups}} awaiting review.",
       "reviewNow": "Review Now →",
+      "emailQuota": {
+        "title": "Email Quota",
+        "dailyCount": "{remaining, number} / {limit, number}",
+        "dailyFree": "free emails left today",
+        "dailyUnavailable": "Daily free quota unavailable.",
+        "balance": "Free balance has {count, plural, one {# email} other {# emails}} remaining.",
+        "balanceUnavailable": "Free balance unavailable.",
+        "resetsAt": "Daily quota resets at {time}.",
+        "resetUnknown": "Quota resets daily. Reset time unavailable.",
+        "unavailable": "Email quota is currently unavailable."
+      },
       "recentSubmissions": {
         "title": "Recent Submissions",
         "viewAll": "View All →",

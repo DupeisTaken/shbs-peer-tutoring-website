@@ -528,6 +528,29 @@ operator; automated tests do not establish real Aliyun delivery. If mail does no
 domain and each sender show verified, From exactly matches the account, and outbound SMTP is allowed.
 Application logs identify the category and failure without printing provider exceptions or secrets.
 
+### Show the Direct Mail quota on the dashboard
+
+The **Email Quota** card in `/admin` shows how many free emails are available today
+out of the published daily cap of 200, plus the total free allowance left. It reads
+`DailyRemainFreeQuota` and `RemainFreeQuota` from the mainland China (Hangzhou)
+Direct Mail account. Paid resource plans and pay-as-you-go are tracked separately in
+Aliyun. The card is visible to Admin and Head accounts. [Account summary API](https://help.aliyun.com/en/direct-mail/api-dm-2015-11-23-descaccountsummary) · [Direct Mail limits](https://help.aliyun.com/en/direct-mail/product-overview/limits)
+
+Set `ALIYUN_DM_ACCESS_KEY_ID` and `ALIYUN_DM_ACCESS_KEY_SECRET` in the app's `.env`
+using a dedicated RAM identity in the same Aliyun account as the SMTP sender. Grant
+`dm:DescAccountSummary` on resource `*`, as required by this API. Keep these keys
+separate from SMTP passwords. To display a confirmed daily reset time, set
+`ALIYUN_DM_QUOTA_RESET_TIME_UTC` to `HH:mm` in UTC. The dashboard displays that time
+in China time. Aliyun's public API documentation does not give an exact reset time,
+so leave this setting blank until you confirm it for the account.
+
+After recreating the app container, sign in as an Admin or Head and compare the
+figures with the Direct Mail console in Hangzhou without sending an email. Reload
+the dashboard after a minute to refresh a cached result. An incomplete credential pair or
+failed lookup shows **Email quota is currently unavailable**. Check the RAM policy,
+account, and regional endpoint if the status persists. To hide the card, clear both
+keys and recreate the app. Quota lookups have no effect on SMTP delivery.
+
 ## 4. Image build (CI → GHCR)
 
 Pushing to `main` triggers `.github/workflows/docker-build.yml`, which builds and pushes

@@ -981,6 +981,17 @@
       },
       "pendingBanner": "{count} {count, plural, one {inscription d'élève} other {inscriptions d'élèves}} en attente de traitement.",
       "reviewNow": "Examiner maintenant →",
+      "emailQuota": {
+        "title": "Quota d’e-mails",
+        "dailyCount": "{remaining, number} / {limit, number}",
+        "dailyFree": "e-mails gratuits disponibles aujourd’hui",
+        "dailyUnavailable": "Le quota gratuit quotidien est indisponible.",
+        "balance": "Le solde gratuit permet encore d’envoyer {count, plural, one {# e-mail} other {# e-mails}}.",
+        "balanceUnavailable": "Le solde gratuit est indisponible.",
+        "resetsAt": "Le quota quotidien est réinitialisé à {time}.",
+        "resetUnknown": "Le quota est réinitialisé chaque jour. L’heure est inconnue.",
+        "unavailable": "Le quota d’e-mails est actuellement indisponible."
+      },
       "recentSubmissions": {
         "title": "Soumissions récentes",
         "viewAll": "Voir tout →",
