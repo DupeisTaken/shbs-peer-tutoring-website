@@ -75,6 +75,7 @@ export async function UserAvatar({
         >
           {[
             ...items,
+            { href: "/help", label: t("helpNav.title") },
             { href: "/register", label: t("accountInvitation.addAccess") },
             { href: "/history", label: t("tuteeHistory.myHistory") },
           ]
