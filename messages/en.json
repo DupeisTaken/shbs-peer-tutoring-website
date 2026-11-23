@@ -1,4 +1,8 @@
 {
+  "helpNav": {
+    "title": "Help & How-to",
+    "downloads": "PDF handbooks"
+  },
   "recoveryWorkflow": {
     "adoptionPending": "Your request is saved. Finish confirming your email, and let staff know if you need help linking your earlier draft.",
     "review": "Staff prepared your saved answers for review. Check your subjects and times, enter your verified email, and agree to the current policy to submit.",

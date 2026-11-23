@@ -1,4 +1,8 @@
 {
+  "helpNav": {
+    "title": "帮助与操作指南",
+    "downloads": "PDF 操作手册"
+  },
   "recoveryWorkflow": {
     "adoptionPending": "申请已保存。请完成邮箱验证；如需协助关联之前的草稿，请联系管理人员。",
     "review": "管理人员已整理好你之前填写的内容。请核对科目和时间、填写已验证邮箱并同意当前政策后提交。",
