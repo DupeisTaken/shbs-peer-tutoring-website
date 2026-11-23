@@ -126,17 +126,17 @@ export async function studentScheduleDetail(
   const result =
     event === "student_schedule_review_approved"
       ? {
-          en: "Schedule conflict approved; this assignment was removed.",
-          zh: "时间冲突已通过，该分配已解除。",
+          en: "Schedule conflict approved; this original request releases its assignment. Other independently assigned requests remain in effect.",
+          zh: "时间冲突已通过，本原始申请解除对应分配，其他独立申请的分配继续有效。",
         }
       : event === "student_schedule_review_declined"
         ? {
-            en: "Schedule conflict declined; the assignment stays in place.",
-            zh: "时间冲突未通过，原分配保持不变。",
+            en: "Schedule conflict declined; the assignment remains unchanged.",
+            zh: "时间冲突未通过，分配保持不变。",
           }
         : {
-            en: "Schedule conflict reported; awaiting review.",
-            zh: "已报告时间冲突，等待审核。",
+            en: "Schedule conflict awaits review; the assignment remains unchanged.",
+            zh: "时间冲突待审核，分配暂不变更。",
           };
   return {
     en: `${name} / Tutor ${pairing.tutor.englishName} / ${pairing.subject}, ${notificationSchedule(pairing, "en")}: ${result.en}`,

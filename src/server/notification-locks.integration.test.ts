@@ -304,7 +304,7 @@ it("dispatches required mail over a saved opt-out, rechecks unlocks and never br
   // The role edit legitimately queues account mail; it must not deliver the old review.
   expect(
     mail.send.mock.calls.filter(
-      ([message]) => message.presentation?.eyebrow === "REVIEW REQUEST",
+      ([message]) => message.presentation?.eyebrow === "REVIEW NEEDED",
     ),
   ).toHaveLength(0);
 });

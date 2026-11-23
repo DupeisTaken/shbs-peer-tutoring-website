@@ -50,7 +50,7 @@ describe("step-up verification codes", () => {
     expect(message.text).toContain("change your password");
     expect(message.text).not.toContain("更改密码");
     expect(message.text).toContain("15 minutes");
-    expect(message.text).toContain("does not complete the requested action");
+    expect(message.text).toContain("Nothing changes until you enter the code");
 
     const results = await Promise.all(
       Array.from({ length: 8 }, () =>
@@ -66,10 +66,10 @@ describe("step-up verification codes", () => {
     await issueStepUpCode(USER_ID, "PASSWORD_CHANGE");
     const message = send.mock.calls.at(-1)![0];
     expect(message.presentation?.locale).toBe("zh");
-    expect(message.subject).toBe("验证更改密码");
-    expect(message.text).toContain("以更改密码");
+    expect(message.subject).toBe("修改密码验证码");
+    expect(message.text).toContain("以修改密码");
     expect(message.text).toContain("15 分钟内有效");
-    expect(message.text).toContain("发送验证码不代表该操作已完成");
+    expect(message.text).toContain("输入验证码前不会生效");
     expect(message.text).not.toContain("Enter this code");
   });
 

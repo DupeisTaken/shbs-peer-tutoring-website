@@ -271,7 +271,7 @@ it("dispatches a notification with one scoped link while keeping individual inst
   expect(message.html).toContain('class="canvas"');
   expect(message.html).toContain('class="footer-icon"');
   expect(message.html).toContain('src="https://reports.example.test/icon.png"');
-  expect(message.html).toContain("Copy this link into your browser:");
+  expect(message.html).toContain("Or copy this link into your browser:");
   expect(message.text).not.toContain("+7 h");
   expect(message.text).not.toContain("-0.5 h");
   expect(message.html).not.toContain('class="person"');

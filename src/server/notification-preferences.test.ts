@@ -474,7 +474,7 @@ it("produces separate primary-email and password/2FA facts without secrets", asy
   const copy = notificationEmailCopy(security!.event, security!.context);
   expect(copy.description).toContain("Your password was changed.");
   expect(copy.description).toContain(
-    "Email two-step verification was enabled.",
+    "Email two-factor verification was enabled.",
   );
   expect(JSON.stringify(rows)).not.toContain("PRIVATE_PASSWORD_HASH");
   await db.user.update({

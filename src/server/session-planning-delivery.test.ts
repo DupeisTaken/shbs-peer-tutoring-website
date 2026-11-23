@@ -132,7 +132,7 @@ it("rechecks a pause activated after a notice was queued before composing essent
   f.raw.programCalendarDay.count.mockResolvedValue(1);
   await deliverSessionNotices(10, f.database);
   expect(transport.send).toHaveBeenCalledWith(expect.objectContaining({
-    text: expect.stringContaining("Silence will not accept it") as unknown,
+    text: expect.stringContaining("no response will not accept it") as unknown,
   }));
   const sent: unknown = transport.send.mock.calls[0]?.[0];
   expect(typeof sent === "object" && sent !== null && "text" in sent ? sent.text : null).not.toContain("Silence can mean acceptance");
@@ -205,7 +205,7 @@ it("keeps superseded transition email historical and never qualifies an obsolete
   const f = fixture();
   f.response.offer.request.currentOfferId = "new-offer";
   await deliverSessionNotices(10, f.database);
-  expect(transport.send).toHaveBeenCalledWith(expect.objectContaining({ text: expect.stringContaining("no longer an actionable offer") as unknown }));
+  expect(transport.send).toHaveBeenCalledWith(expect.objectContaining({ text: expect.stringContaining("this offer is no longer open") as unknown }));
   expect(f.notice.status).toBe("SENT");
   expect(transport.mark).not.toHaveBeenCalled();
 });
@@ -214,7 +214,7 @@ it("treats a passed short-notice cutoff as historical even if a deadline sweep w
   const f = fixture();
   f.response.offer.cutoffAt = now;
   await deliverSessionNotices(10, f.database);
-  expect(transport.send).toHaveBeenCalledWith(expect.objectContaining({ text: expect.stringContaining("no longer an actionable offer") as unknown }));
+  expect(transport.send).toHaveBeenCalledWith(expect.objectContaining({ text: expect.stringContaining("this offer is no longer open") as unknown }));
   expect(transport.mark).not.toHaveBeenCalled();
 });
 
@@ -245,7 +245,7 @@ it("never qualifies a cancelled proposal, before admission or during an admitted
   await deliverSessionNotices(10, before.database);
   expect(transport.send).toHaveBeenCalledWith(expect.objectContaining({
     subject: expect.stringContaining("Earlier tutoring update") as unknown,
-    text: expect.stringContaining("no longer an actionable offer") as unknown,
+    text: expect.stringContaining("this offer is no longer open") as unknown,
     presentation: expect.objectContaining({
       action: expect.objectContaining({ label: "View current schedule" }) as unknown,
     }) as unknown,

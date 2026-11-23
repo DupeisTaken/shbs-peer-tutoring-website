@@ -122,8 +122,8 @@ describe("announcement publication and access", () => {
             announcementAction: "published",
             announcementTitle: "Grade 12",
             inAppDetail: {
-              en: "Announcement “Grade 12” was published. Open announcements to read it.",
-              zh: "公告“Grade 12”已发布，请打开公告查看。",
+              en: "New announcement: “Grade 12”.",
+              zh: "新公告：“Grade 12”。",
             },
           },
         },

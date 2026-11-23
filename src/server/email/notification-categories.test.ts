@@ -150,7 +150,7 @@ it.each(["en", "zh"] as const)("delivers only sanitized %s facts from the real n
   expect(message.text).toContain(detail[locale]);
   expect(message.text).not.toContain(detail[locale === "en" ? "zh" : "en"]);
   expect(message.text).not.toMatch(/sentinel|private@example/);
-  expect(message.presentation?.eyebrow).toBe(locale === "en" ? "REVIEW REQUEST" : "审核请求");
+  expect(message.presentation?.eyebrow).toBe(locale === "en" ? "REVIEW NEEDED" : "待审核");
   expect(message.presentation?.unsubscribeUrl).toBeTruthy();
   await pending(reviewer);
   await db.user.update({ where: { id: reviewer }, data: { role: "STUDENT" } });
