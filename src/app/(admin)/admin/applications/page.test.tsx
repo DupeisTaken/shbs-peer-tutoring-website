@@ -13,6 +13,7 @@ import { QueryClient, QueryObserver } from "@tanstack/react-query";
 import type { InvalidationTarget } from "~/lib/invalidate-refresh";
 import { NextIntlClientProvider } from "next-intl";
 import en from "../../../../../messages/en.json";
+import zh from "../../../../../messages/zh.json";
 import ApplicationsPage from "./page";
 import { SessionViewProvider } from "~/app/_components/session-view-state";
 import { ReadOnlyProvider } from "~/app/_components/read-only";
@@ -37,6 +38,8 @@ const mocks = vi.hoisted(() => {
     invalidate: vi.fn(),
     additional: false,
     interview: false,
+    interviewPanel: ["chair", "second", "third"],
+    interviewVotes: [true, true, true],
     role: "HEAD",
     decide: vi.fn(),
     minimized: false,
@@ -199,7 +202,7 @@ vi.mock("~/trpc/react", () => ({
                       ]
                     : [],
                   interviewers: mocks.interview
-                    ? ["chair", "second", "third"].map((id) => ({
+                    ? mocks.interviewPanel.map((id) => ({
                         isHead: id === "chair",
                         attended: false,
                         tutor: { id, englishName: id },
@@ -213,10 +216,12 @@ vi.mock("~/trpc/react", () => ({
                           },
                         ],
                   votes: mocks.interview
-                    ? ["chair", "second", "third"].map((id) => ({
-                        accept: true,
+                    ? mocks.interviewVotes.map((accept, index) => ({
+                        accept,
                         comment: "Reviewed",
-                        tutor: { englishName: id },
+                        tutor: {
+                          englishName: mocks.interviewPanel[index] ?? "Panelist",
+                        },
                       }))
                     : mocks.additional
                       ? []
@@ -273,6 +278,8 @@ beforeEach(() => {
   mocks.enabled = true;
   mocks.additional = false;
   mocks.interview = false;
+  mocks.interviewPanel = ["chair", "second", "third"];
+  mocks.interviewVotes = [true, true, true];
   mocks.role = "HEAD";
   mocks.minimized = false;
   mocks.invalid = false;
@@ -308,8 +315,12 @@ it("presents an accountless blank-name application without treating its label as
   expect(mocks.name).toBe("  ");
   expect(mocks.changeInvalidity).not.toHaveBeenCalled();
 });
-const content = (viewer = false) => (
-  <NextIntlClientProvider locale="en" messages={en} timeZone="Asia/Shanghai">
+const content = (viewer = false, locale: "en" | "zh" = "en") => (
+  <NextIntlClientProvider
+    locale={locale}
+    messages={locale === "zh" ? zh : en}
+    timeZone="Asia/Shanghai"
+  >
     <ReadOnlyProvider value={viewer}>
       <ApplicationsPage />
     </ReadOnlyProvider>
@@ -510,11 +521,81 @@ it("retains vote and decision evidence when interviews are disabled", () => {
   expect(mocks.history).toHaveBeenCalledWith(
     expect.objectContaining({ enabled: false }),
   );
+  expect(
+    screen.getByRole("button", { name: /Candidate One.*1 accept · 0 reject/ }),
+  ).toBeTruthy();
   fireEvent.click(screen.getByRole("button", { name: /Candidate One/ }));
   expect(screen.getByText(/Preserved vote/)).toBeTruthy();
   expect(screen.getByText(/Preserved decision/)).toBeTruthy();
   expect(screen.queryByRole("combobox", { name: /Panelist/ })).toBeNull();
 });
+
+it.each(
+  (["en", "zh"] as const).flatMap((locale) =>
+    [
+      {
+        scenario: "all rejected",
+        votes: [false, false, false],
+        panel: ["chair", "second", "third"],
+        tally: { en: "0 accept · 3 reject", zh: "0 票通过 · 3 票拒绝" },
+      },
+      {
+        scenario: "mixed votes",
+        votes: [true, false, true],
+        panel: ["chair", "second", "third"],
+        tally: { en: "2 accept · 1 reject", zh: "2 票通过 · 1 票拒绝" },
+      },
+      {
+        scenario: "a larger partially voted panel",
+        votes: [false, true],
+        panel: ["chair", "second", "third", "fourth", "fifth"],
+        tally: { en: "1 accept · 1 reject", zh: "1 票通过 · 1 票拒绝" },
+      },
+      {
+        scenario: "no votes",
+        votes: [],
+        panel: ["chair", "second", "third"],
+        tally: null,
+      },
+    ].map((testCase) => ({ ...testCase, locale })),
+  ),
+)(
+  "keeps the collapsed and expanded vote evidence consistent for $scenario in $locale",
+  ({ locale, votes, panel, tally }) => {
+    mocks.interview = true;
+    mocks.interviewPanel = panel;
+    mocks.interviewVotes = votes;
+    render(content(false, locale));
+
+    const messages = locale === "zh" ? zh : en;
+    const labels = messages.admin.applications;
+    const expectedTally = tally?.[locale];
+    const expectedPanel = labels.panelSummary
+      .replace("{n}", String(panel.length))
+      .replace("{total}", "3");
+    const expectedSummary = [labels.noCourses, expectedPanel, expectedTally]
+      .filter(Boolean)
+      .join(" · ");
+    const toggle = screen.getByRole("button", {
+      name: (name) =>
+        name.includes("Candidate One") && name.includes(expectedSummary),
+    });
+    expect(toggle.getAttribute("aria-expanded")).toBe("false");
+    expect(within(toggle).getByText(expectedSummary)).toBeTruthy();
+
+    fireEvent.click(toggle);
+    const details = document.getElementById(
+      toggle.getAttribute("aria-controls")!,
+    )!;
+    if (expectedTally) {
+      expect(within(details).getByText(expectedTally)).toBeTruthy();
+      expect(within(details).getAllByText(/Reviewed/)).toHaveLength(votes.length);
+    } else {
+      expect(within(details).getByText(labels.noVotes)).toBeTruthy();
+    }
+    expect(mocks.decide).not.toHaveBeenCalled();
+  },
+);
 
 it("retains an unsaved panel draft when the application is collapsed and reopened", () => {
   show();
