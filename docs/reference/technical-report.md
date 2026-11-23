@@ -2046,7 +2046,7 @@ registration follow-up remain in Applications; initial admission stays in chair 
 
 Meeting details and the period/history browser share one retained excuse controller.
 Drafts are keyed by meeting, pending writes block dismissal, and accepted-write refresh
-failures offer reads without repeating the mutation. The existing sixty-minute cutoff
+failures offer reads without repeating the mutation. The 45-minute cutoff
 and server eligibility checks remain authoritative. Session-specific attendance stays
 with its dated agenda controller and records actual duration. Known session fragments
 reveal the loaded card without opening a form or moving focus out of an active dialog.

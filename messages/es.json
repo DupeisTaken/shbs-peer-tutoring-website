@@ -2353,7 +2353,7 @@
     },
     "meetings": {
       "title": "Próximas reuniones",
-      "help": "¿No puedes asistir a una reunión? Justifica tu ausencia hasta 60 minutos antes de que empiece.",
+      "help": "¿No puedes asistir a una reunión? Justifica tu ausencia hasta 45 minutos antes de que empiece.",
       "excuseBtn": "Justificar ausencia",
       "submitExcuse": "Enviar justificación de ausencia",
       "cancelExcuse": "Cancelar justificación",

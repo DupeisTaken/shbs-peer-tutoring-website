@@ -2353,7 +2353,7 @@
     },
     "meetings": {
       "title": "Upcoming Meetings",
-      "help": "Can't make a meeting? Excuse your absence up to 60 minutes before it starts.",
+      "help": "Can't make a meeting? Excuse your absence up to 45 minutes before it starts.",
       "excuseBtn": "Excuse Absence",
       "submitExcuse": "Submit absence excuse",
       "cancelExcuse": "Cancel Excuse",
