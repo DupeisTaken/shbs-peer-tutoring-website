@@ -369,6 +369,24 @@ Tutor Roster details use the read-only `tutorDetails.get` procedure, guarded by 
 
 The application runs as a persistent Next.js 16 / React 19 Node server with tRPC 11, Prisma 7/PostgreSQL, Auth.js JWT sessions, next-intl and Tailwind CSS 4. It is not a static export: background verification deadlines, authentication and database mutations require the server.
 
+The [Help catalogue](../guides/help/README.md) uses bilingual task records in
+`src/lib/help`. Its server reader derives live capabilities before serializing
+search results or rendering an article. Screenshot handlers accept only reviewed
+manifest IDs referenced by authorized guides; raw assets stay outside `public/`
+and are gitignored in favor of on-demand GitHub Actions runner baking
+(`.github/workflows/help-assets.yml`, `scripts/capture-help-screenshots.ts`, and
+controllable size budgets in `src/lib/help/image-budget.ts`). Runs on `main`
+publish `help-assets-baked.tar.gz` (plus its SHA-256 checksum and all 20 PDFs)
+to the rolling `help-assets-latest` GitHub Release, which
+`.github/workflows/docker-build.yml` verifies and unpacks via
+`scripts/unpack-help-assets.mjs` before building the container image.
+Staff PDF downloads (`/api/help/pdf/[audience]`) render the same records with
+a 2-slot in-process concurrency guard, embedding the website's Geist TrueType
+family paired with the local Noto Sans SC subset for Chinese glyphs. Admin and
+Head editions retain separate authority gates. Generated GitHub editions, font
+coverage and manifests are checked by `npm run help:check`; see the
+[maintenance procedure](../contributing/help-catalogue.md).
+
 | Change you need                          | Start here                                                                                                                                                                                       |
 | ------------------------------- | ------------------------------------------------------------------------------------------- |
 | Add or change a page                     | [App routes](../../src/app), [shared components](../../src/app/_components) and [message catalogs](../../messages)                                                                                        |

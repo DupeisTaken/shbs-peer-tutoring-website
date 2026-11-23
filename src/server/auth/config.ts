@@ -67,6 +67,7 @@ export const authConfig = {
       const PUBLIC = [
         "/",
         "/privacy",
+        "/help",
         "/signin",
         "/signup",
         "/signup/account",
@@ -94,7 +95,12 @@ export const authConfig = {
         "/history/claim",
       ];
       // Public landing-section detail pages (/p/<slug>) — the page itself gates unpublished ones.
-      if (PUBLIC.includes(pathname) || pathname.startsWith("/p/")) return true;
+      if (
+        PUBLIC.includes(pathname) ||
+        pathname.startsWith("/p/") ||
+        pathname.startsWith("/help/")
+      )
+        return true;
       return !!auth?.user;
     },
     /** Expose role + tutorId (decoded from the JWT) on the session. Pure — no DB access. */

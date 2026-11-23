@@ -158,6 +158,10 @@ jobs:
           tags: |
             type=raw,value=latest
             type=sha
+      - name: Unpack baked help screenshots from latest release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: node scripts/unpack-help-assets.mjs
       # This is the production-build gate. No duplicate host build or publish rebuild.
       - name: Build runnable image
         id: build

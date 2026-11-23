@@ -55,6 +55,11 @@ yarn-error.log*
 /output/pdf/
 /backups/
 
+# Help screenshots and derived annotated images are baked in GitHub Actions runners
+# (or locally via `npm run help:capture`) rather than committed as binary blobs.
+/docs/guides/help/assets/
+/docs/guides/help/annotations.json
+
 # Private operator notes and deployment details; never part of the shared LMS foundation.
 /local-operations/
 

@@ -8,6 +8,16 @@ import { publishImage } from "./ci-publish.mjs";
 import { profileMatrix } from "./scheduling-profile/aggregate-partitions.mjs";
 import { groupSlots, profileGroups } from "./scheduling-profile/group-plan.mjs";
 import { renderWorker } from "./scheduling-profile/generate-workflow.mjs";
+import {
+  isAllowedHelpTarEntry,
+  unpackHelpAssets,
+  validateTarListing,
+  verifyArchiveChecksum,
+  verifyExtractedCaptures,
+} from "./unpack-help-assets.mjs";
+import { createHash } from "node:crypto";
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import os from "node:os";
 
 const root = path.resolve(import.meta.dirname, "..");
 const workflow = yaml.load(
@@ -702,4 +712,123 @@ test("failed revision upload cannot continue to latest", () => {
       call.includes("ghcr.io/example/school:latest"),
     ),
   );
+});
+
+test("docker-build unpacks baked help assets before image build and help-assets publishes main-only rolling release", () => {
+  const unpackIndex = image.steps.findIndex(
+    (step) => step.run === "node scripts/unpack-help-assets.mjs",
+  );
+  const buildIndex = image.steps.findIndex((step) => step.id === "build");
+  assert.ok(unpackIndex >= 0 && unpackIndex < buildIndex);
+  assert.equal(
+    image.steps[unpackIndex].env?.GH_TOKEN,
+    "${{ secrets.GITHUB_TOKEN }}",
+  );
+
+  const helpWorkflow = yaml.load(
+    readFileSync(path.join(root, ".github/workflows/help-assets.yml"), "utf8"),
+  );
+  assert.deepEqual(Object.keys(helpWorkflow.on), ["workflow_dispatch"]);
+  assert.deepEqual(helpWorkflow.permissions, { contents: "read" });
+  assert.equal(helpWorkflow.jobs.bake.permissions?.contents, "write");
+  const releaseStep = helpWorkflow.jobs.bake.steps.find((step) =>
+    step.name.includes("Publish rolling help-assets-latest release"),
+  );
+  assert.ok(releaseStep);
+  assert.equal(
+    releaseStep.if,
+    "github.ref == 'refs/heads/main' && inputs.publish_release == true",
+  );
+});
+
+test("unpack-help-assets enforces strict tar paths, checksums, and graceful missing-release fallback", () => {
+  assert.equal(isAllowedHelpTarEntry("docs/guides/help/captures.json"), true);
+  assert.equal(
+    isAllowedHelpTarEntry("docs/guides/help/assets/use-help-catalogue-step-1.en.jpg"),
+    true,
+  );
+  for (const bad of [
+    "../escape.jpg",
+    "/etc/passwd",
+    "docs/guides/help/assets/evil.sh",
+    "docs/guides/help/assets/../other.json",
+    "src/server/db.ts",
+  ]) {
+    assert.equal(isAllowedHelpTarEntry(bad), false, bad);
+  }
+
+  assert.deepEqual(
+    validateTarListing(
+      [
+        "drwxr-xr-x runner/runner 0 2026-11-23 00:00 docs/guides/help/assets/",
+        "-rw-r--r-- runner/runner 120 2026-11-23 00:00 docs/guides/help/captures.json",
+        "-rw-r--r-- runner/runner 400 2026-11-23 00:00 docs/guides/help/assets/use-help-catalogue-step-1.en.jpg",
+      ].join("\n"),
+    ),
+    [
+      "docs/guides/help/captures.json",
+      "docs/guides/help/assets/use-help-catalogue-step-1.en.jpg",
+    ],
+  );
+  assert.throws(
+    () =>
+      validateTarListing(
+        "lrwxrwxrwx runner/runner 0 2026-11-23 00:00 docs/guides/help/captures.json -> /etc/passwd",
+      ),
+    /Disallowed tar entry type/,
+  );
+  assert.throws(
+    () =>
+      validateTarListing(
+        "-rw-r--r-- runner/runner 10 2026-11-23 00:00 docs/guides/help/assets/use-help-catalogue-step-1.en.jpg",
+      ),
+    /missing docs\/guides\/help\/captures\.json/,
+  );
+
+  const payload = Buffer.from("synthetic-tarball-bytes");
+  const digest = createHash("sha256").update(payload).digest("hex");
+  assert.equal(
+    verifyArchiveChecksum(payload, `${digest}  help-assets-baked.tar.gz\n`),
+    digest,
+  );
+  assert.throws(
+    () => verifyArchiveChecksum(payload, `${"0".repeat(64)}  help-assets-baked.tar.gz\n`),
+    /SHA-256 mismatch/,
+  );
+
+  const missingResult = unpackHelpAssets({
+    env: { GITHUB_REPOSITORY: "Example/School" },
+    exec: () => {
+      const err = new Error("release not found");
+      err.stderr = "release not found";
+      throw err;
+    },
+  });
+  assert.deepEqual(missingResult, { status: "missing-release", count: 0 });
+
+  const fixtureRoot = mkdtempSync(path.join(os.tmpdir(), "shbs-unpack-test-"));
+  try {
+    mkdirSync(path.join(fixtureRoot, "docs/guides/help/assets"), { recursive: true });
+    const jpgBytes = Buffer.from([0xff, 0xd8, 0xff, 0xd9]);
+    const jpgSha = createHash("sha256").update(jpgBytes).digest("hex");
+    writeFileSync(
+      path.join(fixtureRoot, "docs/guides/help/assets/example-step-1.en.jpg"),
+      jpgBytes,
+    );
+    writeFileSync(
+      path.join(fixtureRoot, "docs/guides/help/captures.json"),
+      JSON.stringify({
+        screenshots: [{ file: "example-step-1.en.jpg", sha256: jpgSha }],
+      }),
+    );
+    assert.equal(verifyExtractedCaptures(fixtureRoot), 1);
+
+    writeFileSync(
+      path.join(fixtureRoot, "docs/guides/help/assets/example-step-1.en.jpg"),
+      Buffer.from([0xff, 0xd8, 0x00, 0xd9]),
+    );
+    assert.throws(() => verifyExtractedCaptures(fixtureRoot), /checksum mismatch/);
+  } finally {
+    rmSync(fixtureRoot, { recursive: true, force: true });
+  }
 });
