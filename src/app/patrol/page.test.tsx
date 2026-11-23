@@ -300,13 +300,12 @@ it("rechecks crew status and conceals private review evidence after access denia
 it("announces that evidence was saved without claiming zero-hour submissions earned credit", () => {
   state.hours = 0;
   show();
-  expect(screen.getByRole("status").textContent).toMatch(
-    /saved with no additional hours/,
+  expect(screen.getByRole("status").textContent).toBe(
+    messages.crew.patrol.recordedWithoutCredit,
   );
-  expect(screen.getByRole("status").textContent).toMatch(/20-minute allowance/);
-  expect(
-    screen.getByText(/all observations from the last 20 minutes/),
-  ).toBeTruthy();
+  expect(screen.getByRole("status").textContent).toMatch(/no extra hours/i);
+  expect(screen.getByRole("status").textContent).toMatch(/20 minutes/i);
+  expect(screen.getByText(messages.crew.patrol.subtitle)).toBeTruthy();
 });
 it("keeps the ordinary success confirmation for an awarded sweep", () => {
   state.hours = 0.5;

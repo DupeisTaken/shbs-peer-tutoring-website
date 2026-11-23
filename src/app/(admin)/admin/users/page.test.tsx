@@ -1192,7 +1192,7 @@ it.each(["en", "zh"] as const)(
     const failure = screen.getByText(
       locale === "en"
         ? "The setup email could not be sent. Check email delivery status and try again."
-        : "账户设置邮件未能发送。请检查邮件发送状态后重试。",
+        : "账号设置邮件未能发送。请检查邮件发送状态后重试。",
     );
     expect(failure).toBeTruthy();
     expect(failure.textContent).not.toMatch(/not configured|尚未配置/);

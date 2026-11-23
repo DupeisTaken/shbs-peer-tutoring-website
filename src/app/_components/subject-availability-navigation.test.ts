@@ -18,3 +18,23 @@ it("places subject availability directly below the roster without an interview f
   expect(items.some((item) => item.href === "/admin/interviews")).toBe(false);
   expect(items.some((item) => item.href === "/admin/applications")).toBe(true);
 });
+
+it("keeps archival, audit and recovery routes in Data & Recovery rather than Overview", () => {
+  const overview = NAV_SECTIONS.find(
+    (section) => section.titleKey === "admin.nav.sections.overview",
+  );
+  const dataRecovery = NAV_SECTIONS.find(
+    (section) => section.titleKey === "admin.nav.sections.dataRecovery",
+  );
+  expect(overview?.items.map((item) => item.href)).not.toContain("/admin/records");
+  expect(overview?.items.map((item) => item.href)).not.toContain(
+    "/admin/academic-corrections",
+  );
+  expect(dataRecovery?.items.map((item) => item.href)).toEqual([
+    "/admin/records",
+    "/admin/academic-corrections",
+    "/admin/audit",
+    "/admin/recovery",
+    "/admin/database",
+  ]);
+});

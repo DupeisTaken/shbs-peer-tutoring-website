@@ -507,7 +507,8 @@
     "replyContext": "Antwort an {name}",
     "cancelReply": "Antwort Abbrechen",
     "replyDraftHelp": "Ihr vorheriger Entwurf bleibt erhalten. Beim Abbrechen bleibt auch dieser Antwortentwurf auf dieser Seite.",
-    "permissionsDestination": "Nachrichtenberechtigungen in den Programmeinstellungen"
+    "permissionsDestination": "Nachrichtenberechtigungen in den Programmeinstellungen",
+    "privacyDetails": "Mehr zu älteren Nachrichten"
   },
   "common": {
     "cancel": "Abbrechen",
@@ -928,7 +929,8 @@
         "tutors": "Tutoren",
         "tutees": "Lernende",
         "schedulingRecords": "Planung & Aufzeichnungen",
-        "administration": "Verwaltung"
+        "administration": "Verwaltung",
+        "dataRecovery": "Daten & Wiederherstellung"
       },
       "links": {
         "dashboard": "Dashboard",
@@ -2371,7 +2373,7 @@
         "EXTRA": "Zusatzsitzung",
         "TUTOR_ABSENT": "Tutor abwesend"
       },
-      "tutorAbsentReason": "Grund für Abwesenheit des Tutors *",
+      "tutorAbsentReason": "Grund für Abwesenheit des Tutors",
       "start": "Beginn",
       "end": "Ende",
       "now": "Jetzt",
@@ -2397,7 +2399,7 @@
         "4": "Sehr gut",
         "5": "Ausgezeichnet"
       },
-      "comments": "Kommentare *",
+      "comments": "Kommentare",
       "cardsTitle": "Disziplinkarten (optional)",
       "cardsHelp": "Eine gelbe oder rote Karte mit kurzem Grund vergeben. Das Team prüft jede Karte, bevor sie zählt. (Eine unentschuldigte Abwesenheit oben löst automatisch eine rote Karte aus.)",
       "noCard": "Keine Karte",
@@ -6287,7 +6289,8 @@
     "proposeUnassign": "Freigabe der Zuweisung vorschlagen",
     "changed": "Die Prüfung wurde während der Eingabe geändert. Ihre Begründung bleibt erhalten. Laden Sie die Prüfung vor einem neuen Versuch.",
     "reload": "Prüfung neu laden",
-    "rejectedTitle": "Ungültige Anfrage geschlossen"
+    "rejectedTitle": "Ungültige Anfrage geschlossen",
+    "action": "Prüfen oder Einspruch einlegen"
   },
   "accountDeletion": {
     "intro": "Permanently delete the login for {name}? Review the account and its records before confirming your password.",

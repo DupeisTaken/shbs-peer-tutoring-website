@@ -507,7 +507,8 @@
     "replyContext": "{name}에게 답장 중",
     "cancelReply": "답장 취소",
     "replyDraftHelp": "이전 초안은 유지됩니다. 취소해도 이 답장 초안은 현재 페이지에 유지됩니다.",
-    "permissionsDestination": "프로그램 설정의 메시지 권한"
+    "permissionsDestination": "프로그램 설정의 메시지 권한",
+    "privacyDetails": "이전 메시지 안내"
   },
   "common": {
     "cancel": "취소",
@@ -928,7 +929,8 @@
         "tutors": "튜터",
         "tutees": "학생",
         "schedulingRecords": "일정 및 기록",
-        "administration": "관리"
+        "administration": "관리",
+        "dataRecovery": "데이터 및 복구"
       },
       "links": {
         "dashboard": "대시보드",
@@ -2371,7 +2373,7 @@
         "EXTRA": "추가 수업",
         "TUTOR_ABSENT": "튜터 결석"
       },
-      "tutorAbsentReason": "튜터 결석 사유 *",
+      "tutorAbsentReason": "튜터 결석 사유",
       "start": "시작",
       "end": "종료",
       "now": "지금",
@@ -2397,7 +2399,7 @@
         "4": "좋음",
         "5": "매우 좋음"
       },
-      "comments": "의견 *",
+      "comments": "의견",
       "cardsTitle": "규정 준수 카드 (선택)",
       "cardsHelp": "간단한 사유와 함께 옐로 또는 레드 카드를 부여합니다. 팀이 각 카드를 재검토 후 반영합니다. (무단결석 시 레드 카드가 자동 발급됩니다.)",
       "noCard": "카드 없음",
@@ -6287,7 +6289,8 @@
     "proposeUnassign": "배정 해제 제안",
     "changed": "작성 중 검토 정보가 변경되었습니다. 사유는 유지됩니다. 검토를 다시 불러온 후 시도하세요.",
     "reload": "검토 다시 불러오기",
-    "rejectedTitle": "무효 신청 종료"
+    "rejectedTitle": "무효 신청 종료",
+    "action": "검토 또는 이의 제기"
   },
   "accountDeletion": {
     "intro": "Permanently delete the login for {name}? Review the account and its records before confirming your password.",

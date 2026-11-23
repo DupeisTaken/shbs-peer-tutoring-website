@@ -507,7 +507,8 @@
     "replyContext": "Réponse à {name}",
     "cancelReply": "Annuler la Réponse",
     "replyDraftHelp": "Votre brouillon précédent est conservé. L’annulation conserve aussi ce brouillon de réponse sur cette page.",
-    "permissionsDestination": "Droits de messagerie dans les paramètres du programme"
+    "permissionsDestination": "Droits de messagerie dans les paramètres du programme",
+    "privacyDetails": "En savoir plus sur les anciens messages"
   },
   "common": {
     "cancel": "Annuler",
@@ -928,7 +929,8 @@
         "tutors": "Tuteurs",
         "tutees": "Élèves",
         "schedulingRecords": "Planification & dossiers",
-        "administration": "Administration"
+        "administration": "Administration",
+        "dataRecovery": "Données et récupération"
       },
       "links": {
         "dashboard": "Tableau de bord",
@@ -2371,7 +2373,7 @@
         "EXTRA": "Séance supplémentaire",
         "TUTOR_ABSENT": "Tuteur absent"
       },
-      "tutorAbsentReason": "Raison de l'absence du tuteur *",
+      "tutorAbsentReason": "Raison de l'absence du tuteur",
       "start": "Début",
       "end": "Fin",
       "now": "Maintenant",
@@ -2397,7 +2399,7 @@
         "4": "Très bien",
         "5": "Excellent"
       },
-      "comments": "Commentaires *",
+      "comments": "Commentaires",
       "cardsTitle": "Cartes disciplinaires (optionnel)",
       "cardsHelp": "Attribuez une carte jaune ou rouge avec une brève raison. L'équipe vérifie chacune avant qu'elle soit comptabilisée. (Une absence non excusée ci-dessus émet automatiquement une carte rouge.)",
       "noCard": "Pas de carte",
@@ -6287,7 +6289,8 @@
     "proposeUnassign": "Proposer la libération",
     "changed": "L’examen a changé pendant votre rédaction. Votre motif est conservé. Rechargez avant de réessayer.",
     "reload": "Recharger l’examen",
-    "rejectedTitle": "Demande invalide close"
+    "rejectedTitle": "Demande invalide close",
+    "action": "Examiner ou faire recours"
   },
   "accountDeletion": {
     "intro": "Permanently delete the login for {name}? Review the account and its records before confirming your password.",
