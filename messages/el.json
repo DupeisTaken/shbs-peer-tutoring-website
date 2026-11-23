@@ -976,6 +976,17 @@
       },
       "pendingBanner": "{count} {count, plural, one {εγγραφή μαθητή} other {εγγραφές μαθητών}} αναμένουν έλεγχο.",
       "reviewNow": "Έλεγχος τώρα →",
+      "emailQuota": {
+        "title": "Όριο email",
+        "dailyCount": "{remaining, number} / {limit, number}",
+        "dailyFree": "δωρεάν email διαθέσιμα σήμερα",
+        "dailyUnavailable": "Το ημερήσιο δωρεάν όριο δεν είναι διαθέσιμο.",
+        "balance": "Το δωρεάν υπόλοιπο είναι {count, number} email.",
+        "balanceUnavailable": "Το δωρεάν υπόλοιπο δεν είναι διαθέσιμο.",
+        "resetsAt": "Το ημερήσιο όριο ανανεώνεται στις {time}.",
+        "resetUnknown": "Το όριο ανανεώνεται καθημερινά. Η ώρα δεν είναι διαθέσιμη.",
+        "unavailable": "Το όριο email δεν είναι διαθέσιμο αυτήν τη στιγμή."
+      },
       "recentSubmissions": {
         "title": "Πρόσφατες υποβολές",
         "viewAll": "Προβολή όλων →",

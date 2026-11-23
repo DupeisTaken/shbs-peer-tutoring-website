@@ -976,6 +976,17 @@
       },
       "pendingBanner": "{count} {count, plural, one {Anmeldung wartet} other {Anmeldungen warten}} auf Überprüfung.",
       "reviewNow": "Jetzt prüfen →",
+      "emailQuota": {
+        "title": "E-Mail-Kontingent",
+        "dailyCount": "{remaining, number} / {limit, number}",
+        "dailyFree": "kostenlose E-Mails heute verfügbar",
+        "dailyUnavailable": "Das tägliche Gratiskontingent ist nicht verfügbar.",
+        "balance": "Das kostenlose Guthaben reicht noch für {count, plural, one {# E-Mail} other {# E-Mails}}.",
+        "balanceUnavailable": "Das kostenlose Guthaben ist nicht verfügbar.",
+        "resetsAt": "Das tägliche Kontingent wird um {time} zurückgesetzt.",
+        "resetUnknown": "Das Kontingent wird täglich zurückgesetzt. Die Uhrzeit ist unbekannt.",
+        "unavailable": "Das E-Mail-Kontingent ist derzeit nicht verfügbar."
+      },
       "recentSubmissions": {
         "title": "Zuletzt eingereicht",
         "viewAll": "Alle anzeigen →",

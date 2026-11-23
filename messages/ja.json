@@ -976,6 +976,17 @@
       },
       "pendingBanner": "生徒の申請が {count} 件、審査待ちです。",
       "reviewNow": "今すぐ確認 →",
+      "emailQuota": {
+        "title": "メール送信枠",
+        "dailyCount": "{remaining, number} / {limit, number}",
+        "dailyFree": "本日の無料送信残数",
+        "dailyUnavailable": "本日の無料送信枠を取得できません。",
+        "balance": "無料残高であと {count, number} 通送信できます。",
+        "balanceUnavailable": "無料残高を取得できません。",
+        "resetsAt": "毎日の送信枠は {time} にリセットされます。",
+        "resetUnknown": "送信枠は毎日リセットされます。時刻は不明です。",
+        "unavailable": "現在、メール送信枠を取得できません。"
+      },
       "recentSubmissions": {
         "title": "最近の提出",
         "viewAll": "すべて表示 →",

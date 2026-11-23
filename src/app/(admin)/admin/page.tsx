@@ -1,8 +1,10 @@
 import Link from "next/link";
+import { Suspense } from "react";
 import { SessionPagePosition } from "~/app/_components/session-view-state";
 import { getFormatter, getTranslations } from "next-intl/server";
 
 import { db } from "~/server/db";
+import { aliyunQuotaEnabled } from "~/server/email/aliyun-quota";
 import { getFeatures } from "~/server/program/features";
 import { api } from "~/trpc/server";
 import { BarList, SegmentBar, type BarItem } from "~/app/_components/charts";
@@ -11,6 +13,7 @@ import {
   TableActions,
   TableDetails,
 } from "~/app/_components/ui/summary-table";
+import { EmailQuotaCard } from "./email-quota-card";
 
 const STATUS_TONE: Record<string, string> = {
   PRESENT: "badge-green",
@@ -247,6 +250,12 @@ export default async function AdminHome() {
             href="/admin/crew"
           />
         </div>
+      )}
+
+      {aliyunQuotaEnabled() && (
+        <Suspense fallback={null}>
+          <EmailQuotaCard />
+        </Suspense>
       )}
 
       {/* Recent submissions. */}
