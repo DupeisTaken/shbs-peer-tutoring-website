@@ -641,6 +641,17 @@
   display: none;
 }
 
+/* Conceal mounted private content during live session checks without removing
+   its layout boxes, so document and inner pane scroll positions remain intact.
+   Hiding descendants and native dialog backdrops (including portaled dialogs)
+   prevents top-layer leakage. */
+[data-identity-checking],
+[data-identity-checking] *,
+[data-identity-checking] dialog::backdrop,
+dialog[data-identity-checking]::backdrop {
+  visibility: hidden !important;
+}
+
 /* Dialog panel entrance (see confirm-dialog.tsx). Applied only under motion-safe, so
    reduced-motion users get the panel with no movement. */
 @keyframes dialog-pop {
