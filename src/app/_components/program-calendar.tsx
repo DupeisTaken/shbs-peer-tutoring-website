@@ -899,17 +899,13 @@ function CalendarEditor({
       className="space-y-4"
       onSubmit={async (event) => {
         event.preventDefault();
-<<<<<<< HEAD
         if (
-          disabled ||
+          !admission.isAllowed() ||
           pending ||
           admitted.current ||
           committed.current ||
           previewConflict
         )
-=======
-        if (!admission.isAllowed() || pending || admitted.current || committed.current || previewConflict)
->>>>>>> c84b830c (Preserve Program drafts and account-read recovery)
           return;
         admitted.current = true;
         setError(null);
