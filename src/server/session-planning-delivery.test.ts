@@ -32,8 +32,10 @@ function fixture() {
   };
   const response = {
     id: "response-1", actorKey: "tutee:tutee-1", actorUserId: "user-1", state: "PENDING", offerId: "offer-1",
-    offer: { requestId: "request-1", date: "2026-11-02", cutoffAt: new Date("2026-11-02T04:00:00Z"), request: { status: "PENDING", currentOfferId: "offer-1" } },
+    offer: { requestId: "request-1", date: "2026-11-02", endsAt: new Date("2026-11-02T04:45:00Z"), cutoffAt: new Date("2026-11-02T04:00:00Z"), request: { status: "PENDING", currentOfferId: "offer-1", cohortId: "source-1", plan: { termId: "term-1" } } },
   };
+  const source = { startsAt: new Date("2026-11-02T04:00:00Z"), endsAt: new Date("2026-11-02T04:45:00Z"), refreshSuppressed: false };
+  const refreshSchedules: { sourceTermId: string; state: string; executeAt: Date; version: number; updatedAt: Date }[] = [];
   const user = {
     emailLocale: "en",
     id: "user-1", email: notice.recipientEmail, role: "STUDENT", tuteeMember: true,
@@ -55,6 +57,8 @@ function fixture() {
     $queryRaw: vi.fn(async () => [{ id: notice.id, leaseUntil: notice.leaseUntil, attemptId: notice.attemptId }]),
     sessionNotice: { findUnique: vi.fn(async () => ({ ...notice })), update, count: vi.fn(async () => 0) },
     sessionPlanningResponse: { findUnique: vi.fn(async () => response) },
+    sessionPlanCohort: { findUnique: vi.fn(async () => source) },
+    scheduledProgramRefresh: { findMany: vi.fn(async () => refreshSchedules) },
     programCalendarDay: { count: vi.fn(async () => 0) },
     sessionResponseExecution: { findUnique: vi.fn(async ({ where }: { where: { responseId: string } }) => responseExecutions.get(where.responseId) ?? null) },
     participantConsolidation: { findUnique: vi.fn(async ({ where }: { where: { kind_sourceId: { kind: string; sourceId: string } } }) => participantExecutions.get(`${where.kind_sourceId.kind}:${where.kind_sourceId.sourceId}`) ?? null) },
@@ -62,7 +66,7 @@ function fixture() {
     tutee: { findUnique: vi.fn(async () => ({ status: "ACTIVE" })) },
     auditLog: { create: vi.fn(async () => ({})) },
   };
-  return { notice, response, user, update, responseExecutions, participantExecutions, raw: database, database: database as unknown as DomainDb };
+  return { notice, response, source, refreshSchedules, user, update, responseExecutions, participantExecutions, raw: database, database: database as unknown as DomainDb };
 }
 
 it.each(["en", "zh"] as const)("composes queued essential notices using the current recipient %s preference without changing acceptance clocks", async (locale) => {
@@ -89,6 +93,26 @@ it("records SMTP acceptance before qualifying a responder, despite optional mail
   expect(f.notice).toMatchObject({ status: "SENT", attempts: 1, acceptedAt: now });
   expect(f.notice.context).not.toHaveProperty("requiresExplicitAcceptance");
   expect(transport.mark).toHaveBeenCalledWith(f.database, "response-1", now, false);
+});
+
+it("treats a queued offer as obsolete after refresh cutoff without waiting for publication or settlement", async () => {
+  const f = fixture();
+  f.refreshSchedules.push({ sourceTermId: "term-1", state: "SCHEDULED", executeAt: f.source.startsAt, version: 1, updatedAt: now });
+  const admitted = await admitSessionNotice(f.database, f.notice.id, f.notice.leaseUntil!, null);
+  expect(admitted?.obsolete).toBe(true);
+  await finishSessionNotice(f.database, f.notice.id, admitted!.row.attemptId!, now);
+  expect(f.notice.acceptedAt).toEqual(now);
+  expect(transport.mark).not.toHaveBeenCalled();
+});
+
+it("preserves SMTP acceptance but starts no response clock if refresh changes during provider delivery", async () => {
+  const f = fixture();
+  const admitted = await admitSessionNotice(f.database, f.notice.id, f.notice.leaseUntil!, null);
+  expect(admitted?.obsolete).toBe(false);
+  f.refreshSchedules.push({ sourceTermId: "term-1", state: "SCHEDULED", executeAt: f.source.startsAt, version: 1, updatedAt: now });
+  await finishSessionNotice(f.database, f.notice.id, admitted!.row.attemptId!, now);
+  expect(f.notice).toMatchObject({ status: "SENT", acceptedAt: now });
+  expect(transport.mark).not.toHaveBeenCalled();
 });
 
 it("preserves ordinary stored context extensions while rendering only the safe notice copy", async () => {

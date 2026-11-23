@@ -5,6 +5,7 @@
     "consumed": "This recovery draft has already been submitted. Continue with the verification email for your new request, or open your account to view its status."
   },
   "sessionPlanning": {
+    "refreshBoundary": "Sessions must finish by the scheduled program refresh. Reload the current schedule.",
     "deadlineMissedTitle": "Action Required: Review the Expired Time Request",
     "deadlineMissedHelp": "This reschedule request expired before it could be processed, so your original session time is unchanged. Check with your partner if you still need to move it.",
     "scheduleUnavailable": "Needs schedule review",

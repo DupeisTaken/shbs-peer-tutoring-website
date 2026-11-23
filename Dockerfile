@@ -140,6 +140,7 @@ COPY --from=build /app/src/server/session-planning/participants.ts /runtime-outp
 COPY --from=build /app/src/server/session-planning/publication-continuations.ts /runtime-output/app/src/server/session-planning/publication-continuations.ts
 COPY --from=build /app/src/server/session-planning/publication-notices.ts /runtime-output/app/src/server/session-planning/publication-notices.ts
 COPY --from=build /app/src/server/session-planning/publication-validation.ts /runtime-output/app/src/server/session-planning/publication-validation.ts
+COPY --from=build /app/src/server/session-planning/refresh-boundary.ts /runtime-output/app/src/server/session-planning/refresh-boundary.ts
 COPY --from=build /app/src/server/session-planning/room-occupancy.ts /runtime-output/app/src/server/session-planning/room-occupancy.ts
 COPY --from=build /app/src/server/session-planning/source-locks.ts /runtime-output/app/src/server/session-planning/source-locks.ts
 COPY --from=build /app/src/server/student-ownership.ts /runtime-output/app/src/server/student-ownership.ts

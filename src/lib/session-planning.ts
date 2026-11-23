@@ -10,6 +10,7 @@ import {
 } from "./program-time";
 
 export const PLANNED_SESSION_MINUTES = 45;
+export const SESSION_REFRESH_BOUNDARY_ERROR = "SESSION_REFRESH_BOUNDARY";
 export const RESPONSE_WINDOW_MS = 24 * 60 * 60 * 1000;
 export const planningTimeInput = z.object({
   date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),

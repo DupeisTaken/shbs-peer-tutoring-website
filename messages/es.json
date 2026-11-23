@@ -5,6 +5,7 @@
     "consumed": "This recovery draft has already been submitted. Continue with the verification email for your new request, or open your account to view its status."
   },
   "sessionPlanning": {
+    "refreshBoundary": "Las sesiones deben terminar a más tardar en la actualización programada del período. Vuelve a cargar el horario actual.",
     "deadlineMissedTitle": "Acción necesaria: revisa la solicitud de horario caducada",
     "deadlineMissedHelp": "El plazo de respuesta del aviso entregado venció mientras el procesamiento no estaba disponible. No se aplicó ningún cambio retroactivo. Revisa la sesión original y la hora propuesta con tu tutor. No se dedujo asistencia ni ausencia.",
     "scheduleUnavailable": "Horario por revisar",

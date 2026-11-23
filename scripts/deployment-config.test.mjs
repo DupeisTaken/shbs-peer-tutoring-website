@@ -102,6 +102,7 @@ test("CLI packaging guard catches omitted recovery acceptance descendants", () =
     "src/lib/session-identity.ts",
     "src/lib/tutoring-policy.ts",
     "src/server/program/calendar-policy-history.ts",
+    "src/server/session-planning/refresh-boundary.ts",
   ]) {
     assert.ok(graph.files.has(omitted), `${omitted} must be exercised by recovery`);
     assert.deepEqual(missingRuntimeFiles(graph, copies.filter((copy) => copy.source !== omitted)), [omitted]);

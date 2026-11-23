@@ -5,6 +5,7 @@
     "consumed": "This recovery draft has already been submitted. Continue with the verification email for your new request, or open your account to view its status."
   },
   "sessionPlanning": {
+    "refreshBoundary": "Les séances doivent se terminer au plus tard à l'heure du changement de période prévu. Rechargez le planning actuel.",
     "deadlineMissedTitle": "Action requise : vérifier la demande d’horaire expirée",
     "deadlineMissedHelp": "Le délai de réponse de l’avis livré a expiré alors que le traitement était indisponible. Aucun déplacement rétroactif n’a été appliqué. Vérifiez la séance initiale et l’horaire proposé avec votre tuteur. Aucune présence ou absence n’a été déduite.",
     "scheduleUnavailable": "Horaire à vérifier",

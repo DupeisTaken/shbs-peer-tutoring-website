@@ -5,6 +5,7 @@
     "consumed": "This recovery draft has already been submitted. Continue with the verification email for your new request, or open your account to view its status."
   },
   "sessionPlanning": {
+    "refreshBoundary": "수업은 예정된 기간 갱신 시각까지 끝나야 합니다. 현재 일정을 새로고침하세요.",
     "deadlineMissedTitle": "조치 필요: 만료된 시간 요청을 확인하세요",
     "deadlineMissedHelp": "전달된 알림의 응답 기한이 일정 처리를 이용할 수 없는 동안 지났습니다. 소급하여 일정을 변경하지 않았습니다. 지도 파트너와 원래 일정 및 제안된 시간을 확인하세요. 출석이나 결석은 추정하지 않았습니다.",
     "scheduleUnavailable": "일정 검토 필요",

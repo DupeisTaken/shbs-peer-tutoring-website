@@ -5,6 +5,8 @@ import { programDateKey } from "~/lib/program-time";
 import { getProgramTimeZone } from "~/server/program/time-zone-reader";
 import { lockEntity, type TransactionDb } from "~/server/transactions";
 import { pairingEvidenceIds } from "~/server/participant-execution";
+import { plannedWindow } from "~/lib/session-planning";
+import { readSessionRefreshSchedules, readSessionRequestSources, sessionExceedsRefresh, sessionRefreshSuppressed, sessionRequestSourceSuppressed } from "./refresh-boundary";
 
 type RoomSchedule = {
   preservedPlanIds?: readonly string[];
@@ -26,7 +28,7 @@ export async function datedUnavailableRooms(
 ) {
   if (!roomIds.length) return new Set<string>();
   await lockEntity(tx, "session-planning");
-  const [calendar, term, timeZone, cohorts, requests, tutoringPauses] = await Promise.all([
+  const [calendar, term, timeZone, cohorts, requests, tutoringPauses, refreshSchedules] = await Promise.all([
     tx.schoolCalendarDay.findMany(),
     tx.term.findUniqueOrThrow({ where: { id: schedule.termId } }),
     getProgramTimeZone(tx),
@@ -48,10 +50,11 @@ export async function datedUnavailableRooms(
         kind: { not: "CANCEL" },
         offers: { some: { roomId: { in: roomIds } } },
       },
-      include: { offers: true },
+      include: { offers: true, plan: { select: { termId: true } } },
       take: 5001,
     }),
     tx.programCalendarDay.findMany({ where: { active: true, schedulingEffect: "PAUSE_REGULAR" } }),
+    readSessionRefreshSchedules(tx),
   ]);
   if (cohorts.length > 5000 || requests.length > 5000)
     throw new TRPCError({
@@ -62,11 +65,13 @@ export async function datedUnavailableRooms(
     ...(schedule.excludePairingIds ?? []),
     ...(schedule.excludePairingId ? [schedule.excludePairingId] : []),
   ]));
+  const requestSources = await readSessionRequestSources(tx, requests);
   const calendarSnapshot = createSchoolCalendarSnapshot(calendar);
   // Keep these facts local to the transaction. Resolve bounds only when reached,
   // preserving short-circuit validation for empty or nonapplicable reservations.
   let termStart: string | undefined;
   let termEnd: string | undefined;
+  const scheduledRefresh = refreshSchedules.get(schedule.termId);
   const applies = (date: string, start: number, end: number) => {
     const day = calendarSnapshot.resolve(date);
     return (
@@ -78,7 +83,8 @@ export async function datedUnavailableRooms(
       (!term.startDate ||
         date >= (termStart ??= programDateKey(term.startDate, timeZone))) &&
       (!term.endDate ||
-        date <= (termEnd ??= programDateKey(term.endDate, timeZone)))
+        date <= (termEnd ??= programDateKey(term.endDate, timeZone))) &&
+      (scheduledRefresh?.state !== "SCHEDULED" || !sessionRefreshSuppressed(plannedWindow({ date, startMin: schedule.startMin, online: false }, timeZone), scheduledRefresh, now))
     );
   };
   const blocked = new Set<string>();
@@ -86,6 +92,7 @@ export async function datedUnavailableRooms(
     if (schedule.preservedPlanIds?.includes(cohort.planId)) continue;
     if (
       !cohort.roomId ||
+      cohort.refreshSuppressed || sessionRefreshSuppressed(cohort, refreshSchedules.get(cohort.plan.termId), now) ||
       !cohort.participants.length ||
       !applies(cohort.date, cohort.startMin, cohort.endMin)
     )
@@ -101,10 +108,11 @@ export async function datedUnavailableRooms(
   }
   for (const request of requests) {
     if (schedule.preservedPlanIds?.includes(request.planId)) continue;
+    if (sessionRequestSourceSuppressed(requestSources.get(request.cohortId), refreshSchedules, now)) continue;
     const offer = request.offers.find(
       (row) => row.id === request.currentOfferId,
     );
-    if (offer?.roomId && applies(offer.date, offer.startMin, offer.endMin))
+    if (offer?.roomId && !sessionExceedsRefresh(offer, refreshSchedules.get(request.plan.termId)) && applies(offer.date, offer.startMin, offer.endMin))
       blocked.add(offer.roomId);
   }
   return blocked;
@@ -123,7 +131,7 @@ export async function assertDatedRoomBlackoutAvailable(
   now = new Date(),
 ) {
   await lockEntity(tx, "session-planning");
-  const [cohorts, requests] = await Promise.all([
+  const [cohorts, requests, refreshSchedules] = await Promise.all([
     tx.sessionPlanCohort.findMany({
       where: {
         roomId: blackout.roomId,
@@ -131,6 +139,7 @@ export async function assertDatedRoomBlackoutAvailable(
         endsAt: { gt: now },
       },
       include: {
+        plan: { select: { termId: true } },
         participants: { where: { status: "SCHEDULED" }, select: { id: true } },
       },
       take: 5001,
@@ -141,9 +150,10 @@ export async function assertDatedRoomBlackoutAvailable(
         kind: { not: "CANCEL" },
         offers: { some: { roomId: blackout.roomId } },
       },
-      include: { offers: true },
+      include: { offers: true, plan: { select: { termId: true } } },
       take: 5001,
     }),
+    readSessionRefreshSchedules(tx),
   ]);
   if (cohorts.length > 5000 || requests.length > 5000)
     throw new TRPCError({
@@ -154,10 +164,12 @@ export async function assertDatedRoomBlackoutAvailable(
     (new Date(`${date}T00:00:00Z`).getUTCDay() || 7) === blackout.dayOfWeek &&
     start < blackout.endMin &&
     end > blackout.startMin;
+  const requestSources = await readSessionRequestSources(tx, requests);
   if (
     cohorts.some(
       (cohort) =>
         cohort.participants.length &&
+        !cohort.refreshSuppressed && !sessionRefreshSuppressed(cohort, refreshSchedules.get(cohort.plan.termId), now) &&
         overlaps(cohort.date, cohort.startMin, cohort.endMin),
     ) ||
     requests.some((request) => {
@@ -166,6 +178,8 @@ export async function assertDatedRoomBlackoutAvailable(
       );
       return (
         offer?.roomId === blackout.roomId &&
+        !sessionRequestSourceSuppressed(requestSources.get(request.cohortId), refreshSchedules, now) &&
+        !sessionExceedsRefresh(offer, refreshSchedules.get(request.plan.termId)) &&
         offer.cutoffAt > now &&
         overlaps(offer.date, offer.startMin, offer.endMin)
       );
