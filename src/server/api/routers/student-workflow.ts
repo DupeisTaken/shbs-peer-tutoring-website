@@ -1,4 +1,5 @@
 import { applyLegacyStudentWithdrawal } from "~/server/legacy-student-withdrawal";
+import { readCurrentStudentSignupRestriction } from "~/server/student-intake-restriction";
 import {
   continuationInput,
   continuationStatus,
@@ -30,6 +31,7 @@ import {
   editStudentAvailability,
   recallStudentRequest,
   applyStudentAbort,
+  studentAbortReceipt,
   applyScheduleRejection,
   resolveStudentReview,
   studentRequestRows,
@@ -64,6 +66,13 @@ const ticket = z.string().min(1).max(128);
 const reason = z.string().trim().min(1).max(2000);
 
 export const studentWorkflowRouter = createTRPCRouter({
+  signupRestriction: protectedProcedure
+    .input(
+      z.object({ displayedTermId: id.nullable(), snapshotKey: z.string().uuid() }),
+    )
+    .query(({ ctx }) =>
+      readCurrentStudentSignupRestriction(ctx.db, ctx.session.user.id),
+    ),
   continuationStatus: protectedProcedure
     .input(z.object({ locale: z.string().max(12).optional() }).optional())
     .query(({ ctx, input }) =>
@@ -318,6 +327,19 @@ export const studentWorkflowRouter = createTRPCRouter({
         ctx.session.user.id,
         input.id,
         input.reason,
+        input.ticket,
+      ),
+    ),
+  abortReceipt: protectedProcedure
+    .input(
+      z.object({ id, ticket, reasonHash: z.string().regex(/^[a-f0-9]{64}$/) }).strict(),
+    )
+    .query(({ ctx, input }) =>
+      studentAbortReceipt(
+        ctx.db,
+        ctx.session.user.id,
+        input.id,
+        input.reasonHash,
         input.ticket,
       ),
     ),

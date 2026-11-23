@@ -2,6 +2,14 @@
  * receipts. Only website presentation translates this explicitly owned vocabulary;
  * unknown future evidence stays verbatim rather than receiving an invented meaning. */
 const chinese: Readonly<Record<string, string>> = {
+  "Approved quarter withdrawal is inspection-only. Generic recovery cannot reopen its requests, restore assignments or remove the quarter withdrawal block.":
+    "已批准的季度退出检查点仅供查看。通用恢复不能重新开启相关申请、恢复分配或移除本季度退出限制。",
+  "Quarter withdrawal evidence does not match the originating review.":
+    "季度退出证据与原始审核记录不符。",
+  "Keep all withdrawn requests closed, released execution assignments and the quarter withdrawal block.":
+    "保留全部已退出申请的关闭状态、已释放的执行分配及本季度退出限制。",
+  "Original requests, approved decision, exact ownership, published session history and delivery evidence.":
+    "原始申请、已批准决定、准确归属、已发布的课次历史及通知证据。",
   "Resolve this participant source's original account suspension or school departure through its owning workflow before restoring participation.":
     "恢复参与前，请先通过所属流程处理此参与记录原始账号的停用或离校限制。",
   "A current participant account restriction prevents restoration.":

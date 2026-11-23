@@ -376,6 +376,7 @@ export const personalScheduleRouter = createTRPCRouter({
         id: row.id,
       }));
       return {
+        serverNow: now,
         window,
         appointments: events.items.map(({ attendances, ...meeting }) => ({
           ...meeting,
@@ -443,6 +444,7 @@ export const personalScheduleRouter = createTRPCRouter({
         excused: own?.status === "EXCUSED_ABSENT" && own.excusedAt != null,
         upcoming: meeting.date >= now,
         canExcuse: canExcusePersonalMeeting(meeting.date, now),
+        serverNow: now,
       };
     }),
 });

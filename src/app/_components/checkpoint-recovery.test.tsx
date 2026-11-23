@@ -180,6 +180,35 @@ afterEach(() => {
 });
 
 it.each(["en", "zh"])(
+  "recognizes inspection-only quarter withdrawals and offers no restoration or CLI escape (%s)",
+  (locale) => {
+    const diagnostic = "Approved quarter withdrawal is inspection-only. Generic recovery cannot reopen its requests, restore assignments or remove the quarter withdrawal block.";
+    mocks.inspect.mockReturnValue(query({ ...initial,
+      adapter: "STUDENT_QUARTER_WITHDRAWAL", sourceEntity: "StudentRequestReview",
+      sourceId: "actual-student-review", coverage: "UNKNOWN", websiteEligible: false,
+      dependentEventCount: 2, blockers: [diagnostic],
+    }));
+    mocks.list.mockReturnValue(query({ items: [{ id: "checkpoint", adapter: "STUDENT_QUARTER_WITHDRAWAL",
+      sourceEntity: "StudentRequestReview", sourceId: "actual-student-review", createdAt: initial.createdAt }], nextCursor: null }));
+    mount(locale);
+    const catalog = locale === "zh" ? zh.checkpointRecovery : en.checkpointRecovery;
+    expect(screen.getByRole("option", { name: catalog.domains.STUDENT_QUARTER_WITHDRAWAL })).toBeTruthy();
+    expect(within(screen.getByRole("table", { name: catalog.saved }))
+      .getByText(catalog.domains.STUDENT_QUARTER_WITHDRAWAL)).toBeTruthy();
+    expect(screen.getAllByText("StudentRequestReview: actual-student-review")).toHaveLength(2);
+    expect(screen.getByText(locale === "zh"
+      ? "已批准的季度退出检查点仅供查看。通用恢复不能重新开启相关申请、恢复分配或移除本季度退出限制。"
+      : diagnostic)).toBeTruthy();
+    expect(screen.queryByText(catalog.cliOnly)).toBeNull();
+    fireEvent.change(screen.getByLabelText(catalog.reason), { target: { value: "Synthetic terminal withdrawal review" } });
+    const review = screen.getByRole("button", { name: catalog.review });
+    expect(review).toHaveProperty("disabled", true);
+    fireEvent.click(review);
+    expect(mocks.restore).not.toHaveBeenCalled();
+  },
+);
+
+it.each(["en", "zh"])(
   "renders localized checkpoint scope, review and current evidence (%s)",
   (locale) => {
     mount(locale);

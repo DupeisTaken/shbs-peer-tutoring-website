@@ -1,0 +1,9 @@
+{
+  "info": {
+    "sourceRevision": "8540496ad9f7c9e64c436270e5e466724c58bb81",
+    "releaseRef": "Help screenshots are baked automatically in GitHub Actions runners from production builds using synthetic demo data.",
+    "capturedAt": "2026-11-23T00:00:00Z",
+    "assetOrigin": "ci-baked"
+  },
+  "screenshots": []
+}

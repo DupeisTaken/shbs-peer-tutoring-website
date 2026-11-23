@@ -28,7 +28,10 @@ export function TwoFactorSettings() {
     Boolean(currentPassword) && !update.isPending && (enabled || canEnable);
 
   return (
-    <section className="card space-y-4 p-5 sm:p-6">
+    <section
+      id="account-twofactor"
+      className="card scroll-mt-24 space-y-4 p-5 sm:p-6"
+    >
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h2 className="section-title">{t("title")}</h2>

@@ -903,7 +903,8 @@ export async function proposalTargets(
     });
     if (appeal) ids.set("StudentSurvey", new Set([appeal.surveyId]));
   }
-  // Student review decisions depend on the request and its current membership, not just the review row.
+  const targets: Record<string, unknown> = {};
+  // Other student decisions still review exactly one request or assignment.
   if (primary === "StudentRequestReview") {
     const review = await client.studentRequestReview.findUnique({
       where: { id: z.string().parse(fields.id) },
@@ -912,6 +913,17 @@ export async function proposalTargets(
     if (review?.pairingId) ids.set("Pairing", new Set([review.pairingId]));
     if (review?.legacyTuteeId)
       ids.set("Tutee", new Set([review.legacyTuteeId]));
+    if (fields.approve === true && review?.kind === "STUDENT_ABORT") {
+      const { lockQuarterWithdrawalScope } = await import("./student-quarter-withdrawal");
+      const scope = await lockQuarterWithdrawalScope(client, { reviewId: review.id });
+      // Capture the complete consequence while the same scope locks protect
+      // proposal creation and replay. A pre-upgrade proposal lacks this
+      // evidence and must be reviewed again before a wider decision.
+      targets.studentQuarterWithdrawal = {
+        ...scope.evidence,
+        enrollmentCount: scope.surveys.length + scope.manual.length,
+      };
+    }
   }
   const surveyIds = ids.get("StudentSurvey");
   if (surveyIds?.size) {
@@ -924,7 +936,6 @@ export async function proposalTargets(
       if (survey.tuteeId) tutees.add(survey.tuteeId);
     if (tutees.size) ids.set("Tutee", tutees);
   }
-  const targets: Record<string, unknown> = {};
   if (operation === "admin.declineSignup" && typeof fields.id === "string") {
     // A pending participation review or publication can appear without changing
     // roster.updatedAt. Approval must review the same exact decline boundary.
@@ -1373,6 +1384,11 @@ export async function queueProposal(
     // School recipient notifications must not take account rows after holding
     // the schedule while a delivery admission owns the opposite lock order.
     if (operation === "schoolHours.save") await lockUsernameNamespace(tx);
+    // Capture whole-quarter withdrawal under the period barrier before
+    // taking the proposal lock, in the same order as replay.
+    if (operation === "studentWorkflow.resolveReview" &&
+        proposalConfirmation(operation, value)?.action === "APPROVE")
+      await lockEntity(tx, "program:period");
     // Retry/double-click of the same unchanged proposal returns its existing request.
     await lockEntity(
       tx,

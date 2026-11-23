@@ -60,7 +60,14 @@ export default async function LocalizationLayout({
       <WorkspaceHeader
         href={home}
         title={TEAM_TITLE}
-        items={elevated ? [] : [{ href: home, label: t("localization.back") }]}
+        items={
+          elevated
+            ? []
+            : [
+                { href: home, label: t("localization.back") },
+                { href: "/help", label: t("helpNav.title") },
+              ]
+        }
         navigation={
           elevated ? <NavMobileRow role={me.role} embedded /> : undefined
         }

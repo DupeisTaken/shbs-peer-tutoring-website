@@ -15,6 +15,7 @@ import { QualificationRequests } from "./qualification-requests";
 
 const mocks = vi.hoisted(() => ({
   submit: vi.fn(),
+  submitPending: false,
   resetSubmit: vi.fn(),
   retry: vi.fn(),
   error: false,
@@ -42,7 +43,11 @@ vi.mock("~/trpc/react", () => ({
     }),
     qualificationApplication: {
       submit: {
-        useMutation: () => ({ mutate: mocks.submit, reset: mocks.resetSubmit }),
+        useMutation: () => ({
+          mutate: mocks.submit,
+          reset: mocks.resetSubmit,
+          isPending: mocks.submitPending,
+        }),
       },
       recall: {
         useMutation: (options: typeof mocks.recallOptions) => {
@@ -108,6 +113,13 @@ vi.mock("~/trpc/react", () => ({
 }));
 beforeEach(() => {
   vi.clearAllMocks();
+  HTMLDialogElement.prototype.showModal = function () {
+    this.setAttribute("open", "");
+  };
+  HTMLDialogElement.prototype.close = function () {
+    this.removeAttribute("open");
+  };
+  mocks.submitPending = false;
   mocks.error = false;
   mocks.loading = false;
   mocks.status = "REJECTED";
@@ -118,8 +130,8 @@ beforeEach(() => {
   mocks.recallSuccess = false;
 });
 afterEach(cleanup);
-const show = (active = true) => {
-  const view = render(
+const show = (active = true) =>
+  render(
     <NextIntlClientProvider
       locale="en"
       timeZone="Asia/Shanghai"
@@ -128,66 +140,123 @@ const show = (active = true) => {
       <QualificationRequests active={active} />
     </NextIntlClientProvider>,
   );
-  const details = view.container.querySelector("details");
-  if (details) {
-    details.open = true;
-    fireEvent(details, new Event("toggle"));
-  }
-  return view;
+
+const openRequestDialog = () => {
+  fireEvent.click(
+    screen.getByRole("button", { name: "Request qualification" }),
+  );
+  return screen.getByRole("dialog", { name: "Request qualification" });
 };
 
 const filter = (name: string, count: number) =>
   screen.getByRole("button", { name: `${name} ${count}` });
 
-it("keeps the Request/Cancel context size while Cancel clears only the local draft", () => {
+it("keeps the Request/Cancel context size while Cancel clears only the local draft and close/reopen retains it", () => {
   show();
-  const request = screen.getByRole<HTMLButtonElement>("button", {
+  const opener = screen.getByRole("button", { name: "Request qualification" });
+  opener.focus();
+  const dialog = openRequestDialog();
+  const request = within(dialog).getByRole<HTMLButtonElement>("button", {
     name: "Request qualification",
   });
-  const cancel = screen.getByRole<HTMLButtonElement>("button", {
+  const cancel = within(dialog).getByRole<HTMLButtonElement>("button", {
     name: "Cancel draft",
   });
   expect(request.classList.contains("control-standard")).toBe(true);
   expect(cancel.classList.contains("control-standard")).toBe(true);
   expect(request.type).toBe("submit");
   expect(cancel.type).toBe("button");
-  fireEvent.change(screen.getByLabelText("Subject and level"), {
+  fireEvent.change(within(dialog).getByLabelText("Subject and level"), {
     target: { value: "history" },
   });
-  fireEvent.change(screen.getByLabelText("Explain your qualifications"), {
-    target: { value: "Unsaved qualification evidence" },
-  });
-  fireEvent.click(cancel);
+  fireEvent.change(
+    within(dialog).getByLabelText("Explain your qualifications"),
+    {
+      target: { value: "Unsaved qualification evidence" },
+    },
+  );
+  fireEvent.click(within(dialog).getByRole("button", { name: "Close" }));
+  expect(screen.queryByRole("dialog")).toBeNull();
+  expect(document.activeElement).toBe(opener);
+
+  const reopened = openRequestDialog();
   expect(
-    screen.getByLabelText<HTMLSelectElement>("Subject and level").value,
-  ).toBe("");
+    within(reopened).getByLabelText<HTMLSelectElement>("Subject and level")
+      .value,
+  ).toBe("history");
   expect(
-    screen.getByLabelText<HTMLTextAreaElement>("Explain your qualifications")
+    within(reopened).getByLabelText<HTMLTextAreaElement>(
+      "Explain your qualifications",
+    ).value,
+  ).toBe("Unsaved qualification evidence");
+
+  fireEvent.click(
+    within(reopened).getByRole("button", { name: "Cancel draft" }),
+  );
+  expect(
+    within(reopened).getByLabelText<HTMLSelectElement>("Subject and level")
       .value,
   ).toBe("");
-  expect(request.disabled).toBe(true);
+  expect(
+    within(reopened).getByLabelText<HTMLTextAreaElement>(
+      "Explain your qualifications",
+    ).value,
+  ).toBe("");
+  expect(
+    within(reopened).getByRole<HTMLButtonElement>("button", {
+      name: "Request qualification",
+    }).disabled,
+  ).toBe(true);
   expect(mocks.submit).not.toHaveBeenCalled();
   expect(mocks.resetSubmit).toHaveBeenCalledOnce();
   expect(screen.getByText("Science")).toBeTruthy();
 });
 
+it("blocks dialog dismissal while a qualification request submission is pending", () => {
+  const view = show();
+  const dialog = openRequestDialog();
+  mocks.submitPending = true;
+  view.rerender(
+    <NextIntlClientProvider
+      locale="en"
+      timeZone="Asia/Shanghai"
+      messages={messages}
+    >
+      <QualificationRequests active />
+    </NextIntlClientProvider>,
+  );
+  expect(dialog.getAttribute("aria-busy")).toBe("true");
+  expect(
+    within(dialog).getByRole<HTMLButtonElement>("button", { name: "Close" })
+      .disabled,
+  ).toBe(true);
+  fireEvent.keyDown(dialog, { key: "Escape" });
+  fireEvent(dialog, new Event("cancel", { cancelable: true }));
+  expect(screen.getByRole("dialog")).toBe(dialog);
+});
+
 it("submits one chosen subject and evidence without any caller-supplied tutor identity", () => {
   show();
-  const button = screen.getByRole<HTMLButtonElement>("button", {
+  const dialog = openRequestDialog();
+  const button = within(dialog).getByRole<HTMLButtonElement>("button", {
     name: "Request qualification",
   });
   expect(button.disabled).toBe(true);
-  fireEvent.change(screen.getByLabelText("Subject and level"), {
+  fireEvent.change(within(dialog).getByLabelText("Subject and level"), {
     target: { value: "history" },
   });
-  fireEvent.change(screen.getByLabelText("Explain your qualifications"), {
-    target: { value: "Completed the course" },
-  });
+  fireEvent.change(
+    within(dialog).getByLabelText("Explain your qualifications"),
+    {
+      target: { value: "Completed the course" },
+    },
+  );
   fireEvent.click(button);
   expect(mocks.submit).toHaveBeenCalledWith({
     subjectId: "history",
     reason: "Completed the course",
   });
+  fireEvent.click(within(dialog).getByRole("button", { name: "Close" }));
   fireEvent.click(filter("Rejected", 1));
   expect(screen.getByRole("listitem").textContent).toContain("Rejected");
   expect(screen.getByText("Decision: More evidence needed")).toBeTruthy();
@@ -367,7 +436,9 @@ it("collapses only history, preserves its filter, and keeps mutation feedback vi
     screen.queryByRole("group", { name: "Filter request history" }),
   ).toBeNull();
   expect(screen.queryByRole("listitem")).toBeNull();
-  expect(screen.getByLabelText("Subject and level")).toBeTruthy();
+  expect(
+    screen.getByRole("button", { name: "Request qualification" }),
+  ).toBeTruthy();
   expect(screen.getByText("Science")).toBeTruthy();
   expect(screen.getByText(/Request recalled/)).toBeTruthy();
   const expand = screen.getByRole("button", { name: "Expand" });

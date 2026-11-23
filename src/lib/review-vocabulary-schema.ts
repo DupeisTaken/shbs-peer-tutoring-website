@@ -2572,7 +2572,7 @@ export const reviewSchema = {
     ],
   },
   SessionPlanContinuationMember: {
-    references: { planId: "SessionPlan" },
+    references: { planId: "SessionPlan", sourceTuteeId: "Tutee" },
     enums: {},
     fields: [
       "planId",
@@ -2580,6 +2580,7 @@ export const reviewSchema = {
       "pairingId",
       "tuteeId",
       "assignmentId",
+      "sourceTuteeId",
       "joinedAt",
       "releasedAt",
     ],

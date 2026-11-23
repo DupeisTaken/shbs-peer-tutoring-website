@@ -2,6 +2,9 @@ import type { ReactNode } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { TRPCError } from "@trpc/server";
 import { beforeEach, expect, it, vi } from "vitest";
+import { createTranslator } from "next-intl";
+import en from "../../../messages/en.json";
+import zh from "../../../messages/zh.json";
 import SignupPage from "./page";
 import TuteeSignupPage from "../tutee-signup/page";
 
@@ -9,6 +12,8 @@ const mocks = vi.hoisted(() => ({
   auth: vi.fn(),
   draft: vi.fn(),
   transition: vi.fn(),
+  restriction: vi.fn(),
+  locale: "keys",
   notFound: vi.fn<() => never>(),
   redirect: vi.fn<(path: string) => never>(),
   form: vi.fn((_props: unknown) => null),
@@ -21,18 +26,37 @@ vi.mock("~/server/recovery/workflow-draft", () => ({
 vi.mock("~/server/program/public-signup-transition", () => ({
   readPublicSignupTransition: mocks.transition,
 }));
+vi.mock("~/server/student-intake-restriction", () => ({
+  readStudentSignupRestriction: mocks.restriction,
+}));
 vi.mock("~/server/branding-metadata", () => ({ brandingMetadata: vi.fn() }));
 vi.mock("next-intl/server", () => ({
-  getTranslations: async () => (key: string) => key,
+  getTranslations: async () =>
+    mocks.locale === "keys"
+      ? (key: string) => key
+      : createTranslator({
+          locale: mocks.locale,
+          messages: mocks.locale === "zh" ? zh : en,
+        }),
 }));
 vi.mock("next/navigation", () => ({
   notFound: mocks.notFound,
   redirect: mocks.redirect,
 }));
 vi.mock("./signup-form", () => ({ SignupForm: mocks.form }));
+vi.mock("./signup-intro", () => ({ SignupIntro: () => <p>survey.intro</p> }));
 vi.mock("~/app/_components/public-form-page", () => ({
-  PublicFormPage: ({ children }: { children: ReactNode }) => (
-    <main>{children}</main>
+  PublicFormPage: ({
+    children,
+    description,
+  }: {
+    children: ReactNode;
+    description?: ReactNode;
+  }) => (
+    <main>
+      {description}
+      {children}
+    </main>
   ),
 }));
 
@@ -55,8 +79,16 @@ const answers = {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  mocks.locale = "keys";
   mocks.auth.mockResolvedValue({ user: { id: "synthetic-owner" } });
-  mocks.transition.mockResolvedValue({ state: "OPEN" });
+  mocks.transition.mockResolvedValue({
+    current: { termId: "active-intake", kind: "quarter" },
+    next: { label: "Future quarter" },
+  });
+  mocks.restriction.mockResolvedValue({
+    blocked: false,
+    canOpenWorkspace: true,
+  });
   mocks.draft.mockResolvedValue({
     draftId: "synthetic-draft",
     version: 1,
@@ -145,12 +177,94 @@ it.each(routes)(
   },
 );
 
-it("keeps ordinary public signup independent of draft authorization", async () => {
+it("keeps signed-out public signup independent of private account and draft reads", async () => {
+  mocks.auth.mockResolvedValueOnce(null);
   renderToStaticMarkup(await SignupPage());
-  expect(mocks.auth).not.toHaveBeenCalled();
   expect(mocks.draft).not.toHaveBeenCalled();
+  expect(mocks.restriction).not.toHaveBeenCalled();
   expect(mocks.form.mock.calls[0]?.[0]).toMatchObject({
-    initialTransition: { state: "OPEN" },
+    initialTransition: { current: { termId: "active-intake" } },
   });
   expect(mocks.notFound).not.toHaveBeenCalled();
+});
+
+it.each(routes)(
+  "reads the signed-in account's actual current intake through %s",
+  async (_route, page) => {
+    renderToStaticMarkup(await page());
+    expect(mocks.restriction).toHaveBeenCalledWith(
+      {},
+      "active-intake",
+      "synthetic-owner",
+    );
+    expect(mocks.form).toHaveBeenCalledOnce();
+  },
+);
+
+it.each(routes)(
+  "retains the normal error boundary for restriction read failures through %s",
+  async (_route, page) => {
+    const error = new Error("Synthetic restriction read failed");
+    mocks.restriction.mockRejectedValueOnce(error);
+    await expect(page()).rejects.toBe(error);
+    expect(mocks.form).not.toHaveBeenCalled();
+  },
+);
+
+it.each(["en", "zh"])(
+  "explains same-period restrictions in %s through both signup aliases",
+  async (locale) => {
+    mocks.locale = locale;
+    for (const [, page] of routes) {
+      for (const kind of ["quarter", "semester"] as const) {
+        mocks.transition.mockResolvedValue({
+          current: { termId: "active-intake", kind },
+          next: { label: "Future quarter", enabled: true },
+        });
+        mocks.restriction.mockResolvedValue({
+          blocked: true,
+          canOpenWorkspace: true,
+        });
+        const html = renderToStaticMarkup(await page());
+        const messages = locale === "zh" ? zh : en;
+        expect(html).toContain(
+          kind === "semester"
+            ? messages.workflow.semesterCopy.abortFinal
+            : messages.workflow.abortFinal,
+        );
+        expect(html).toContain('role="status"');
+        expect(html).toContain('href="/student?view=requests"');
+        expect(html).toContain(messages.tuteePortal.viewMyRequests);
+        expect(html).not.toContain(messages.survey.intro);
+      }
+    }
+    expect(mocks.form).not.toHaveBeenCalled();
+  },
+);
+
+it("does not link a restricted account into an unavailable workspace", async () => {
+  mocks.restriction.mockResolvedValueOnce({
+    blocked: true,
+    canOpenWorkspace: false,
+  });
+  const html = renderToStaticMarkup(await SignupPage());
+  expect(html).toContain("workflow.abortFinal");
+  expect(html).not.toContain('href="/student');
+  expect(mocks.form).not.toHaveBeenCalled();
+});
+
+it("keeps an unconsumed recovery draft behind the restriction and preserves a consumed receipt", async () => {
+  mocks.restriction.mockResolvedValue({
+    blocked: true,
+    canOpenWorkspace: true,
+  });
+  const blocked = renderToStaticMarkup(await SignupPage(input()));
+  expect(blocked).toContain("workflow.abortFinal");
+  expect(mocks.form).not.toHaveBeenCalled();
+  mocks.restriction.mockClear();
+  mocks.draft.mockResolvedValueOnce({ state: "CONSUMED", answers: null });
+  const consumed = renderToStaticMarkup(await SignupPage(input()));
+  expect(consumed).toContain("recoveryWorkflow.consumed");
+  expect(consumed).not.toContain("workflow.abortFinal");
+  expect(mocks.restriction).not.toHaveBeenCalled();
 });

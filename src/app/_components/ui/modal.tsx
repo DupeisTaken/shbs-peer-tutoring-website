@@ -14,6 +14,7 @@ import {
   type ReactNode,
 } from "react";
 import { createPortal } from "react-dom";
+import { useIdentityChecking } from "../identity-curtain";
 
 const DialogWork = createContext<{
   busy: boolean;
@@ -161,6 +162,8 @@ export function NativeDialog({
   }, []);
   // Propagate owned writes upward, never the inherited busy state (which would latch).
   const effectiveBusy = useDialogPending(busy || writes.size > 0);
+  const checkingIdentity = useIdentityChecking();
+  const blockClose = effectiveBusy || checkingIdentity;
   const context = useMemo(
     () => ({ busy: effectiveBusy, register }),
     [effectiveBusy, register],
@@ -215,17 +218,22 @@ export function NativeDialog({
       <dialog
         ref={ref}
         tabIndex={-1}
+        data-identity-checking={checkingIdentity ? "" : undefined}
+        inert={checkingIdentity}
+        aria-hidden={checkingIdentity || undefined}
+        style={checkingIdentity ? { visibility: "hidden" } : undefined}
         aria-labelledby={labelledBy}
         aria-describedby={describedBy}
         aria-busy={effectiveBusy}
         // Disable the native close watcher as well: its later cancel events can
         // be non-cancellable. The key/cancel handlers cover older browsers.
-        closedby={effectiveBusy ? "none" : "closerequest"}
+        closedby={blockClose ? "none" : "closerequest"}
         onKeyDown={(event) => {
           // Repeated Escape requests can produce a non-cancellable native close.
-          // Suppress the key's default action while this dialog owns pending work.
+          // Suppress the key's default action while this dialog owns pending work
+          // or is concealed behind the privacy curtain.
           if (
-            effectiveBusy &&
+            blockClose &&
             event.key === "Escape" &&
             event.target instanceof Element &&
             event.target.closest("dialog") === event.currentTarget
@@ -238,12 +246,12 @@ export function NativeDialog({
         onCancel={(event) => {
           if (event.target !== event.currentTarget) return;
           event.preventDefault();
-          if (!effectiveBusy) onClose();
+          if (!blockClose) onClose();
         }}
         onClick={(event) => {
           if (
             closeOnBackdrop &&
-            !effectiveBusy &&
+            !blockClose &&
             event.target === event.currentTarget
           )
             onClose();

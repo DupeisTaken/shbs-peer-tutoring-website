@@ -19,6 +19,12 @@ import messages from "../../messages/en.json";
 import { IDENTITY_CHECK_INTERVAL_MS, TRPCReactProvider } from "./react";
 import { retryQuery } from "./query-client";
 import { sessionIdentity } from "~/lib/session-identity";
+import {
+  useSessionPageScroll,
+  useSessionViewVerified,
+} from "~/app/_components/session-view-state";
+import { Modal } from "~/app/_components/ui/modal";
+import { viewStateKey, writeViewState } from "~/lib/session-view-state";
 
 const route = vi.hoisted(() => ({ pathname: "/admin/approvals" }));
 vi.mock("next/navigation", async () => {
@@ -51,6 +57,9 @@ beforeEach(() => {
 });
 afterEach(() => {
   cleanup();
+  window.sessionStorage.clear();
+  window.history.replaceState(null, "", "/");
+  document.documentElement.scrollTop = 0;
   vi.unstubAllGlobals();
   vi.restoreAllMocks();
   vi.useRealTimers();
@@ -152,11 +161,29 @@ function backgroundView(
     </NextIntlClientProvider>
   );
 }
+function contentWrapper() {
+  const field = screen.getByLabelText("Draft");
+  const wrapper = field.closest("[style]");
+  if (!(wrapper instanceof HTMLElement)) {
+    throw new Error("Expected identity wrapper element");
+  }
+  return wrapper;
+}
 function contentVisible() {
-  const field = screen.getByRole("textbox", { name: "Draft", hidden: true });
-  return (
-    field.closest("[style]")?.getAttribute("style") === "display: contents;"
-  );
+  const wrapper = contentWrapper();
+  expect(wrapper.style.display).toBe("contents");
+  const concealed =
+    wrapper.style.visibility === "hidden" &&
+    wrapper.getAttribute("aria-hidden") === "true" &&
+    wrapper.hasAttribute("inert") &&
+    wrapper.hasAttribute("data-identity-checking");
+  const visible =
+    wrapper.style.visibility === "" &&
+    !wrapper.hasAttribute("aria-hidden") &&
+    !wrapper.hasAttribute("inert") &&
+    !wrapper.hasAttribute("data-identity-checking");
+  expect(concealed || visible).toBe(true);
+  return visible;
 }
 it("restores mounted edits as soon as identity is verified, while an unrelated query stays pending", async () => {
   const session = deferred<Response>();
@@ -442,4 +469,226 @@ it("replaces cached data after reauthentication to the same account with a new g
   await screen.findByText("Previous account private rows");
   ui.rerender(renderGeneration(2));
   expect(screen.getByText("No previous data")).toBeTruthy();
+});
+
+it("keeps layout and scroll state stable across same-route focus checks behind a fixed privacy curtain", async () => {
+  window.history.replaceState(null, "", "/admin/approvals");
+  const frames = new Map<number, FrameRequestCallback>();
+  let nextFrame = 1;
+  vi.stubGlobal("requestAnimationFrame", (callback: FrameRequestCallback) => {
+    const id = nextFrame++;
+    frames.set(id, callback);
+    return id;
+  });
+  vi.stubGlobal("cancelAnimationFrame", (id: number) => frames.delete(id));
+  const flushFrames = () =>
+    act(() => {
+      for (let pass = 0; pass < 2; pass++) {
+        const pending = [...frames.values()];
+        frames.clear();
+        pending.forEach((callback) => callback(0));
+      }
+    });
+  Object.defineProperty(window, "innerWidth", {
+    configurable: true,
+    value: 390,
+  });
+  Object.defineProperty(window, "innerHeight", {
+    configurable: true,
+    value: 600,
+  });
+  Object.defineProperty(document, "scrollingElement", {
+    configurable: true,
+    value: document.documentElement,
+  });
+  Object.defineProperty(document.documentElement, "scrollHeight", {
+    configurable: true,
+    value: 2400,
+  });
+  const key = viewStateKey(
+    identity,
+    "/admin/approvals",
+    "scroll:focus-check",
+    ":mobile",
+  );
+  // Seed a stale saved offset to verify same-route focus checks do not re-run
+  // route-entry scroll restoration over the user's current position.
+  writeViewState(window.sessionStorage, key, 120);
+  document.documentElement.scrollTop = 940;
+
+  const session = deferred<Response>();
+  vi.stubGlobal("fetch", vi.fn().mockReturnValue(session.promise));
+
+  const verifiedStates: boolean[] = [];
+  function ScrollStateProbe() {
+    const verified = useSessionViewVerified();
+    verifiedStates.push(verified);
+    useSessionPageScroll({ id: "focus-check", ready: true });
+    return <input aria-label="Draft" defaultValue="Initial draft" />;
+  }
+
+  render(
+    <NextIntlClientProvider locale="en" messages={messages}>
+      <TRPCReactProvider identity={identity}>
+        <ScrollStateProbe />
+      </TRPCReactProvider>
+    </NextIntlClientProvider>,
+  );
+  // Simulate user gesture after initial mount so current scroll position owns the page.
+  fireEvent.wheel(window);
+  document.documentElement.scrollTop = 940;
+  flushFrames();
+  verifiedStates.length = 0;
+
+  fireEvent(window, new Event("focus"));
+  expect(contentVisible()).toBe(false);
+  expect(contentWrapper().style.display).toBe("contents");
+  const status = screen.getByRole("status");
+  expect(status.parentElement?.className).toContain("fixed");
+  expect(status.parentElement?.className).toContain("inset-0");
+  // Same-route focus verification keeps the route verified while inert so
+  // scroll and hash-arrival effects do not tear down or jump the viewport.
+  expect(verifiedStates.every(Boolean)).toBe(true);
+  flushFrames();
+  expect(document.documentElement.scrollTop).toBe(940);
+
+  await act(async () => session.resolve(response()));
+  expect(contentVisible()).toBe(true);
+  expect(screen.queryByRole("status")).toBeNull();
+  expect(verifiedStates.every(Boolean)).toBe(true);
+  flushFrames();
+  expect(document.documentElement.scrollTop).toBe(940);
+});
+
+it("conceals portaled native dialogs behind the privacy curtain and prevents dismissal while checking", async () => {
+  const session = deferred<Response>();
+  vi.stubGlobal("fetch", vi.fn().mockReturnValue(session.promise));
+  const onClose = vi.fn();
+
+  render(
+    <NextIntlClientProvider locale="en" messages={messages}>
+      <TRPCReactProvider identity={identity}>
+        <input aria-label="Draft" defaultValue="Background draft" />
+        <Modal
+          title="Private details"
+          onClose={onClose}
+          footer={
+            <button type="button" onClick={onClose}>
+              Close
+            </button>
+          }
+        >
+          <p>Sensitive record body</p>
+        </Modal>
+      </TRPCReactProvider>
+    </NextIntlClientProvider>,
+  );
+
+  const dialog = document.body.querySelector("dialog");
+  if (!(dialog instanceof HTMLDialogElement)) {
+    throw new Error("Expected portaled dialog element");
+  }
+  expect(dialog.hasAttribute("data-identity-checking")).toBe(false);
+  expect(dialog.hasAttribute("inert")).toBe(false);
+  expect(dialog.style.visibility).toBe("");
+
+  fireEvent(window, new Event("focus"));
+  expect(contentVisible()).toBe(false);
+  expect(dialog.hasAttribute("data-identity-checking")).toBe(true);
+  expect(dialog.hasAttribute("inert")).toBe(true);
+  expect(dialog.getAttribute("aria-hidden")).toBe("true");
+  expect(dialog.style.visibility).toBe("hidden");
+  expect(dialog.getAttribute("closedby")).toBe("none");
+
+  fireEvent(dialog, new Event("cancel", { cancelable: true }));
+  expect(onClose).not.toHaveBeenCalled();
+
+  await act(async () => session.resolve(response()));
+  expect(contentVisible()).toBe(true);
+  expect(dialog.hasAttribute("data-identity-checking")).toBe(false);
+  expect(dialog.hasAttribute("inert")).toBe(false);
+  expect(dialog.hasAttribute("aria-hidden")).toBe(false);
+  expect(dialog.style.visibility).toBe("");
+  expect(dialog.getAttribute("closedby")).toBe("closerequest");
+});
+
+it("marks session view unverified during route bounces and after identity discard", async () => {
+  const session = deferred<Response>();
+  vi.stubGlobal("fetch", vi.fn().mockReturnValue(session.promise));
+
+  function VerifiedProbe() {
+    const verified = useSessionViewVerified();
+    return (
+      <>
+        <p data-testid="verified">{verified ? "yes" : "no"}</p>
+        <input aria-label="Draft" defaultValue="Initial draft" />
+      </>
+    );
+  }
+
+  render(
+    <NextIntlClientProvider locale="en" messages={messages}>
+      <TRPCReactProvider identity={identity}>
+        <VerifiedProbe />
+      </TRPCReactProvider>
+    </NextIntlClientProvider>,
+  );
+  expect(screen.getByTestId("verified").textContent).toBe("yes");
+
+  // Rapid bounce /admin/approvals -> /admin/policies -> /admin/approvals before
+  // verification settles must stay unverified until the shared check resolves.
+  navigate("/admin/policies");
+  expect(screen.getByTestId("verified").textContent).toBe("no");
+  navigate("/admin/approvals");
+  expect(screen.getByTestId("verified").textContent).toBe("no");
+
+  await act(async () => session.resolve(response()));
+  expect(screen.getByTestId("verified").textContent).toBe("yes");
+
+  // A mismatched focus check discards the session and immediately clears verified.
+  const mismatch = deferred<Response>();
+  vi.stubGlobal("fetch", vi.fn().mockReturnValue(mismatch.promise));
+  fireEvent(window, new Event("focus"));
+  expect(contentVisible()).toBe(false);
+  await act(async () => mismatch.resolve(response("other-account")));
+  expect(contentVisible()).toBe(false);
+  expect(screen.getByTestId("verified").textContent).toBe("no");
+});
+
+it("checks anonymous pages quietly on focus and navigation while still discarding if another tab signs in", async () => {
+  const quietCheck = deferred<Response>();
+  const fetcher = vi.fn().mockReturnValueOnce(quietCheck.promise);
+  vi.stubGlobal("fetch", fetcher);
+
+  render(
+    <NextIntlClientProvider locale="en" messages={messages}>
+      <TRPCReactProvider identity="anonymous">
+        <input aria-label="Draft" defaultValue="Public signup draft" />
+      </TRPCReactProvider>
+    </NextIntlClientProvider>,
+  );
+
+  fireEvent(window, new Event("focus"));
+  expect(fetcher).toHaveBeenCalledTimes(1);
+  expect(contentVisible()).toBe(true);
+  expect(screen.queryByRole("status")).toBeNull();
+  await act(async () => quietCheck.resolve(response("anonymous")));
+  expect(contentVisible()).toBe(true);
+
+  const navCheck = deferred<Response>();
+  fetcher.mockReturnValueOnce(navCheck.promise);
+  navigate("/signup");
+  expect(fetcher).toHaveBeenCalledTimes(2);
+  expect(contentVisible()).toBe(true);
+  expect(screen.queryByRole("status")).toBeNull();
+  await act(async () => navCheck.resolve(response("anonymous")));
+  expect(contentVisible()).toBe(true);
+
+  const signedIn = deferred<Response>();
+  fetcher.mockReturnValueOnce(signedIn.promise);
+  fireEvent(window, new Event("focus"));
+  expect(contentVisible()).toBe(true);
+  await act(async () => signedIn.resolve(response("signed-in-account")));
+  expect(contentVisible()).toBe(false);
+  expect(screen.getByRole("status").textContent).toBe(messages.common.loading);
 });

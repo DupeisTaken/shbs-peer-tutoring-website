@@ -13,8 +13,7 @@ import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import en from "../../../messages/en.json";
 import zh from "../../../messages/zh.json";
 import { TutorWorkloadPreference } from "./tutor-workload-preference";
-import { AvailabilityEditor } from "../(tutor)/_components/availability-editor";
-import { DisclosureSection } from "./ui/disclosure-section";
+import { TimeAvailability } from "../(tutor)/_components/time-availability";
 
 const state = vi.hoisted(() => ({
   client: null as QueryClient | null,
@@ -84,6 +83,12 @@ const snapshot = (changes: object = {}) => ({
   ...changes,
 });
 beforeEach(() => {
+  HTMLDialogElement.prototype.showModal = function () {
+    this.setAttribute("open", "");
+  };
+  HTMLDialogElement.prototype.close = function () {
+    this.removeAttribute("open");
+  };
   state.read.mockReset().mockResolvedValue(snapshot());
   state.save.mockReset().mockResolvedValue({ ok: true });
   state.availabilityRead.mockReset().mockResolvedValue({
@@ -121,17 +126,7 @@ const mount = (locale: "en" | "zh" = "en", integrated = false) => {
           aria-label="Independent profile draft"
           defaultValue="Retained name"
         />
-        {integrated ? (
-          <DisclosureSection
-            title="Edit My Time Availability"
-            lifetime="retained"
-          >
-            <AvailabilityEditor />
-            <TutorWorkloadPreference embedded />
-          </DisclosureSection>
-        ) : (
-          <TutorWorkloadPreference />
-        )}
+        {integrated ? <TimeAvailability active /> : <TutorWorkloadPreference />}
       </NextIntlClientProvider>
     </QueryClientProvider>,
   );
@@ -461,22 +456,21 @@ it.each([1, null])(
   },
 );
 
-it("retains independent availability and preference drafts through collapse, saves, pending writes and preference reload", async () => {
+it("retains independent availability and preference drafts through close/reopen, saves, pending writes and preference reload", async () => {
   mount("en", true);
-  const disclosure = screen
-    .getByText("Edit My Time Availability")
-    .closest("details")!;
-  disclosure.open = true;
-  fireEvent(disclosure, new Event("toggle"));
+  const opener = screen.getByRole("button", {
+    name: en.dashboard.availability.edit,
+  });
+  fireEvent.click(opener);
   const early = await screen.findByRole<HTMLButtonElement>("button", {
     name: /Early/,
   });
   fireEvent.click(early);
   await choose("4");
-  disclosure.open = false;
-  fireEvent(disclosure, new Event("toggle"));
-  disclosure.open = true;
-  fireEvent(disclosure, new Event("toggle"));
+  fireEvent.click(
+    screen.getByRole("button", { name: en.accountProfile.close }),
+  );
+  fireEvent.click(opener);
   expect(early.getAttribute("aria-pressed")).toBe("true");
   expect(selectedValue()).toBe("4");
   const pending = defer<{ ok: boolean }>();
@@ -529,11 +523,9 @@ it.each(["empty", "unavailable"])(
         new Error("Catalog unavailable"),
       );
     mount("en", true);
-    const disclosure = screen
-      .getByText("Edit My Time Availability")
-      .closest("details")!;
-    disclosure.open = true;
-    fireEvent(disclosure, new Event("toggle"));
+    fireEvent.click(
+      screen.getByRole("button", { name: en.dashboard.availability.edit }),
+    );
     await choose("0");
     state.read.mockResolvedValue(snapshot({ preferredMaximum: 0, version: 1 }));
     fireEvent.click(screen.getByRole("button", { name: "Save preference" }));

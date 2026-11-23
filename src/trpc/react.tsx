@@ -1,7 +1,7 @@
 "use client";
 
 import { QueryClientProvider } from "@tanstack/react-query";
-import { httpBatchStreamLink, TRPCClientError } from "@trpc/client";
+import { httpBatchStreamLink, httpLink, splitLink, TRPCClientError } from "@trpc/client";
 import { createTRPCReact } from "@trpc/react-query";
 import { type inferRouterInputs, type inferRouterOutputs } from "@trpc/server";
 import {
@@ -16,6 +16,7 @@ import { usePathname } from "next/navigation";
 import { useTranslations } from "next-intl";
 import SuperJSON from "superjson";
 import { TRPC_BATCH_OPTIONS } from "~/lib/trpc-batch";
+import { studentAbortReceiptPath } from "~/lib/student-abort-receipt-transport";
 
 // Pure `import type` (not inline) so Turbopack never traces the server router graph (→ nodemailer)
 // into the client bundle.
@@ -23,6 +24,7 @@ import type { AppRouter } from "~/server/api/root";
 import { createQueryClient } from "./query-client";
 import { createClientLoggerLink } from "./client-logger";
 import { ApprovalNotice } from "~/app/_components/approval-notice";
+import { IdentityCurtainContext } from "~/app/_components/identity-curtain";
 import { SessionViewProvider } from "~/app/_components/session-view-state";
 import {
   NotificationViewport,
@@ -78,16 +80,21 @@ function IdentityQueryProvider(props: {
   const t = useTranslations("common");
   const pathname = usePathname();
   const previousPath = useRef(pathname);
-  const [verifiedPath, setVerifiedPath] = useState(pathname);
+  const [verifiedPath, setVerifiedPath] = useState<string | null>(pathname);
+  if (verifiedPath !== null && verifiedPath !== pathname) {
+    setVerifiedPath(null);
+  }
   const inFlight = useRef<Promise<void> | null>(null);
   const controller = useRef<AbortController | null>(null);
   const focusRequested = useRef(false);
+  const refreshRequested = useRef(false);
   const [focusVersion, setFocusVersion] = useState(0);
   const invalidated = useRef(false);
 
   const discardIdentity = useCallback(() => {
     if (invalidated.current) return;
     invalidated.current = true;
+    setVerifiedPath(null);
     setCheckingIdentity(true);
     controller.current?.abort();
     void queryClient.cancelQueries();
@@ -98,9 +105,10 @@ function IdentityQueryProvider(props: {
   }, [queryClient]);
 
   const verify = useCallback(
-    (fromFocus = false, quiet = false) => {
+    (fromFocus = false, quiet = false, refresh = !quiet) => {
       if (document.visibilityState === "hidden" || invalidated.current) return;
       focusRequested.current ||= fromFocus;
+      refreshRequested.current ||= refresh;
       if (!quiet) setCheckingIdentity(true);
       if (inFlight.current) return inFlight.current;
       const request = new AbortController();
@@ -139,7 +147,7 @@ function IdentityQueryProvider(props: {
           if (focusRequested.current) setFocusVersion((value) => value + 1);
           // Fresh data needs no repeat fetch. Reuse any request already in progress
           // instead of cancelling/restarting it on a rapid route or focus event.
-          if (!quiet || focusRequested.current)
+          if (refreshRequested.current || focusRequested.current)
             void queryClient.invalidateQueries(
               { refetchType: "active", predicate: (query) => query.isStale() },
               { cancelRefetch: false },
@@ -155,6 +163,7 @@ function IdentityQueryProvider(props: {
           if (controller.current === request) {
             inFlight.current = null;
             focusRequested.current = false;
+            refreshRequested.current = false;
           }
         }
       })();
@@ -180,7 +189,9 @@ function IdentityQueryProvider(props: {
     const onFocus = () => {
       clearTimeout(timer);
       if (document.visibilityState === "hidden") return;
-      const pending = verify(true);
+      // Anonymous pages hold no private account cache, so focus checks run
+      // quietly while still reloading if another tab signs in.
+      const pending = verify(true, props.identity === "anonymous");
       if (pending) void pending.finally(schedule);
       else schedule();
     };
@@ -225,23 +236,32 @@ function IdentityQueryProvider(props: {
   useEffect(() => {
     if (previousPath.current !== pathname) {
       previousPath.current = pathname;
-      void verify();
+      void verify(false, props.identity === "anonymous", true);
     }
-  }, [pathname, verify]);
+  }, [pathname, verify, props.identity]);
 
   const [trpcClient] = useState(() =>
     api.createClient({
       links: [
         createClientLoggerLink(),
-        httpBatchStreamLink({
-          ...TRPC_BATCH_OPTIONS,
-          transformer: SuperJSON,
-          url: getBaseUrl() + "/api/trpc",
-          headers: () => {
-            const headers = new Headers();
-            headers.set("x-trpc-source", "nextjs-react");
-            return headers;
-          },
+        splitLink({
+          condition: (operation) => operation.path === studentAbortReceiptPath,
+          true: httpLink({
+            transformer: SuperJSON,
+            url: getBaseUrl() + "/api/trpc",
+            methodOverride: "POST",
+            headers: () => ({ "x-trpc-source": "nextjs-react" }),
+          }),
+          false: httpBatchStreamLink({
+            ...TRPC_BATCH_OPTIONS,
+            transformer: SuperJSON,
+            url: getBaseUrl() + "/api/trpc",
+            headers: () => {
+              const headers = new Headers();
+              headers.set("x-trpc-source", "nextjs-react");
+              return headers;
+            },
+          }),
         }),
       ],
     }),
@@ -251,20 +271,36 @@ function IdentityQueryProvider(props: {
     <QueryClientProvider client={queryClient}>
       <api.Provider client={trpcClient} queryClient={queryClient}>
         {checkingIdentity && (
-          <p role="status" className="p-6 text-center">
-            {t("loading")}
-          </p>
+          <div className="fixed inset-0 z-[60] bg-slate-50">
+            <p role="status" className="p-6 text-center">
+              {t("loading")}
+            </p>
+          </div>
         )}
-        <div style={{ display: checkingIdentity ? "none" : "contents" }}>
-          <IdentityFocusContext.Provider value={focusVersion}>
-            <SessionViewProvider
-              identity={props.identity}
-              pathname={pathname}
-              verified={!checkingIdentity && verifiedPath === pathname}
-            >
-              {props.children}
-            </SessionViewProvider>
-          </IdentityFocusContext.Provider>
+        {/* Keep display: contents during verification instead of display: none
+            so document and inner pane scroll positions never collapse to zero.
+            Same-route focus checks also keep SessionViewProvider verified while
+            this subtree is inert, avoiding spurious scroll or hash resets. */}
+        <div
+          data-identity-checking={checkingIdentity ? "" : undefined}
+          inert={checkingIdentity}
+          aria-hidden={checkingIdentity || undefined}
+          style={{
+            display: "contents",
+            visibility: checkingIdentity ? "hidden" : undefined,
+          }}
+        >
+          <IdentityCurtainContext.Provider value={checkingIdentity}>
+            <IdentityFocusContext.Provider value={focusVersion}>
+              <SessionViewProvider
+                identity={props.identity}
+                pathname={pathname}
+                verified={verifiedPath === pathname}
+              >
+                {props.children}
+              </SessionViewProvider>
+            </IdentityFocusContext.Provider>
+          </IdentityCurtainContext.Provider>
           <NotificationViewport>
             <ApprovalNotice />
             <SaveNotifications />

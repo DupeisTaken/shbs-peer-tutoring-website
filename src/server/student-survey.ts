@@ -41,7 +41,7 @@ import {
 } from "~/server/account-profile";
 import { createHash, randomBytes } from "node:crypto";
 import { TRPCError } from "@trpc/server";
-import { quarterBlockAccountWhere } from "./history-row-ownership";
+import { findStudentQuarterBlock } from "./student-intake-restriction";
 import { z } from "zod";
 import type { Prisma } from "../../generated/prisma";
 import {
@@ -264,20 +264,7 @@ export async function assertIntakeEligibility(
   account: { id: string; email: string } | null,
   excludeSurveyId?: string,
 ) {
-  const block = await tx.studentQuarterBlock.findFirst({
-    where: {
-      intakeTermId,
-      OR: [
-        { email },
-        ...(account
-          ? [
-              await quarterBlockAccountWhere(tx, account.id),
-              { email: account.email },
-            ]
-          : []),
-      ],
-    },
-  });
+  const block = await findStudentQuarterBlock(tx, intakeTermId, account, email);
   if (block)
     throw new TRPCError({
       code: "FORBIDDEN",

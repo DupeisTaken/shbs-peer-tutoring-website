@@ -1,4 +1,8 @@
 {
+  "helpNav": {
+    "title": "ヘルプと操作ガイド",
+    "downloads": "PDF マニュアル"
+  },
   "recoveryWorkflow": {
     "adoptionPending": "Your request was saved. Its recovery-draft link could not be confirmed; continue mailbox verification and ask management to review the draft status.",
     "review": "Management prepared these saved answers for your review. Check the current courses and times, enter your verified account email, and agree to the current policy. Your new request still needs mailbox verification.",
@@ -3288,6 +3292,20 @@
     "retryRefresh": "Retry refresh",
     "recallAccepted": "This request was recalled. Refresh its status; your recall will not be repeated.",
     "abortAccepted": "Your withdrawal application was submitted. Refresh its status; your application will not be repeated.",
+    "abortUnconfirmed": "この辞退申請の送信結果を確認できませんでした。続行する前に、この送信の結果を確認してください。自動的に再送信されることはありません。",
+    "abortNotConfirmed": "送信が受け付けられたことを示す記録が見つかりませんでした。再試行する前に新たな確認を開始し、未使用の確認を無効にしてください。",
+    "abortStillUnknown": "結果はまだ不明です。この送信を安全に繰り返すことはできません。もう一度確認するか、管理者にお問い合わせください。",
+    "abortNotAccepted": "この送信は受け付けられませんでした。以前の確認は再利用できません。入力した理由は保持されています。",
+    "abortRefreshFailed": "この送信は受け付けられませんでしたが、現在の申込状況を更新できませんでした。新たな確認を始める前に、状況の読み込みを再試行してください。",
+    "abortFreshMissing": "この申込は現在の申込一覧では確認できなくなりました。",
+    "abortFreshUnavailable": {
+      "pending": "この申込には、すでに審査待ちの辞退申請があります。新たな確認を始める前に、現在の状態を更新してください。",
+      "unassigned": "この申込には割当がなくなりました。申込を取り消したい場合は、現在のカードの「Recall request」（申込の撤回）を使用してください。",
+      "closed": "この申込は終了しています。申込履歴で現在の状態を確認してください。"
+    },
+    "abortCheckFailed": "送信結果の確認を完了できませんでした。元の送信情報は保持されています。もう一度確認してください。",
+    "checkAbortSubmission": "送信結果を確認",
+    "freshAbortReview": "新たな確認を開始",
     "pleaseReview": "Please review before continuing",
     "cancel": "Cancel",
     "confirm": "Yes, confirm",
@@ -3461,6 +3479,7 @@
       "yes": "はい",
       "no": "いいえ",
       "approveUnderlying": "元の申請を承認する",
+      "quarterWithdrawalOutcome": "承認すると、このアカウントの当期のチューター指導とマッチング待ちがすべて終了します。新たな申請は次期から可能です。",
       "rejectUnderlying": "元の申請を却下する",
       "overturn": "異議申立てを認めカードを取り消す",
       "uphold": "異議申立てを却下しカードを維持する",
@@ -3579,6 +3598,7 @@
         "quarter": "プログラム期間",
         "accept": "申請された面接結果",
         "originalReason": "元の申請の理由",
+        "withdrawalEnrollmentCount": "終了する登録件数",
         "requestReason": "今回の訂正理由",
         "explanation": "申請の説明",
         "expectedSchoolYear": "申請時のプログラム学年度",
@@ -4928,6 +4948,7 @@
     "dashboard": "Dashboard",
     "schedule": "My Tutors & Schedule",
     "requests": "Requests",
+    "viewMyRequests": "自分の申請を確認",
     "attendance": "Attendance",
     "support": "Support",
     "messages": "Messages",
@@ -7532,6 +7553,7 @@
       "PARTICIPANT_TUTOR": "Tutor participation",
       "PARTICIPANT_TUTEE": "Tutee participation",
       "STUDENT_WORKFLOW": "Student request workflow",
+      "STUDENT_QUARTER_WITHDRAWAL": "Quarter withdrawal (inspection only)",
       "ATTENDANCE": "Attendance correction",
       "CARD": "Discipline card review",
       "PROGRAM_REFRESH": "Program refresh (Head approval)"
