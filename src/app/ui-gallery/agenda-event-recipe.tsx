@@ -3,6 +3,8 @@
 import { useTranslations } from "next-intl";
 import { useState } from "react";
 import { Button } from "~/app/_components/ui/button";
+import { Modal } from "~/app/_components/ui/modal";
+import { InlineNotice } from "~/app/_components/ui/patterns";
 import {
   AgendaBadge,
   AgendaEventCard,
@@ -13,6 +15,7 @@ export function AgendaEventRecipe() {
   const t = useTranslations("agendaEvents");
   const sessionText = useTranslations("sessionPlanning");
   const [recorded, setRecorded] = useState(false);
+  const [exceptionOpen, setExceptionOpen] = useState(false);
   return (
     <section
       id="agenda-event-recipe"
@@ -52,6 +55,45 @@ export function AgendaEventRecipe() {
           )}
         </AgendaEventCard>
         <AgendaEventCard
+          id="gallery-paused"
+          kind="regular"
+          title="Chemistry"
+          time="Thu · 15:30–16:15"
+          badges={
+            <AgendaBadge tone="warning">
+              {sessionText("tutoringPaused")}
+            </AgendaBadge>
+          }
+        >
+          {/* Match the session owner's action/notice stack, including wrapped actions. */}
+          <div className="flex min-w-0 flex-col gap-3">
+            <div className="flex flex-wrap items-center gap-2 border-t border-slate-100 pt-3">
+              <Button size="compact" onClick={() => setExceptionOpen(true)}>
+                {sessionText("arrangeException")}
+              </Button>
+            </div>
+            <InlineNotice tone="warning">
+              {sessionText("tutoringPausedHelp")}
+            </InlineNotice>
+          </div>
+        </AgendaEventCard>
+        <AgendaEventCard
+          id="gallery-unavailable-paused"
+          kind="regular"
+          title="Biology"
+          time="Fri · 15:30–16:15"
+          badges={<AgendaBadge tone="warning">{t("unavailable")}</AgendaBadge>}
+        >
+          <div className="flex min-w-0 flex-col gap-3">
+            <InlineNotice tone="warning">
+              {sessionText("scheduleUnavailableHelp")}
+            </InlineNotice>
+            <InlineNotice tone="warning">
+              {sessionText("tutoringPausedHelp")}
+            </InlineNotice>
+          </div>
+        </AgendaEventCard>
+        <AgendaEventCard
           id="gallery-extra"
           kind="extra"
           title="Physics"
@@ -84,6 +126,21 @@ export function AgendaEventRecipe() {
           }
         />
       </div>
+      {exceptionOpen && (
+        <Modal
+          title={sessionText("arrangeException")}
+          onClose={() => setExceptionOpen(false)}
+          footer={
+            <Button onClick={() => setExceptionOpen(false)}>
+              {sessionText("cancel")}
+            </Button>
+          }
+        >
+          <InlineNotice tone="warning">
+            {sessionText("tutoringPauseProposal")}
+          </InlineNotice>
+        </Modal>
+      )}
     </section>
   );
 }

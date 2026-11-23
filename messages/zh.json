@@ -5,6 +5,7 @@
     "consumed": "此恢复草稿已提交。请通过新申请的验证邮件继续操作，或进入账号查看申请状态。"
   },
   "sessionPlanning": {
+    "refreshBoundary": "辅导必须不晚于已安排的季度刷新时间结束。请重新加载当前日程。",
     "deadlineMissedTitle": "需要处理：请核对已过期的时间申请",
     "deadlineMissedHelp": "此次改期请求在生效前已过期，原辅导时间不变。如仍需调整，请与对方确认。",
     "scheduleUnavailable": "需要核对安排",

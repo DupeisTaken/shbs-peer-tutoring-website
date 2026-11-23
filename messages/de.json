@@ -5,6 +5,7 @@
     "consumed": "This recovery draft has already been submitted. Continue with the verification email for your new request, or open your account to view its status."
   },
   "sessionPlanning": {
+    "refreshBoundary": "Sitzungen müssen spätestens zum geplanten Programmwechsel enden. Laden Sie den aktuellen Zeitplan neu.",
     "deadlineMissedTitle": "Handlung erforderlich: abgelaufene Terminanfrage prüfen",
     "deadlineMissedHelp": "Die Frist einer zugestellten Anfrage endete, während die Terminverarbeitung nicht verfügbar war. Es wurde keine rückwirkende Verschiebung angewendet. Prüfe den ursprünglichen und den vorgeschlagenen Termin mit deinem Tutor. Anwesenheit oder Abwesenheit wurde nicht abgeleitet.",
     "scheduleUnavailable": "Terminprüfung nötig",

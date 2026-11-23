@@ -90,7 +90,13 @@ export async function readPublicationValidationSnapshot(
       JOIN "SessionPlan" p ON p.id=c."planId"
     LEFT JOIN "SessionPlanExecution" executor ON executor."planId"=p.id
       CROSS JOIN parameters a
-      WHERE c.status='SCHEDULED' AND c."startsAt"<a."endsAt" AND c."endsAt">a."startsAt"
+      WHERE c.status='SCHEDULED' AND NOT c."refreshSuppressed"
+        AND NOT EXISTS (
+          SELECT 1 FROM "ScheduledProgramRefresh" refresh
+          WHERE refresh."sourceTermId"=p."termId" AND refresh.state='SCHEDULED'
+            AND c."endsAt">refresh."executeAt"
+            AND (c."startsAt">${new Date()} OR c."startsAt">refresh."updatedAt"))
+        AND c."startsAt"<a."endsAt" AND c."endsAt">a."startsAt"
     ), overlapping_holds AS (
       SELECT r.id, r."currentOfferId", r.kind, r."parentRequestId", (SELECT COALESCE(jsonb_agg(COALESCE(e."tuteeId", original.value #>> '{}')), '[]'::jsonb)
         FROM jsonb_array_elements(CASE WHEN jsonb_typeof(r."participantIds")='array' THEN r."participantIds" ELSE '[]'::jsonb END) original(value)
@@ -102,7 +108,17 @@ export async function readPublicationValidationSnapshot(
     LEFT JOIN "SessionPlanExecution" executor ON executor."planId"=p.id
       JOIN "SessionPlanningOffer" o ON o.id=r."currentOfferId" AND o."requestId"=r.id
       CROSS JOIN parameters a
-      WHERE r.status='PENDING' AND r.kind<>'CANCEL' AND o."startsAt"<a."endsAt" AND o."endsAt">a."startsAt"
+      WHERE r.status='PENDING' AND r.kind<>'CANCEL'
+        AND NOT EXISTS (SELECT 1 FROM "ScheduledProgramRefresh" refresh
+          WHERE refresh."sourceTermId"=p."termId" AND refresh.state='SCHEDULED'
+            AND o."endsAt">refresh."executeAt")
+        AND NOT EXISTS (SELECT 1 FROM "SessionPlanCohort" source
+          WHERE source.id=r."cohortId" AND (source."refreshSuppressed" OR EXISTS (
+            SELECT 1 FROM "ScheduledProgramRefresh" refresh
+            WHERE refresh."sourceTermId"=p."termId" AND refresh.state='SCHEDULED'
+              AND source."endsAt">refresh."executeAt"
+              AND (source."startsAt">${new Date()} OR source."startsAt">refresh."updatedAt"))))
+        AND o."startsAt"<a."endsAt" AND o."endsAt">a."startsAt"
     ), potential_recurring AS (
       SELECT p.id, p."tutorId", p."roomId", p."startMin", p."dayOfWeek", ARRAY(
         SELECT roster."tuteeId" FROM "PairingTutee" roster WHERE roster."pairingId"=p.id
