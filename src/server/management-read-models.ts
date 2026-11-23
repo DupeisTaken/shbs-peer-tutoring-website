@@ -323,9 +323,9 @@ export const managementReadModels = {
   ),
   "admin.registrationCodes": list(
     summary(
-      "id kind issuedByName tutorName fromApplication createdAt expiresAt status",
+      "id kind issuedByName tutorName fromApplication source statusReason createdAt expiresAt status",
       {},
-      "code email label issuedByEmail",
+      "code email label issuedByEmail applicationId",
     ),
   ),
   "admin.policies": list(policy),

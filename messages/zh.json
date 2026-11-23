@@ -1817,8 +1817,22 @@
       "status": {
         "active": "有效",
         "used": "已使用",
-        "expired": "已过期"
+        "expired": "已过期",
+        "unavailable": "不可用"
       },
+      "source": {
+        "interview": "面试录取",
+        "application": "申请录取",
+        "crewApplication": "巡查队申请"
+      },
+      "unavailableReason": {
+        "attemptsExhausted": "因输错次数过多已停用。",
+        "applicationInvalid": "原申请已标记为无效，邀请码暂不可用。",
+        "applicationInactive": "原申请已不再处于录取状态。",
+        "codeMissing": "邀请码不可用。"
+      },
+      "boundEmail": "绑定邮箱：{email}",
+      "viewApplication": "查看申请",
       "revoke": "撤销",
       "showCode": "显示代码",
       "hideCode": "隐藏",

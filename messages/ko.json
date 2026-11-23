@@ -1372,8 +1372,22 @@
       "status": {
         "active": "활성",
         "used": "사용됨",
-        "expired": "만료됨"
+        "expired": "만료됨",
+        "unavailable": "사용 불가"
       },
+      "source": {
+        "interview": "면접 합격",
+        "application": "승인된 지원서",
+        "crewApplication": "순찰조 지원서"
+      },
+      "unavailableReason": {
+        "attemptsExhausted": "입력 실패 횟수 초과로 차단되었습니다.",
+        "applicationInvalid": "원본 지원서가 무효로 표시되어 일시 중지되었습니다.",
+        "applicationInactive": "원본 지원서가 더 이상 승인 상태가 아닙니다.",
+        "codeMissing": "초대 코드를 사용할 수 없습니다."
+      },
+      "boundEmail": "연결된 이메일: {email}",
+      "viewApplication": "지원서 보기",
       "revoke": "취소",
       "showCode": "코드 표시",
       "hideCode": "숨기기",

@@ -231,7 +231,24 @@ it.each(["ADMIN", "HEAD"] as const)(
       tutorId: saved.app.promotedTutorId,
       email: "candidate@example.test",
       kind: "TUTOR",
+      label: "Synthetic Candidate",
+      issuedById: "chair",
+      issuedByName: "chair",
       usedAt: null,
+    });
+    const listedCodes = await caller("head").admin.registrationCodes();
+    expect(listedCodes).toHaveLength(1);
+    expect(listedCodes[0]).toMatchObject({
+      id: saved.codes[0]!.id,
+      label: "Synthetic Candidate",
+      email: "candidate@example.test",
+      issuedByName: "chair",
+      issuedByEmail: "chair@example.test",
+      fromApplication: true,
+      source: "interview",
+      applicationId: app.id,
+      status: "active",
+      statusReason: null,
     });
     expect(saved.notices.map((row) => row.userId)).toEqual(["chair", "head"]);
     expect(
@@ -771,7 +788,72 @@ it("reactivates an ordinary archive without overriding names or manufacturing a 
     englishName: "Preserved Historical Name",
     status: "ACTIVE",
   });
-  expect((await outcome(app.id)).codes).toHaveLength(1);
+  const saved = await outcome(app.id);
+  expect(saved.codes).toHaveLength(1);
+  expect(saved.codes[0]).toMatchObject({
+    label: "Preserved Historical Name",
+    issuedById: "chair",
+    issuedByName: "chair",
+  });
+});
+
+it("marks interview registration codes unavailable when invalidated or exhausted and expires them on application delete", async () => {
+  const { app, input } = await fixture();
+  await caller().tutor.decideInterview(input);
+  const [code] = (await outcome(app.id)).codes;
+  expect(code).toBeDefined();
+
+  await caller("head").admin.setApplicationInvalidity({
+    id: app.id,
+    invalid: true,
+    expectedInvalidityVersion: 0,
+    reason: "Duplicate submission",
+  });
+  expect(await caller("head").admin.registrationCodes()).toMatchObject([
+    {
+      id: code!.id,
+      source: "interview",
+      applicationId: app.id,
+      status: "unavailable",
+      statusReason: "applicationInvalid",
+    },
+  ]);
+
+  await caller("head").admin.setApplicationInvalidity({
+    id: app.id,
+    invalid: false,
+    expectedInvalidityVersion: 1,
+    reason: "Verified original",
+  });
+  expect(await caller("head").admin.registrationCodes()).toMatchObject([
+    { id: code!.id, status: "active", statusReason: null },
+  ]);
+
+  await db.registrationCode.update({
+    where: { id: code!.id },
+    data: { attempts: 10 },
+  });
+  expect(await caller("head").admin.registrationCodes()).toMatchObject([
+    {
+      id: code!.id,
+      status: "unavailable",
+      statusReason: "attemptsExhausted",
+    },
+  ]);
+
+  await db.registrationCode.update({
+    where: { id: code!.id },
+    data: { attempts: 0 },
+  });
+  await caller("head").admin.deleteApplication({ id: app.id });
+  expect(await caller("head").admin.registrationCodes()).toMatchObject([
+    {
+      id: code!.id,
+      applicationId: null,
+      status: "expired",
+      statusReason: null,
+    },
+  ]);
 });
 
 it("rechecks a revocation committed while approval waits for the account lock", async () => {

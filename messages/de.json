@@ -1372,8 +1372,22 @@
       "status": {
         "active": "Aktiv",
         "used": "Verwendet",
-        "expired": "Abgelaufen"
+        "expired": "Abgelaufen",
+        "unavailable": "Nicht verfügbar"
       },
+      "source": {
+        "interview": "Interview",
+        "application": "Angenommene Bewerbung",
+        "crewApplication": "Rundgang-Bewerbung"
+      },
+      "unavailableReason": {
+        "attemptsExhausted": "Nach zu vielen Fehlversuchen gesperrt.",
+        "applicationInvalid": "Pausiert, solange die zugehörige Bewerbung als ungültig markiert ist.",
+        "applicationInactive": "Die zugehörige Bewerbung ist nicht mehr angenommen.",
+        "codeMissing": "Einladungscode nicht verfügbar."
+      },
+      "boundEmail": "Gebunden an {email}",
+      "viewApplication": "Bewerbung anzeigen",
       "revoke": "Widerrufen",
       "showCode": "Code anzeigen",
       "hideCode": "Ausblenden",

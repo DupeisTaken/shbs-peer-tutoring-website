@@ -1372,8 +1372,22 @@
       "status": {
         "active": "Active",
         "used": "Used",
-        "expired": "Expired"
+        "expired": "Expired",
+        "unavailable": "Unavailable"
       },
+      "source": {
+        "interview": "Interview",
+        "application": "Accepted application",
+        "crewApplication": "Crew application"
+      },
+      "unavailableReason": {
+        "attemptsExhausted": "Blocked after too many failed code attempts.",
+        "applicationInvalid": "Paused while the source application is flagged invalid.",
+        "applicationInactive": "Source application is no longer accepted.",
+        "codeMissing": "Invitation code is unavailable."
+      },
+      "boundEmail": "Bound to {email}",
+      "viewApplication": "View application",
       "revoke": "Revoke",
       "showCode": "Show Code",
       "hideCode": "Hide",

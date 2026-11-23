@@ -1817,8 +1817,22 @@
       "status": {
         "active": "Activo",
         "used": "Usado",
-        "expired": "Expirado"
+        "expired": "Expirado",
+        "unavailable": "No disponible"
       },
+      "source": {
+        "interview": "Entrevista",
+        "application": "Solicitud aceptada",
+        "crewApplication": "Solicitud de ronda"
+      },
+      "unavailableReason": {
+        "attemptsExhausted": "Bloqueado tras demasiados intentos fallidos.",
+        "applicationInvalid": "En pausa mientras la solicitud de origen está marcada como no válida.",
+        "applicationInactive": "La solicitud de origen ya no está aceptada.",
+        "codeMissing": "El código de invitación no está disponible."
+      },
+      "boundEmail": "Vinculado a {email}",
+      "viewApplication": "Ver solicitud",
       "revoke": "Revocar",
       "showCode": "Mostrar código",
       "hideCode": "Ocultar",
