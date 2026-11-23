@@ -720,8 +720,7 @@ Coordinators submit them for Admin/Head review. Pending proposals do not change
 schedules or send operational calendar notices.
 
 In **Holidays & Tutoring Pauses**, each row clearly indicates whether school is
-closed (**School holiday (No school)**) or open (**Tutoring pause (School day)**
-or **Notice only (School day)**):
+closed (**School holiday**) or open (**Tutoring pause** or **Notice only**):
 
 - Use **Add holiday** for one or more consecutive school closure days, such as
   Thanksgiving. Enter the start and end dates and an optional internal staff note.

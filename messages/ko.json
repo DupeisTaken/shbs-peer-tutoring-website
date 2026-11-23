@@ -6180,12 +6180,13 @@
     "impactRestore": "복원 후보: {count}",
     "impactRule": "저장 시 현재 합의와 충돌을 다시 확인하고 영향을 받는 참여자에게 취소 사실을 이메일로 알립니다. 이미 시작된 세션과 기록된 출석은 변경되지 않습니다.",
     "combinedTitle": "휴일 및 튜터링 중단",
-    "combinedHelp": "학교 휴일(휴교)과 튜터링 중단 또는 공지(등교일)를 관리합니다. 학교 휴일은 정규 튜터링과 이의신청 등교일 계산을 중단하며, 튜터링 중단은 등교일 및 이의신청 규칙을 변경하지 않습니다.",
+    "combinedHelp": "학교 휴일과 튜터링 중단 또는 공지를 관리합니다. 학교 휴일은 정규 튜터링과 이의신청 등교일 계산을 중단하며, 튜터링 중단은 등교일 및 이의신청 규칙을 변경하지 않습니다.",
     "combinedEmpty": "등록된 학교 휴일이나 튜터링 공지가 없습니다.",
     "denied": "튜터링 공지 및 중단 설정에 접근할 수 없습니다.",
-    "holidayEffect": "학교 휴일 (휴교)",
-    "pauseEffectTable": "정규 튜터링 중단 (등교일)",
-    "noticeEffectTable": "공지 전용 (등교일)"
+    "holidayEffect": "학교 휴일",
+    "pauseEffectTable": "정규 튜터링 중단",
+    "noticeEffectTable": "공지 전용",
+    "reasonOrNote": "사유 / 메모"
   },
   "roomOrder": {
     "title": "교실 표시 순서",

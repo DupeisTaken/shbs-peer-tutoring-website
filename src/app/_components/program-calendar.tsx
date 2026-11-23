@@ -379,8 +379,15 @@ export function ProgramCalendarSettings() {
         <SummaryTable sortable label={t("combinedTitle")}>
           <thead>
             <tr>
-              <th className="whitespace-nowrap">{t("date")}</th>
-              <th className="whitespace-nowrap">{t("schedulingEffect")}</th>
+              <th className="whitespace-nowrap [&_.table-sort-button]:whitespace-nowrap">
+                {t("date")}
+              </th>
+              <th className="whitespace-nowrap [&_.table-sort-button]:whitespace-nowrap">
+                {t("schedulingEffect")}
+              </th>
+              <th className="whitespace-nowrap [&_.table-sort-button]:whitespace-nowrap">
+                {t("reasonOrNote")}
+              </th>
               <th className="table-actions-heading">{t("actions")}</th>
             </tr>
           </thead>
@@ -391,6 +398,10 @@ export function ProgramCalendarSettings() {
                 const rowKey = `holiday:${group.from}:${group.to}`;
                 const resetKey = `holiday-reset:${group.from}:${group.to}`;
                 const dayCount = group.days.length;
+                const previewNote =
+                  group.note.length > 80
+                    ? `${group.note.slice(0, 80)}…`
+                    : group.note;
                 return (
                   <tr key={rowKey}>
                     <td
@@ -407,6 +418,18 @@ export function ProgramCalendarSettings() {
                       data-sort-value={t("holidayEffect")}
                     >
                       {t("holidayEffect")}
+                    </td>
+                    <td
+                      data-sort-value={group.note}
+                      className="max-w-[16rem] xl:max-w-[18rem]"
+                    >
+                      {previewNote ? (
+                        <p className="truncate">{previewNote}</p>
+                      ) : (
+                        <span className="muted text-sm">
+                          {school("noStaffNote")}
+                        </span>
+                      )}
                     </td>
                     <TableActions>
                       <TableDetails
@@ -469,6 +492,7 @@ export function ProgramCalendarSettings() {
                             {school("edit")}
                           </TableAction>
                           <TableAction
+                            className="lg:whitespace-nowrap"
                             disabled={
                               holidayBlocked ||
                               !!holidayEditor ||
@@ -553,6 +577,17 @@ export function ProgramCalendarSettings() {
                     data-sort-value={effectLabel}
                   >
                     {effectLabel}
+                  </td>
+                  <td
+                    data-sort-value={day.reason}
+                    className="max-w-[16rem] xl:max-w-[18rem]"
+                  >
+                    {/* Single-line preview keeps rows unwrapped; full text stays in View details / Edit. */}
+                    <p className="truncate">
+                      {day.reason.length > 80
+                        ? `${day.reason.slice(0, 80)}…`
+                        : day.reason}
+                    </p>
                   </td>
                   <TableActions>
                     <TableDetails
