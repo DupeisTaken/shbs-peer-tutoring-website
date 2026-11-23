@@ -72,29 +72,32 @@ export function publicSignupView(
     opensAt: next.opensAt,
     previewUrl: next.previewUrl,
   };
-  if (next.refresh?.state === "CANCELLED")
-    return { ...target, opensAt: null, state: "cancelled" };
-  if (
-    !next.preparationValid ||
-    (next.refresh && (!next.refresh.valid || next.refresh.state === "BLOCKED"))
-  )
+  // A stale preparation may belong to another quarter or semester. Never label
+  // its instant as configuration for the current next-period target.
+  if (!next.preparationValid)
     return { ...target, opensAt: null, state: "needsReview" };
+  // Retain a target-bound configured instant as context. State, rather than the
+  // presence of a date, decides whether the UI may promise an opening/countdown.
+  if (next.refresh?.state === "CANCELLED")
+    return { ...target, state: "cancelled" };
+  if (next.refresh && (!next.refresh.valid || next.refresh.state === "BLOCKED"))
+    return { ...target, state: "needsReview" };
   if (
     !next.enabled ||
     (next.closesAt && now >= new Date(next.closesAt).getTime())
   )
-    return { ...target, opensAt: null, state: "unavailable" };
+    return { ...target, state: "unavailable" };
   if (!next.opensAt) return { ...target, state: "awaitingSchedule" };
   const opening = new Date(next.opensAt).getTime();
   if (next.closesAt && opening >= new Date(next.closesAt).getTime())
-    return { ...target, opensAt: null, state: "needsReview" };
+    return { ...target, state: "needsReview" };
   // A promised opening cannot precede the approved activation. Never silently move its date.
   if (
     next.refresh?.state === "SCHEDULED" &&
     new Date(next.refresh.executeAt).getTime() > opening &&
     opening > now
   )
-    return { ...target, opensAt: null, state: "needsReview" };
+    return { ...target, state: "needsReview" };
   if (
     now >= opening ||
     (next.refresh?.state === "SCHEDULED" &&

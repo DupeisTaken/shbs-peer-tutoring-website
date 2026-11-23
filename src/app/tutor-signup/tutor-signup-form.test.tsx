@@ -6,6 +6,7 @@ import { resolveBranding } from "~/lib/branding-config";
 import { signupSettings } from "~/lib/signup-fields";
 import { TutorSignupForm } from "./tutor-signup-form";
 import type { NameFieldStates } from "~/lib/name-field-policy";
+import type { PublicSignupTransition } from "~/lib/public-signup-transition";
 const mocks = vi.hoisted(() => ({
   nameStates: undefined as NameFieldStates | undefined,
   options: vi.fn(),
@@ -19,7 +20,14 @@ vi.mock("next-intl", () => ({
   useLocale: () => "en",
   useTimeZone: () => "Asia/Shanghai",
   useTranslations: () => (key: string) => key,
+  useFormatter: () => ({
+    dateTime: (value: Date | number, options: Intl.DateTimeFormatOptions) =>
+      new Intl.DateTimeFormat("en", options).format(value),
+    number: (value: number, options: Intl.NumberFormatOptions) =>
+      new Intl.NumberFormat("en", options).format(value),
+  }),
 }));
+vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: vi.fn() }) }));
 vi.mock("~/trpc/react", async () => ({
   api: {
     program: {
@@ -335,4 +343,159 @@ it("retains entered identity and groups when cached prerequisites fail", () => {
       .getByRole("button", { name: "public.tutorSignup.submit" })
       .matches(":disabled"),
   ).toBe(true);
+});
+
+function tutorTransition(): PublicSignupTransition {
+  return {
+    serverNow: "2026-10-30T00:00:00Z",
+    timeZone: "Asia/Shanghai",
+    current: {
+      termId: "q1",
+      label: "2026–27 Q1",
+      kind: "quarter",
+      window: {
+        enabled: false,
+        opensAt: null,
+        closesAt: null,
+        previewUrl: null,
+      },
+    },
+    next: {
+      label: "2026–27 Q2",
+      opensAt: "2090-11-01T02:00:00Z",
+      closesAt: null,
+      enabled: true,
+      previewUrl: null,
+      preparationValid: true,
+      refresh: null,
+    },
+  };
+}
+
+it("shows a configured tutor opening during blocked activation without enabling the active form", () => {
+  const transition = tutorTransition();
+  transition.next!.refresh = {
+    executeAt: "2090-11-01T01:00:00Z",
+    state: "BLOCKED",
+    valid: false,
+  };
+  mocks.options.mockReturnValue({
+    data: {
+      subjects: [{ id: "math", name: "Math" }],
+      transition,
+      recruitment: {
+        ...transition.current!.window,
+        serverNow: transition.serverNow,
+      },
+    },
+    refetch: mocks.retryOptions,
+  });
+  const view = render(<TutorSignupForm />);
+  expect(screen.getByRole("heading", { name: "tutorTitle" })).toBeTruthy();
+  expect(screen.getByText("configuredOpening")).toBeTruthy();
+  expect(screen.getByText("needsReview")).toBeTruthy();
+  expect(view.container.querySelector("time")?.dateTime).toBe(
+    transition.next!.opensAt,
+  );
+  expect(screen.queryByRole("timer")).toBeNull();
+  expect(screen.queryByText("nextTitle")).toBeNull();
+  expect(
+    screen
+      .getByRole("button", { name: "public.tutorSignup.submit" })
+      .matches(":disabled"),
+  ).toBe(true);
+  for (const input of view.container.querySelectorAll(
+    "form input, form select, form textarea",
+  ))
+    expect(input.matches(":disabled")).toBe(true);
+  fireEvent.submit(view.container.querySelector("form")!);
+  expect(mocks.mutate).not.toHaveBeenCalled();
+});
+
+it("retains a tutor draft through closure and suppresses a cached opening after a failed read", () => {
+  const transition = tutorTransition();
+  transition.current!.window.enabled = true;
+  const data = {
+    subjects: [{ id: "math", name: "Math" }],
+    fields: signupSettings({
+      tutor: {
+        secondSubject: "hidden",
+        thirdSubject: "hidden",
+        preferredContact: "hidden",
+      },
+    }).tutor,
+    transition,
+    recruitment: {
+      ...transition.current!.window,
+      serverNow: transition.serverNow,
+    },
+  };
+  mocks.options.mockReturnValue({ data, refetch: mocks.retryOptions });
+  const view = render(<TutorSignupForm />);
+  const name = screen.getByLabelText<HTMLInputElement>(
+    "firstName signupFields.required",
+  );
+  fireEvent.change(name, { target: { value: "Retained tutor" } });
+  fireEvent.change(
+    screen.getByLabelText(
+      "public.tutorSignup.fields.email signupFields.required",
+    ),
+    { target: { value: "retained-tutor@example.test" } },
+  );
+  fireEvent.change(screen.getByRole("combobox"), {
+    target: { value: "math" },
+  });
+  fireEvent.click(screen.getByLabelText("Accept policy"));
+  expect(
+    screen
+      .getByRole("button", { name: "public.tutorSignup.submit" })
+      .matches(":disabled"),
+  ).toBe(false);
+
+  const closed = {
+    ...data,
+    recruitment: { ...data.recruitment, enabled: false },
+    transition: {
+      ...transition,
+      current: {
+        ...transition.current!,
+        window: { ...transition.current!.window, enabled: false },
+      },
+    },
+  };
+  mocks.options.mockReturnValue({ data: closed, refetch: mocks.retryOptions });
+  view.rerender(<TutorSignupForm />);
+  expect(screen.getByRole("heading", { name: "tutorTitle" })).toBeTruthy();
+  expect(screen.getByRole("timer")).toBeTruthy();
+  expect(view.container.querySelector("time")?.dateTime).toBe(
+    transition.next!.opensAt,
+  );
+  expect(name.value).toBe("Retained tutor");
+  expect(name.matches(":disabled")).toBe(true);
+  fireEvent.submit(view.container.querySelector("form")!);
+  expect(mocks.mutate).not.toHaveBeenCalled();
+
+  mocks.options.mockReturnValue({
+    data: closed,
+    refetch: mocks.retryOptions,
+    isError: true,
+    error: { message: "Offline" },
+  });
+  view.rerender(<TutorSignupForm />);
+  expect(screen.getByText("unverified")).toBeTruthy();
+  expect(screen.queryByRole("timer")).toBeNull();
+  expect(view.container.querySelector("time")).toBeNull();
+  expect(name.value).toBe("Retained tutor");
+  expect(name.matches(":disabled")).toBe(true);
+  fireEvent.submit(view.container.querySelector("form")!);
+  expect(mocks.mutate).not.toHaveBeenCalled();
+  fireEvent.click(screen.getByRole("button", { name: "survey.retry" }));
+  expect(mocks.retryOptions).toHaveBeenCalledOnce();
+
+  mocks.options.mockReturnValue({ data: closed, refetch: mocks.retryOptions });
+  view.rerender(<TutorSignupForm />);
+  expect(screen.getByRole("timer")).toBeTruthy();
+  expect(name.value).toBe("Retained tutor");
+  expect(name.matches(":disabled")).toBe(true);
+  expect(mocks.mutate).not.toHaveBeenCalled();
 });

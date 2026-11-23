@@ -9,6 +9,7 @@ import { lockUsernameNamespace } from "~/server/auth/username";
 import { assertPrimaryName } from "~/server/program/profile-policy";
 import { recruitmentStatus } from "~/lib/recruitment";
 import { getRecruitment } from "~/server/program/recruitment";
+import { readPublicSignupTransition } from "~/server/program/public-signup-transition";
 import { lockCatalogue } from "~/server/qualifications";
 import { courseChoices } from "~/server/course-choices";
 import { TRPCError } from "@trpc/server";
@@ -35,10 +36,10 @@ import { acceptPublicApplication } from "~/server/public-application-intake";
 export const applicationRouter = createTRPCRouter({
   /** Active subjects for the application's subject pickers (with their level). */
   options: publicProcedure.query(async ({ ctx }) => {
-    const [settings, subjects, recruitment] = await Promise.all([
+    const [settings, subjects, transition] = await Promise.all([
       getSignupSettings(ctx.db),
       courseChoices(ctx.db, { active: true }),
-      getRecruitment(ctx.db, "tutor"),
+      readPublicSignupTransition(ctx.db, "tutor"),
     ]);
     return {
       fields: settings.tutor,
@@ -47,7 +48,14 @@ export const applicationRouter = createTRPCRouter({
         name,
         level: level ? { name: level.name, apScored: level.apScored } : null,
       })),
-      recruitment,
+      recruitment: {
+        enabled: transition.current?.window.enabled ?? false,
+        opensAt: transition.current?.window.opensAt ?? null,
+        closesAt: transition.current?.window.closesAt ?? null,
+        previewUrl: transition.current?.window.previewUrl ?? null,
+        serverNow: transition.serverNow,
+      },
+      transition,
     };
   }),
 
