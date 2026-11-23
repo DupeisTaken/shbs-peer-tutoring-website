@@ -1,14 +1,17 @@
 import { afterAll, afterEach, beforeEach, expect, it, vi } from "vitest";
+import superjson from "superjson";
+import type { Prisma } from "../../../../generated/prisma";
 vi.mock("~/server/auth", () => ({ auth: async () => null }));
 import { db } from "~/server/db";
 import { createCaller } from "../root";
 import { ApprovalQueued } from "~/server/approvals";
 import {
-  processDueScheduledRefreshes,
   processScheduledRefresh,
   readPublicRefreshSchedule,
+  sweepScheduledRefreshes,
 } from "~/server/program/scheduled-refresh";
 import { assertIsolatedTestDatabase } from "~/test/database-guard";
+import * as nextRecruitmentDomain from "~/server/program/next-recruitment";
 import * as refreshDomain from "~/server/program/refresh";
 
 const source = "scheduled-refresh-source";
@@ -74,7 +77,7 @@ async function input(expectedScheduleVersion = 0) {
   };
 }
 async function due(id: string) {
-  await db.$executeRaw`UPDATE "ScheduledProgramRefresh" SET "executeAt" = clock_timestamp() - INTERVAL '1 second' WHERE "id" = ${id}`;
+  await db.$executeRaw`UPDATE "ScheduledProgramRefresh" SET "executeAt" = (clock_timestamp() AT TIME ZONE 'UTC') - INTERVAL '1 second' WHERE "id" = ${id}`;
 }
 async function queued(role: Role, value: Awaited<ReturnType<typeof input>>) {
   const result: unknown = await caller(role)
@@ -211,10 +214,10 @@ it("catches up once after downtime across competing workers and retains its comp
   const row = await caller("HEAD").admin.scheduleRefresh(await input());
   await due(row.id);
   await Promise.all([
-    processDueScheduledRefreshes(db),
-    processDueScheduledRefreshes(db),
+    sweepScheduledRefreshes(db),
+    sweepScheduledRefreshes(db),
   ]);
-  await processDueScheduledRefreshes(db);
+  await sweepScheduledRefreshes(db);
   expect(
     (await db.term.findFirstOrThrow({ where: { active: true } })).quarter,
   ).toBe("Q2");
@@ -285,7 +288,7 @@ it("an Admin cancellation remains a proposal until Head reviews its exact schedu
   ).toBe("CANCELLED");
 });
 
-it("blocks changed feature evidence before due time and emits only one terminal notice when due", async () => {
+it("records changed feature evidence and notifies management before execution is due", async () => {
   const row = await caller("HEAD").admin.scheduleRefresh(await input());
   await caller("ADMIN").program.setFeaturePending({
     key: "QUARTER_SYSTEM",
@@ -306,30 +309,169 @@ it("blocks changed feature evidence before due time and emits only one terminal 
       })
     ).state,
   ).toBe("SCHEDULED");
-  await due(row.id);
-  expect(await processScheduledRefresh(db, row.id)).toMatchObject({
-    state: "BLOCKED",
+
+  await Promise.all([sweepScheduledRefreshes(db), sweepScheduledRefreshes(db)]);
+  await sweepScheduledRefreshes(db);
+  const blocked = await db.scheduledProgramRefresh.findUniqueOrThrow({
+    where: { id: row.id },
   });
-  expect(await processScheduledRefresh(db, row.id)).toBeNull();
+  expect(blocked).toMatchObject({
+    state: "BLOCKED",
+    blockedReason: "SCHEDULED_REFRESH_REVIEW_CHANGED",
+    executeAt: row.executeAt,
+    version: row.version + 1,
+    attempts: 0,
+  });
   expect(
     await db.auditLog.count({
       where: { operation: "program.scheduledRefreshBlocked" },
     }),
   ).toBe(1);
+  const notices = await db.notification.findMany({
+    where: { event: "scheduled_refresh_blocked" },
+    orderBy: { userId: "asc" },
+  });
+  expect(notices.map((notice) => notice.userId)).toEqual([
+    "scheduled-refresh-ADMIN",
+    "scheduled-refresh-HEAD",
+  ]);
+  expect(notices.every((notice) => notice.createdAt < row.executeAt)).toBe(true);
   expect(await db.term.count()).toBe(1);
+  expect(
+    (await db.term.findUniqueOrThrow({ where: { id: source } })).active,
+  ).toBe(true);
+
+  const renewed = await caller("HEAD").admin.scheduleRefresh(
+    await input(blocked.version),
+  );
+  expect(renewed).toMatchObject({
+    state: "SCHEDULED",
+    blockedReason: null,
+    version: blocked.version + 1,
+  });
+  await due(renewed.id);
+  expect(await processScheduledRefresh(db, renewed.id)).toMatchObject({
+    state: "COMPLETED",
+  });
 });
 
-it("blocks execution when the approving Head is no longer authorized", async () => {
+it("preserves authorization when saving an absent feature's effective default", async () => {
+  const review = await input();
+  const row = await caller("HEAD").admin.scheduleRefresh(review);
+  await caller("ADMIN").program.setFeaturePending({
+    key: "MEETINGS",
+    enabled: true,
+  });
+  expect(
+    await db.programFeature.findUniqueOrThrow({ where: { key: "MEETINGS" } }),
+  ).toMatchObject({ enabled: true, pendingEnabled: null, revision: 0 });
+  expect((await input()).expectedPreparation).toEqual(review.expectedPreparation);
+
+  await sweepScheduledRefreshes(db);
+  expect(await readPublicRefreshSchedule(db, source)).toMatchObject({
+    state: "SCHEDULED",
+    valid: true,
+  });
+  expect(
+    await db.scheduledProgramRefresh.findUniqueOrThrow({ where: { id: row.id } }),
+  ).toMatchObject({ state: "SCHEDULED", attempts: 0, version: row.version });
+  expect(await db.notification.count()).toBe(0);
+  expect(await db.term.count()).toBe(1);
+
+  await due(row.id);
+  await sweepScheduledRefreshes(db);
+  expect(
+    await db.scheduledProgramRefresh.findUniqueOrThrow({ where: { id: row.id } }),
+  ).toMatchObject({ state: "COMPLETED", attempts: 0 });
+});
+
+it("accepts an older authorization whose evidence contains a stored default", async () => {
+  const review = await input();
+  const row = await caller("HEAD").admin.scheduleRefresh(review);
+  const legacyEvidence = superjson.serialize({
+    ...review.expectedPreparation,
+    stagedFeatures: [
+      { key: "MEETINGS", enabled: true, pendingEnabled: null, revision: 0 },
+    ],
+  }) as unknown as Prisma.InputJsonValue;
+  await db.scheduledProgramRefresh.update({
+    where: { id: row.id },
+    data: { expectedPreparation: legacyEvidence },
+  });
+  await due(row.id);
+  expect(await processScheduledRefresh(db, row.id)).toMatchObject({
+    state: "COMPLETED",
+  });
+});
+
+it("requires renewed Head review after a timezone mismatch is detected and recorded", async () => {
+  const review = await input();
+  const row = await caller("HEAD").admin.scheduleRefresh(review);
+  const originalZone = review.expectedPreparation.timeZone;
+  await caller("HEAD").program.setTimeZone({
+    expectedTimeZone: originalZone,
+    timeZone: "Pacific/Auckland",
+  });
+  await sweepScheduledRefreshes(db);
+  await caller("HEAD").program.setTimeZone({
+    expectedTimeZone: "Pacific/Auckland",
+    timeZone: originalZone,
+  });
+  await due(row.id);
+  await sweepScheduledRefreshes(db);
+
+  expect(await readPublicRefreshSchedule(db, source)).toMatchObject({
+    state: "BLOCKED",
+    valid: false,
+  });
+  expect(await db.term.count()).toBe(1);
+  expect(
+    await db.notification.count({ where: { event: "scheduled_refresh_blocked" } }),
+  ).toBe(2);
+});
+
+it("keeps a future schedule eligible when a review check temporarily fails", async () => {
+  const row = await caller("HEAD").admin.scheduleRefresh(await input());
+  const validate = vi
+    .spyOn(nextRecruitmentDomain, "validateNextRecruitmentRefresh")
+    .mockRejectedValueOnce(new Error("Synthetic database read failure"));
+  await sweepScheduledRefreshes(db);
+  expect(validate).toHaveBeenCalledTimes(1);
+  validate.mockRestore();
+  expect(
+    await db.scheduledProgramRefresh.findUniqueOrThrow({ where: { id: row.id } }),
+  ).toMatchObject({
+    state: "SCHEDULED",
+    attempts: 0,
+    blockedReason: null,
+    version: row.version,
+  });
+  expect(await db.notification.count()).toBe(0);
+  expect(await db.term.count()).toBe(1);
+
+  await due(row.id);
+  expect(await processScheduledRefresh(db, row.id)).toMatchObject({
+    state: "COMPLETED",
+  });
+});
+
+it("notifies management before execution is due when the approving Head loses authority", async () => {
   const row = await caller("HEAD").admin.scheduleRefresh(await input());
   await db.user.update({
     where: { id: "scheduled-refresh-HEAD" },
     data: { role: "ADMIN" },
   });
-  await due(row.id);
-  expect(await processScheduledRefresh(db, row.id)).toMatchObject({
+  await sweepScheduledRefreshes(db);
+  expect(
+    await db.scheduledProgramRefresh.findUniqueOrThrow({ where: { id: row.id } }),
+  ).toMatchObject({
     state: "BLOCKED",
     blockedReason: "SCHEDULED_REFRESH_HEAD_CHANGED",
+    executeAt: row.executeAt,
   });
+  expect(
+    await db.notification.count({ where: { event: "scheduled_refresh_blocked" } }),
+  ).toBe(2);
   expect(await db.term.count()).toBe(1);
 });
 
@@ -412,7 +554,7 @@ it("bounds transient retries, exposes safe failed status and requires a new auth
     .spyOn(refreshDomain, "applyProgramRefresh")
     .mockRejectedValue(new Error("Synthetic private infrastructure details"));
   for (let attempt = 1; attempt <= 5; attempt++) {
-    await processDueScheduledRefreshes(db);
+    await sweepScheduledRefreshes(db);
     expect(
       (await caller("HEAD").admin.refreshSchedule()).schedule,
     ).toMatchObject({
@@ -421,7 +563,7 @@ it("bounds transient retries, exposes safe failed status and requires a new auth
       blockedReason: "SCHEDULED_REFRESH_EXECUTION_FAILED",
     });
   }
-  await processDueScheduledRefreshes(db);
+  await sweepScheduledRefreshes(db);
   expect(apply).toHaveBeenCalledTimes(5);
   expect(await db.term.count()).toBe(1);
   expect(await db.notification.count()).toBe(2);
@@ -472,7 +614,7 @@ it("manual and scheduled contenders can activate only one destination", async ()
     caller("HEAD").admin.refresh(value),
     processScheduledRefresh(db, row.id),
   ]);
-  await processDueScheduledRefreshes(db);
+  await sweepScheduledRefreshes(db);
   expect(
     (await db.term.findFirstOrThrow({ where: { active: true } })).quarter,
   ).toBe("Q2");

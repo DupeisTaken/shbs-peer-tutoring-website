@@ -397,14 +397,20 @@ prepared openings and consequences. Head saves directly; Admin submits for Head 
 proposal is not an active schedule. The current period stays active until execution.
 A future prepared tutee opening cannot precede the scheduled refresh.
 
-Schedules survive browser closure and server restarts. The server checks due schedules
-on startup and every 30 seconds. After downtime it catches up automatically only if
-the original review and Head authorization still hold; this is not an exact-second
-availability guarantee. A mismatch in reviewed settings requires renewed review.
-Changes to the approving Head's role, suspension or merge identity invalidate the
-authorization even if later reversed. Blocked
-and failed schedules need a new Head-reviewed schedule. Five failed execution
-attempts stop automatic retries. Management receives a completion or needs-review notice.
+Schedules survive browser closure and server restarts. The server checks approved
+schedules on startup and every 30 seconds, including before their execution time.
+On detecting a change to the reviewed settings or the approving Head's authority,
+it marks the schedule **Needs review** and notifies active Admins and Head. Earlier
+detection gives management time to review and replace the schedule before the
+intended refresh time. Saving an unchanged default feature setting keeps the
+authorization valid. Changes to the approving Head's role, suspension or merge
+identity invalidate the authorization even if later reversed.
+
+Head must approve a replacement for a blocked or failed schedule, even if the
+settings are restored after the block. After downtime, valid schedules catch up
+automatically. Five failed execution attempts stop automatic retries. Management
+receives a completion or needs-review notice in the app. Email follows the
+Program notification settings and configured delivery.
 
 Reschedule and cancellation require the displayed version and the same Head approval
 boundary. Reload explicitly after a conflict; background reads retain unfinished edits.
