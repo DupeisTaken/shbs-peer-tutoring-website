@@ -6160,8 +6160,7 @@
     "denied": "Nachhilfehinweise und -pausen sind nicht verfügbar.",
     "holidayEffect": "Schulferien (Schulfrei)",
     "pauseEffectTable": "Nachhilfepause (Schultag)",
-    "noticeEffectTable": "Nur Hinweis (Schultag)",
-    "reasonOrNote": "Grund / Notiz"
+    "noticeEffectTable": "Nur Hinweis (Schultag)"
   },
   "roomOrder": {
     "title": "Anzeigereihenfolge der Räume",

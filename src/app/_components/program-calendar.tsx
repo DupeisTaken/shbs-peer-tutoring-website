@@ -261,12 +261,9 @@ export function ProgramCalendarSettings() {
     <section className="card space-y-4 p-5 sm:p-6">
       {review.dialog}
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h2 className="section-title">{t("combinedTitle")}</h2>
-          <p className="muted mt-1 text-sm">{t("combinedHelp")}</p>
-        </div>
+        <h2 className="section-title">{t("combinedTitle")}</h2>
         {(canEditHoliday || canEditProgram) && (
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             {canEditHoliday && (
               <Button
                 disabled={holidayBlocked || !calendar.data || !!holidayEditor}
@@ -291,6 +288,7 @@ export function ProgramCalendarSettings() {
           </div>
         )}
       </div>
+      <p className="muted text-sm">{t("combinedHelp")}</p>
       {programDenied && (
         <InlineNotice tone="error" announcement="alert">
           {t("denied")}
@@ -381,9 +379,8 @@ export function ProgramCalendarSettings() {
         <SummaryTable sortable label={t("combinedTitle")}>
           <thead>
             <tr>
-              <th>{t("date")}</th>
-              <th>{t("schedulingEffect")}</th>
-              <th>{t("reasonOrNote")}</th>
+              <th className="whitespace-nowrap">{t("date")}</th>
+              <th className="whitespace-nowrap">{t("schedulingEffect")}</th>
               <th className="table-actions-heading">{t("actions")}</th>
             </tr>
           </thead>
@@ -394,10 +391,6 @@ export function ProgramCalendarSettings() {
                 const rowKey = `holiday:${group.from}:${group.to}`;
                 const resetKey = `holiday-reset:${group.from}:${group.to}`;
                 const dayCount = group.days.length;
-                const previewNote =
-                  group.note.length > 80
-                    ? `${group.note.slice(0, 80)}…`
-                    : group.note;
                 return (
                   <tr key={rowKey}>
                     <td
@@ -405,27 +398,15 @@ export function ProgramCalendarSettings() {
                       data-sort-value={group.from}
                     >
                       <CalendarRange date={group.from} endDate={group.to} />
-                      <span className="muted mt-0.5 block text-xs">
+                      <span className="muted ml-2 text-xs font-normal">
                         {school("holidayDaysCount", { count: dayCount })}
                       </span>
                     </td>
                     <td
-                      className="max-w-xs text-sm"
+                      className="whitespace-nowrap text-sm"
                       data-sort-value={t("holidayEffect")}
                     >
                       {t("holidayEffect")}
-                    </td>
-                    <td
-                      data-sort-value={group.note}
-                      className="max-w-sm break-words"
-                    >
-                      {previewNote ? (
-                        <p className="line-clamp-2">{previewNote}</p>
-                      ) : (
-                        <span className="muted text-sm">
-                          {school("noStaffNote")}
-                        </span>
-                      )}
                     </td>
                     <TableActions>
                       <TableDetails
@@ -568,30 +549,28 @@ export function ProgramCalendarSettings() {
                     <CalendarRange date={day.date} endDate={day.endDate} />
                   </td>
                   <td
-                    className="max-w-xs text-sm"
+                    className="whitespace-nowrap text-sm"
                     data-sort-value={effectLabel}
                   >
                     {effectLabel}
-                  </td>
-                  <td
-                    data-sort-value={day.reason}
-                    className="max-w-sm break-words"
-                  >
-                    {/* A brief preview keeps the summary compact; full source remains in Details/edit. */}
-                    <p className="line-clamp-2">
-                      {day.reason.length > 80
-                        ? `${day.reason.slice(0, 80)}…`
-                        : day.reason}
-                    </p>
                   </td>
                   <TableActions>
                     <TableDetails
                       title={`${t("title")} · ${day.date}${day.endDate !== day.date ? ` ${t("through")} ${day.endDate}` : ""}`}
                       label={t("details")}
                     >
-                      <p className="[overflow-wrap:anywhere] whitespace-pre-wrap">
-                        {day.reason}
-                      </p>
+                      <div className="space-y-3">
+                        <p>
+                          <CalendarRange
+                            date={day.date}
+                            endDate={day.endDate}
+                          />{" "}
+                          · {effectLabel}
+                        </p>
+                        <p className="[overflow-wrap:anywhere] whitespace-pre-wrap">
+                          {day.reason}
+                        </p>
+                      </div>
                     </TableDetails>
                     {canEditProgram && (
                       <>

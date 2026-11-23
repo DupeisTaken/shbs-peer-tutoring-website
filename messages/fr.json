@@ -6160,8 +6160,7 @@
     "denied": "Les avis et pauses de tutorat ne sont pas disponibles.",
     "holidayEffect": "Vacances scolaires (École fermée)",
     "pauseEffectTable": "Pause de tutorat (Jour de cours)",
-    "noticeEffectTable": "Avis uniquement (Jour de cours)",
-    "reasonOrNote": "Motif / Note"
+    "noticeEffectTable": "Avis uniquement (Jour de cours)"
   },
   "roomOrder": {
     "title": "Ordre d’affichage des salles",

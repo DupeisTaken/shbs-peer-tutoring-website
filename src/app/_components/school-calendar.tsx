@@ -170,18 +170,21 @@ export function SchoolCalendar() {
               <SummaryTable label={t("weekdayOverridesTitle")} sortable>
                 <thead>
                   <tr>
-                    <th>{t("date")}</th>
-                    <th>{t("timetable")}</th>
+                    <th className="whitespace-nowrap">{t("date")}</th>
+                    <th className="whitespace-nowrap">{t("timetable")}</th>
                     <th className="table-actions-heading">{t("actions")}</th>
                   </tr>
                 </thead>
                 <tbody>
                   {weekdayOverrides.map((day) => (
                     <tr key={day.date}>
-                      <td data-sort-value={day.date}>
+                      <td
+                        className="whitespace-nowrap"
+                        data-sort-value={day.date}
+                      >
                         <SchoolCalendarDate date={day.date} />
                       </td>
-                      <td>{description(day)}</td>
+                      <td className="whitespace-nowrap">{description(day)}</td>
                       <TableActions>
                         <TableDetails
                           title={`${t("weekdayOverridesTitle")} · ${day.date}`}

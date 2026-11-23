@@ -6160,8 +6160,7 @@
     "denied": "无法访问辅导通知与暂停安排。",
     "holidayEffect": "学校假期（不上课）",
     "pauseEffectTable": "暂停常规辅导（正常上课）",
-    "noticeEffectTable": "仅作通知（正常上课）",
-    "reasonOrNote": "原因 / 备注"
+    "noticeEffectTable": "仅作通知（正常上课）"
   },
   "roomOrder": {
     "title": "教室显示顺序",
