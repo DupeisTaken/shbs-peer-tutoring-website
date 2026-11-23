@@ -32,7 +32,8 @@ import styles from "./page.module.css";
 
 /**
  * Audit evidence remains readable. Recovery requires a separate consequence preview;
- * legacy undo payloads cannot establish a complete dependency chain.
+ * legacy undo payloads cannot establish a complete dependency chain or identify
+ * a supported recovery action. Keep recovery selection in its own workspace.
  */
 function AuditLog() {
   const t = useTranslations();
@@ -265,11 +266,6 @@ function AuditLog() {
                       {t("approvals.viewRequest")}
                     </Link>
                   )}
-                  {!readOnly && e.undoData != null && !e.undone ? (
-                    <Link className="table-action-link" href="/admin/recovery">
-                      {t("recovery.title")}
-                    </Link>
-                  ) : null}
                 </TableActions>
               </tr>
             ))}
