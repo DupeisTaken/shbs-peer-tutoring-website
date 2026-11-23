@@ -16,6 +16,7 @@ import zh from "../../../messages/zh.json";
 import { ManagementActions } from "./management-actions";
 import { SessionViewProvider } from "./session-view-state";
 import { viewStateKey, writeViewState } from "~/lib/session-view-state";
+import { TRANSLATION_PAGE_MISSING } from "~/lib/translation-review-errors";
 
 const mocks = vi.hoisted(() => ({
   params: "",
@@ -190,6 +191,28 @@ beforeEach(() => {
   queue();
 });
 afterEach(cleanup);
+
+it.each(["en", "zh"])(
+  "localizes deleted translation-page replay recovery in %s",
+  (locale) => {
+    const request = row();
+    request.operation = "translationReview.decide";
+    request.payload = SuperJSON.serialize({
+      id: "draft",
+      approve: true,
+      expectedUpdatedAt: new Date("2026-09-19"),
+    });
+    queue([request], true);
+    mocks.decisionState = { error: { message: TRANSLATION_PAGE_MISSING } };
+    render(view(true, locale));
+    const catalog = locale === "zh" ? zh : en;
+    expect(screen.getByRole("alert").textContent).toBe(
+      catalog.translationEditor.pageTarget.missingRecovery,
+    );
+    expect(screen.queryByText(TRANSLATION_PAGE_MISSING)).toBeNull();
+    expect(mocks.decide).not.toHaveBeenCalled();
+  },
+);
 
 it.each([false, true])("lets Admin and Head deliberately reconcile notices without deciding requests (Head=%s)", async (headReviewer) => {
   queue([], true, 0, headReviewer);

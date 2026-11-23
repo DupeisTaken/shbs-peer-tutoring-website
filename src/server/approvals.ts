@@ -1392,6 +1392,11 @@ export async function queueProposal(
       }
     }
     await validateRoomBlockProposal(tx, operation, value);
+    if (operation === "translationReview.decide") {
+      const { assertTranslationReviewTarget } =
+        await import("./translation-destination");
+      await assertTranslationReviewTarget(tx, operation, value);
+    }
     const targets = await proposalTargets(
       tx,
       operation,
