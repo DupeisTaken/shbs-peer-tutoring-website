@@ -16,6 +16,7 @@ import { createQueryClient, isAdminSaveMutation } from "~/trpc/query-client";
 import { TUTOR_ACCESS_REVOKED_PROMOTION_MESSAGE } from "~/lib/tutor-promotion";
 import { TRANSLATION_PAGE_MISSING } from "~/lib/translation-review-errors";
 import { PUBLISHED_SESSION_DECLINE_MESSAGE } from "~/lib/legacy-signup-decline-error";
+import { PATROL_CHANGED_MESSAGE } from "~/lib/patrol-correction-error";
 import { STALE_RECORD_MESSAGE } from "~/lib/stale-record-error";
 const wrapper = ({ children }: { children: React.ReactNode }) => (
   <NextIntlClientProvider locale="en" messages={messages}>
@@ -50,6 +51,30 @@ it.each([
     );
     expect(screen.getByRole("alert").textContent).not.toContain(
       TRANSLATION_PAGE_MISSING,
+    );
+  },
+);
+
+it.each([
+  ["en", messages],
+  ["zh", zh],
+] as const)(
+  "localizes known stale patrol correction refusals in the %s global notice",
+  (locale, catalog) => {
+    render(
+      <NextIntlClientProvider locale={locale} messages={catalog}>
+        <SaveNotifications />
+      </NextIntlClientProvider>,
+    );
+    act(() => {
+      window.dispatchEvent(
+        new CustomEvent("admin-save-result", {
+          detail: { kind: "error", message: PATROL_CHANGED_MESSAGE },
+        }),
+      );
+    });
+    expect(screen.getByRole("alert").querySelector("p")?.textContent).toBe(
+      catalog.corrections.patrolChanged,
     );
   },
 );
