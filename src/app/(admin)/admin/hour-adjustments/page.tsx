@@ -326,16 +326,19 @@ export default function AdjustmentsPage() {
 
       <div className="card">
         {/* Free-form reasons belong to the detail dialog; the month and amount stay easy to scan. */}
-        <SummaryTable label={t("admin.adjustments.title")}>
+        <SummaryTable
+          label={t("admin.adjustments.title")}
+          className={styles.records}
+        >
           <thead role="rowgroup">
             <tr role="row">
-              <th role="columnheader" scope="col">
+              <th role="columnheader" scope="col" className={styles.tutor}>
                 {t("admin.adjustments.table.tutor")}
               </th>
               <th role="columnheader" scope="col">
                 {t("admin.adjustments.table.month")}
               </th>
-              <th role="columnheader" scope="col">
+              <th role="columnheader" scope="col" className={styles.type}>
                 {t("admin.adjustments.table.type")}
               </th>
               <th role="columnheader" scope="col" className="text-right">
@@ -349,13 +352,15 @@ export default function AdjustmentsPage() {
           <tbody role="rowgroup">
             {(list.data ?? []).map((a) => (
               <tr role="row" key={a.id}>
-                <td role="cell">{a.tutor.englishName}</td>
+                <td role="cell" className={styles.tutor}>
+                  {a.tutor.englishName}
+                </td>
                 <td role="cell">
                   <time dateTime={a.month} className={styles.month}>
                     {a.month}
                   </time>
                 </td>
-                <td role="cell" className="text-slate-500">
+                <td role="cell" className={`text-slate-500 ${styles.type}`}>
                   {t(`admin.adjustments.typeLabel.${a.type}`)}
                 </td>
                 <td role="cell" className="text-right">

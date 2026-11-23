@@ -500,7 +500,7 @@ Open **Hour Adjustments** (`/admin/hour-adjustments`) to add extra hours or a pu
 
 The list, details and deletion review display the recorded fractional hours without rounding; for example, a 45-minute credit displays as `0.75` hours.
 
-Months remain in `YYYY-MM` format. Desktop tables reserve space for months and wrap long names, reasons and translated labels; a constrained desktop table can scroll within its card. On mobile, each record stacks its labelled fields and delete action so the full reason stays readable. Form controls and row actions support touch and keyboard use.
+Months remain in `YYYY-MM` format. The summary table reserves readable space for tutor names and adjustment types, wraps long names, and scrolls within its card when needed on mobile or a constrained desktop. The rightmost Actions column stays reachable while scrolling; open **View details** to read the full reason. Form controls and row actions support touch and keyboard use.
 
 HEAD and ADMIN can apply additions; Coordinator additions require Admin/Head review. Deleting an existing adjustment reverses recorded hours; Admin/Head apply it and Coordinators submit review proposals. Pending proposals leave live hours unchanged. VIEWER has no mutation controls, cannot write through the API, and receives records with private reasons withheld by the server. Tutor accounts cannot access this management listing.
 
