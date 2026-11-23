@@ -734,7 +734,7 @@
     "availability": {
       "title": "我的可用时间",
       "help": "勾选你可以辅导的时间段，方便协调员安排。",
-      "edit": "编辑我的可用时间"
+      "edit": "编辑可用时间"
     },
     "attendance": {
       "title": "提交考勤",

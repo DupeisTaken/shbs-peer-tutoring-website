@@ -734,7 +734,7 @@
     "availability": {
       "title": "Meine verfügbaren Zeiten",
       "help": "Zeitfenster markieren, in denen Sie unterrichten können. Das hilft Koordinatoren bei der Planung.",
-      "edit": "Meine verfügbaren Zeiten bearbeiten"
+      "edit": "Verfügbarkeit bearbeiten"
     },
     "attendance": {
       "title": "Anwesenheit einreichen",

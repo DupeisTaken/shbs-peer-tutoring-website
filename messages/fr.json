@@ -734,7 +734,7 @@
     "availability": {
       "title": "Mes créneaux disponibles",
       "help": "Indiquez les créneaux horaires où vous pouvez enseigner. Cela aide les coordinateurs à vous planifier.",
-      "edit": "Modifier mes créneaux disponibles"
+      "edit": "Modifier les disponibilités"
     },
     "attendance": {
       "title": "Soumettre la présence",

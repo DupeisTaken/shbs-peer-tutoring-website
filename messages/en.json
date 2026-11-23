@@ -734,7 +734,7 @@
     "availability": {
       "title": "My Time Availability",
       "help": "Mark the time slots you can teach. These help coordinators schedule you.",
-      "edit": "Edit My Time Availability"
+      "edit": "Edit availability"
     },
     "attendance": {
       "title": "Submit Attendance",
