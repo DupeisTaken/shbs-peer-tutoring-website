@@ -521,7 +521,8 @@
     "close": "閉じる",
     "collapseAll": "すべて折りたたむ",
     "expandAll": "すべて展開",
-    "loading": "Loading…"
+    "loading": "Loading…",
+    "retry": "再試行"
   },
   "auth": {
     "signinTitle": "サインイン",

@@ -521,7 +521,8 @@
     "close": "关闭",
     "collapseAll": "全部收起",
     "expandAll": "全部展开",
-    "loading": "正在加载…"
+    "loading": "正在加载…",
+    "retry": "重试"
   },
   "auth": {
     "signinTitle": "登录",

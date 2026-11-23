@@ -521,7 +521,8 @@
     "close": "Fermer",
     "collapseAll": "Tout réduire",
     "expandAll": "Tout développer",
-    "loading": "Loading…"
+    "loading": "Loading…",
+    "retry": "Réessayer"
   },
   "auth": {
     "signinTitle": "Connexion",

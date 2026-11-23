@@ -521,7 +521,8 @@
     "close": "Κλείσιμο",
     "collapseAll": "Σύμπτυξη όλων",
     "expandAll": "Ανάπτυξη όλων",
-    "loading": "Loading…"
+    "loading": "Loading…",
+    "retry": "Δοκιμάστε ξανά"
   },
   "auth": {
     "signinTitle": "Σύνδεση",
