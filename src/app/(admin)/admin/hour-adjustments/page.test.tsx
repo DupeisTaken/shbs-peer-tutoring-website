@@ -30,7 +30,7 @@ const state = vi.hoisted(() => ({
       id: "synthetic-adjustment",
       tutor: { englishName: "Alexandra Montgomery-Wellington Synthetic Tutor" },
       month: "2026-09",
-      type: "EXTRA" as const,
+      type: "EXTRA",
       amount: 1.5,
       reason:
         "Synthetic explanation with full detail. " +
@@ -154,6 +154,8 @@ function renderPage(locale = "en", readOnly = false) {
 }
 
 beforeEach(() => {
+  state.rows[0]!.amount = 1.5;
+  state.rows[0]!.type = "EXTRA";
   state.completeCreate = undefined;
   state.failCreate = undefined;
   state.createError = null;
@@ -385,6 +387,73 @@ it.each(["en", "zh"])(
     expect(
       within(screen.getByRole("dialog")).getByText(state.rows[0]!.reason),
     ).toBeTruthy();
+  },
+);
+
+it.each(
+  ["en", "zh"].flatMap((locale) =>
+    [
+      { amount: 0.25, displayed: "0.25", type: "PUNISHMENT" as const },
+      { amount: 0.75, displayed: "0.75", type: "EXTRA" as const },
+      { amount: 0.5, displayed: "0.5", type: "EXTRA" as const },
+      { amount: 2, displayed: "2", type: "EXTRA" as const },
+      { amount: 0.125, displayed: "0.125", type: "PUNISHMENT" as const },
+      {
+        amount: 1 / 60,
+        displayed: "0.016666666666666666",
+        type: "EXTRA" as const,
+      },
+      { amount: 0.00001, displayed: "0.00001", type: "EXTRA" as const },
+      { amount: Number.MIN_VALUE, displayed: "5e-324", type: "EXTRA" as const },
+      {
+        amount: Number.MAX_VALUE,
+        displayed: "1.7976931348623157e+308",
+        type: "EXTRA" as const,
+      },
+    ].map((example) => ({ locale, ...example })),
+  ),
+)(
+  "retains $amount hours in the $locale list, details and deletion review",
+  ({ locale, amount, displayed, type }) => {
+    const adjustment = state.rows[0]!;
+    adjustment.amount = amount;
+    adjustment.type = type;
+    const messages = locale === "zh" ? zh : en;
+    const typeLabel = messages.admin.adjustments.typeLabel[type];
+    renderPage(locale);
+    const row = within(screen.getByRole("table")).getAllByRole("row")[1]!;
+    expect(
+      within(row).getByRole("cell", { name: displayed }),
+    ).toBeTruthy();
+
+    fireEvent.click(
+      within(row).getByRole("button", {
+        name: `${messages.tablePatterns.details}: ${adjustment.tutor.englishName} · ${adjustment.month}`,
+      }),
+    );
+    let dialog = within(screen.getByRole("dialog"));
+    expect(dialog.getByText(`${typeLabel} · ${displayed}`)).toBeTruthy();
+    expect(dialog.getByText(adjustment.reason)).toBeTruthy();
+    fireEvent.click(
+      dialog.getByRole("button", { name: messages.tablePatterns.close }),
+    );
+
+    fireEvent.click(
+      within(row).getByRole("button", {
+        name: `${messages.admin.adjustments.table.delete}: ${adjustment.tutor.englishName}, ${adjustment.month}`,
+      }),
+    );
+    dialog = within(screen.getByRole("dialog"));
+    expect(
+      dialog.getByText(`${adjustment.month} · ${typeLabel} · ${displayed} h`),
+    ).toBeTruthy();
+    fireEvent.click(
+      dialog.getByRole("button", { name: messages.common.cancel }),
+    );
+    expect(state.create).not.toHaveBeenCalled();
+    expect(state.remove).not.toHaveBeenCalled();
+    expect(state.invalidate).not.toHaveBeenCalled();
+    expect(adjustment.amount).toBe(amount);
   },
 );
 
