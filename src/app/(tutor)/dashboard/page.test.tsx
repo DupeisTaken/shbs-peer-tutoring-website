@@ -13,6 +13,7 @@ const mocks = vi.hoisted(() => ({
   rooms: vi.fn(),
   features: vi.fn(),
   schedule: vi.fn(),
+  availability: vi.fn(),
 }));
 vi.mock("~/server/auth", () => ({ auth: mocks.auth }));
 vi.mock("~/server/db", () => ({ db: {} }));
@@ -49,17 +50,17 @@ vi.mock("~/app/_components/policy-consent", () => ({
 vi.mock("~/app/_components/session-view-state", () => ({
   SessionPagePosition: () => null,
 }));
-vi.mock("~/app/_components/tutor-workload-preference", () => ({
-  TutorWorkloadPreference: () => null,
-}));
 vi.mock("~/app/_components/ui/disclosure-section", () => ({
   DisclosureSection: ({ children }: { children: ReactNode }) => <>{children}</>,
 }));
 vi.mock("~/app/(tutor)/_components/announcements-banner", () => ({
   AnnouncementsBanner: () => null,
 }));
-vi.mock("~/app/(tutor)/_components/availability-editor", () => ({
-  AvailabilityEditor: () => null,
+vi.mock("~/app/(tutor)/_components/time-availability", () => ({
+  TimeAvailability: (props: unknown) => {
+    mocks.availability(props);
+    return null;
+  },
 }));
 vi.mock("~/app/(tutor)/_components/tutor-pairings", () => ({
   TutorPairings: () => <p>Expanded pairings</p>,
@@ -152,6 +153,9 @@ it.each(["ACTIVE", "PENDING", "OPTED_OUT", "GRADUATED", "ARCHIVED"])(
         compact: true,
       }),
     );
+    expect(mocks.availability).toHaveBeenCalledWith({
+      active: status === "ACTIVE",
+    });
     expect(
       screen.getByText("Expanded pairings").closest("#tutor-pairings"),
     ).toBeTruthy();

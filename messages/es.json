@@ -732,7 +732,7 @@
     "availability": {
       "title": "Mis horarios disponibles",
       "help": "Marca los horarios en los que puedes enseñar. Ayudan a los coordinadores a programarte.",
-      "edit": "Editar mis horarios disponibles"
+      "edit": "Editar disponibilidad"
     },
     "attendance": {
       "title": "Registrar asistencia",
