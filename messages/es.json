@@ -6179,12 +6179,13 @@
     "impactRestore": "Candidatos a restablecimiento: {count}",
     "impactRule": "Al guardar se vuelven a comprobar los acuerdos y conflictos actuales. Se informa por correo a los participantes afectados sobre las cancelaciones. Las sesiones iniciadas y la asistencia registrada no cambian.",
     "combinedTitle": "Vacaciones y pausas de tutoría",
-    "combinedHelp": "Gestiona las vacaciones escolares (sin clases) y las pausas o avisos de tutoría (con clases). Las vacaciones pausan las tutorías regulares y el conteo de días lectivos para apelaciones; las pausas de tutoría no alteran los días lectivos.",
+    "combinedHelp": "Gestiona las vacaciones escolares y las pausas o avisos de tutoría. Las vacaciones pausan las tutorías regulares y el conteo de días lectivos para apelaciones; las pausas de tutoría no alteran los días lectivos.",
     "combinedEmpty": "No hay vacaciones escolares ni avisos de tutoría.",
     "denied": "Los avisos y pausas de tutoría no están disponibles.",
-    "holidayEffect": "Vacaciones escolares (Sin clases)",
-    "pauseEffectTable": "Pausa de tutoría (Día lectivo)",
-    "noticeEffectTable": "Solo aviso (Día lectivo)"
+    "holidayEffect": "Vacaciones escolares",
+    "pauseEffectTable": "Pausa de tutoría",
+    "noticeEffectTable": "Solo aviso",
+    "reasonOrNote": "Motivo / Nota"
   },
   "roomOrder": {
     "title": "Orden de las aulas",

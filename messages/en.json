@@ -6179,12 +6179,13 @@
     "impactRestore": "Restoration candidates: {count}",
     "impactRule": "Save rechecks current agreements and conflicts. Affected participants are emailed about cancellations. Started sessions and recorded attendance stay unchanged.",
     "combinedTitle": "Holidays & Tutoring Pauses",
-    "combinedHelp": "Manage school holidays (no school) and tutoring pauses or notices (school open). School holidays pause regular tutoring and appeal-day counting; tutoring pauses keep school-day and appeal rules unchanged.",
+    "combinedHelp": "Manage school holidays and tutoring pauses or notices. School holidays pause regular tutoring and appeal-day counting; tutoring pauses keep school-day and appeal rules unchanged.",
     "combinedEmpty": "No school holidays or tutoring notices.",
     "denied": "Tutoring notices and pauses are unavailable.",
-    "holidayEffect": "School holiday (No school)",
-    "pauseEffectTable": "Tutoring pause (School day)",
-    "noticeEffectTable": "Notice only (School day)"
+    "holidayEffect": "School holiday",
+    "pauseEffectTable": "Tutoring pause",
+    "noticeEffectTable": "Notice only",
+    "reasonOrNote": "Reason / Note"
   },
   "roomOrder": {
     "title": "Room Display Order",

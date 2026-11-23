@@ -6179,12 +6179,13 @@
     "impactRestore": "Mögliche Wiederherstellungen: {count}",
     "impactRule": "Beim Speichern werden aktuelle Zustimmungen und Konflikte erneut geprüft. Betroffene werden per E-Mail über Absagen informiert. Begonnene Termine und erfasste Anwesenheit bleiben unverändert.",
     "combinedTitle": "Ferien & Nachhilfepausen",
-    "combinedHelp": "Verwalten Sie Schulferien (schulfrei) sowie Nachhilfepausen oder Hinweise (Schultag). Schulferien pausieren reguläre Nachhilfe und die Schultagezählung für Einsprüche; Nachhilfepausen lassen Schultags- und Einspruchsregeln unverändert.",
+    "combinedHelp": "Verwalten Sie Schulferien sowie Nachhilfepausen oder Hinweise. Schulferien pausieren reguläre Nachhilfe und die Schultagezählung für Einsprüche; Nachhilfepausen lassen Schultags- und Einspruchsregeln unverändert.",
     "combinedEmpty": "Keine Schulferien oder Nachhilfehinweise.",
     "denied": "Nachhilfehinweise und -pausen sind nicht verfügbar.",
-    "holidayEffect": "Schulferien (Schulfrei)",
-    "pauseEffectTable": "Nachhilfepause (Schultag)",
-    "noticeEffectTable": "Nur Hinweis (Schultag)"
+    "holidayEffect": "Schulferien",
+    "pauseEffectTable": "Nachhilfepause",
+    "noticeEffectTable": "Nur Hinweis",
+    "reasonOrNote": "Grund / Notiz"
   },
   "roomOrder": {
     "title": "Anzeigereihenfolge der Räume",

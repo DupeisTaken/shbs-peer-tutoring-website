@@ -6179,12 +6179,13 @@
     "impactRestore": "可能恢复的安排：{count}",
     "impactRule": "保存时会重新核对当前协议及冲突，并通过邮件通知受影响参与者有关取消的安排。已开始的辅导和已记录的出勤保持不变。",
     "combinedTitle": "假期与辅导暂停",
-    "combinedHelp": "管理学校假期（不上课）与辅导暂停或通知（正常上课）。学校假期会暂停常规辅导并跳过申诉期限的上课日计数；辅导暂停不改变上课日及申诉规则。",
+    "combinedHelp": "管理学校假期与辅导暂停或通知。学校假期会暂停常规辅导并跳过申诉期限的上课日计数；辅导暂停不改变上课日及申诉规则。",
     "combinedEmpty": "暂无学校假期或辅导通知。",
     "denied": "无法访问辅导通知与暂停安排。",
-    "holidayEffect": "学校假期（不上课）",
-    "pauseEffectTable": "暂停常规辅导（正常上课）",
-    "noticeEffectTable": "仅作通知（正常上课）"
+    "holidayEffect": "学校假期",
+    "pauseEffectTable": "暂停常规辅导",
+    "noticeEffectTable": "仅作通知",
+    "reasonOrNote": "原因 / 备注"
   },
   "roomOrder": {
     "title": "教室显示顺序",

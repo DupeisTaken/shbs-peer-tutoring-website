@@ -6179,12 +6179,13 @@
     "impactRestore": "Candidats au rétablissement : {count}",
     "impactRule": "L’enregistrement revérifie les accords et conflits actuels. Les participants concernés sont informés des annulations par e-mail. Les séances commencées et les présences enregistrées restent inchangées.",
     "combinedTitle": "Vacances et pauses de tutorat",
-    "combinedHelp": "Gérez les vacances scolaires (école fermée) ainsi que les pauses ou avis de tutorat (école ouverte). Les vacances suspendent le tutorat régulier et le décompte des jours de cours pour les appels ; les pauses de tutorat ne modifient pas les jours de cours.",
+    "combinedHelp": "Gérez les vacances scolaires ainsi que les pauses ou avis de tutorat. Les vacances suspendent le tutorat régulier et le décompte des jours de cours pour les appels ; les pauses de tutorat ne modifient pas les jours de cours.",
     "combinedEmpty": "Aucune vacance scolaire ni avis de tutorat.",
     "denied": "Les avis et pauses de tutorat ne sont pas disponibles.",
-    "holidayEffect": "Vacances scolaires (École fermée)",
-    "pauseEffectTable": "Pause de tutorat (Jour de cours)",
-    "noticeEffectTable": "Avis uniquement (Jour de cours)"
+    "holidayEffect": "Vacances scolaires",
+    "pauseEffectTable": "Pause de tutorat",
+    "noticeEffectTable": "Avis uniquement",
+    "reasonOrNote": "Motif / Note"
   },
   "roomOrder": {
     "title": "Ordre d’affichage des salles",
