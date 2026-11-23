@@ -1,5 +1,5 @@
 "use client";
-import { useRef, useState } from "react";
+import { useRef, useState, type ReactNode } from "react";
 import { useFormatter, useTranslations } from "next-intl";
 import { api } from "~/trpc/react";
 import { Button } from "./ui/button";
@@ -9,7 +9,9 @@ import { SectionTabs } from "./ui/section-tabs";
 import { ProgramNotificationLocks } from "./program-notification-locks";
 
 /** Independent immediate controls share query invalidation, never a combined toggle. */
-export function ProgramEmailSettings() {
+export function ProgramEmailSettings({
+  deliveryQuota,
+}: { deliveryQuota?: ReactNode } = {}) {
   const t = useTranslations("programEmail");
   const locks = useTranslations("notificationLocks");
   const [panel, setPanel] = useState<"delivery" | "requirements">("delivery");
@@ -34,6 +36,9 @@ export function ProgramEmailSettings() {
     },
   });
   const data = settings.data;
+  const deliveryAccessDenied =
+    settings.error?.data?.code === "FORBIDDEN" ||
+    settings.error?.data?.code === "UNAUTHORIZED";
   return (
     <section className="card space-y-3 p-5">
       <div className="flex items-start justify-between gap-4">
@@ -71,14 +76,8 @@ export function ProgramEmailSettings() {
               settingsReady={!settings.error}
             />
           )}
-          {data && (
-            <ProgramSchoolHoursPreview
-              denied={
-                settings.error?.data?.code === "FORBIDDEN" ||
-                settings.error?.data?.code === "UNAUTHORIZED"
-              }
-            />
-          )}
+          {!deliveryAccessDenied && deliveryQuota}
+          {data && <ProgramSchoolHoursPreview denied={deliveryAccessDenied} />}
           {!data && !settings.error && (
             <StatePanel kind="loading" title={t("loading")} />
           )}

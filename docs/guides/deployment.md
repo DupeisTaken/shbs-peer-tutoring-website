@@ -528,7 +528,8 @@ Application logs identify the category and failure without printing provider exc
 
 ### Show the Direct Mail quota on the dashboard
 
-The **Email Quota** card in `/admin` shows how many free emails are available today
+The **Email Quota** card on the dashboard and in **Program Settings → Deployment
+Configurations → Delivery settings** shows how many free emails are available today
 out of the published daily cap of 200, plus the total free allowance left. It reads
 `DailyRemainFreeQuota` and `RemainFreeQuota` from the mainland China (Hangzhou)
 Direct Mail account. Paid resource plans and pay-as-you-go are tracked separately in

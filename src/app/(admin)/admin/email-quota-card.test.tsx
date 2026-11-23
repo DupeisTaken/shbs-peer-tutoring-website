@@ -8,6 +8,7 @@ import {
   canViewEmailQuota,
   EmailQuotaCard,
   EmailQuotaCardSkeleton,
+  renderEmailQuotaCard,
 } from "./email-quota-card";
 
 const mocks = vi.hoisted(() => ({
@@ -16,11 +17,13 @@ const mocks = vi.hoisted(() => ({
   account: vi.fn(),
   quota: vi.fn(),
   resetTime: vi.fn(),
+  enabled: vi.fn(),
 }));
 
 vi.mock("~/server/auth", () => ({ auth: mocks.auth }));
 vi.mock("~/server/db", () => ({ db: { user: { findUnique: mocks.account } } }));
 vi.mock("~/server/email/aliyun-quota", () => ({
+  aliyunQuotaEnabled: mocks.enabled,
   aliyunQuotaResetTime: mocks.resetTime,
   DAILY_FREE_EMAIL_LIMIT: 200,
   getAliyunEmailQuota: mocks.quota,
@@ -37,6 +40,7 @@ vi.mock("next-intl/server", () => ({
 beforeEach(() => {
   vi.clearAllMocks();
   mocks.locale = "en";
+  mocks.enabled.mockReturnValue(true);
   mocks.auth.mockResolvedValue({
     user: { id: "synthetic-admin" },
     role: "ADMIN",
@@ -138,6 +142,20 @@ it("renders an accessible loading skeleton that reserves the card region", () =>
   expect(screen.getByRole("status").textContent).toBe("Loading email quota…");
 });
 
+it("skips the role and provider reads when quota monitoring is disabled", async () => {
+  mocks.enabled.mockReturnValue(false);
+  expect(await renderEmailQuotaCard("h3")).toBeNull();
+  expect(mocks.auth).not.toHaveBeenCalled();
+  expect(mocks.quota).not.toHaveBeenCalled();
+});
+
+it("uses a nested heading when rendered within delivery settings", async () => {
+  render(await EmailQuotaCard({ heading: "h3" }));
+  expect(
+    screen.getByRole("heading", { name: "Email Quota", level: 3 }),
+  ).toBeTruthy();
+});
+
 it.each([
   { role: "VIEWER" },
   { role: "COORDINATOR" },
@@ -150,6 +168,7 @@ it.each([
   async (account) => {
     mocks.account.mockResolvedValue(account);
     expect(await canViewEmailQuota()).toBe(false);
+    expect(await renderEmailQuotaCard("h3")).toBeNull();
     expect(await EmailQuotaCard()).toBeNull();
     expect(mocks.quota).not.toHaveBeenCalled();
   },

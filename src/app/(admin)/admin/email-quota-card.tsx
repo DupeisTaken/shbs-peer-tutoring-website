@@ -1,8 +1,9 @@
 import { getFormatter, getTranslations } from "next-intl/server";
-import { cache } from "react";
+import { cache, Suspense } from "react";
 import { auth } from "~/server/auth";
 import { db } from "~/server/db";
 import {
+  aliyunQuotaEnabled,
   aliyunQuotaResetTime,
   DAILY_FREE_EMAIL_LIMIT,
   getAliyunEmailQuota,
@@ -11,6 +12,7 @@ import {
 // Warn when at most 20% of the daily cap or one full day of free balance remains.
 const DAILY_LOW_THRESHOLD = DAILY_FREE_EMAIL_LIMIT / 5;
 const BALANCE_LOW_THRESHOLD = DAILY_FREE_EMAIL_LIMIT;
+type QuotaHeading = "h2" | "h3";
 
 // Share the live role check between the fallback and the card for this request.
 export const canViewEmailQuota = cache(async (): Promise<boolean> => {
@@ -34,14 +36,32 @@ export const canViewEmailQuota = cache(async (): Promise<boolean> => {
   );
 });
 
-/**
- * Reserves the card's vertical footprint for authorized Admin/Head accounts while the
- * Direct Mail summary streams in, preventing a late layout shift above Recent Submissions.
- */
+export async function renderEmailQuotaCard(heading: QuotaHeading = "h2") {
+  if (!aliyunQuotaEnabled() || !(await canViewEmailQuota())) return null;
+
+  const t = await getTranslations("admin.dashboard.emailQuota");
+  return (
+    <Suspense
+      fallback={
+        <EmailQuotaCardSkeleton
+          heading={heading}
+          title={t("title")}
+          loadingLabel={t("loading")}
+        />
+      }
+    >
+      <EmailQuotaCard heading={heading} />
+    </Suspense>
+  );
+}
+
+/** Reserves space while the Direct Mail summary streams in. */
 export function EmailQuotaCardSkeleton({
+  heading: Heading = "h2",
   title,
   loadingLabel,
 }: {
+  heading?: QuotaHeading;
   title: string;
   loadingLabel: string;
 }) {
@@ -52,9 +72,9 @@ export function EmailQuotaCardSkeleton({
       aria-busy="true"
     >
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <h2 id="email-quota-loading-title" className="section-title">
+        <Heading id="email-quota-loading-title" className="section-title">
           {title}
-        </h2>
+        </Heading>
         <span role="status" className="sr-only">
           {loadingLabel}
         </span>
@@ -79,8 +99,9 @@ export function EmailQuotaCardSkeleton({
   );
 }
 
-export async function EmailQuotaCard() {
-  // The dashboard also serves Coordinators and read-only observers. The quota is operational data.
+export async function EmailQuotaCard({
+  heading: Heading = "h2",
+}: { heading?: QuotaHeading } = {}) {
   if (!(await canViewEmailQuota())) return null;
 
   const [quota, t, format] = await Promise.all([
@@ -142,9 +163,9 @@ export async function EmailQuotaCard() {
       aria-labelledby="email-quota-title"
     >
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <h2 id="email-quota-title" className="section-title">
+        <Heading id="email-quota-title" className="section-title">
           {t("title")}
-        </h2>
+        </Heading>
         {statusBadge && (
           <span className={statusBadge.className}>{statusBadge.label}</span>
         )}
