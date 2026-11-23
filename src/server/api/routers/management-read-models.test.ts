@@ -365,6 +365,110 @@ describe.each<Access>(["VIEWER", "observer"])(
       ]);
     });
 
+    it("annotates interview codes with source and unavailability while redacting private fields for masked viewers", async () => {
+      const { caller, mock } = fixture(access);
+      mock.registrationCode.findMany.mockResolvedValue([
+        {
+          id: "code-active",
+          code: PRIVATE,
+          kind: "TUTOR",
+          email: PRIVATE,
+          label: PRIVATE,
+          issuedById: "chair-1",
+          issuedByName: "Alex Chair",
+          tutorId: "tutor-1",
+          applicationId: "app-1",
+          crewApplicationId: null,
+          attempts: 0,
+          expiresAt: new Date("2099-01-01"),
+          usedAt: null,
+          createdAt: date,
+          tutor: { englishName: "Tutor One" },
+        },
+        {
+          id: "code-invalid",
+          code: PRIVATE,
+          kind: "TUTOR",
+          email: PRIVATE,
+          label: PRIVATE,
+          issuedById: null,
+          issuedByName: "Accepted application",
+          tutorId: "tutor-2",
+          applicationId: "app-2",
+          crewApplicationId: null,
+          attempts: 0,
+          expiresAt: new Date("2099-01-01"),
+          usedAt: null,
+          createdAt: date,
+          tutor: { englishName: "Tutor Two" },
+        },
+        {
+          id: "code-burned",
+          code: PRIVATE,
+          kind: "TUTOR",
+          email: PRIVATE,
+          label: PRIVATE,
+          issuedById: null,
+          issuedByName: "Accepted application",
+          tutorId: "tutor-3",
+          applicationId: "app-1",
+          crewApplicationId: null,
+          attempts: 10,
+          expiresAt: new Date("2099-01-01"),
+          usedAt: null,
+          createdAt: date,
+          tutor: { englishName: "Tutor Three" },
+        },
+      ]);
+      mock.tutorApplication.findMany.mockResolvedValue([
+        {
+          id: "app-1",
+          status: "ACCEPTED",
+          invalidatedAt: null,
+          interviewCompletedAt: date,
+          decidedByTutorId: "chair-tutor",
+          _count: { interviewers: 3 },
+        },
+        {
+          id: "app-2",
+          status: "ACCEPTED",
+          invalidatedAt: date,
+          interviewCompletedAt: null,
+          decidedByTutorId: null,
+          _count: { interviewers: 0 },
+        },
+      ]);
+      const result = await caller.admin.registrationCodes();
+      expect(JSON.stringify(result)).not.toContain(PRIVATE);
+      expect(result).toMatchObject([
+        {
+          id: "code-active",
+          source: "interview",
+          status: "active",
+          statusReason: null,
+          applicationId: null,
+          email: null,
+          label: null,
+          code: null,
+          issuedByEmail: null,
+        },
+        {
+          id: "code-invalid",
+          source: "application",
+          status: "unavailable",
+          statusReason: "applicationInvalid",
+          applicationId: null,
+        },
+        {
+          id: "code-burned",
+          source: "interview",
+          status: "unavailable",
+          statusReason: "attemptsExhausted",
+          applicationId: null,
+        },
+      ]);
+    });
+
     it("keeps roster names, structured academics and totals without raw grade or nested account evidence", async () => {
       const { caller, mock } = fixture(access);
       const account = {

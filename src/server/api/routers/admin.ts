@@ -188,7 +188,10 @@ import {
   issueAccountVerification,
   issueTutorSetupLink,
 } from "~/server/auth/password-reset";
-import { issueRegistrationCode } from "~/server/auth/registration";
+import {
+  issueRegistrationCode,
+  MAX_CODE_ATTEMPTS,
+} from "~/server/auth/registration";
 import { applicationAccountSetup } from "~/server/application-account-setup";
 import {
   applicationIdentityCorrectionInput,
@@ -4265,7 +4268,10 @@ export const adminRouter = createTRPCRouter({
         });
         if (updated.count === 0) staleConflict();
         // On the transition to ACCEPTED, add the applicant to the tutors list.
-        await reconcileApplication(tx, input.id);
+        await reconcileApplication(tx, input.id, {
+          id: ctx.session.user.id,
+          name: ctx.session.user.name ?? null,
+        });
         await finishAdmissionRecoveryCapture(tx, recoveryActionId);
         const after = await tx.tutorApplication.findUniqueOrThrow({
           where: { id: input.id },
@@ -4299,11 +4305,21 @@ export const adminRouter = createTRPCRouter({
     .input(z.object({ id: cuid }))
     .mutation(({ ctx, input }) =>
       inTransaction(ctx.db, async (tx) => {
+        await lockUsernameNamespace(tx);
         await lockApplicationReview(tx, input.id);
         const row = await tx.tutorApplication.findUniqueOrThrow({
           where: { id: input.id },
         });
         assertRequestProcessable(row);
+        await tx.registrationCode.updateMany({
+          where: { applicationId: input.id, usedAt: null },
+          data: {
+            expiresAt: new Date(0),
+            emailVerifiedAt: null,
+            emailCodeHash: null,
+            emailCodeExpiresAt: null,
+          },
+        });
         return tx.tutorApplication.delete({ where: { id: input.id } });
       }),
     ),
@@ -5152,38 +5168,125 @@ export const adminRouter = createTRPCRouter({
         issuedByName: true,
         tutorId: true,
         applicationId: true,
+        crewApplicationId: true,
+        attempts: true,
         expiresAt: true,
         usedAt: true,
         createdAt: true,
         tutor: { select: { englishName: true } },
       },
     });
-    // Resolve the issuer's email (the admin/coordinator who issued the code).
+    // Resolve the issuer's email (the admin/coordinator who issued the code)
+    // and live source-application state so staff never share blocked codes.
     const issuerIds = [
       ...new Set(codes.map((c) => c.issuedById).filter(Boolean) as string[]),
     ];
-    const issuers = issuerIds.length
-      ? await ctx.db.user.findMany({
-          where: { id: { in: issuerIds } },
-          select: { id: true, email: true },
-        })
-      : [];
+    const tutorAppIds = [
+      ...new Set(codes.map((c) => c.applicationId).filter(Boolean) as string[]),
+    ];
+    const crewAppIds = [
+      ...new Set(
+        codes.map((c) => c.crewApplicationId).filter(Boolean) as string[],
+      ),
+    ];
+    const [issuers, tutorApps, crewApps] = await Promise.all([
+      issuerIds.length
+        ? ctx.db.user.findMany({
+            where: { id: { in: issuerIds } },
+            select: { id: true, email: true },
+          })
+        : [],
+      tutorAppIds.length
+        ? ctx.db.tutorApplication.findMany({
+            where: { id: { in: tutorAppIds } },
+            select: {
+              id: true,
+              status: true,
+              invalidatedAt: true,
+              interviewCompletedAt: true,
+              decidedByTutorId: true,
+              _count: { select: { interviewers: true } },
+            },
+          })
+        : [],
+      crewAppIds.length
+        ? ctx.db.crewApplication.findMany({
+            where: { id: { in: crewAppIds } },
+            select: { id: true, status: true },
+          })
+        : [],
+    ]);
     const issuerEmail = new Map(issuers.map((u) => [u.id, u.email]));
-    return codes.map((c) => ({
-      id: c.id,
-      code: canSee ? c.code : null,
-      kind: c.kind,
-      email: c.email,
-      label: c.label,
-      issuedByName: c.issuedByName,
-      issuedByEmail:
-        canSee && c.issuedById ? (issuerEmail.get(c.issuedById) ?? null) : null,
-      tutorName: c.tutor?.englishName ?? null,
-      fromApplication: !!c.applicationId,
-      createdAt: c.createdAt,
-      expiresAt: c.expiresAt,
-      status: c.usedAt ? "used" : c.expiresAt < now ? "expired" : "active",
-    }));
+    const tutorAppById = new Map(tutorApps.map((app) => [app.id, app]));
+    const crewAppById = new Map(crewApps.map((app) => [app.id, app]));
+    return codes.map((c) => {
+      const tutorApp = c.applicationId
+        ? (tutorAppById.get(c.applicationId) ?? null)
+        : null;
+      const crewApp = c.crewApplicationId
+        ? (crewAppById.get(c.crewApplicationId) ?? null)
+        : null;
+      const source: "interview" | "application" | "crewApplication" | "manual" =
+        c.applicationId
+          ? tutorApp &&
+            (tutorApp.interviewCompletedAt ||
+              tutorApp.decidedByTutorId ||
+              tutorApp._count.interviewers > 0)
+            ? "interview"
+            : "application"
+          : c.crewApplicationId
+            ? "crewApplication"
+            : "manual";
+      let status: "active" | "used" | "expired" | "unavailable" = "active";
+      let statusReason:
+        | "attemptsExhausted"
+        | "applicationInvalid"
+        | "applicationInactive"
+        | "codeMissing"
+        | null = null;
+      if (c.usedAt) {
+        status = "used";
+      } else if (c.expiresAt <= now) {
+        status = "expired";
+      } else if (!c.code?.trim()) {
+        status = "unavailable";
+        statusReason = "codeMissing";
+      } else if ((c.attempts ?? 0) >= MAX_CODE_ATTEMPTS) {
+        status = "unavailable";
+        statusReason = "attemptsExhausted";
+      } else if (c.applicationId) {
+        if (tutorApp?.status !== "ACCEPTED") {
+          status = "unavailable";
+          statusReason = "applicationInactive";
+        } else if (tutorApp.invalidatedAt) {
+          status = "unavailable";
+          statusReason = "applicationInvalid";
+        }
+      } else if (c.crewApplicationId) {
+        if (crewApp?.status !== "ACCEPTED") {
+          status = "unavailable";
+          statusReason = "applicationInactive";
+        }
+      }
+      return {
+        id: c.id,
+        code: canSee ? c.code : null,
+        kind: c.kind,
+        email: c.email,
+        label: c.label,
+        issuedByName: c.issuedByName,
+        issuedByEmail:
+          canSee && c.issuedById ? (issuerEmail.get(c.issuedById) ?? null) : null,
+        tutorName: c.tutor?.englishName ?? null,
+        fromApplication: !!c.applicationId,
+        source,
+        applicationId: canSee && tutorApp ? tutorApp.id : null,
+        createdAt: c.createdAt,
+        expiresAt: c.expiresAt,
+        status,
+        statusReason,
+      };
+    });
   }),
 
   /**

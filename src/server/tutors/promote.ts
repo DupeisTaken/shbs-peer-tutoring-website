@@ -64,9 +64,15 @@ const promotionAccountSelect = {
   recoveryVoidedAt: true,
 } as const;
 
+export type PromotionIssuer = {
+  id?: string | null;
+  name?: string | null;
+};
+
 export async function promoteApplicantToTutor(
   applicationId: string,
   client: TransactionDb = db,
+  issuer?: PromotionIssuer,
 ): Promise<void> {
   return inTransaction(client, async (db) => {
     await lockUsernameNamespace(db);
@@ -324,13 +330,36 @@ export async function promoteApplicantToTutor(
     });
     if (openCode) return;
 
+    const issuedById = issuer?.id ?? null;
+    const rawIssuerName = issuer?.name?.trim() ?? "";
+    let issuedByName: string | null = rawIssuerName.length
+      ? rawIssuerName
+      : null;
+    if (issuedById && !issuedByName) {
+      const actor = await db.user.findUnique({
+        where: { id: issuedById },
+        select: { name: true, username: true },
+      });
+      const actorName = actor?.name?.trim() ?? "";
+      const actorUsername = actor?.username?.trim() ?? "";
+      issuedByName = actorName.length
+        ? actorName
+        : actorUsername.length
+          ? actorUsername
+          : null;
+    }
+    if (!issuedById && !issuedByName) {
+      issuedByName = "Accepted application";
+    }
+
     await issueRegistrationCode(
       {
         email,
         tutorId,
         applicationId,
-        label: app.name.trim(),
-        issuedByName: "Accepted application",
+        label: englishName || app.name.trim(),
+        issuedById,
+        issuedByName,
       },
       db,
     );

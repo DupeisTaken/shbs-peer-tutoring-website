@@ -22,6 +22,9 @@ const state = vi.hoisted(() => ({
   fetchTotal: vi.fn(async () => undefined),
   refreshNotifications: vi.fn(async () => undefined),
   refreshUnread: vi.fn(async () => undefined),
+  refreshRegistrationCodes: vi.fn(async () => undefined),
+  refreshApplications: vi.fn(async () => undefined),
+  refreshInterviewOptions: vi.fn(async () => undefined),
   queued: false,
   error: "",
   isHead: true,
@@ -54,6 +57,13 @@ vi.mock("~/trpc/react", () => ({
       notification: {
         list: { invalidate: state.refreshNotifications },
         unreadCount: { invalidate: state.refreshUnread },
+      },
+      admin: {
+        registrationCodes: { invalidate: state.refreshRegistrationCodes },
+        tutorApplications: { invalidate: state.refreshApplications },
+      },
+      interviewManagement: {
+        options: { invalidate: state.refreshInterviewOptions },
       },
     }),
     tutor: {

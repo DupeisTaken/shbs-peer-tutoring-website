@@ -1370,8 +1370,22 @@
       "status": {
         "active": "Actif",
         "used": "Utilisé",
-        "expired": "Expiré"
+        "expired": "Expiré",
+        "unavailable": "Indisponible"
       },
+      "source": {
+        "interview": "Entretien",
+        "application": "Candidature acceptée",
+        "crewApplication": "Candidature de ronde"
+      },
+      "unavailableReason": {
+        "attemptsExhausted": "Bloqué après trop de tentatives échouées.",
+        "applicationInvalid": "Suspendu tant que la candidature d'origine est marquée comme invalide.",
+        "applicationInactive": "La candidature d'origine n'est plus acceptée.",
+        "codeMissing": "Le code d'invitation est indisponible."
+      },
+      "boundEmail": "Lié à {email}",
+      "viewApplication": "Voir la candidature",
       "revoke": "Révoquer",
       "showCode": "Afficher le code",
       "hideCode": "Masquer",

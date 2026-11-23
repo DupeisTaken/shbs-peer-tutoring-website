@@ -1370,8 +1370,22 @@
       "status": {
         "active": "有効",
         "used": "使用済み",
-        "expired": "期限切れ"
+        "expired": "期限切れ",
+        "unavailable": "利用不可"
       },
+      "source": {
+        "interview": "面接合格",
+        "application": "承認済み申請",
+        "crewApplication": "巡回班申請"
+      },
+      "unavailableReason": {
+        "attemptsExhausted": "入力失敗回数の上限に達したため無効化されました。",
+        "applicationInvalid": "元の申請が無効とマークされているため一時停止中です。",
+        "applicationInactive": "元の申請は承認済みではなくなりました。",
+        "codeMissing": "招待コードは利用できません。"
+      },
+      "boundEmail": "紐付けメール：{email}",
+      "viewApplication": "申請を見る",
       "revoke": "無効化",
       "showCode": "コードを表示",
       "hideCode": "非表示",

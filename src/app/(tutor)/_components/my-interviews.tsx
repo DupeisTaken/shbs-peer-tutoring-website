@@ -83,6 +83,9 @@ function TutorInterviewApproval({
           () => invalidateAndReport(utils.tutor.myInterviews),
           () => invalidateAndReport(utils.notification.list),
           () => invalidateAndReport(utils.notification.unreadCount),
+          () => utils.admin.registrationCodes.invalidate(),
+          () => utils.admin.tutorApplications.invalidate(),
+          () => utils.interviewManagement.options.invalidate(),
           async () => {
             // The dashboard total is server-rendered. Verify a fresh read, then
             // replace that payload while preserving independent client drafts.

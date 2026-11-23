@@ -1370,8 +1370,22 @@
       "status": {
         "active": "Ενεργός",
         "used": "Χρησιμοποιήθηκε",
-        "expired": "Έληξε"
+        "expired": "Έληξε",
+        "unavailable": "Μη διαθέσιμος"
       },
+      "source": {
+        "interview": "Συνέντευξη",
+        "application": "Εγκεκριμένη αίτηση",
+        "crewApplication": "Αίτηση περιπόλου"
+      },
+      "unavailableReason": {
+        "attemptsExhausted": "Αποκλείστηκε μετά από πάρα πολλές αποτυχημένες προσπάθειες.",
+        "applicationInvalid": "Σε παύση όσο η αρχική αίτηση έχει επισημανθεί ως μη έγκυρη.",
+        "applicationInactive": "Η αρχική αίτηση δεν είναι πλέον εγκεκριμένη.",
+        "codeMissing": "Ο κωδικός πρόσκλησης δεν είναι διαθέσιμος."
+      },
+      "boundEmail": "Συνδεδεμένο με {email}",
+      "viewApplication": "Προβολή αίτησης",
       "revoke": "Ανάκληση",
       "showCode": "Εμφάνιση κωδικού",
       "hideCode": "Απόκρυψη",

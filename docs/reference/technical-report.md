@@ -2799,11 +2799,19 @@ are unchanged; no missing map entry may produce an invalid confirmation instant.
 
 ### Management registration codes
 
-Expanded used and expired codes reuse the active setup card's centered layout,
+Expanded used, expired and unavailable codes reuse the active setup card's centered layout,
 heading and role. Their gray surface and outline, struck-through code and localized
-invalid notice identify historical codes without redemption instructions or share,
+invalid notice identify historical or blocked codes without redemption instructions or share,
 export or revoke actions. Masked codes retain the no-code fallback; this presentation
 does not change code visibility or validity.
+
+Auto-issued interview and application invitations record the approving staff member as issuer,
+adopt the promoted tutor identity as label, and display localized source badges, bound email
+addresses (redacted for masked viewers) and direct links to the source application in
+Registration Codes. Both Registration Codes and Interview Records check live attempt limits,
+plaintext presence and source-application validity/acceptance status so blocked, invalidated
+or deleted-application codes are never shown as active or shareable. Deleting an application
+expires any unused codes tied to it in the same transaction.
 
 Registration Codes supports Tutor, Crew, Admin and Coordinator invitations. Every code grants only its displayed role. Admin/Head can issue Tutor/Crew/Admin/Coordinator codes directly (including the legacy omitted-kind Tutor default). Coordinators can request Tutor/Crew invitations for Admin/Head review but cannot request management-role invitations. The input-dependent policy preserves review of Coordinator proposals and records direct Admin/Head issuance in the transactional audit trail. Admin/Head can list, share and revoke management codes. The selected role appears in the list, share card and every redemption step after code validation. There is no Head code; leadership transfer remains separate.
 
