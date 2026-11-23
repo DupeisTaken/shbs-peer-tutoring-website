@@ -137,10 +137,10 @@ it.each(["en", "zh"] as const)(
         locale === "en" ? "Program Update" : "项目通知",
       );
       expect(message.text).toContain(
-        locale === "en" ? "You have a program update" : "你收到一条项目通知",
+        locale === "en" ? "You have a new program update" : "你有一条新的项目通知",
       );
       expect(message.text).not.toContain(
-        locale === "en" ? "你收到一条项目通知" : "You have a program update",
+        locale === "en" ? "你有一条新的项目通知" : "You have a new program update",
       );
       expect(renderEmail({ brand: "School", ...message })).toContain(
         `<html lang="${locale}">`,

@@ -293,23 +293,29 @@ export async function deliverRegistrationCodeEmail(
 ): Promise<boolean> {
   const email = input.email.trim().toLowerCase();
   if (!email || !isEmailDeliveryAvailable("SECURITY")) return false;
-  const [timeZone, locale] = await Promise.all([
-    getProgramTimeZone(client),
-    input.locale
-      ? Promise.resolve(normalizeEmailLocale(input.locale))
-      : verifiedRecipientEmailLocale(client, email),
-  ]);
-  const message = {
-    category: "SECURITY" as const,
-    to: email,
-    ...invitationEmailCopy({
-      locale,
-      code: input.code,
-      purpose: invitationPurpose(input.kind),
-      deadline: { at: input.expiresAt, timeZone },
-      url: `${emailOrigin()}/register?code=${encodeURIComponent(input.code)}`,
-    }),
-  };
+  let message: {
+    category: "SECURITY";
+    to: string;
+  } & ReturnType<typeof invitationEmailCopy>;
+  try {
+    const timeZone = await getProgramTimeZone(client);
+    const locale = input.locale
+      ? normalizeEmailLocale(input.locale)
+      : await verifiedRecipientEmailLocale(client, email);
+    message = {
+      category: "SECURITY" as const,
+      to: email,
+      ...invitationEmailCopy({
+        locale,
+        code: input.code,
+        purpose: invitationPurpose(input.kind),
+        deadline: { at: input.expiresAt, timeZone },
+        url: `${emailOrigin()}/register?code=${encodeURIComponent(input.code)}`,
+      }),
+    };
+  } catch {
+    return false;
+  }
   const send = async () => {
     try {
       await emailSender.send(message);

@@ -227,8 +227,8 @@ it.each(["en", "zh"] as const)("delivers a %s participant-facing reason only to 
   expect(send).toHaveBeenCalledTimes(1);
   expect(send.mock.calls[0]![0].text).toContain("SECRET STAFF NOTE");
   expect(send.mock.calls[0]![0].presentation?.locale).toBe(locale);
-  expect(send.mock.calls[0]![0].text).toContain(locale === "zh" ? "申请处理暂停" : "Processing is paused");
-  expect(send.mock.calls[0]![0].text).not.toContain(locale === "zh" ? "Processing is paused" : "申请处理暂停");
+  expect(send.mock.calls[0]![0].text).toContain(locale === "zh" ? "目前已暂停处理" : "paused for now");
+  expect(send.mock.calls[0]![0].text).not.toContain(locale === "zh" ? "paused for now" : "目前已暂停处理");
   const token = proof();
   const inspected = await inspectSignupAppeal(db, token);
   expect(inspected).toMatchObject({ canAppeal: true, invalidityVersion: 1 });
@@ -256,7 +256,7 @@ it.each(["en", "zh"] as const)("unverified %s flag mail supports source-specific
   await flag();
   expect(send.mock.calls[0]![0].text).not.toContain("SECRET STAFF NOTE");
   expect(send.mock.calls[0]![0].presentation?.locale).toBe(locale);
-  expect(send.mock.calls[0]![0].text).toContain(locale === "zh" ? "申请处理暂停" : "Processing is paused");
+  expect(send.mock.calls[0]![0].text).toContain(locale === "zh" ? "目前已暂停处理" : "paused for now");
   await appealStudentSignup(db, {
     token: proof(),
     reason: "This is my genuine request",
