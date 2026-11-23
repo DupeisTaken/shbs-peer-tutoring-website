@@ -1591,7 +1591,10 @@ Join attempts after that proof. Immutable continuation receipts distinguish
 continuation-created or adopted requests from ordinary confirmation, preserving
 signed additions. Accepted receipt replay and read-only recovery remain available.
 The UI clears continuation choices and reviews after suppression and resets its
-cached status after mailbox confirmation.
+cached status after mailbox confirmation. It also auto-hides the continuation
+selection interface and closes any open unsubmitted review once the one-hour
+window expires (on load or at the server-anchored monotonic clock boundary),
+retaining only an already-filed submission receipt or held read-only recovery.
 
 [Assignment and release](../../src/server/student-continuation-assignment.ts)
 revalidate tutor eligibility, qualification, willingness, prior confirmed weekly
@@ -2065,7 +2068,10 @@ registration follow-up remain in Applications; initial admission stays in chair 
 Meeting details and the period/history browser share one retained excuse controller.
 Drafts are keyed by meeting, pending writes block dismissal, and accepted-write refresh
 failures offer reads without repeating the mutation. The 45-minute cutoff
-and server eligibility checks remain authoritative. Session-specific attendance stays
+and server eligibility checks remain authoritative; meeting reads also return
+`serverNow` so a server-anchored monotonic client clock automatically hides
+excuse, inline draft and cancel-excuse controls (and drops expired meetings from
+actionable schedule previews) as soon as the 45-minute interval passes. Session-specific attendance stays
 with its dated agenda controller and records actual duration. Known session fragments
 reveal the loaded card without opening a form or moving focus out of an active dialog.
 
