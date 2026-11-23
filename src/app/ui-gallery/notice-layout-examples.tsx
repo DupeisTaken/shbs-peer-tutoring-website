@@ -19,6 +19,9 @@ const en = {
   warning: "Warning",
   success: "Success",
   error: "Error",
+  accent: "Accent",
+  showTitle: "Show notice title",
+  noticeTitle: "Background refresh notice",
   announcement: "Notice announcement",
   silent: "No announcement",
   alert: "Alert",
@@ -45,6 +48,9 @@ const zh: Record<keyof typeof en, string> = {
   warning: "警告",
   success: "成功",
   error: "错误",
+  accent: "主题强调色",
+  showTitle: "显示提示标题",
+  noticeTitle: "后台刷新提示",
   announcement: "提示播报",
   silent: "不播报",
   alert: "警报",
@@ -61,9 +67,10 @@ const zh: Record<keyof typeof en, string> = {
 export function NoticeLayoutExamples({ locale }: { locale: "en" | "zh" }) {
   const t = locale === "zh" ? zh : en;
   const [shape, setShape] = useState("button");
-  const [tone, setTone] = useState<"info" | "warning" | "success" | "error">(
-    "warning",
-  );
+  const [tone, setTone] = useState<
+    "info" | "warning" | "success" | "error" | "accent"
+  >("warning");
+  const [showTitle, setShowTitle] = useState(false);
   const [announcement, setAnnouncement] = useState<"alert" | "status">();
   const [pending, setPending] = useState(false);
   const [attempts, setAttempts] = useState(0);
@@ -129,11 +136,13 @@ export function NoticeLayoutExamples({ locale }: { locale: "en" | "zh" }) {
             value={tone}
             onChange={(event) => setTone(event.target.value as typeof tone)}
           >
-            {(["info", "warning", "success", "error"] as const).map((value) => (
-              <option key={value} value={value}>
-                {t[value]}
-              </option>
-            ))}
+            {(["info", "warning", "success", "error", "accent"] as const).map(
+              (value) => (
+                <option key={value} value={value}>
+                  {t[value]}
+                </option>
+              ),
+            )}
           </select>
         </label>
         <label className="space-y-1 text-sm">
@@ -159,6 +168,14 @@ export function NoticeLayoutExamples({ locale }: { locale: "en" | "zh" }) {
         <label className="flex min-h-11 items-center gap-2 text-sm">
           <input
             type="checkbox"
+            checked={showTitle}
+            onChange={(event) => setShowTitle(event.target.checked)}
+          />
+          {t.showTitle}
+        </label>
+        <label className="flex min-h-11 items-center gap-2 text-sm">
+          <input
+            type="checkbox"
             checked={pending}
             onChange={(event) => setPending(event.target.checked)}
           />
@@ -166,7 +183,12 @@ export function NoticeLayoutExamples({ locale }: { locale: "en" | "zh" }) {
         </label>
       </div>
       <div id="notice-layout-example" className="max-w-sm">
-        <InlineNotice tone={tone} announcement={announcement} action={action}>
+        <InlineNotice
+          tone={tone}
+          title={showTitle ? t.noticeTitle : undefined}
+          announcement={announcement}
+          action={action}
+        >
           {t.message}
         </InlineNotice>
       </div>
