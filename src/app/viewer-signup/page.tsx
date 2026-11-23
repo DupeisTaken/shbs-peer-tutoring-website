@@ -6,14 +6,14 @@ import {
 import { redirect } from "next/navigation";
 import { getTranslations } from "next-intl/server";
 
-import { brandingMetadata } from "~/server/branding-metadata";
+import { pageMetadata } from "~/server/branding-metadata";
 import { ViewerSignupFlow } from "./viewer-signup-flow";
 import { db } from "~/server/db";
 import { getFeatures } from "~/server/program/features";
 import { auth } from "~/server/auth";
 
 export async function generateMetadata() {
-  return brandingMetadata("Request an account invitation");
+  return pageMetadata("accountInvitation.requestTitle");
 }
 
 export default async function ViewerSignupPage() {

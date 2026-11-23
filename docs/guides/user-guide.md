@@ -516,11 +516,11 @@ mounted until you choose that link, so an arriving notification cannot discard a
 open editor or interrupt a pending write. `#tutor-interviews` still opens the chair
 workspace. Private interview evidence never appears in the shared room grid.
 
-In **My Availability → Edit My Time Availability** on the tutor dashboard, active
+In **My Time Availability → Edit availability** on the tutor dashboard, active
 tutors find **Preferred Sessions** below the weekday slot choices. Select one of
 the **0–4** buttons, then save the preference, or clear it. Availability and
 preference have separate Save/Cancel actions; saving or reloading one preserves
-the other's draft, and collapsing the editor retains both. New tutors default to **1**;
+the other's draft, and closing the editor retains both. New tutors default to **1**;
 existing unset preferences remain unset.
 Zero means you prefer no assignments; no preference is a separate unset choice.
 This is advisory: staff can still assign under the existing review rules. Lowering

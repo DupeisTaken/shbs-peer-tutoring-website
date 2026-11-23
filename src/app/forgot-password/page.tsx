@@ -5,11 +5,11 @@ import {
 } from "~/app/_components/public-form-page";
 import { getTranslations } from "next-intl/server";
 
-import { brandingMetadata } from "~/server/branding-metadata";
+import { pageMetadata } from "~/server/branding-metadata";
 import { ForgotPasswordForm } from "./forgot-password-form";
 
 export async function generateMetadata() {
-  return brandingMetadata("Forgot password");
+  return pageMetadata("auth.forgot.title");
 }
 
 export default async function ForgotPasswordPage() {

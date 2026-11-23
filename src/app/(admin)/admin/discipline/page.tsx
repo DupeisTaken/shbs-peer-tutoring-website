@@ -440,13 +440,13 @@ export default function CardsPage() {
                             <span
                               className={
                                 c.reviewStatus === "INVALID"
-                                  ? "text-slate-400 line-through"
+                                  ? "text-slate-600 line-through"
                                   : ""
                               }
                             >
                               {c.reason ?? "—"}
                             </span>{" "}
-                            <span className="text-slate-400">
+                            <span className="text-slate-600">
                               ·{" "}
                               {t(`admin.cards.reviewStatus.${c.reviewStatus}`)}{" "}
                               ·{" "}

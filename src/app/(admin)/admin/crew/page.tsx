@@ -725,7 +725,7 @@ export default function CrewPage() {
                 <ol className="mt-3 divide-y divide-slate-100">
                   {rooms.map((room, i) => (
                     <li key={room.id} className="flex items-center gap-3 py-2">
-                      <span className="w-6 text-sm font-semibold text-slate-400">
+                      <span className="w-6 text-sm font-semibold text-slate-600">
                         {i + 1}
                       </span>
                       <span className="flex-1 font-medium text-slate-800">

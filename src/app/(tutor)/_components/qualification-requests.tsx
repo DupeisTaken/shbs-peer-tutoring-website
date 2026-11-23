@@ -1,12 +1,12 @@
 "use client";
 
-import { useId, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { Button, ChoiceButton } from "~/app/_components/ui/button";
-import { FilterToolbar } from "~/app/_components/ui/patterns";
+import { FilterToolbar, FormActions } from "~/app/_components/ui/patterns";
 import { useFormatter, useTranslations } from "next-intl";
 import { api } from "~/trpc/react";
 import { useDialog } from "~/app/_components/confirm-dialog";
-import { DisclosureSection } from "~/app/_components/ui/disclosure-section";
+import { ProfileDialog } from "~/app/_components/profile-dialog";
 import { useSessionViewState } from "~/app/_components/session-view-state";
 import { viewEnum } from "~/lib/session-view-state";
 
@@ -31,8 +31,23 @@ export function QualificationRequests({
   const utils = api.useUtils();
   const { confirm, dialog } = useDialog();
   const query = api.qualificationApplication.mine.useQuery();
+  const [requestOpen, setRequestOpen] = useState(false);
+  const requestTrigger = useRef<HTMLButtonElement>(null);
+  const restoreFocus = useRef(false);
+  // Draft state stays above the dialog visibility toggle so closing and reopening preserves it.
   const [subjectId, setSubjectId] = useState("");
   const [reason, setReason] = useState("");
+  useEffect(() => {
+    // Run after the modal is unmounted and the page is no longer inert, even in background tabs.
+    if (!requestOpen && restoreFocus.current) {
+      requestTrigger.current?.focus();
+      restoreFocus.current = false;
+    }
+  }, [requestOpen]);
+  const closeRequest = () => {
+    restoreFocus.current = true;
+    setRequestOpen(false);
+  };
   const [historyFilter, setHistoryFilter] = useSessionViewState<HistoryFilter>({
     id: "qualification-history-v1",
     scope: viewScope,
@@ -93,9 +108,26 @@ export function QualificationRequests({
       tabIndex={-1}
       className="card scroll-mt-6 p-4 sm:p-5"
     >
-      <h2 className="section-title">{t("title")}</h2>
+      <div className="flex flex-col items-start gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="min-w-0 flex-1">
+          <h2 className="section-title">{t("title")}</h2>
+          <p className="muted mt-1 max-w-xl text-sm leading-relaxed">
+            {t("help")}
+          </p>
+        </div>
+        {active && query.data && (
+          <button
+            ref={requestTrigger}
+            type="button"
+            className="btn-secondary min-h-11 shrink-0 gap-3 whitespace-normal lg:min-h-10"
+            onClick={() => setRequestOpen(true)}
+          >
+            {t("submit")}
+            <span aria-hidden="true">↗</span>
+          </button>
+        )}
+      </div>
       {dialog}
-      <p className="muted mt-1">{t("help")}</p>
       {query.isLoading && (
         <p role="status" className="mt-3">
           {t("loading")}
@@ -119,17 +151,22 @@ export function QualificationRequests({
             {query.data.approved.map((subject) => subject.name).join(", ") ||
               t("noApproved")}
           </p>
-          {active && (
-            <div className="mt-4">
-              <DisclosureSection title={t("submit")} lifetime="retained">
-                <form
-                  className="mt-4 space-y-3"
-                  onSubmit={(event) => {
-                    event.preventDefault();
-                    if (subjectId && reason.trim())
-                      submit.mutate({ subjectId, reason });
-                  }}
-                >
+          {active && requestOpen && (
+            <ProfileDialog
+              title={t("submit")}
+              onClose={closeRequest}
+              pending={submit.isPending}
+            >
+              <p className="muted mb-4 text-sm leading-relaxed">{t("help")}</p>
+              <form
+                className="space-y-4"
+                onSubmit={(event) => {
+                  event.preventDefault();
+                  if (!submit.isPending && subjectId && reason.trim())
+                    submit.mutate({ subjectId, reason });
+                }}
+              >
+                <div className="space-y-1.5">
                   <label
                     className="block text-sm font-medium"
                     htmlFor="qualification-subject"
@@ -138,7 +175,7 @@ export function QualificationRequests({
                   </label>
                   <select
                     id="qualification-subject"
-                    className="select min-h-11 lg:min-h-10"
+                    className="select min-h-11 w-full lg:min-h-10"
                     value={subjectId}
                     required
                     disabled={submit.isPending || !query.data.options.length}
@@ -154,6 +191,8 @@ export function QualificationRequests({
                   {!query.data.options.length && (
                     <p className="muted text-sm">{t("noOptions")}</p>
                   )}
+                </div>
+                <div className="space-y-1.5">
                   <label
                     className="block text-sm font-medium"
                     htmlFor="qualification-reason"
@@ -163,13 +202,15 @@ export function QualificationRequests({
                   <textarea
                     id="qualification-reason"
                     className="textarea w-full"
-                    rows={3}
+                    rows={4}
                     required
                     maxLength={2000}
                     value={reason}
                     disabled={submit.isPending}
                     onChange={(event) => setReason(event.target.value)}
                   />
+                </div>
+                <FormActions>
                   {/* Both actions use the same context size; color owns emphasis. */}
                   <Button
                     type="submit"
@@ -181,7 +222,7 @@ export function QualificationRequests({
                   </Button>
                   <Button
                     type="button"
-                    className="ml-2 max-w-full whitespace-normal"
+                    className="max-w-full whitespace-normal"
                     disabled={submit.isPending}
                     onClick={() => {
                       setSubjectId("");
@@ -191,19 +232,19 @@ export function QualificationRequests({
                   >
                     {t("cancelDraft")}
                   </Button>
-                  {submit.error && (
-                    <p role="alert" className="text-sm text-red-700">
-                      {submit.error.message}
-                    </p>
-                  )}
-                  {submit.isSuccess && (
-                    <p role="status" className="text-sm text-green-700">
-                      {t("submitted")}
-                    </p>
-                  )}
-                </form>
-              </DisclosureSection>
-            </div>
+                </FormActions>
+                {submit.error && (
+                  <p role="alert" className="text-sm text-red-700">
+                    {submit.error.message}
+                  </p>
+                )}
+                {submit.isSuccess && (
+                  <p role="status" className="text-sm text-green-700">
+                    {t("submitted")}
+                  </p>
+                )}
+              </form>
+            </ProfileDialog>
           )}
           <div className="mt-6 flex flex-wrap items-center justify-between gap-2">
             <h3 className="font-semibold">

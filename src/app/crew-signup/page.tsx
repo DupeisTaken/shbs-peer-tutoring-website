@@ -2,14 +2,14 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getTranslations } from "next-intl/server";
 
-import { brandingMetadata } from "~/server/branding-metadata";
+import { pageMetadata } from "~/server/branding-metadata";
 import { CrewSignupForm } from "./crew-signup-form";
 import { PublicFormPage } from "~/app/_components/public-form-page";
 import { db } from "~/server/db";
 import { getFeatures } from "~/server/program/features";
 
 export async function generateMetadata() {
-  return brandingMetadata("Join the crew");
+  return pageMetadata("public.crewSignup.title");
 }
 
 export default async function CrewSignupPage() {

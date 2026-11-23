@@ -211,10 +211,10 @@
     "viewRequest": "查看审批请求",
     "readOnly": "管理员和负责人可直接准备开放时间。协调员须申请管理员审批。",
     "loading": "正在读取下一周期准备…",
-    "loadFailed": "无法读取最新准备。草稿已保留。",
+    "loadFailed": "暂时无法加载最新筹备信息。你的草稿已保留。",
     "saveFailed": "无法保存开放时间。草稿已保留。",
-    "retry": "重试读取",
-    "retryRead": "重新读取最新准备",
+    "retry": "重试",
+    "retryRead": "重新刷新",
     "reload": "重新加载准备",
     "reloadHelp": "仅在读取成功后，重新加载才会替换此草稿。",
     "changed": "周期、时区或此准备已更改。保存前请主动重新加载；草稿已保留。",
@@ -222,7 +222,7 @@
     "boundElsewhere": "先前为 {year} {quarter} 准备；需要重新复核。",
     "originalZone": "最初按 {zone} 输入；已保存的实际时刻不变。",
     "invalidTime": "请按显示的项目时区输入有效且无歧义的日期和时间。",
-    "savedReadFailed": "开放时间已保存，但读取最新准备失败。请重试读取，不要再次提交保存。",
+    "savedReadFailed": "已保存，但页面暂时无法刷新。请尝试刷新。",
     "proposedOpening": "审批后的请求开放时间",
     "resultOpening": "更新周期后的开放时间：{value}",
     "switchDisabled": "目标周期的招募开关保持关闭。",
@@ -340,7 +340,7 @@
     "refreshFailed": "更改已保存，但无法加载最新申请。请重试刷新，无需再次提交。",
     "retryRefresh": "重试刷新",
     "reload": "重新加载申请",
-    "reloadHelp": "你的原因和原始版本已保留。主动重新加载将用最新申请替换此草稿。"
+    "reloadHelp": "你的原因已保留。重新加载后将显示最新申请。"
   },
   "scheduling": {
     "awaiting": "待安排时间",
@@ -528,7 +528,8 @@
     "collapseAll": "全部收起",
     "expandAll": "全部展开",
     "loading": "正在加载…",
-    "retry": "重试"
+    "retry": "重试",
+    "skipToContent": "跳到主要内容"
   },
   "auth": {
     "signinTitle": "登录",
@@ -678,7 +679,8 @@
       "becomeTutor": "成为辅导伙伴",
       "teamSignin": "登录",
       "becomeCrew": "加入巡查队",
-      "viewerSignup": "关注项目"
+      "viewerSignup": "关注项目",
+      "landmark": "网站导航"
     },
     "tagline": "朋辈辅导项目",
     "heroTitle": "一起学习，共同成长。",
@@ -732,7 +734,7 @@
     "availability": {
       "title": "我的可用时间",
       "help": "勾选你可以辅导的时间段，方便协调员安排。",
-      "edit": "编辑我的可用时间"
+      "edit": "编辑可用时间"
     },
     "attendance": {
       "title": "提交考勤",
@@ -2716,7 +2718,7 @@
         "course": "科目",
         "grade": "所获成绩",
         "apScore": "AP 分数",
-        "selfStudyNote": "你凭什么资格 / 你取得了哪些成绩？"
+        "selfStudyNote": "你具备哪些资质或取得了哪些成绩？"
       },
       "placeholders": {
         "preferredContact": "例如：发短信到 555-123-4567，或给我发邮件（下午 4 点后最佳）",
@@ -2861,7 +2863,8 @@
     "notifications": {
       "title": "通知",
       "markAllRead": "全部标为已读",
-      "empty": "暂无内容。"
+      "empty": "暂无内容。",
+      "unreadLabel": "{title}（{count} 条未读）"
     },
     "signOut": {
       "label": "退出登录"
@@ -5114,9 +5117,9 @@
       "PROGRAM": "项目邮件"
     },
     "transport": {
-      "READY": "SMTP 连接及身份认证检查通过。",
-      "UNAVAILABLE": "SMTP 连接或身份认证失败，邮件可能无法投递。请联系部署管理员检查邮件服务。",
-      "UNCONFIGURED": "尚未配置 SMTP 投递。请联系部署管理员配置此发件账号。",
+      "READY": "邮件服务器连接正常。",
+      "UNAVAILABLE": "邮件服务器连接失败。请联系站点管理员检查发信配置。",
+      "UNCONFIGURED": "邮件发送尚未配置。请联系站点管理员完成发信设置。",
       "LOCAL": "仅记录开发日志，不会向收件箱发送邮件。"
     },
     "resendStuck": "重新发送滞留邮件",
@@ -5204,7 +5207,7 @@
     "reviewTitle": "审核任教学科资格申请",
     "reviewHelp": "填写决定说明后，无需面试即可批准此申请。拒绝申请必须先进行面试。打开审核窗口不会提交决定。",
     "reloadReview": "重新加载审核",
-    "reloadHelp": "说明保留原申请版本。重新加载将清空说明并显示最新申请。",
+    "reloadHelp": "你的说明已保留。重新加载后将清空说明并显示最新申请。",
     "decisionSaved": "决定已保存。",
     "decisionRefreshFailed": "决定已保存，但刷新失败。请重试刷新以加载最新记录。",
     "directHelp": "打开直接审核后，可填写说明并批准申请。拒绝申请必须先进行面试。启用面试时，仍可分配面试小组。",
@@ -5833,7 +5836,10 @@
   },
   "pageRecovery": {
     "title": "页面不存在",
-    "body": "此页面可能已移动或不再可用。请返回首页，或登录后继续。"
+    "body": "此页面可能已移动或不再可用。请返回首页，或登录后继续。",
+    "errorTitle": "页面加载出错",
+    "errorBody": "暂时无法加载此页面。请重试或返回主页。",
+    "loadingTitle": "正在加载页面…"
   },
   "historicalAcademics": {
     "graduatedRecorded": "原始资料另有已毕业标记；本次更正不会改变参与资格或离校状态。",
@@ -8512,5 +8518,18 @@
     "loadFailed": "无法加载最新通知要求。草稿已保留；请重试读取后再保存。",
     "refreshFailed": "通知要求已保存，但无法加载最新设置。请重试读取，不要再次保存。",
     "reload": "重新加载最新要求"
+  },
+  "errorRecovery": {
+    "unauthorized": "请重新登录后继续。",
+    "forbidden": "你没有权限执行此操作。",
+    "notFound": "未找到该记录。请刷新页面查看最新内容。",
+    "conflict": "该记录已被更新。请刷新并确认后再试。",
+    "tooManyRequests": "短时间内请求过多，请稍后再试。",
+    "timeout": "请求超时，请检查网络后重试。",
+    "preconditionFailed": "缺少必需的前提条件或设置，请刷新页面查看当前状态。",
+    "badRequest": "请检查填写内容后重试。",
+    "internal": "暂时无法完成该请求，请稍后重试。",
+    "network": "无法连接到服务器，请检查网络后重试。",
+    "generic": "操作未完成，请重试。"
   }
 }

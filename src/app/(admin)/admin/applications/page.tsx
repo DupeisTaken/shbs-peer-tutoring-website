@@ -420,7 +420,7 @@ function ApplicationCard({
           {/* Panels retain three to eight slots and one chair; edits stay hidden when interviews are off. */}
           {(features?.INTERVIEWS === true || hasInterviewHistory) && (
             <div className="mt-4 border-t border-slate-100 pt-3">
-              <p className="text-xs font-semibold tracking-wide text-slate-400 uppercase">
+              <p className="text-xs font-semibold tracking-wide text-slate-600 uppercase">
                 {t("admin.applications.panelRangeHeading", {
                   min: MIN_PANEL_SIZE,
                   max: MAX_PANEL_SIZE,
@@ -469,7 +469,7 @@ function ApplicationCard({
           {/* Panel votes + head decision (recorded on the head's dashboard; hidden when off) */}
           {(app.votes.length > 0 || app.decisionComment) && (
             <div className="mt-4 border-t border-slate-100 pt-3">
-              <p className="text-xs font-semibold tracking-wide text-slate-400 uppercase">
+              <p className="text-xs font-semibold tracking-wide text-slate-600 uppercase">
                 {t("admin.applications.votesDecisionHeading")}
               </p>
               {app.votes.length > 0 ? (

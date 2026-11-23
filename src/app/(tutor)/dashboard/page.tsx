@@ -7,8 +7,7 @@ import { db } from "~/server/db";
 import { getFeatures } from "~/server/program/features";
 import { api } from "~/trpc/server";
 import { AnnouncementsBanner } from "~/app/(tutor)/_components/announcements-banner";
-import { TutorWorkloadPreference } from "~/app/_components/tutor-workload-preference";
-import { AvailabilityEditor } from "~/app/(tutor)/_components/availability-editor";
+import { TimeAvailability } from "~/app/(tutor)/_components/time-availability";
 import { TutorPairings } from "~/app/(tutor)/_components/tutor-pairings";
 import { MyInterviews } from "~/app/(tutor)/_components/my-interviews";
 import { TutorActivation } from "~/app/(tutor)/_components/tutor-activation";
@@ -18,6 +17,7 @@ import { SubjectWillingness } from "~/app/(tutor)/_components/subject-willingnes
 import { getTranslations } from "next-intl/server";
 import { DashboardTasks } from "~/app/(tutor)/_components/dashboard-tasks";
 import { DisclosureSection } from "~/app/_components/ui/disclosure-section";
+import { InlineNotice } from "~/app/_components/ui/patterns";
 import { SessionPagePosition } from "~/app/_components/session-view-state";
 
 import { TutorWorkspace } from "~/app/(tutor)/_components/tutor-workspace";
@@ -26,6 +26,11 @@ import { TutorRoomSchedule } from "~/app/(tutor)/_components/tutor-room-schedule
 import { ProgramCalendarNotice } from "~/app/_components/program-calendar";
 import { SchoolCalendarNotice } from "~/app/_components/school-calendar-notice";
 import { PersonalTutorHistory } from "~/app/history/personal-tutor-history";
+import { pageMetadata } from "~/server/branding-metadata";
+
+export async function generateMetadata() {
+  return pageMetadata("admin.nav.links.dashboard");
+}
 
 export default async function TutorDashboard() {
   const session = await auth();
@@ -52,7 +57,10 @@ export default async function TutorDashboard() {
   ]);
 
   return (
-    <div className="mx-auto max-w-6xl space-y-4 px-4 py-5 sm:py-6">
+    <main
+      id="main-content"
+      className="mx-auto max-w-6xl space-y-4 px-4 py-5 sm:py-6"
+    >
       <SessionPagePosition
         id="tutor-dashboard-v1"
         scope={`${me.status}:${total.periodLabel ?? ""}`}
@@ -141,19 +149,19 @@ export default async function TutorDashboard() {
       )}
 
       {inactive && !pending && (
-        <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-4 text-amber-800">
-          <p className="font-semibold">{t("tutor.dashboard.inactive.title")}</p>
-          <p className="mt-1 text-sm">
+        <InlineNotice
+          tone="warning"
+          title={t("tutor.dashboard.inactive.title")}
+        >
+          <p className="mt-1">
             {t("tutor.dashboard.inactive.body", {
               status: t(`tutor.status.${me.status}`),
             })}
           </p>
           {me.status === "OPTED_OUT" && (
-            <p className="mt-2 text-sm">
-              {t("tutor.dashboard.inactive.reentryHint")}
-            </p>
+            <p className="mt-2">{t("tutor.dashboard.inactive.reentryHint")}</p>
           )}
-        </div>
+        </InlineNotice>
       )}
 
       <TutorWorkspace
@@ -223,25 +231,7 @@ export default async function TutorDashboard() {
               className="scroll-mt-6 space-y-4"
             >
               <SubjectWillingness />
-              <section className="card p-4 sm:p-5">
-                <h2 className="section-title">
-                  {t("dashboard.availability.title")}
-                </h2>
-                <p className="muted mt-1 mb-4 text-sm">
-                  {t("dashboard.availability.help")}
-                </p>
-                {inactive && <TutorWorkloadPreference summaryOnly />}
-                {!inactive && (
-                  <DisclosureSection
-                    title={t("dashboard.availability.edit")}
-                    lifetime="retained"
-                  >
-                    <AvailabilityEditor />
-                    {/* Independent sibling forms retain their own drafts and save recovery. */}
-                    <TutorWorkloadPreference embedded />
-                  </DisclosureSection>
-                )}
-              </section>
+              <TimeAvailability active={!inactive} />
             </section>
           </div>
         }
@@ -255,6 +245,6 @@ export default async function TutorDashboard() {
           </section>
         }
       />
-    </div>
+    </main>
   );
 }

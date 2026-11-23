@@ -528,7 +528,8 @@
     "collapseAll": "Contraer todo",
     "expandAll": "Expandir todo",
     "loading": "Loading…",
-    "retry": "Intentar de nuevo"
+    "retry": "Intentar de nuevo",
+    "skipToContent": "Saltar al contenido principal"
   },
   "auth": {
     "signinTitle": "Iniciar sesión",
@@ -678,7 +679,8 @@
       "becomeTutor": "Hazte tutor",
       "teamSignin": "Iniciar sesión",
       "becomeCrew": "Unirse a la ronda",
-      "viewerSignup": "Seguir el Programa"
+      "viewerSignup": "Seguir el Programa",
+      "landmark": "Navegación del sitio"
     },
     "tagline": "Programa de Tutoría entre Pares",
     "heroTitle": "Aprendamos juntos. Crezcamos juntos.",
@@ -732,7 +734,7 @@
     "availability": {
       "title": "Mis horarios disponibles",
       "help": "Marca los horarios en los que puedes enseñar. Ayudan a los coordinadores a programarte.",
-      "edit": "Editar mis horarios disponibles"
+      "edit": "Editar disponibilidad"
     },
     "attendance": {
       "title": "Registrar asistencia",
@@ -2861,7 +2863,8 @@
     "notifications": {
       "title": "Notificaciones",
       "markAllRead": "Marcar todo como leído",
-      "empty": "Nada por ahora."
+      "empty": "Nada por ahora.",
+      "unreadLabel": "{title} ({count} sin leer)"
     },
     "signOut": {
       "label": "Cerrar sesión"
@@ -5799,7 +5802,10 @@
   },
   "pageRecovery": {
     "title": "Página No Encontrada",
-    "body": "Esta página puede haberse movido o ya no estar disponible. Vuelve al inicio o inicia sesión para continuar."
+    "body": "Esta página puede haberse movido o ya no estar disponible. Vuelve al inicio o inicia sesión para continuar.",
+    "errorTitle": "Algo salió mal",
+    "errorBody": "No pudimos cargar esta página. Inténtalo de nuevo o vuelve a la página principal.",
+    "loadingTitle": "Cargando página…"
   },
   "historicalAcademics": {
     "graduatedRecorded": "The original record also marked academic graduation. This correction does not change participation or school-departure status.",
@@ -8512,5 +8518,18 @@
     "loadFailed": "No se pudieron cargar los últimos requisitos. Se conserva el borrador. Reintenta la lectura antes de guardar.",
     "refreshFailed": "Los requisitos se guardaron, pero no se pudieron cargar los ajustes. Reintenta la lectura; no vuelvas a guardar.",
     "reload": "Recargar últimos requisitos"
+  },
+  "errorRecovery": {
+    "unauthorized": "Inicia sesión de nuevo para continuar.",
+    "forbidden": "No tienes permiso para realizar esta acción.",
+    "notFound": "No se encontró este registro. Actualiza la página para ver los datos actuales.",
+    "conflict": "Este registro cambió desde que lo abriste. Actualiza y revisa antes de intentarlo de nuevo.",
+    "tooManyRequests": "Demasiadas solicitudes en poco tiempo. Espera un momento e inténtalo de nuevo.",
+    "timeout": "La solicitud agotó el tiempo de espera. Revisa tu conexión e inténtalo de nuevo.",
+    "preconditionFailed": "Falta un paso o ajuste necesario. Actualiza la página y comprueba el estado actual.",
+    "badRequest": "Revisa los datos ingresados e inténtalo de nuevo.",
+    "internal": "No pudimos completar la solicitud. Inténtalo de nuevo en un momento.",
+    "network": "No se pudo conectar con el servidor. Revisa tu conexión e inténtalo de nuevo.",
+    "generic": "Algo salió mal. Inténtalo de nuevo."
   }
 }

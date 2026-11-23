@@ -528,7 +528,8 @@
     "collapseAll": "すべて折りたたむ",
     "expandAll": "すべて展開",
     "loading": "Loading…",
-    "retry": "再試行"
+    "retry": "再試行",
+    "skipToContent": "メインコンテンツへ移動"
   },
   "auth": {
     "signinTitle": "サインイン",
@@ -678,7 +679,8 @@
       "becomeTutor": "チューターになる",
       "teamSignin": "サインイン",
       "becomeCrew": "巡回班に参加",
-      "viewerSignup": "プログラムをフォロー"
+      "viewerSignup": "プログラムをフォロー",
+      "landmark": "サイトナビゲーション"
     },
     "tagline": "ピアチュータリングプログラム",
     "heroTitle": "一緒に学ぼう。一緒に成長しよう。",
@@ -2861,7 +2863,8 @@
     "notifications": {
       "title": "通知",
       "markAllRead": "すべて既読にする",
-      "empty": "まだ通知はありません。"
+      "empty": "まだ通知はありません。",
+      "unreadLabel": "{title}（未読 {count} 件）"
     },
     "signOut": {
       "label": "サインアウト"
@@ -5799,7 +5802,10 @@
   },
   "pageRecovery": {
     "title": "ページが見つかりません",
-    "body": "このページは移動したか、利用できなくなった可能性があります。ホームに戻るか、ログインして続行してください。"
+    "body": "このページは移動したか、利用できなくなった可能性があります。ホームに戻るか、ログインして続行してください。",
+    "errorTitle": "エラーが発生しました",
+    "errorBody": "このページを読み込めませんでした。もう一度試すか、ホームページに戻ってください。",
+    "loadingTitle": "ページを読み込み中…"
   },
   "historicalAcademics": {
     "graduatedRecorded": "The original record also marked academic graduation. This correction does not change participation or school-departure status.",
@@ -8512,5 +8518,18 @@
     "loadFailed": "最新の要件を読み込めませんでした。下書きは保持されています。保存する前に読み込みを再試行してください。",
     "refreshFailed": "要件は保存されましたが、最新の設定を読み込めませんでした。再保存せず、読み込みを再試行してください。",
     "reload": "最新の要件を再読み込み"
+  },
+  "errorRecovery": {
+    "unauthorized": "続行するにはもう一度サインインしてください。",
+    "forbidden": "この操作を行う権限がありません。",
+    "notFound": "該当する記録が見つかりません。ページを再読み込みして最新の状態を確認してください。",
+    "conflict": "開いた後に内容が更新されました。再読み込みして確認してからやり直してください。",
+    "tooManyRequests": "短時間にリクエストが集中しました。少し待ってからもう一度試してください。",
+    "timeout": "リクエストがタイムアウトしました。接続を確認してもう一度試してください。",
+    "preconditionFailed": "必要な前提条件または設定が不足しています。ページを再読み込みして確認してください。",
+    "badRequest": "入力内容を確認してもう一度試してください。",
+    "internal": "リクエストを完了できませんでした。少し待ってからやり直してください。",
+    "network": "サーバーに接続できませんでした。接続を確認してもう一度試してください。",
+    "generic": "問題が発生しました。もう一度試してください。"
   }
 }

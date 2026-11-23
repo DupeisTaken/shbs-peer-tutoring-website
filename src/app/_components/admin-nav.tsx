@@ -229,6 +229,7 @@ export async function NavSidebar({ role }: { role: string }) {
       <NavSidebarClient
         sticky={false}
         sections={sections}
+        navLabel={t("adminNavigation.title")}
         collapseAllLabel={t("common.collapseAll")}
         expandAllLabel={t("common.expandAll")}
       />

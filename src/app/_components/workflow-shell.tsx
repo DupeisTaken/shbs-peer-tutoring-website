@@ -30,6 +30,7 @@ export async function WorkflowShell({
   const staff = ["HEAD", "ADMIN", "COORDINATOR"].includes(user.role);
   if (management && !staff) redirect("/");
   const t = await getTranslations("workflows");
+  const common = await getTranslations("common");
   const account = await getTranslations("components.userMenu");
   const access = portalAccess(user);
   const elevated = staff || user.role === "VIEWER";
@@ -65,6 +66,8 @@ export async function WorkflowShell({
       <WorkspaceHeader
         href="/"
         title={APP_TITLE}
+        skipLabel={common("skipToContent")}
+        containerClassName="mx-auto max-w-5xl"
         items={workspaceItems}
         identity={
           <Link
@@ -89,7 +92,10 @@ export async function WorkflowShell({
           ],
         })}
       />
-      <main className="mx-auto max-w-5xl space-y-6 px-4 py-6">
+      <main
+        id="main-content"
+        className="mx-auto max-w-5xl space-y-6 px-4 py-6"
+      >
         <SectionLinks label={title} items={taskItems} />
         <h1 className="page-title">{title}</h1>
         {children}

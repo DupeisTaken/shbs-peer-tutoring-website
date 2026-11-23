@@ -168,7 +168,7 @@ it.each(["en", "zh"] as const)(
     for (const [appealStatus, text, color] of [
       ["DECLINED", messages.requestAppeal.statusDeclined, "bg-amber-50"],
       ["PENDING", messages.requestAppeal.statusPending, "bg-slate-50"],
-      ["CLEARED", messages.requestAppeal.statusCleared, "bg-emerald-50"],
+      ["CLEARED", messages.requestAppeal.statusCleared, "bg-green-50"],
     ]) {
       fetchMock.mockImplementation(() => response({ ...ready, appealStatus }));
       const page = render(ui("synthetic-capability", locale));

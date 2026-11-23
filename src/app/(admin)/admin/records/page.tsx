@@ -1,8 +1,13 @@
+import { pageMetadata } from "~/server/branding-metadata";
 import { redirect } from "next/navigation";
 import { auth } from "~/server/auth";
 import { db } from "~/server/db";
 import { RecordTransfer } from "~/app/_components/record-transfer";
 import { SessionPagePosition } from "~/app/_components/session-view-state";
+
+export async function generateMetadata() {
+  return pageMetadata("recordTransfer.title");
+}
 
 export default async function RecordsPage() {
   const session = await auth();

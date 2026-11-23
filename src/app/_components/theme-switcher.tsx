@@ -77,6 +77,7 @@ export function ThemeSwitcher({
   const [open, setOpen] = useState(false);
   const closeHeaderMenu = useHeaderMenuClose();
   const ref = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
   const panelRef = useClampedPopover<HTMLDivElement>(open);
 
   // Close on outside click / Escape while open.
@@ -87,7 +88,10 @@ export function ThemeSwitcher({
         setOpen(false);
     };
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setOpen(false);
+      if (e.key === "Escape") {
+        setOpen(false);
+        triggerRef.current?.focus();
+      }
     };
     document.addEventListener("pointerdown", onDown);
     document.addEventListener("keydown", onKey);
@@ -101,6 +105,7 @@ export function ThemeSwitcher({
     setOpen(false);
     closeHeaderMenu();
     persistTheme(next);
+    triggerRef.current?.focus();
   };
 
   const swatches = (
@@ -115,7 +120,7 @@ export function ThemeSwitcher({
             aria-pressed={selected}
             title={t(`components.theme.names.${th}`)}
             onClick={() => apply(th)}
-            className={`flex h-11 w-11 items-center justify-center justify-self-center rounded-full ring-2 transition ${SWATCH[th]} ${
+            className={`focus-visible:ring-accent-500 flex h-11 w-11 items-center justify-center justify-self-center rounded-full ring-2 transition focus-visible:ring-offset-2 focus-visible:outline-hidden ${SWATCH[th]} ${
               selected
                 ? "ring-slate-800"
                 : "ring-transparent hover:ring-slate-300"
@@ -146,13 +151,14 @@ export function ThemeSwitcher({
   return (
     <div ref={ref} className="relative">
       <button
+        ref={triggerRef}
         type="button"
         aria-label={t("components.theme.label")}
         title={t("components.theme.label")}
         aria-haspopup="dialog"
         aria-expanded={open}
         onClick={() => setOpen((v) => !v)}
-        className={`flex items-center justify-center rounded-md hover:bg-slate-100 ${
+        className={`focus-visible:ring-accent-500 flex items-center justify-center rounded-md hover:bg-slate-100 focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-hidden ${
           compact
             ? "h-8 px-1"
             : compactAtDesktop

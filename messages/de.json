@@ -528,7 +528,8 @@
     "collapseAll": "Alle zuklappen",
     "expandAll": "Alle aufklappen",
     "loading": "Loading…",
-    "retry": "Erneut versuchen"
+    "retry": "Erneut versuchen",
+    "skipToContent": "Zum Hauptinhalt springen"
   },
   "auth": {
     "signinTitle": "Anmelden",
@@ -678,7 +679,8 @@
       "becomeTutor": "Tutor werden",
       "teamSignin": "Anmelden",
       "becomeCrew": "Rundgang beitreten",
-      "viewerSignup": "Programm Verfolgen"
+      "viewerSignup": "Programm Verfolgen",
+      "landmark": "Seitennavigation"
     },
     "tagline": "Peer-Tutoring-Programm",
     "heroTitle": "Gemeinsam lernen. Gemeinsam wachsen.",
@@ -732,7 +734,7 @@
     "availability": {
       "title": "Meine verfügbaren Zeiten",
       "help": "Zeitfenster markieren, in denen Sie unterrichten können. Das hilft Koordinatoren bei der Planung.",
-      "edit": "Meine verfügbaren Zeiten bearbeiten"
+      "edit": "Verfügbarkeit bearbeiten"
     },
     "attendance": {
       "title": "Anwesenheit einreichen",
@@ -2861,7 +2863,8 @@
     "notifications": {
       "title": "Benachrichtigungen",
       "markAllRead": "Alle als gelesen markieren",
-      "empty": "Noch nichts."
+      "empty": "Noch nichts.",
+      "unreadLabel": "{title} ({count} ungelesen)"
     },
     "signOut": {
       "label": "Abmelden"
@@ -5799,7 +5802,10 @@
   },
   "pageRecovery": {
     "title": "Seite Nicht Gefunden",
-    "body": "Diese Seite wurde möglicherweise verschoben oder ist nicht mehr verfügbar. Kehren Sie zur Startseite zurück oder melden Sie sich an."
+    "body": "Diese Seite wurde möglicherweise verschoben oder ist nicht mehr verfügbar. Kehren Sie zur Startseite zurück oder melden Sie sich an.",
+    "errorTitle": "Ein Fehler ist aufgetreten",
+    "errorBody": "Diese Seite konnte nicht geladen werden. Versuche es erneut oder kehre zur Startseite zurück.",
+    "loadingTitle": "Seite wird geladen…"
   },
   "historicalAcademics": {
     "graduatedRecorded": "The original record also marked academic graduation. This correction does not change participation or school-departure status.",
@@ -8512,5 +8518,18 @@
     "loadFailed": "Die aktuellen Vorgaben konnten nicht geladen werden. Ihr Entwurf bleibt erhalten. Laden Sie sie vor dem Speichern erneut.",
     "refreshFailed": "Die Vorgaben wurden gespeichert, aber die aktuellen Einstellungen konnten nicht geladen werden. Wiederholen Sie nur das Laden.",
     "reload": "Aktuelle Vorgaben laden"
+  },
+  "errorRecovery": {
+    "unauthorized": "Melde dich erneut an, um fortzufahren.",
+    "forbidden": "Du hast keine Berechtigung für diese Aktion.",
+    "notFound": "Dieser Eintrag wurde nicht gefunden. Lade die Seite neu.",
+    "conflict": "Dieser Eintrag wurde inzwischen geändert. Lade neu und prüfe vor dem erneuten Versuch.",
+    "tooManyRequests": "Zu viele Anfragen in kurzer Zeit. Warte kurz und versuche es erneut.",
+    "timeout": "Zeitüberschreitung bei der Anfrage. Prüfe deine Verbindung und versuche es erneut.",
+    "preconditionFailed": "Eine erforderliche Voraussetzung fehlt. Lade die Seite neu und prüfe den aktuellen Stand.",
+    "badRequest": "Prüfe die eingegebenen Angaben und versuche es erneut.",
+    "internal": "Die Anfrage konnte nicht abgeschlossen werden. Versuche es gleich erneut.",
+    "network": "Server nicht erreichbar. Prüfe deine Verbindung und versuche es erneut.",
+    "generic": "Etwas ist schiefgelaufen. Versuche es erneut."
   }
 }

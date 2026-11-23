@@ -6,6 +6,8 @@ import { api } from "~/trpc/react";
 import { AcademicError } from "~/app/_components/academic-error";
 import { useRouter } from "next/navigation";
 import { useDialog } from "~/app/_components/confirm-dialog";
+import { Button } from "~/app/_components/ui/button";
+import { InlineNotice } from "~/app/_components/ui/patterns";
 
 /**
  * Start-of-term activation prompt, shown when the tutor's status is PENDING (a semester refresh
@@ -27,15 +29,15 @@ export function TutorActivation() {
   });
 
   return (
-    <section className="border-accent-200 bg-accent-50 rounded-lg border p-5">
+    <section className="border-accent-200 bg-accent-50 rounded-xl border p-4 sm:p-5">
       {dialog}
-      <h2 className="text-accent-900 text-lg font-bold">
+      <h2 className="section-title text-accent-900">
         {t("tutor.activate.title")}
       </h2>
       <p className="text-accent-800 mt-1 text-sm">{t("tutor.activate.body")}</p>
       <div className="mt-4 flex flex-wrap gap-3">
-        <button
-          className="btn-primary"
+        <Button
+          variant="primary"
           disabled={activate.isPending}
           onClick={async () => {
             if (
@@ -50,9 +52,9 @@ export function TutorActivation() {
           }}
         >
           {t("tutor.activate.available")}
-        </button>
-        <button
-          className="btn-danger"
+        </Button>
+        <Button
+          variant="danger"
           disabled={activate.isPending}
           onClick={async () => {
             if (
@@ -69,14 +71,22 @@ export function TutorActivation() {
           }}
         >
           {t("tutor.activate.optOut")}
-        </button>
+        </Button>
       </div>
       <p className="muted mt-2 text-xs">{t("tutor.activate.note")}</p>
-      {activate.isSuccess && <p role="status">{t("workflows.saved")}</p>}
+      {activate.isSuccess && (
+        <div className="mt-3">
+          <InlineNotice tone="success" announcement="status">
+            {t("workflows.saved")}
+          </InlineNotice>
+        </div>
+      )}
       {activate.error && (
-        <p role="alert" className="mt-2 text-sm text-red-600">
-          <AcademicError message={activate.error.message} selfService />
-        </p>
+        <div className="mt-3">
+          <InlineNotice tone="error" announcement="alert">
+            <AcademicError message={activate.error.message} selfService />
+          </InlineNotice>
+        </div>
       )}
     </section>
   );

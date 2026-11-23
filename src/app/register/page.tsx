@@ -5,7 +5,7 @@ import {
 } from "~/app/_components/public-form-page";
 import { getTranslations } from "next-intl/server";
 
-import { brandingMetadata } from "~/server/branding-metadata";
+import { pageMetadata } from "~/server/branding-metadata";
 import { RegisterFlow } from "./register-flow";
 import { db } from "~/server/db";
 import { getFeatures } from "~/server/program/features";
@@ -13,7 +13,7 @@ import { auth } from "~/server/auth";
 import { cookies } from "next/headers";
 
 export async function generateMetadata() {
-  return brandingMetadata("Register");
+  return pageMetadata("auth.register.title");
 }
 
 /**

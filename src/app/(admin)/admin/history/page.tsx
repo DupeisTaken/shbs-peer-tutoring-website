@@ -1175,7 +1175,7 @@ function StatGroup({
           {label}
         </h4>
         {caption && (
-          <span className="report-caption text-[11px] font-normal text-slate-400 italic">
+          <span className="report-caption text-xs font-normal text-slate-600 italic">
             {caption}
           </span>
         )}

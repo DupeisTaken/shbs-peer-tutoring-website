@@ -1,8 +1,13 @@
 import { getLocale, getTranslations } from "next-intl/server";
 
 import { db } from "~/server/db";
+import { pageMetadata } from "~/server/branding-metadata";
 import { localizedPolicy } from "~/server/policy";
 import { Markdown } from "~/app/_components/markdown";
+
+export async function generateMetadata() {
+  return pageMetadata("tutor.nav.handbook");
+}
 
 /**
  * Tutor-facing read-only view of the tutor policy/handbook, in the active UI locale (English
@@ -14,7 +19,7 @@ export default async function HandbookPage() {
   const policy = await localizedPolicy(db, "tutor-policy", locale);
 
   return (
-    <main className="mx-auto max-w-3xl px-4 py-8">
+    <main id="main-content" className="mx-auto max-w-3xl px-4 py-8">
       <h1 className="page-title mb-4">
         {policy?.title ?? t("tutor.nav.handbook")}
       </h1>

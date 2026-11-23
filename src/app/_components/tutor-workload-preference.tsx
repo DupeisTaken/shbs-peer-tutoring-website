@@ -1,10 +1,11 @@
 "use client";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { getQueryKey } from "@trpc/react-query";
 import { useTranslations } from "next-intl";
 import { api, type RouterOutputs } from "~/trpc/react";
 import { Button } from "./ui/button";
+import { useDialogPending } from "./ui/modal";
 import { FormSection, InlineNotice, StatePanel } from "./ui/patterns";
 import { QueryFeedback } from "./ui/query-feedback";
 import { WorkloadPreferenceChoices } from "./workload-preference-choices";
@@ -15,9 +16,11 @@ type Snapshot = NonNullable<RouterOutputs["tutor"]["workloadPreference"]>;
 export function TutorWorkloadPreference({
   embedded = false,
   summaryOnly = false,
+  onPendingChange,
 }: {
   embedded?: boolean;
   summaryOnly?: boolean;
+  onPendingChange?: (pending: boolean) => void;
 }) {
   const t = useTranslations("tutorWorkload");
   const [denied, setDenied] = useState(false);
@@ -120,6 +123,12 @@ export function TutorWorkloadPreference({
     },
   });
   const live = query.data ?? snapshot;
+  const ownPending = mutation.isPending || refreshing;
+  useDialogPending(ownPending);
+  useLayoutEffect(() => {
+    onPendingChange?.(ownPending);
+    return () => onPendingChange?.(false);
+  }, [onPendingChange, ownPending]);
   const blocked =
     denied ||
     deniedNow ||

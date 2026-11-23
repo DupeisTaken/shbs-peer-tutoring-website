@@ -1,12 +1,13 @@
 "use client";
 
-import { useMemo, useRef, useState } from "react";
+import { useLayoutEffect, useMemo, useRef, useState } from "react";
 
 import { useLocale, useTranslations } from "next-intl";
 
 import { api } from "~/trpc/react";
 import { formatWeekday, minToHm } from "~/lib/time";
 import { Button, ChoiceButton } from "~/app/_components/ui/button";
+import { useDialogPending } from "~/app/_components/ui/modal";
 import { FormActions, StatePanel } from "~/app/_components/ui/patterns";
 import { QueryFeedback } from "~/app/_components/ui/query-feedback";
 import { useSessionAccessDenied } from "~/app/_components/session-view-state";
@@ -18,7 +19,11 @@ import { settleRefreshes } from "~/lib/settle-refreshes";
  * Lets a tutor mark which catalog time slots they can teach. Slots are reference-only;
  * admins use availability when assigning tutees and building pairings.
  */
-export function AvailabilityEditor() {
+export function AvailabilityEditor({
+  onPendingChange,
+}: {
+  onPendingChange?: (pending: boolean) => void;
+} = {}) {
   const t = useTranslations();
   // Localize presentation and group names; selected IDs stay catalog-owned.
   const locale = useLocale();
@@ -75,6 +80,14 @@ export function AvailabilityEditor() {
   });
   // After a successful write, keep the submitted selection visible but prevent
   // another write or Cancel from restoring a stale cache until refresh succeeds.
+  const ownPending = save.isPending || sync.status === "refreshing";
+  // Register only this form's write/sync so a dialog cannot dismiss mid-save while
+  // independent sibling forms remain editable.
+  useDialogPending(ownPending);
+  useLayoutEffect(() => {
+    onPendingChange?.(ownPending);
+    return () => onPendingChange?.(false);
+  }, [onPendingChange, ownPending]);
   const locked =
     save.isPending ||
     sync.status !== "idle" ||

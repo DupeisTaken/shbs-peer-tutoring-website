@@ -40,14 +40,18 @@ export function useHeaderMenuClose() {
 export function HeaderMenuGroup({
   children,
   className,
+  label,
 }: {
   children: ReactNode;
   className?: string;
+  label?: string;
 }) {
   const [openId, setOpenId] = useState<string | null>(null);
   return (
     <HeaderMenuGroupContext.Provider value={{ openId, setOpenId }}>
-      <nav className={className}>{children}</nav>
+      <nav aria-label={label} className={className}>
+        {children}
+      </nav>
     </HeaderMenuGroupContext.Provider>
   );
 }
@@ -162,7 +166,7 @@ export function HeaderMenu({
                   }
                 >
                   {item.group && item.group !== items[index - 1]?.group ? (
-                    <p className="px-3 pt-2 pb-1 text-[11px] font-semibold tracking-wide text-slate-400 uppercase first:pt-1">
+                    <p className="px-3 pt-2 pb-1 text-xs font-semibold tracking-wide text-slate-600 uppercase first:pt-1">
                       {item.group}
                     </p>
                   ) : null}

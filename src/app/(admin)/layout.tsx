@@ -11,6 +11,7 @@ import { getFeatures } from "~/server/program/features";
 import { UserAvatar } from "~/app/_components/user-avatar";
 import { NavSidebar, NavMobileRow } from "~/app/_components/admin-nav";
 import { ReadOnlyProvider } from "~/app/_components/read-only";
+import { InlineNotice } from "~/app/_components/ui/patterns";
 import { TEAM_TITLE } from "~/lib/branding";
 
 /**
@@ -83,6 +84,8 @@ export default async function AdminLayout({
         href="/admin"
         title={TEAM_TITLE}
         items={workspaceItems}
+        skipLabel={t("common.skipToContent")}
+        skipToId="admin-content"
         identity={
           <Link
             href="/admin/account"
@@ -155,14 +158,20 @@ export default async function AdminLayout({
             </div>
           )}
           {session.role === "COORDINATOR" && (
-            <div className="mb-5 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-950">
-              <p>{t("approvals.trainingBanner")}</p>
-              <Link
-                className="link mt-1 inline-block"
-                href="/admin/approvals?status=all"
+            <div className="mb-5">
+              <InlineNotice
+                tone="warning"
+                action={
+                  <Link
+                    className="link inline-flex min-h-11 items-center text-sm lg:min-h-8"
+                    href="/admin/approvals?status=all"
+                  >
+                    {t("approvals.myRequests")}
+                  </Link>
+                }
               >
-                {t("approvals.myRequests")}
-              </Link>
+                <p>{t("approvals.trainingBanner")}</p>
+              </InlineNotice>
             </div>
           )}
           <ReadOnlyProvider value={readOnly}>

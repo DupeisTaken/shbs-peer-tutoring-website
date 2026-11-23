@@ -1,3 +1,4 @@
+import { pageMetadata } from "~/server/branding-metadata";
 import Link from "next/link";
 import { SessionPagePosition } from "~/app/_components/session-view-state";
 import { getFormatter, getTranslations } from "next-intl/server";
@@ -19,6 +20,10 @@ const STATUS_TONE: Record<string, string> = {
   RESCHEDULED: "badge-amber",
   TUTOR_ABSENT: "badge-red",
 };
+
+export async function generateMetadata() {
+  return pageMetadata("admin.nav.links.dashboard");
+}
 
 export default async function AdminHome() {
   const programFormat = await getFormatter();
@@ -75,13 +80,13 @@ export default async function AdminHome() {
       {/* Hero — the program's headline output, alongside who logged it. */}
       <section className="border-accent-100 bg-accent-50/45 grid gap-6 rounded-xl border p-4 shadow-sm sm:p-6 lg:grid-cols-5 lg:p-7">
         <div className="text-center lg:col-span-2 lg:text-left">
-          <p className="text-accent-700 text-[11px] font-semibold tracking-[0.14em] uppercase">
+          <p className="eyebrow text-accent-700">
             {summary.scope.label}
           </p>
           <p className="mt-2 text-5xl font-bold tracking-tight text-slate-900 tabular-nums sm:text-6xl">
             {heroFigure}
           </p>
-          <p className="mt-1 text-sm font-medium text-slate-500">{heroUnit}</p>
+          <p className="mt-1 text-sm font-medium text-slate-600">{heroUnit}</p>
           {sh && (
             <dl className="mt-5 flex flex-wrap justify-center gap-x-6 gap-y-2 lg:justify-start">
               <Metric
@@ -106,11 +111,11 @@ export default async function AdminHome() {
           )}
         </div>
         <div className="lg:border-accent-100 rounded-lg border border-slate-200 bg-white p-4 shadow-sm lg:col-span-3 lg:p-5">
-          <p className="section-title mb-3 text-center sm:text-left">
+          <h2 className="section-title mb-3 text-center sm:text-left">
             {sh
               ? t("admin.dashboard.hours.byTutor")
               : t("admin.dashboard.sessionsByTutor")}
-          </p>
+          </h2>
           <BarList
             items={bars}
             emptyLabel={t("admin.dashboard.hours.noData")}
@@ -159,12 +164,12 @@ export default async function AdminHome() {
         </div>
 
         <section className="card p-4 text-center sm:p-5 sm:text-left">
-          <p className="section-title">
+          <h2 className="section-title">
             {t("admin.dashboard.attendance.title")}
-          </p>
+          </h2>
           <p className="mt-1 mb-4 text-3xl font-bold text-slate-900 tabular-nums">
             {presentRate}%{" "}
-            <span className="text-sm font-medium text-slate-400">
+            <span className="text-sm font-medium text-slate-600">
               {t("admin.dashboard.attendance.present")}
             </span>
           </p>
@@ -193,10 +198,10 @@ export default async function AdminHome() {
         </section>
 
         <section className="card p-4 text-center sm:p-5 sm:text-left">
-          <p className="section-title">{t("admin.dashboard.pipeline.title")}</p>
+          <h2 className="section-title">{t("admin.dashboard.pipeline.title")}</h2>
           <p className="mt-1 mb-4 text-3xl font-bold text-slate-900 tabular-nums">
             {activeTutees}{" "}
-            <span className="text-sm font-medium text-slate-400">
+            <span className="text-sm font-medium text-slate-600">
               {t("admin.dashboard.pipeline.active")}
             </span>
           </p>
@@ -367,9 +372,7 @@ function Kpi({
         highlight ? "ring-2 ring-amber-300" : ""
       }`}
     >
-      <p className="text-[11px] leading-snug font-semibold tracking-[0.1em] text-slate-500 uppercase">
-        {label}
-      </p>
+      <p className="eyebrow">{label}</p>
       <p className="mt-2 text-3xl font-bold text-slate-900 tabular-nums">
         {value}
       </p>
@@ -388,13 +391,13 @@ function Metric({
 }) {
   const color =
     tone === "emerald"
-      ? "text-emerald-600"
+      ? "text-green-700"
       : tone === "red"
-        ? "text-red-600"
+        ? "text-red-700"
         : "text-slate-900";
   return (
     <div>
-      <dt className="text-[11px] font-semibold tracking-[0.08em] text-slate-400 uppercase">
+      <dt className="text-xs font-semibold tracking-[0.08em] text-slate-600 uppercase">
         {label}
       </dt>
       <dd className={`text-lg font-semibold tabular-nums ${color}`}>{value}</dd>

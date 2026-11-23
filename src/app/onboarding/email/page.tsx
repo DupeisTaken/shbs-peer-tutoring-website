@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import { getTranslations } from "next-intl/server";
 
-import { brandingMetadata } from "~/server/branding-metadata";
+import { pageMetadata } from "~/server/branding-metadata";
 import { auth } from "~/server/auth";
 import { db } from "~/server/db";
 import { APP_TITLE } from "~/lib/branding";
@@ -13,7 +13,7 @@ import {
 } from "~/app/_components/public-form-page";
 
 export async function generateMetadata() {
-  return brandingMetadata("Confirm your email");
+  return pageMetadata("auth.onboarding.title");
 }
 
 /**
