@@ -599,7 +599,12 @@ it("keeps service-hour totals brief and opens the full calculation through Detai
       messages.admin.summary.columns.penalties,
     ),
   ).toBeTruthy();
-  expect(within(screen.getByRole("dialog")).getByText("4.0")).toBeTruthy();
+  expect(
+    within(screen.getByRole("dialog")).getByText(
+      messages.admin.summary.columns.total,
+      { selector: "dt" },
+    ).nextElementSibling?.textContent,
+  ).toBe("4");
 });
 
 it("adds a final Details link to every history report while retaining detailed print cells", () => {
