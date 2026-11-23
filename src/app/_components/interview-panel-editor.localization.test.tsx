@@ -20,7 +20,6 @@ import type { AppRouter } from "~/server/api/root";
 const fixture = vi.hoisted(() => ({
   save: vi.fn<(input: unknown) => Promise<{ ok: true }>>(),
   changed: vi.fn<() => Promise<void>>(),
-  reload: vi.fn(),
 }));
 vi.mock("~/trpc/react", async () => {
   const { useMutation } = await import("@tanstack/react-query");
@@ -112,7 +111,6 @@ function subject(locale: "en" | "zh", refreshed = false) {
           <InterviewPanelEditor
             applicationId="synthetic-application"
             updatedAt={refreshed ? newerVersion : originalVersion}
-            repairRequired
             requestedTutorId={null}
             subjects={[{ id: "math", label: "Math" }]}
             interviewers={
@@ -122,7 +120,6 @@ function subject(locale: "en" | "zh", refreshed = false) {
             }
             tutors={tutors}
             onChanged={fixture.changed}
-            onReload={fixture.reload}
           />
         </main>
         <SaveNotifications />
@@ -146,16 +143,10 @@ it.each(["en", "zh"] as const)(
     const selectors = screen
       .getAllByRole<HTMLSelectElement>("combobox")
       .slice(1);
-    const reason = screen.getByRole<HTMLTextAreaElement>("textbox", {
-      name: catalog.admin.applications.panelRepair.reason,
-    });
     fireEvent.change(selectors[1]!, { target: { value: "d" } });
     fireEvent.click(screen.getAllByRole("radio")[2]!);
-    fireEvent.change(reason, {
-      target: { value: "  Retained synthetic reason  " },
-    });
     const save = screen.getByRole<HTMLButtonElement>("button", {
-      name: catalog.admin.applications.panelRepair.save,
+      name: catalog.admin.applications.savePanel,
     });
     act(() => {
       fireEvent.click(save);
@@ -163,7 +154,6 @@ it.each(["en", "zh"] as const)(
     });
     await waitFor(() => expect(fixture.save).toHaveBeenCalledOnce());
     expect(save.disabled).toBe(true);
-    expect(reason.disabled).toBe(true);
     view.rerender(subject(locale, true));
     const error = refusal(wireMessage);
     await act(async () => rejectWrite(error));
@@ -179,20 +169,16 @@ it.each(["en", "zh"] as const)(
       expect(screen.getAllByRole<HTMLInputElement>("radio")[2]?.checked).toBe(
         true,
       );
-      expect(reason.value).toBe("  Retained synthetic reason  ");
-      expect(reason.disabled).toBe(false);
       expect(fixture.save).toHaveBeenCalledExactlyOnceWith(
         {
           applicationId: "synthetic-application",
           tutorIds: ["a", "d", "c"],
           headTutorId: "c",
           expectedUpdatedAt: originalVersion,
-          repairReason: "Retained synthetic reason",
         },
         expect.anything(),
       );
       expect(fixture.changed).toHaveBeenCalledOnce();
-      expect(fixture.reload).not.toHaveBeenCalled();
       expect(client.getMutationCache().getAll()[0]?.state.error).toBe(error);
       expect(error.message).toBe(wireMessage);
       expect(error.data?.code).toBe("CONFLICT");
@@ -215,14 +201,11 @@ it.each(["en", "zh"] as const)(
       wireMessage.replace("—", "-"),
     ];
     const view = render(subject(locale));
-    fireEvent.change(screen.getByRole("textbox"), {
-      target: { value: "Synthetic repair reason" },
-    });
     for (const [index, message] of messages.entries()) {
       fixture.save.mockRejectedValue(refusal(message));
       fireEvent.click(
         screen.getByRole("button", {
-          name: catalogs[locale].admin.applications.panelRepair.save,
+          name: catalogs[locale].admin.applications.savePanel,
         }),
       );
       await waitFor(() => {
