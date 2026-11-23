@@ -69,19 +69,23 @@ export function LegacyContinuation() {
   const generation = useRef(0);
   const denied = accessDenied(query.error);
   const serverAnchor = query.data?.serverNow?.getTime();
+  const expiresAtMs = query.data?.expiresAt?.getTime();
   const [clock, setClock] = useState({ anchor: serverAnchor, elapsed: 0 });
   useEffect(() => {
+    if (
+      serverAnchor === undefined ||
+      expiresAtMs === undefined ||
+      serverAnchor >= expiresAtMs
+    )
+      return;
     const started = performance.now();
-    const timer = setInterval(
-      () =>
-        setClock({
-          anchor: serverAnchor,
-          elapsed: performance.now() - started,
-        }),
-      1_000,
-    );
+    const timer = setInterval(() => {
+      const elapsed = Math.max(0, performance.now() - started);
+      setClock({ anchor: serverAnchor, elapsed });
+      if (serverAnchor + elapsed >= expiresAtMs) clearInterval(timer);
+    }, 1_000);
     return () => clearInterval(timer);
-  }, [serverAnchor]);
+  }, [serverAnchor, expiresAtMs]);
   const conceal = useCallback(() => {
     generation.current += 1;
     setRevoked(true);
@@ -130,24 +134,25 @@ export function LegacyContinuation() {
   }, [denied, cache, locale]);
 
   const data = query.data;
-  const freshRequest = !!data?.hasFreshRequest;
-  const [previousFreshRequest, setPreviousFreshRequest] = useState(freshRequest);
-  if (previousFreshRequest !== freshRequest) {
-    setPreviousFreshRequest(freshRequest);
-    if (freshRequest) {
-      // Ordinary intake supersedes the shortcut, not an accepted or held write.
+  const now =
+    (serverAnchor ?? 0) + (clock.anchor === serverAnchor ? clock.elapsed : 0);
+  const expired = !!data?.expiresAt && now >= data.expiresAt.getTime();
+  const readBlocked = !data || !!query.error || revoked || denied;
+  const status = expired ? "expired" : data?.status;
+  const suppressed = !!data?.hasFreshRequest || status === "expired";
+  const [previousSuppressed, setPreviousSuppressed] = useState(suppressed);
+  if (previousSuppressed !== suppressed) {
+    setPreviousSuppressed(suppressed);
+    if (suppressed) {
+      // Ordinary intake or an elapsed continuation window hides the shortcut,
+      // never an already-filed receipt or an in-flight/uncertain submission.
       setReview(null);
       setSelected([]);
       setSignature("");
       setAgreedRevision(null);
     }
   }
-  const showContinuation = !data?.hasFreshRequest;
-  const now =
-    (serverAnchor ?? 0) + (clock.anchor === serverAnchor ? clock.elapsed : 0);
-  const expired = !!data?.expiresAt && now >= data.expiresAt.getTime();
-  const readBlocked = !data || !!query.error || revoked || denied;
-  const status = expired ? "expired" : data?.status;
+  const showContinuation = !suppressed;
   const blocked =
     !showContinuation ||
     readBlocked ||

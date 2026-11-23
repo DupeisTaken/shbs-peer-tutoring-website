@@ -369,6 +369,24 @@ Tutor Roster details use the read-only `tutorDetails.get` procedure, guarded by 
 
 The application runs as a persistent Next.js 16 / React 19 Node server with tRPC 11, Prisma 7/PostgreSQL, Auth.js JWT sessions, next-intl and Tailwind CSS 4. It is not a static export: background verification deadlines, authentication and database mutations require the server.
 
+The [Help catalogue](../guides/help/README.md) uses bilingual task records in
+`src/lib/help`. Its server reader derives live capabilities before serializing
+search results or rendering an article. Screenshot handlers accept only reviewed
+manifest IDs referenced by authorized guides; raw assets stay outside `public/`
+and are gitignored in favor of on-demand GitHub Actions runner baking
+(`.github/workflows/help-assets.yml`, `scripts/capture-help-screenshots.ts`, and
+controllable size budgets in `src/lib/help/image-budget.ts`). Runs on `main`
+publish `help-assets-baked.tar.gz` (plus its SHA-256 checksum and all 20 PDFs)
+to the rolling `help-assets-latest` GitHub Release, which
+`.github/workflows/docker-build.yml` verifies and unpacks via
+`scripts/unpack-help-assets.mjs` before building the container image.
+Staff PDF downloads (`/api/help/pdf/[audience]`) render the same records with
+a 2-slot in-process concurrency guard, embedding the website's Geist TrueType
+family paired with the local Noto Sans SC subset for Chinese glyphs. Admin and
+Head editions retain separate authority gates. Generated GitHub editions, font
+coverage and manifests are checked by `npm run help:check`; see the
+[maintenance procedure](../contributing/help-catalogue.md).
+
 | Change you need                          | Start here                                                                                                                                                                                       |
 | ------------------------------- | ------------------------------------------------------------------------------------------- |
 | Add or change a page                     | [App routes](../../src/app), [shared components](../../src/app/_components) and [message catalogs](../../messages)                                                                                        |
@@ -1573,7 +1591,10 @@ Join attempts after that proof. Immutable continuation receipts distinguish
 continuation-created or adopted requests from ordinary confirmation, preserving
 signed additions. Accepted receipt replay and read-only recovery remain available.
 The UI clears continuation choices and reviews after suppression and resets its
-cached status after mailbox confirmation.
+cached status after mailbox confirmation. It also auto-hides the continuation
+selection interface and closes any open unsubmitted review once the one-hour
+window expires (on load or at the server-anchored monotonic clock boundary),
+retaining only an already-filed submission receipt or held read-only recovery.
 
 [Assignment and release](../../src/server/student-continuation-assignment.ts)
 revalidate tutor eligibility, qualification, willingness, prior confirmed weekly
@@ -2047,7 +2068,10 @@ registration follow-up remain in Applications; initial admission stays in chair 
 Meeting details and the period/history browser share one retained excuse controller.
 Drafts are keyed by meeting, pending writes block dismissal, and accepted-write refresh
 failures offer reads without repeating the mutation. The 45-minute cutoff
-and server eligibility checks remain authoritative. Session-specific attendance stays
+and server eligibility checks remain authoritative; meeting reads also return
+`serverNow` so a server-anchored monotonic client clock automatically hides
+excuse, inline draft and cancel-excuse controls (and drops expired meetings from
+actionable schedule previews) as soon as the 45-minute interval passes. Session-specific attendance stays
 with its dated agenda controller and records actual duration. Known session fragments
 reveal the loaded card without opening a form or moving focus out of an active dialog.
 

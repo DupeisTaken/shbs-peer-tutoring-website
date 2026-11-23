@@ -1,5 +1,11 @@
 # User guide
 
+For searchable English and Chinese task walkthroughs with real development-server
+screenshots, explanations and troubleshooting, open **Help & How-to** at `/help`.
+Sign in to reveal guides for your current account and participation. The
+[repository catalogue](help/README.md) mirrors the same maintained instructions;
+staff can download PDF handbooks from **Management → PDF handbooks**.
+
 Use this guide with the website address supplied by your program. Page names below match the interface. Features and navigation can vary when Head activates staged program modules at refresh. A hidden page does not grant permission to use its address directly.
 
 ## Contents
@@ -301,7 +307,9 @@ reopen that request or reactivate an inactive profile.
 
 If submission has an uncertain result, use **Check request result** before
 submitting again. If a saved request cannot be refreshed, Retry only reloads its
-latest state. Outside the continuation window, use the regular signup form when
+latest state. Once the one-hour continuation window ends, the continuation
+interface automatically hides (retaining only an active submission receipt or
+read-only result check). Outside the continuation window, use the regular signup form when
 recruitment is open. Periods whose first-opening history is unknown do not receive
 an invented continuation hour; see [opening and rollout rules](program-configuration.md#continuation-opening-window).
 
@@ -828,7 +836,7 @@ For a student enrolled outside the survey flow, the tutor can relay the student'
 ### Conflicts, meetings and interviews
 
 - If an assigned tutee’s availability cannot work, submit a reasoned schedule-rejection request. The assignment continues until approval.
-- Submit or cancel your own meeting excuse at least **45 minutes** before the start (leaving a brief window after the 1-hour reminder email). The first three unexcused tutor-meeting absences in a semester have no automatic deduction; each further one deducts **0.25 hours**. Excused absences do not consume this allowance. Staff-recorded statuses require staff correction.
+- Submit or cancel your own meeting excuse at least **45 minutes** before the start (leaving a brief window after the 1-hour reminder email); excuse and cancel controls hide automatically once that 45-minute cutoff passes. The first three unexcused tutor-meeting absences in a semester have no automatic deduction; each further one deducts **0.25 hours**. Excused absences do not consume this allowance. Staff-recorded statuses require staff correction.
 - On an interview panel, review the application and submit your own vote. Every panelist must vote before a final decision. The majority decides; a tie is resolved by the selected Admin or Head chair, regardless of other panelists' rank.
 - On approval, the Admin or Head chair records actual duration and attendance and confirms the combined decision. Acceptance, service hours and initial registration setup apply immediately, and active Admin/Head accounts receive a notification. The current Admin/Head chair also applies rejection directly. Scheduling or voting alone never earns hours.
 

@@ -16,6 +16,13 @@ import {
   validateForm,
 } from "./check-docs.mjs";
 
+// Help inputs have a deliberately narrow home. Current WebP derivatives and
+// preserved PNG review proofs are content-addressed, never arbitrary reports.
+const isMaintainedHelpInput = (file) =>
+  /^docs\/guides\/help\/(?:assets\/[a-z0-9-]+\.(?:en|zh)\.jpg|assets\/annotated\/[a-f0-9]{64}\.(?:png|webp)|(?:captures|source-fingerprints|coverage|annotations)\.json)$/.test(
+    file,
+  );
+
 test("the root has only its README and agent instructions, and every guide is reachable", () => {
   // Agents find their entry point at the root; maintained guidance lives by audience.
   assert.deepEqual(
@@ -77,8 +84,10 @@ test("maintained documentation has separate contributor, reference and guide hom
           return entry.name === "reports" ? [] : files(file);
         return [file];
       });
-  // Historical captures cannot silently become current source guidance again.
+  // The maintained help manual owns its reviewed image receipts and assets.
+  // Historical reports/captures still cannot become source guidance elsewhere.
   for (const file of files("docs")) {
+    if (isMaintainedHelpInput(file)) continue;
     assert.match(
       file,
       /^docs\/(?:README\.md|(?:contributing|reference|guides)\/.+\.md)$/,
@@ -130,6 +139,41 @@ test("every registered notification event has exactly one maintained inventory e
     )
     .map((heading) => heading.text);
   assert.deepEqual(entries.toSorted(), events.toSorted());
+});
+test("help runtime inputs admit reviewed captures and content-addressed annotation exports only", () => {
+  const recipe = "a1".repeat(32);
+  for (const file of [
+    "docs/guides/help/assets/sign-in-recover-step-1.en.jpg",
+    "docs/guides/help/assets/sign-in-recover-step-1.zh.jpg",
+    `docs/guides/help/assets/annotated/${recipe}.png`,
+    `docs/guides/help/assets/annotated/${recipe}.webp`,
+    ...["captures", "source-fingerprints", "coverage", "annotations"].map(
+      (name) => `docs/guides/help/${name}.json`,
+    ),
+  ])
+    assert.equal(isMaintainedHelpInput(file), true, file);
+  for (const file of [
+    "docs/guides/help/assets/annotation.png",
+    "docs/guides/help/assets/annotated/screenshot.png",
+    `docs/guides/help/assets/annotated/${recipe.slice(1)}.png`,
+    `docs/guides/help/assets/annotated/${recipe}0.png`,
+    `docs/guides/help/assets/annotated/${"g".repeat(64)}.png`,
+    `docs/guides/help/assets/annotated/nested/${recipe}.png`,
+    `docs/guides/help/assets/annotated/${recipe}.jpg`,
+    "docs/guides/help/assets/annotated/screenshot.webp",
+    `docs/guides/help/assets/annotated/${recipe.slice(1)}.webp`,
+    `docs/guides/help/assets/annotated/${recipe}0.webp`,
+    `docs/guides/help/assets/annotated/${"g".repeat(64)}.webp`,
+    `docs/guides/help/assets/annotated/nested/${recipe}.webp`,
+    `docs/guides/help/assets/annotated/${recipe}.webp.json`,
+    `docs/guides/help/assets/${recipe}.webp`,
+    `docs/reference/assets/annotated/${recipe}.png`,
+    "docs/guides/help/other.json",
+    "docs/guides/help/handbook.pdf",
+    "docs/guides/help/report.html",
+    "docs/guides/help/assets/../annotations.json",
+  ])
+    assert.equal(isMaintainedHelpInput(file), false, file);
 });
 
 test("agent discovery routes to contributor rules instead of duplicating them", () => {

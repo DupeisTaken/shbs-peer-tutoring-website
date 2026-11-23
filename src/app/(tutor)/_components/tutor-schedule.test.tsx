@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
 import {
+  act,
   cleanup,
   fireEvent,
   render,
@@ -24,6 +25,14 @@ const state = vi.hoisted(() => ({
     null | "PRESENT" | "EXCUSED_ABSENT" | "UNEXCUSED_ABSENT" | "EXEMPT",
   meetingExcused: false,
   meetingUpcoming: true,
+  meetingServerNow: undefined as Date | undefined,
+  meetingActionableTasks: [] as {
+    id: string;
+    title: string;
+    action: "reviewMeeting";
+    startsAt: Date;
+    sortAt: Date;
+  }[],
   interviewError: null as null | { data: { code: string } },
   meetingError: null as null | { data: { code: string } },
   interviewInput: vi.fn(),
@@ -118,6 +127,8 @@ vi.mock("~/trpc/react", () => {
             state.meetingOptions(options);
             return {
               data: {
+                serverNow: state.meetingServerNow,
+                actionableTasks: state.meetingActionableTasks,
                 appointments: [
                   {
                     id: "meeting",
@@ -244,11 +255,17 @@ beforeEach(() => {
   state.meetingStatus = null;
   state.meetingExcused = false;
   state.meetingUpcoming = true;
+  state.meetingServerNow = undefined;
+  state.meetingActionableTasks = [];
   state.interviewError = null;
   state.meetingError = null;
   vi.clearAllMocks();
 });
-afterEach(cleanup);
+afterEach(() => {
+  cleanup();
+  vi.restoreAllMocks();
+  vi.useRealTimers();
+});
 const ui = (
   active = true,
   interviewsEnabled = true,
@@ -621,4 +638,29 @@ it("resolves the legacy schedule interview arrival to the personal reader", () =
   render(ui(true, true, true, "en", true));
   expect(screen.getByRole("dialog").textContent).toContain("Interview history");
   window.history.replaceState(null, "", "/");
+});
+
+it("drops a meeting from actionable upcoming tasks at the server-anchored 45-minute cutoff", () => {
+  vi.useFakeTimers();
+  let monotonic = 0;
+  vi.spyOn(performance, "now").mockImplementation(() => monotonic);
+  const start = new Date("2026-10-30T08:00:00.000Z");
+  state.meetingServerNow = new Date("2026-10-30T07:14:30.000Z");
+  state.meetingActionableTasks = [
+    {
+      id: "cutoff-meeting",
+      title: "Cutoff Briefing",
+      action: "reviewMeeting",
+      startsAt: start,
+      sortAt: start,
+    },
+  ];
+  render(ui());
+  expect(screen.getByText("Cutoff Briefing")).toBeTruthy();
+
+  monotonic = 30_001;
+  act(() => {
+    vi.advanceTimersByTime(30_001);
+  });
+  expect(screen.queryByText("Cutoff Briefing")).toBeNull();
 });

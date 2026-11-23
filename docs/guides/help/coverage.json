@@ -1,0 +1,5944 @@
+[
+  {
+    "slug": "use-help-catalogue",
+    "audience": "public",
+    "route": "/help",
+    "sources": [
+      "src/app/help/catalogue.tsx",
+      "src/app/help/[slug]/page.tsx",
+      "src/lib/help/screenshots.ts",
+      "src/app/(admin)/admin/help/page.tsx"
+    ],
+    "covers": [
+      "help catalogue search",
+      "audience filter",
+      "task filter",
+      "clear help filters",
+      "role-aware guides",
+      "numbered walkthrough",
+      "full screenshot zoom",
+      "screenshot provenance",
+      "admin PDF handbooks",
+      "FAQ redirect",
+      "GitHub catalogue copy"
+    ],
+    "screenshots": [
+      "help-catalogue",
+      "help-article"
+    ],
+    "steps": [
+      {
+        "number": 1,
+        "screenshot": "help-catalogue",
+        "supplementaryScreenshots": [],
+        "views": [
+          {
+            "id": "help-catalogue",
+            "view": 1,
+            "callouts": []
+          }
+        ],
+        "callouts": []
+      },
+      {
+        "number": 2,
+        "screenshot": "help-article",
+        "supplementaryScreenshots": [],
+        "views": [
+          {
+            "id": "help-article",
+            "view": 1,
+            "callouts": []
+          }
+        ],
+        "callouts": []
+      },
+      {
+        "number": 3,
+        "screenshot": null,
+        "supplementaryScreenshots": [],
+        "views": [],
+        "callouts": []
+      },
+      {
+        "number": 4,
+        "screenshot": null,
+        "supplementaryScreenshots": [],
+        "views": [],
+        "callouts": []
+      }
+    ]
+  },
+  {
+    "slug": "choose-registration",
+    "audience": "public",
+    "route": "/signin",
+    "sources": [
+      "src/app/signin/page.tsx",
+      "src/app/register/page.tsx",
+      "src/app/signup/signup-opening-notice.tsx",
+      "src/app/signup/signup-transition-notice.tsx",
+      "src/lib/public-signup-transition.ts",
+      "src/server/program/public-signup-transition.ts",
+      "docs/guides/user-guide.md"
+    ],
+    "covers": [
+      "choose signup route",
+      "preview closed recruitment",
+      "add access entry",
+      "read privacy policy"
+    ],
+    "screenshots": [
+      "signin"
+    ],
+    "steps": [
+      {
+        "number": 1,
+        "screenshot": "signin",
+        "supplementaryScreenshots": [],
+        "views": [
+          {
+            "id": "signin",
+            "view": 1,
+            "callouts": []
+          }
+        ],
+        "callouts": []
+      },
+      {
+        "number": 2,
+        "screenshot": null,
+        "supplementaryScreenshots": [],
+        "views": [],
+        "callouts": []
+      },
+      {
+        "number": 3,
+        "screenshot": null,
+        "supplementaryScreenshots": [],
+        "views": [],
+        "callouts": []
+      }
+    ]
+  },
+  {
+    "slug": "request-tutoring",
+    "audience": "public",
+    "route": "/tutee-signup",
+    "sources": [
+      "src/app/signup/signup-form.tsx",
+      "src/app/signup/survey-verification.tsx",
+      "src/app/register/register-flow.tsx",
+      "docs/guides/user-guide.md"
+    ],
+    "covers": [
+      "public tutee request",
+      "policy signature",
+      "request email verification",
+      "resend request code",
+      "same-email replacement",
+      "queue priority",
+      "account completion"
+    ],
+    "screenshots": [
+      "signup",
+      "invitation"
+    ],
+    "steps": [
+      {
+        "number": 1,
+        "screenshot": "signup",
+        "supplementaryScreenshots": [],
+        "views": [
+          {
+            "id": "signup",
+            "view": 1,
+            "callouts": []
+          }
+        ],
+        "callouts": []
+      },
+      {
+        "number": 2,
+        "screenshot": null,
+        "supplementaryScreenshots": [],
+        "views": [],
+        "callouts": []
+      },
+      {
+        "number": 3,
+        "screenshot": "invitation",
+        "supplementaryScreenshots": [],
+        "views": [
+          {
+            "id": "invitation",
+            "view": 1,
+            "callouts": []
+          }
+        ],
+        "callouts": []
+      },
+      {
+        "number": 4,
+        "screenshot": null,
+        "supplementaryScreenshots": [],
+        "views": [],
+        "callouts": []
+      }
+    ]
+  },
+  {
+    "slug": "apply-tutor",
+    "audience": "public",
+    "route": "/tutor-signup",
+    "sources": [
+      "src/app/tutor-signup/tutor-signup-form.tsx",
+      "src/server/api/routers/application.ts"
+    ],
+    "covers": [
+      "tutor application",
+      "qualification answers",
+      "closed tutor intake",
+      "duplicate tutor submission",
+      "accepted tutor invitation"
+    ],
+    "screenshots": [
+      "tutor-signup"
+    ],
+    "steps": [
+      {
+        "number": 1,
+        "screenshot": "tutor-signup",
+        "supplementaryScreenshots": [],
+        "views": [
+          {
+            "id": "tutor-signup",
+            "view": 1,
+            "callouts": []
+          }
+        ],
+        "callouts": []
+      },
+      {
+        "number": 2,
+        "screenshot": null,
+        "supplementaryScreenshots": [],
+        "views": [],
+        "callouts": []
+      },
+      {
+        "number": 3,
+        "screenshot": null,
+        "supplementaryScreenshots": [],
+        "views": [],
+        "callouts": []
+      }
+    ]
+  },
+  {
+    "slug": "apply-crew",
+    "audience": "public",
+    "route": "/crew-signup",
+    "sources": [
+      "src/app/crew-signup/crew-signup-form.tsx",
+      "src/server/api/routers/crew.ts"
+    ],
+    "covers": [
+      "crew application",
+      "crew mailbox verification",
+      "crew application status",
+      "crew invitation retrieval"
+    ],
+    "screenshots": [
+      "crew-signup"
+    ],
+    "steps": [
+      {
+        "number": 1,
+        "screenshot": "crew-signup",
+        "supplementaryScreenshots": [],
+        "views": [
+          {
+            "id": "crew-signup",
+            "view": 1,
+            "callouts": []
+          }
+        ],
+        "callouts": []
+      },
+      {
+        "number": 2,
+        "screenshot": null,
+        "supplementaryScreenshots": [],
+        "views": [],
+        "callouts": []
+      },
+      {
+        "number": 3,
+        "screenshot": null,
+        "supplementaryScreenshots": [],
+        "views": [],
+        "callouts": []
+      }
+    ]
+  },
+  {
+    "slug": "register-viewer",
+    "audience": "public",
+    "route": "/viewer-signup",
+    "sources": [
+      "src/app/viewer-signup/viewer-signup-flow.tsx",
+      "src/server/api/routers/viewer.ts"
+    ],
+    "covers": [
+      "viewer registration",
+      "existing account viewer login",
+      "viewer email verification"
+    ],
+    "screenshots": [
+      "viewer-signup"
+    ],
+    "steps": [
+      {
+        "number": 1,
+        "screenshot": "viewer-signup",
+        "supplementaryScreenshots": [],
+        "views": [
+          {
+            "id": "viewer-signup",
+            "view": 1,
+            "callouts": []
+          }
+        ],
+        "callouts": []
+      },
+      {
+        "number": 2,
+        "screenshot": null,
+        "supplementaryScreenshots": [],
+        "views": [],
+        "callouts": []
+      },
+      {
+        "number": 3,
+        "screenshot": null,
+        "supplementaryScreenshots": [],
+        "views": [],
+        "callouts": []
+      }
+    ]
+  },
+  {
+    "slug": "accept-invitation",
+    "audience": "public",
+    "route": "/register-account",
+    "sources": [
+      "src/app/register/register-flow.tsx",
+      "src/app/register/invitation-redemption.tsx",
+      "src/app/register/invitation-receipt.tsx",
+      "src/app/signup/signin-access.tsx"
+    ],
+    "covers": [
+      "invitation redemption",
+      "staff keys",
+      "add access",
+      "new credentials",
+      "existing account invitation",
+      "legacy code formats",
+      "invitation recovery",
+      "copy public sign-in link",
+      "save sign-in QR"
+    ],
+    "screenshots": [
+      "invitation"
+    ],
+    "steps": [
+      {
+        "number": 1,
+        "screenshot": "invitation",
+        "supplementaryScreenshots": [],
+        "views": [
+          {
+            "id": "invitation",
+            "view": 1,
+            "callouts": []
+          }
+        ],
+        "callouts": []
+      },
+      {
+        "number": 2,
+        "screenshot": null,
+        "supplementaryScreenshots": [],
+        "views": [],
+        "callouts": []
+      },
+      {
+        "number": 3,
+        "screenshot": null,
+        "supplementaryScreenshots": [],
+        "views": [],
+        "callouts": []
+      },
+      {
+        "number": 4,
+        "screenshot": null,
+        "supplementaryScreenshots": [],
+        "views": [],
+        "callouts": []
+      }
+    ]
+  },
+  {
+    "slug": "sign-in-recover",
+    "audience": "public",
+    "route": "/signin",
+    "sources": [
+      "src/app/signin/sign-in-form.tsx",
+      "src/app/forgot-password/forgot-password-form.tsx",
+      "src/app/reset-password/reset-password-form.tsx",
+      "src/app/suspended/page.tsx"
+    ],
+    "covers": [
+      "password sign-in",
+      "email two-factor sign-in",
+      "forgot password",
+      "reset password",
+      "unfinished setup",
+      "suspension appeal"
+    ],
+    "screenshots": [
+      "signin",
+      "forgot-password"
+    ],
+    "steps": [
+      {
+        "number": 1,
+        "screenshot": "signin",
+        "supplementaryScreenshots": [],
+        "views": [
+          {
+            "id": "signin",
+            "view": 1,
+            "callouts": []
+          }
+        ],
+        "callouts": []
+      },
+      {
+        "number": 2,
+        "screenshot": null,
+        "supplementaryScreenshots": [],
+        "views": [],
+        "callouts": []
+      },
+      {
+        "number": 3,
+        "screenshot": "forgot-password",
+        "supplementaryScreenshots": [],
+        "views": [
+          {
+            "id": "forgot-password",
+            "view": 1,
+            "callouts": []
+          }
+        ],
+        "callouts": []
+      },
+      {
+        "number": 4,
+        "screenshot": null,
+        "supplementaryScreenshots": [],
+        "views": [],
+        "callouts": []
+      }
+    ]
+  },
+  {
+    "slug": "navigate-workspaces",
+    "audience": "account",
+    "route": "/my-account",
+    "sources": [
+      "src/app/_components/workspace-header.tsx",
+      "src/app/_components/workspace-links.tsx",
+      "src/app/_components/admin-nav.tsx",
+      "src/app/_components/ui/table-sorting.tsx"
+    ],
+    "covers": [
+      "workspace switching",
+      "mobile navigation",
+      "language",
+      "theme",
+      "notification bell",
+      "mark read",
+      "table sorting"
+    ],
+    "screenshots": [
+      "account"
+    ],
+    "steps": [
+      {
+        "number": 1,
+        "screenshot": "account",
+        "supplementaryScreenshots": [],
+        "views": [
+          {
+            "id": "account",
+            "view": 1,
+            "callouts": []
+          }
+        ],
+        "callouts": []
+      },
+      {
+        "number": 2,
+        "screenshot": null,
+        "supplementaryScreenshots": [],
+        "views": [],
+        "callouts": []
+      },
+      {
+        "number": 3,
+        "screenshot": null,
+        "supplementaryScreenshots": [],
+        "views": [],
+        "callouts": []
+      },
+      {
+        "number": 4,
+        "screenshot": null,
+        "supplementaryScreenshots": [],
+        "views": [],
+        "callouts": []
+      }
+    ]
+  },
+  {
+    "slug": "read-recover-save",
+    "audience": "account",
+    "route": "/my-account",
+    "sources": [
+      "src/lib/invalidate-refresh.ts",
+      "src/app/_components/ui/query-feedback.tsx",
+      "docs/guides/user-guide.md"
+    ],
+    "covers": [
+      "read retry",
+      "save retry",
+      "saved refresh failure",
+      "stale conflict reload",
+      "confirmation countdown",
+      "draft lifetime"
+    ],
+    "screenshots": [
+      "account"
+    ],
+    "steps": [
+      {
+        "number": 1,
+        "screenshot": "account",
+        "supplementaryScreenshots": [],
+        "views": [
+          {
+            "id": "account",
+            "view": 1,
+            "callouts": []
+          }
+        ],
+        "callouts": []
+      },
+      {
+        "number": 2,
+        "screenshot": null,
+        "supplementaryScreenshots": [],
+        "views": [],
+        "callouts": []
+      },
+      {
+        "number": 3,
+        "screenshot": null,
+        "supplementaryScreenshots": [],
+        "views": [],
+        "callouts": []
+      },
+      {
+        "number": 4,
+        "screenshot": null,
+        "supplementaryScreenshots": [],
+        "views": [],
+        "callouts": []
+      }
+    ]
+  },
+  {
+    "slug": "account-profile",
+    "audience": "account",
+    "route": "/my-account",
+    "sources": [
+      "src/app/_components/account-settings.tsx",
+      "src/app/_components/membership-editor.tsx",
+      "src/app/(tutor)/settings/page.tsx"
+    ],
+    "covers": [
+      "edit own profile",
+      "name fields",
+      "save profile",
+      "cancel profile draft",
+      "request participant badge",
+      "add access account menu"
+    ],
+    "screenshots": [
+      "account"
+    ],
+    "steps": [
+      {
+        "number": 1,
+        "screenshot": "account",
+        "supplementaryScreenshots": [],
+        "views": [
+          {
+            "id": "account",
+            "view": 1,
+            "callouts": []
+          }
+        ],
+        "callouts": []
+      },
+      {
+        "number": 2,
+        "screenshot": null,
+        "supplementaryScreenshots": [],
+        "views": [],
+        "callouts": []
+      },
+      {
+        "number": 3,
+        "screenshot": null,
+        "supplementaryScreenshots": [],
+        "views": [],
+        "callouts": []
+      }
+    ]
+  },
+  {
+    "slug": "account-academics",
+    "audience": "account",
+    "route": "/my-account#academic-details",
+    "sources": [
+      "src/app/_components/academic-profile.tsx",
+      "docs/guides/user-guide.md"
+    ],
+    "covers": [
+      "confirm academic grade",
+      "unknown graduated not applicable",
+      "academic confirmation history",
+      "derived graduation",
+      "school-year rollover"
+    ],
+    "screenshots": [
+      "account-academics"
+    ],
+    "steps": [
+      {
+        "number": 1,
+        "screenshot": "account-academics",
+        "supplementaryScreenshots": [],
+        "views": [
+          {
+            "id": "account-academics",
+            "view": 1,
+            "callouts": []
+          }
+        ],
+        "callouts": []
+      },
+      {
+        "number": 2,
+        "screenshot": null,
+        "supplementaryScreenshots": [],
+        "views": [],
+        "callouts": []
+      },
+      {
+        "number": 3,
+        "screenshot": null,
+        "supplementaryScreenshots": [],
+        "views": [],
+        "callouts": []
+      }
+    ]
+  },
+  {
+    "slug": "school-departure",
+    "audience": "account",
+    "route": "/my-account#academic-details",
+    "sources": [
+      "src/app/_components/school-departure.tsx",
+      "src/lib/portal-access.ts",
+      "src/server/api/routers/departure.ts"
+    ],
+    "covers": [
+      "request graduation",
+      "request school transfer",
+      "departure history",
+      "return to school",
+      "departure observer access"
+    ],
+    "screenshots": [
+      "account-departure"
+    ],
+    "steps": [
+      {
+        "number": 1,
+        "screenshot": "account-departure",
+        "supplementaryScreenshots": [],
+        "views": [
+          {
+            "id": "account-departure",
+            "view": 1,
+            "callouts": []
+          }
+        ],
+        "callouts": []
+      },
+      {
+        "number": 2,
+        "screenshot": null,
+        "supplementaryScreenshots": [],
+        "views": [],
+        "callouts": []
+      },
+      {
+        "number": 3,
+        "screenshot": null,
+        "supplementaryScreenshots": [],
+        "views": [],
+        "callouts": []
+      }
+    ]
+  },
+  {
+    "slug": "account-security",
+    "audience": "account",
+    "route": "/my-account#account-password",
+    "sources": [
+      "src/app/_components/two-factor-settings.tsx",
+      "src/app/_components/account-settings.tsx",
+      "src/lib/password-session.ts"
+    ],
+    "covers": [
+      "change password",
+      "enable two-factor",
+      "disable two-factor",
+      "security email confirmation",
+      "session revocation",
+      "password confirmation limits"
+    ],
+    "screenshots": [
+      "account-password",
+      "account-twofactor"
+    ],
+    "steps": [
+      {
+        "number": 1,
+        "screenshot": "account-password",
+        "supplementaryScreenshots": [],
+        "views": [
+          {
+            "id": "account-password",
+            "view": 1,
+            "callouts": []
+          }
+        ],
+        "callouts": []
+      },
+      {
+        "number": 2,
+        "screenshot": "account-twofactor",
+        "supplementaryScreenshots": [],
+        "views": [
+          {
+            "id": "account-twofactor",
+            "view": 1,
+            "callouts": []
+          }
+        ],
+        "callouts": []
+      },
+      {
+        "number": 3,
+        "screenshot": null,
+        "supplementaryScreenshots": [],
+        "views": [],
+        "callouts": []
+      }
+    ]
+  },
+  {
+    "slug": "account-emails",
+    "audience": "account",
+    "route": "/my-account#associated-emails",
+    "sources": [
+      "src/app/_components/account-emails.tsx",
+      "src/server/api/routers/account.ts"
+    ],
+    "covers": [
+      "add secondary email",
+      "verify secondary email",
+      "resend email code",
+      "cancel pending email",
+      "promote primary",
+      "remove secondary",
+      "email sign-in recovery"
+    ],
+    "screenshots": [
+      "account-emails"
+    ],
+    "steps": [
+      {
+        "number": 1,
+        "screenshot": "account-emails",
+        "supplementaryScreenshots": [],
+        "views": [
+          {
+            "id": "account-emails",
+            "view": 1,
+            "callouts": []
+          }
+        ],
+        "callouts": []
+      },
+      {
+        "number": 2,
+        "screenshot": null,
+        "supplementaryScreenshots": [],
+        "views": [],
+        "callouts": []
+      },
+      {
+        "number": 3,
+        "screenshot": null,
+        "supplementaryScreenshots": [],
+        "views": [],
+        "callouts": []
+      }
+    ]
+  },
+  {
+    "slug": "notification-preferences",
+    "audience": "account",
+    "route": "/my-account#notification-preferences",
+    "sources": [
+      "src/app/_components/account-emails.tsx",
+      "src/app/unsubscribe/unsubscribe-form.tsx",
+      "docs/guides/user-guide.md"
+    ],
+    "covers": [
+      "notification category badges",
+      "optional email",
+      "email language",
+      "secondary delivery preference",
+      "required preferences",
+      "unsubscribe category",
+      "unsubscribe all",
+      "reminders"
+    ],
+    "screenshots": [
+      "account-notifications"
+    ],
+    "steps": [
+      {
+        "number": 1,
+        "screenshot": "account-notifications",
+        "supplementaryScreenshots": [],
+        "views": [
+          {
+            "id": "account-notifications",
+            "view": 1,
+            "callouts": []
+          }
+        ],
+        "callouts": []
+      },
+      {
+        "number": 2,
+        "screenshot": null,
+        "supplementaryScreenshots": [],
+        "views": [],
+        "callouts": []
+      },
+      {
+        "number": 3,
+        "screenshot": null,
+        "supplementaryScreenshots": [],
+        "views": [],
+        "callouts": []
+      }
+    ]
+  },
+  {
+    "slug": "read-accept-policy",
+    "audience": "account",
+    "route": "/student?view=dashboard",
+    "sources": [
+      "src/app/_components/policy-consent.tsx",
+      "src/app/(tutor)/dashboard/page.tsx",
+      "docs/guides/user-guide.md"
+    ],
+    "covers": [
+      "renew policy acceptance",
+      "scroll policy gate",
+      "policy signature",
+      "read current policy",
+      "cancel policy renewal"
+    ],
+    "screenshots": [
+      "policy"
+    ],
+    "steps": [
+      {
+        "number": 1,
+        "screenshot": "policy",
+        "supplementaryScreenshots": [],
+        "views": [
+          {
+            "id": "policy",
+            "view": 1,
+            "callouts": []
+          }
+        ],
+        "callouts": []
+      },
+      {
+        "number": 2,
+        "screenshot": null,
+        "supplementaryScreenshots": [],
+        "views": [],
+        "callouts": []
+      },
+      {
+        "number": 3,
+        "screenshot": null,
+        "supplementaryScreenshots": [],
+        "views": [],
+        "callouts": []
+      }
+    ]
+  },
+  {
+    "slug": "send-private-messages",
+    "audience": "account",
+    "route": "/messages",
+    "sources": [
+      "src/app/messages/page.tsx",
+      "src/app/_components/message-inbox.tsx",
+      "src/server/api/routers/messaging.ts",
+      "src/server/api/routers/notification.ts",
+      "src/server/messaging-permissions.ts"
+    ],
+    "covers": [
+      "message recipient search",
+      "select multiple recipients",
+      "send message",
+      "reply",
+      "cancel reply",
+      "mark incoming messages read",
+      "browse message history",
+      "message moderation disclosure",
+      "messaging restriction"
+    ],
+    "screenshots": [
+      "student-messages"
+    ],
+    "steps": [
+      {
+        "number": 1,
+        "screenshot": "student-messages",
+        "supplementaryScreenshots": [],
+        "views": [
+          {
+            "id": "student-messages",
+            "view": 1,
+            "callouts": []
+          }
+        ],
+        "callouts": []
+      },
+      {
+        "number": 2,
+        "screenshot": null,
+        "supplementaryScreenshots": [],
+        "views": [],
+        "callouts": []
+      },
+      {
+        "number": 3,
+        "screenshot": null,
+        "supplementaryScreenshots": [],
+        "views": [],
+        "callouts": []
+      },
+      {
+        "number": 4,
+        "screenshot": null,
+        "supplementaryScreenshots": [],
+        "views": [],
+        "callouts": []
+      }
+    ]
+  },
+  {
+    "slug": "find-own-history",
+    "audience": "account",
+    "route": "/history",
+    "sources": [
+      "src/app/history/page.tsx",
+      "src/app/history/claim/history-claim.tsx",
+      "src/app/history/personal-tutor-history.tsx"
+    ],
+    "covers": [
+      "personal history",
+      "received tutoring history",
+      "provided tutoring history",
+      "session meeting amendment pagination",
+      "history-only account",
+      "link exact history"
+    ],
+    "screenshots": [
+      "history"
+    ],
+    "steps": [
+      {
+        "number": 1,
+        "screenshot": "history",
+        "supplementaryScreenshots": [],
+        "views": [
+          {
+            "id": "history",
+            "view": 1,
+            "callouts": []
+          }
+        ],
+        "callouts": []
+      },
+      {
+        "number": 2,
+        "screenshot": null,
+        "supplementaryScreenshots": [],
+        "views": [],
+        "callouts": []
+      },
+      {
+        "number": 3,
+        "screenshot": null,
+        "supplementaryScreenshots": [],
+        "views": [],
+        "callouts": []
+      }
+    ]
+  },
+  {
+    "slug": "report-problem",
+    "audience": "public",
+    "route": "/help",
+    "sources": [
+      "docs/contributing/issues.md",
+      "docs/guides/user-guide.md"
+    ],
+    "covers": [
+      "private support",
+      "report bug",
+      "feature enhancement documentation issue",
+      "security report",
+      "redact public evidence"
+    ],
+    "screenshots": [
+      "signin"
+    ],
+    "steps": [
+      {
+        "number": 1,
+        "screenshot": "signin",
+        "supplementaryScreenshots": [],
+        "views": [
+          {
+            "id": "signin",
+            "view": 1,
+            "callouts": []
+          }
+        ],
+        "callouts": []
+      },
+      {
+        "number": 2,
+        "screenshot": null,
+        "supplementaryScreenshots": [],
+        "views": [],
+        "callouts": []
+      },
+      {
+        "number": 3,
+        "screenshot": null,
+        "supplementaryScreenshots": [],
+        "views": [],
+        "callouts": []
+      }
+    ]
+  },
+  {
+    "slug": "tutee-workspace",
+    "audience": "student",
+    "route": "/student?view=dashboard",
+    "sources": [
+      "src/app/student/student-workspace.tsx",
+      "src/app/student/tutee-overview.tsx",
+      "src/app/student/views.ts"
+    ],
+    "covers": [
+      "tutee navigation",
+      "dashboard summaries",
+      "view tutors schedule rooms",
+      "awaiting schedule",
+      "no-tutoring notices",
+      "tutee pagination"
+    ],
+    "screenshots": [
+      "student-dashboard",
+      "student-schedule"
+    ],
+    "steps": [
+      {
+        "number": 1,
+        "screenshot": "student-dashboard",
+        "supplementaryScreenshots": [],
+        "views": [
+          {
+            "id": "student-dashboard",
+            "view": 1,
+            "callouts": []
+          }
+        ],
+        "callouts": []
+      },
+      {
+        "number": 2,
+        "screenshot": "student-schedule",
+        "supplementaryScreenshots": [],
+        "views": [
+          {
+            "id": "student-schedule",
+            "view": 1,
+            "callouts": []
+          }
+        ],
+        "callouts": []
+      },
+      {
+        "number": 3,
+        "screenshot": null,
+        "supplementaryScreenshots": [],
+        "views": [],
+        "callouts": []
+      }
+    ]
+  },
+  {
+    "slug": "manage-tutee-request",
+    "audience": "student",
+    "route": "/student?view=requests",
+    "sources": [
+      "src/app/_components/student-signup-editor.tsx",
+      "src/server/api/routers/student-workflow.ts",
+      "docs/guides/user-guide.md"
+    ],
+    "covers": [
+      "read current closed requests",
+      "edit owned signup",
+      "edit availability",
+      "assigned subject restrictions",
+      "recall unmatched request",
+      "priority preservation"
+    ],
+    "screenshots": [
+      "student-requests"
+    ],
+    "steps": [
+      {
+        "number": 1,
+        "screenshot": "student-requests",
+        "supplementaryScreenshots": [],
+        "views": [
+          {
+            "id": "student-requests",
+            "view": 1,
+            "callouts": []
+          }
+        ],
+        "callouts": []
+      },
+      {
+        "number": 2,
+        "screenshot": null,
+        "supplementaryScreenshots": [],
+        "views": [],
+        "callouts": []
+      },
+      {
+        "number": 3,
+        "screenshot": null,
+        "supplementaryScreenshots": [],
+        "views": [],
+        "callouts": []
+      }
+    ]
+  },
+  {
+    "slug": "withdraw-tutee",
+    "audience": "student",
+    "route": "/student?view=requests",
+    "sources": [
+      "src/server/api/routers/student-workflow.ts",
+      "src/app/student/student-workspace.tsx"
+    ],
+    "covers": [
+      "tutee withdrawal",
+      "staff-entered withdrawal",
+      "withdrawal reason timed confirmation",
+      "withdrawal pending decision",
+      "period resubmission block"
+    ],
+    "screenshots": [
+      "student-requests"
+    ],
+    "steps": [
+      {
+        "number": 1,
+        "screenshot": "student-requests",
+        "supplementaryScreenshots": [],
+        "views": [
+          {
+            "id": "student-requests",
+            "view": 1,
+            "callouts": []
+          }
+        ],
+        "callouts": []
+      },
+      {
+        "number": 2,
+        "screenshot": null,
+        "supplementaryScreenshots": [],
+        "views": [],
+        "callouts": []
+      },
+      {
+        "number": 3,
+        "screenshot": null,
+        "supplementaryScreenshots": [],
+        "views": [],
+        "callouts": []
+      }
+    ]
+  },
+  {
+    "slug": "appeal-invalid-request",
+    "audience": "student",
+    "route": "/student?view=requests",
+    "sources": [
+      "src/app/tutee-signup/appeal/signup-appeal.tsx",
+      "src/app/request-appeal/request-appeal-form.tsx",
+      "src/server/api/routers/student-workflow.ts"
+    ],
+    "covers": [
+      "signup invalidity reason",
+      "signup appeal",
+      "appeal decision",
+      "request-specific email appeal",
+      "verification deadlines during appeal"
+    ],
+    "screenshots": [
+      "student-requests"
+    ],
+    "steps": [
+      {
+        "number": 1,
+        "screenshot": "student-requests",
+        "supplementaryScreenshots": [],
+        "views": [
+          {
+            "id": "student-requests",
+            "view": 1,
+            "callouts": []
+          }
+        ],
+        "callouts": []
+      },
+      {
+        "number": 2,
+        "screenshot": null,
+        "supplementaryScreenshots": [],
+        "views": [],
+        "callouts": []
+      },
+      {
+        "number": 3,
+        "screenshot": null,
+        "supplementaryScreenshots": [],
+        "views": [],
+        "callouts": []
+      }
+    ]
+  },
+  {
+    "slug": "appeal-signup-from-email",
+    "audience": "public",
+    "route": "/request-appeal",
+    "sources": [
+      "src/app/request-appeal/request-appeal-form.tsx",
+      "src/app/tutee-signup/appeal/signup-appeal.tsx",
+      "src/server/student-signup-appeals.ts",
+      "src/server/api/routers/student-workflow.ts"
+    ],
+    "covers": [
+      "accountless signup appeal",
+      "mailbox request-specific appeal link",
+      "public tutor request appeal",
+      "public tutee signup appeal",
+      "legacy appeal expiry",
+      "one appeal per invalid flag",
+      "appeal receipt versus decision",
+      "private proof link recovery"
+    ],
+    "screenshots": [
+      "signup"
+    ],
+    "steps": [
+      {
+        "number": 1,
+        "screenshot": "signup",
+        "supplementaryScreenshots": [],
+        "views": [
+          {
+            "id": "signup",
+            "view": 1,
+            "callouts": []
+          }
+        ],
+        "callouts": []
+      },
+      {
+        "number": 2,
+        "screenshot": null,
+        "supplementaryScreenshots": [],
+        "views": [],
+        "callouts": []
+      },
+      {
+        "number": 3,
+        "screenshot": null,
+        "supplementaryScreenshots": [],
+        "views": [],
+        "callouts": []
+      },
+      {
+        "number": 4,
+        "screenshot": null,
+        "supplementaryScreenshots": [],
+        "views": [],
+        "callouts": []
+      }
+    ]
+  },
+  {
+    "slug": "tutee-feedback-appeals",
+    "audience": "student",
+    "route": "/student?view=attendance",
+    "sources": [
+      "src/app/_components/student-support.tsx",
+      "src/app/student/student-workspace.tsx",
+      "docs/guides/user-guide.md"
+    ],
+    "covers": [
+      "student attendance history",
+      "submit session feedback",
+      "feedback sharing",
+      "view own cards",
+      "card appeal",
+      "school-day deadline",
+      "discipline effects"
+    ],
+    "screenshots": [
+      "student-attendance",
+      "student-feedback",
+      "student-support"
+    ],
+    "steps": [
+      {
+        "number": 1,
+        "screenshot": "student-attendance",
+        "supplementaryScreenshots": [],
+        "views": [
+          {
+            "id": "student-attendance",
+            "view": 1,
+            "callouts": []
+          }
+        ],
+        "callouts": []
+      },
+      {
+        "number": 2,
+        "screenshot": "student-feedback",
+        "supplementaryScreenshots": [],
+        "views": [
+          {
+            "id": "student-feedback",
+            "view": 1,
+            "callouts": []
+          }
+        ],
+        "callouts": []
+      },
+      {
+        "number": 3,
+        "screenshot": "student-support",
+        "supplementaryScreenshots": [],
+        "views": [
+          {
+            "id": "student-support",
+            "view": 1,
+            "callouts": []
+          }
+        ],
+        "callouts": []
+      }
+    ]
+  },
+  {
+    "slug": "continue-quarter-pairings",
+    "audience": "student",
+    "route": "/student?view=requests",
+    "sources": [
+      "src/app/student/legacy-continuation.tsx",
+      "src/server/api/routers/student-workflow.ts",
+      "src/server/student-continuation.ts"
+    ],
+    "covers": [
+      "quarter continuation",
+      "select prior pairings",
+      "continuation policy signature",
+      "partial continuation assignment",
+      "continuation result recovery"
+    ],
+    "screenshots": [
+      "student-requests"
+    ],
+    "steps": [
+      {
+        "number": 1,
+        "screenshot": "student-requests",
+        "supplementaryScreenshots": [],
+        "views": [
+          {
+            "id": "student-requests",
+            "view": 1,
+            "callouts": []
+          }
+        ],
+        "callouts": []
+      },
+      {
+        "number": 2,
+        "screenshot": null,
+        "supplementaryScreenshots": [],
+        "views": [],
+        "callouts": []
+      },
+      {
+        "number": 3,
+        "screenshot": null,
+        "supplementaryScreenshots": [],
+        "views": [],
+        "callouts": []
+      }
+    ]
+  },
+  {
+    "slug": "respond-session-plan",
+    "audience": "student",
+    "route": "/student?view=schedule",
+    "sources": [
+      "src/app/_components/session-plan-time.tsx",
+      "src/app/_components/session-agenda.tsx",
+      "src/server/api/routers/session-planning.ts",
+      "docs/guides/user-guide.md"
+    ],
+    "covers": [
+      "tutee schedule suggestion",
+      "accept reschedule",
+      "reject with alternative",
+      "final reschedule",
+      "group separate reschedule",
+      "respond extra",
+      "accept decline extra cancellation",
+      "essential email response timing"
+    ],
+    "screenshots": [
+      "student-schedule"
+    ],
+    "steps": [
+      {
+        "number": 1,
+        "screenshot": "student-schedule",
+        "supplementaryScreenshots": [],
+        "views": [
+          {
+            "id": "student-schedule",
+            "view": 1,
+            "callouts": []
+          }
+        ],
+        "callouts": []
+      },
+      {
+        "number": 2,
+        "screenshot": null,
+        "supplementaryScreenshots": [],
+        "views": [],
+        "callouts": []
+      },
+      {
+        "number": 3,
+        "screenshot": null,
+        "supplementaryScreenshots": [],
+        "views": [],
+        "callouts": []
+      },
+      {
+        "number": 4,
+        "screenshot": null,
+        "supplementaryScreenshots": [],
+        "views": [],
+        "callouts": []
+      }
+    ]
+  },
+  {
+    "slug": "start-tutoring",
+    "audience": "tutor",
+    "route": "/dashboard",
+    "sources": [
+      "src/app/(tutor)/dashboard/page.tsx",
+      "src/app/(tutor)/_components/tutor-workspace.tsx",
+      "src/app/(tutor)/_components/tutor-activation.tsx"
+    ],
+    "covers": [
+      "pending tutor activation",
+      "tutor workspace panels",
+      "needs attention",
+      "inactive tutor history",
+      "legacy dashboard fragments"
+    ],
+    "screenshots": [
+      "tutor-overview"
+    ],
+    "steps": [
+      {
+        "number": 1,
+        "screenshot": "tutor-overview",
+        "supplementaryScreenshots": [],
+        "views": [
+          {
+            "id": "tutor-overview",
+            "view": 1,
+            "callouts": []
+          }
+        ],
+        "callouts": []
+      },
+      {
+        "number": 2,
+        "screenshot": null,
+        "supplementaryScreenshots": [],
+        "views": [],
+        "callouts": []
+      },
+      {
+        "number": 3,
+        "screenshot": null,
+        "supplementaryScreenshots": [],
+        "views": [],
+        "callouts": []
+      }
+    ]
+  },
+  {
+    "slug": "tutor-availability",
+    "audience": "tutor",
+    "route": "/dashboard#tutor-preferences",
+    "sources": [
+      "src/app/(tutor)/_components/availability-editor.tsx",
+      "src/app/_components/tutor-workload-preference.tsx"
+    ],
+    "covers": [
+      "save tutor availability",
+      "cancel availability",
+      "preferred sessions",
+      "clear workload preference",
+      "workload count",
+      "preference recovery"
+    ],
+    "screenshots": [
+      "tutor-availability"
+    ],
+    "steps": [
+      {
+        "number": 1,
+        "screenshot": "tutor-availability",
+        "supplementaryScreenshots": [],
+        "views": [
+          {
+            "id": "tutor-availability",
+            "view": 1,
+            "callouts": []
+          }
+        ],
+        "callouts": []
+      },
+      {
+        "number": 2,
+        "screenshot": null,
+        "supplementaryScreenshots": [],
+        "views": [],
+        "callouts": []
+      },
+      {
+        "number": 3,
+        "screenshot": null,
+        "supplementaryScreenshots": [],
+        "views": [],
+        "callouts": []
+      }
+    ]
+  },
+  {
+    "slug": "tutor-subject-qualifications",
+    "audience": "tutor",
+    "route": "/dashboard#tutor-preferences",
+    "sources": [
+      "src/app/(tutor)/_components/subject-willingness.tsx",
+      "src/app/(tutor)/_components/qualification-requests.tsx",
+      "src/server/api/routers/qualification-application.ts"
+    ],
+    "covers": [
+      "subject willingness",
+      "additional qualification request",
+      "higher-level request",
+      "qualification history filters",
+      "recall qualification",
+      "qualification versus willingness"
+    ],
+    "screenshots": [
+      "tutor-preferences"
+    ],
+    "steps": [
+      {
+        "number": 1,
+        "screenshot": "tutor-preferences",
+        "supplementaryScreenshots": [],
+        "views": [
+          {
+            "id": "tutor-preferences",
+            "view": 1,
+            "callouts": []
+          }
+        ],
+        "callouts": []
+      },
+      {
+        "number": 2,
+        "screenshot": null,
+        "supplementaryScreenshots": [],
+        "views": [],
+        "callouts": []
+      },
+      {
+        "number": 3,
+        "screenshot": null,
+        "supplementaryScreenshots": [],
+        "views": [],
+        "callouts": []
+      }
+    ]
+  },
+  {
+    "slug": "tutor-pairing-time",
+    "audience": "tutor",
+    "route": "/dashboard#tutor-pairings",
+    "sources": [
+      "src/app/(tutor)/_components/tutor-pairings.tsx",
+      "src/app/(tutor)/_components/pairing-tutee-details.tsx"
+    ],
+    "covers": [
+      "view tutee pairing details",
+      "choose recurring time",
+      "both available ranking",
+      "schedule conflict request",
+      "shared group time",
+      "room status"
+    ],
+    "screenshots": [
+      "tutor-pairings"
+    ],
+    "steps": [
+      {
+        "number": 1,
+        "screenshot": "tutor-pairings",
+        "supplementaryScreenshots": [],
+        "views": [
+          {
+            "id": "tutor-pairings",
+            "view": 1,
+            "callouts": []
+          }
+        ],
+        "callouts": []
+      },
+      {
+        "number": 2,
+        "screenshot": null,
+        "supplementaryScreenshots": [],
+        "views": [],
+        "callouts": []
+      },
+      {
+        "number": 3,
+        "screenshot": null,
+        "supplementaryScreenshots": [],
+        "views": [],
+        "callouts": []
+      },
+      {
+        "number": 4,
+        "screenshot": null,
+        "supplementaryScreenshots": [],
+        "views": [],
+        "callouts": []
+      }
+    ]
+  },
+  {
+    "slug": "combine-split-pairings",
+    "audience": "tutor",
+    "route": "/dashboard#tutor-pairings",
+    "sources": [
+      "src/app/(tutor)/_components/pairing-group-editor.tsx",
+      "src/server/api/routers/pairing-groups.ts"
+    ],
+    "covers": [
+      "combine pairings",
+      "primary group member",
+      "complete subject coverage",
+      "group shared time",
+      "repair group",
+      "split group",
+      "untick member",
+      "group draft recovery"
+    ],
+    "screenshots": [
+      "tutor-pairings",
+      "tutor-grouping"
+    ],
+    "steps": [
+      {
+        "number": 1,
+        "screenshot": "tutor-pairings",
+        "supplementaryScreenshots": [],
+        "views": [
+          {
+            "id": "tutor-pairings",
+            "view": 1,
+            "callouts": []
+          }
+        ],
+        "callouts": []
+      },
+      {
+        "number": 2,
+        "screenshot": "tutor-grouping",
+        "supplementaryScreenshots": [],
+        "views": [
+          {
+            "id": "tutor-grouping",
+            "view": 1,
+            "callouts": []
+          }
+        ],
+        "callouts": []
+      },
+      {
+        "number": 3,
+        "screenshot": null,
+        "supplementaryScreenshots": [],
+        "views": [],
+        "callouts": []
+      }
+    ]
+  },
+  {
+    "slug": "record-attendance",
+    "audience": "tutor",
+    "route": "/dashboard#sessions",
+    "sources": [
+      "src/app/(tutor)/_components/attendance-form.tsx",
+      "src/app/_components/session-agenda.tsx",
+      "src/app/(tutor)/_components/tutor-schedule.tsx",
+      "docs/guides/user-guide.md"
+    ],
+    "covers": [
+      "dated attendance",
+      "actual time location",
+      "tutor student attendance",
+      "absence reasons",
+      "ratings comments",
+      "disciplinary card request",
+      "attendance receipt",
+      "submit another",
+      "duplicate attendance prevention"
+    ],
+    "screenshots": [
+      "tutor-schedule",
+      "tutor-attendance"
+    ],
+    "steps": [
+      {
+        "number": 1,
+        "screenshot": "tutor-schedule",
+        "supplementaryScreenshots": [],
+        "views": [
+          {
+            "id": "tutor-schedule",
+            "view": 1,
+            "callouts": []
+          }
+        ],
+        "callouts": []
+      },
+      {
+        "number": 2,
+        "screenshot": "tutor-attendance",
+        "supplementaryScreenshots": [],
+        "views": [
+          {
+            "id": "tutor-attendance",
+            "view": 1,
+            "callouts": []
+          }
+        ],
+        "callouts": []
+      },
+      {
+        "number": 3,
+        "screenshot": null,
+        "supplementaryScreenshots": [],
+        "views": [],
+        "callouts": []
+      },
+      {
+        "number": 4,
+        "screenshot": null,
+        "supplementaryScreenshots": [],
+        "views": [],
+        "callouts": []
+      }
+    ]
+  },
+  {
+    "slug": "plan-dated-session",
+    "audience": "tutor",
+    "route": "/dashboard#sessions",
+    "sources": [
+      "src/app/_components/session-plan-time.tsx",
+      "src/app/_components/session-agenda.tsx",
+      "src/server/api/routers/session-planning.ts",
+      "src/app/(tutor)/_components/student-schedule-action.tsx"
+    ],
+    "covers": [
+      "reschedule tutor session",
+      "add extra",
+      "all or one tutee",
+      "online or automatic room",
+      "review room",
+      "formalize suggestion",
+      "respond alternative",
+      "final proposal",
+      "essential delivery",
+      "Arrange exception",
+      "Start individual requests",
+      "formalize separate rescheduling"
+    ],
+    "screenshots": [
+      "tutor-schedule",
+      "tutor-session-plan"
+    ],
+    "steps": [
+      {
+        "number": 1,
+        "screenshot": "tutor-schedule",
+        "supplementaryScreenshots": [],
+        "views": [
+          {
+            "id": "tutor-schedule",
+            "view": 1,
+            "callouts": []
+          }
+        ],
+        "callouts": []
+      },
+      {
+        "number": 2,
+        "screenshot": "tutor-session-plan",
+        "supplementaryScreenshots": [],
+        "views": [
+          {
+            "id": "tutor-session-plan",
+            "view": 1,
+            "callouts": []
+          }
+        ],
+        "callouts": []
+      },
+      {
+        "number": 3,
+        "screenshot": null,
+        "supplementaryScreenshots": [],
+        "views": [],
+        "callouts": []
+      },
+      {
+        "number": 4,
+        "screenshot": null,
+        "supplementaryScreenshots": [],
+        "views": [],
+        "callouts": []
+      }
+    ]
+  },
+  {
+    "slug": "cancel-extra-session",
+    "audience": "tutor",
+    "route": "/dashboard#sessions",
+    "sources": [
+      "src/server/api/routers/session-planning.ts",
+      "docs/guides/user-guide.md"
+    ],
+    "covers": [
+      "cancel agreed extra",
+      "cancel selected tutee extra",
+      "find extra all scope",
+      "extra cancellation agreement",
+      "declined expired cancellation"
+    ],
+    "screenshots": [
+      "tutor-schedule"
+    ],
+    "steps": [
+      {
+        "number": 1,
+        "screenshot": "tutor-schedule",
+        "supplementaryScreenshots": [],
+        "views": [
+          {
+            "id": "tutor-schedule",
+            "view": 1,
+            "callouts": []
+          }
+        ],
+        "callouts": []
+      },
+      {
+        "number": 2,
+        "screenshot": null,
+        "supplementaryScreenshots": [],
+        "views": [],
+        "callouts": []
+      },
+      {
+        "number": 3,
+        "screenshot": null,
+        "supplementaryScreenshots": [],
+        "views": [],
+        "callouts": []
+      }
+    ]
+  },
+  {
+    "slug": "session-calendar",
+    "audience": "account",
+    "route": "/student?view=schedule",
+    "sources": [
+      "src/app/_components/session-calendar-subscription.tsx",
+      "src/app/_components/session-agenda.tsx",
+      "src/app/api/session-calendar/[token]/route.ts"
+    ],
+    "covers": [
+      "calendar subscription",
+      "create calendar link",
+      "confirm calendar creation",
+      "copy private calendar link",
+      "one-time calendar URL display",
+      "rotate calendar token",
+      "revoke calendar token",
+      "calendar refresh lag"
+    ],
+    "screenshots": [
+      "student-schedule"
+    ],
+    "steps": [
+      {
+        "number": 1,
+        "screenshot": "student-schedule",
+        "supplementaryScreenshots": [],
+        "views": [
+          {
+            "id": "student-schedule",
+            "view": 1,
+            "callouts": []
+          }
+        ],
+        "callouts": []
+      },
+      {
+        "number": 2,
+        "screenshot": null,
+        "supplementaryScreenshots": [],
+        "views": [],
+        "callouts": []
+      },
+      {
+        "number": 3,
+        "screenshot": null,
+        "supplementaryScreenshots": [],
+        "views": [],
+        "callouts": []
+      },
+      {
+        "number": 4,
+        "screenshot": null,
+        "supplementaryScreenshots": [],
+        "views": [],
+        "callouts": []
+      }
+    ]
+  },
+  {
+    "slug": "tutor-interviews",
+    "audience": "tutor",
+    "route": "/dashboard#sessions",
+    "sources": [
+      "src/app/(tutor)/_components/my-interviews.tsx",
+      "src/app/(tutor)/_components/schedule-interview-details.tsx",
+      "src/server/api/routers/interview-management.ts"
+    ],
+    "covers": [
+      "panel review",
+      "interview vote",
+      "chair scheduling",
+      "majority tie decision",
+      "approve award hours",
+      "interview completion",
+      "completed history",
+      "panel chair restrictions"
+    ],
+    "screenshots": [
+      "tutor-schedule"
+    ],
+    "steps": [
+      {
+        "number": 1,
+        "screenshot": "tutor-schedule",
+        "supplementaryScreenshots": [],
+        "views": [
+          {
+            "id": "tutor-schedule",
+            "view": 1,
+            "callouts": []
+          }
+        ],
+        "callouts": []
+      },
+      {
+        "number": 2,
+        "screenshot": null,
+        "supplementaryScreenshots": [],
+        "views": [],
+        "callouts": []
+      },
+      {
+        "number": 3,
+        "screenshot": null,
+        "supplementaryScreenshots": [],
+        "views": [],
+        "callouts": []
+      },
+      {
+        "number": 4,
+        "screenshot": null,
+        "supplementaryScreenshots": [],
+        "views": [],
+        "callouts": []
+      }
+    ]
+  },
+  {
+    "slug": "tutor-meetings",
+    "audience": "tutor",
+    "route": "/dashboard#sessions",
+    "sources": [
+      "src/app/(tutor)/_components/tutor-meetings.tsx",
+      "src/app/(tutor)/_components/schedule-meeting-details.tsx"
+    ],
+    "covers": [
+      "meeting schedule",
+      "submit meeting excuse",
+      "cancel meeting excuse",
+      "meeting history",
+      "semester absence allowance",
+      "meeting grouping reload"
+    ],
+    "screenshots": [
+      "tutor-schedule"
+    ],
+    "steps": [
+      {
+        "number": 1,
+        "screenshot": "tutor-schedule",
+        "supplementaryScreenshots": [],
+        "views": [
+          {
+            "id": "tutor-schedule",
+            "view": 1,
+            "callouts": []
+          }
+        ],
+        "callouts": []
+      },
+      {
+        "number": 2,
+        "screenshot": null,
+        "supplementaryScreenshots": [],
+        "views": [],
+        "callouts": []
+      },
+      {
+        "number": 3,
+        "screenshot": null,
+        "supplementaryScreenshots": [],
+        "views": [],
+        "callouts": []
+      }
+    ]
+  },
+  {
+    "slug": "tutor-membership-hours",
+    "audience": "tutor",
+    "route": "/settings",
+    "sources": [
+      "src/app/(tutor)/settings/page.tsx",
+      "src/app/(tutor)/_components/pairing-tutee-details.tsx",
+      "src/app/(tutor)/dashboard/page.tsx"
+    ],
+    "covers": [
+      "tutor opt-out",
+      "recall opt-out",
+      "tutor reentry",
+      "semester participation choice",
+      "student withdrawal relay",
+      "relay recall",
+      "tutoring hours breakdown",
+      "crew hours separate"
+    ],
+    "screenshots": [
+      "tutor-membership",
+      "tutor-history"
+    ],
+    "steps": [
+      {
+        "number": 1,
+        "screenshot": "tutor-membership",
+        "supplementaryScreenshots": [],
+        "views": [
+          {
+            "id": "tutor-membership",
+            "view": 1,
+            "callouts": []
+          }
+        ],
+        "callouts": []
+      },
+      {
+        "number": 2,
+        "screenshot": null,
+        "supplementaryScreenshots": [],
+        "views": [],
+        "callouts": []
+      },
+      {
+        "number": 3,
+        "screenshot": null,
+        "supplementaryScreenshots": [],
+        "views": [],
+        "callouts": []
+      },
+      {
+        "number": 4,
+        "screenshot": "tutor-history",
+        "supplementaryScreenshots": [],
+        "views": [
+          {
+            "id": "tutor-history",
+            "view": 1,
+            "callouts": []
+          }
+        ],
+        "callouts": []
+      }
+    ]
+  },
+  {
+    "slug": "record-patrol",
+    "audience": "crew",
+    "route": "/patrol",
+    "sources": [
+      "src/app/patrol/page.tsx",
+      "src/server/api/routers/crew.ts",
+      "src/server/api/routers/patrol-credit.test.ts"
+    ],
+    "covers": [
+      "patrol room order",
+      "patrol observation time",
+      "headcount buckets",
+      "submit patrol",
+      "patrol history",
+      "crew credit cooldown",
+      "zero-credit sweep",
+      "patrol correction request"
+    ],
+    "screenshots": [
+      "patrol"
+    ],
+    "steps": [
+      {
+        "number": 1,
+        "screenshot": "patrol",
+        "supplementaryScreenshots": [],
+        "views": [
+          {
+            "id": "patrol",
+            "view": 1,
+            "callouts": []
+          }
+        ],
+        "callouts": []
+      },
+      {
+        "number": 2,
+        "screenshot": null,
+        "supplementaryScreenshots": [],
+        "views": [],
+        "callouts": []
+      },
+      {
+        "number": 3,
+        "screenshot": null,
+        "supplementaryScreenshots": [],
+        "views": [],
+        "callouts": []
+      }
+    ]
+  },
+  {
+    "slug": "crew-membership",
+    "audience": "crew",
+    "route": "/patrol",
+    "sources": [
+      "src/app/patrol/page.tsx",
+      "src/app/_components/account-settings.tsx",
+      "src/server/api/routers/crew.ts"
+    ],
+    "covers": [
+      "crew opt-out",
+      "crew opt-out recall",
+      "crew reentry",
+      "crew inactive restoration",
+      "crew pending membership"
+    ],
+    "screenshots": [
+      "patrol"
+    ],
+    "steps": [
+      {
+        "number": 1,
+        "screenshot": "patrol",
+        "supplementaryScreenshots": [],
+        "views": [
+          {
+            "id": "patrol",
+            "view": 1,
+            "callouts": []
+          }
+        ],
+        "callouts": []
+      },
+      {
+        "number": 2,
+        "screenshot": null,
+        "supplementaryScreenshots": [],
+        "views": [],
+        "callouts": []
+      },
+      {
+        "number": 3,
+        "screenshot": null,
+        "supplementaryScreenshots": [],
+        "views": [],
+        "callouts": []
+      }
+    ]
+  },
+  {
+    "slug": "observe-program",
+    "audience": "observer",
+    "route": "/admin",
+    "sources": [
+      "src/lib/portal-access.ts",
+      "src/app/_components/admin-nav.tsx",
+      "docs/guides/user-guide.md"
+    ],
+    "covers": [
+      "observer portal",
+      "masked management summaries",
+      "read-only filters",
+      "viewer boundaries",
+      "departure observation",
+      "observer own account"
+    ],
+    "screenshots": [
+      "observer"
+    ],
+    "steps": [
+      {
+        "number": 1,
+        "screenshot": "observer",
+        "supplementaryScreenshots": [],
+        "views": [
+          {
+            "id": "observer",
+            "view": 1,
+            "callouts": []
+          }
+        ],
+        "callouts": []
+      },
+      {
+        "number": 2,
+        "screenshot": null,
+        "supplementaryScreenshots": [],
+        "views": [],
+        "callouts": []
+      },
+      {
+        "number": 3,
+        "screenshot": null,
+        "supplementaryScreenshots": [],
+        "views": [],
+        "callouts": []
+      }
+    ]
+  },
+  {
+    "slug": "translate-interface-website",
+    "audience": "translator",
+    "route": "/localization",
+    "sources": [
+      "src/app/_components/translation-editor.tsx",
+      "src/app/_components/translation-strings.tsx",
+      "src/app/_components/translation-composer.tsx",
+      "src/app/_components/translation-review.tsx",
+      "src/lib/translation-access.ts"
+    ],
+    "covers": [
+      "interface translation",
+      "website translation",
+      "translation language destination",
+      "blur submit",
+      "private draft",
+      "translation review filters",
+      "add hidden language",
+      "translation publication boundary",
+      "translation draft recovery"
+    ],
+    "screenshots": [
+      "localization"
+    ],
+    "steps": [
+      {
+        "number": 1,
+        "screenshot": "localization",
+        "supplementaryScreenshots": [],
+        "views": [
+          {
+            "id": "localization",
+            "view": 1,
+            "callouts": []
+          }
+        ],
+        "callouts": []
+      },
+      {
+        "number": 2,
+        "screenshot": null,
+        "supplementaryScreenshots": [],
+        "views": [],
+        "callouts": []
+      },
+      {
+        "number": 3,
+        "screenshot": null,
+        "supplementaryScreenshots": [],
+        "views": [],
+        "callouts": []
+      },
+      {
+        "number": 4,
+        "screenshot": null,
+        "supplementaryScreenshots": [],
+        "views": [],
+        "callouts": []
+      }
+    ]
+  },
+  {
+    "slug": "tutor-program-information",
+    "audience": "tutor",
+    "route": "/dashboard",
+    "sources": [
+      "src/app/(tutor)/_components/announcements-banner.tsx",
+      "src/app/(tutor)/_components/tutor-room-schedule.tsx",
+      "src/app/(tutor)/_components/tutor-discipline.tsx",
+      "src/app/(tutor)/handbook/page.tsx",
+      "src/app/_components/student-support.tsx",
+      "src/server/api/routers/student.ts"
+    ],
+    "covers": [
+      "read addressed announcement",
+      "acknowledge dismiss announcement",
+      "shared room schedule",
+      "read tutee discipline standing",
+      "card timeline privacy",
+      "read tutor handbook",
+      "read feedback shared with tutor"
+    ],
+    "screenshots": [
+      "tutor-overview",
+      "tutor-pairings"
+    ],
+    "steps": [
+      {
+        "number": 1,
+        "screenshot": "tutor-overview",
+        "supplementaryScreenshots": [],
+        "views": [
+          {
+            "id": "tutor-overview",
+            "view": 1,
+            "callouts": []
+          }
+        ],
+        "callouts": []
+      },
+      {
+        "number": 2,
+        "screenshot": "tutor-pairings",
+        "supplementaryScreenshots": [],
+        "views": [
+          {
+            "id": "tutor-pairings",
+            "view": 1,
+            "callouts": []
+          }
+        ],
+        "callouts": []
+      },
+      {
+        "number": 3,
+        "screenshot": null,
+        "supplementaryScreenshots": [],
+        "views": [],
+        "callouts": []
+      },
+      {
+        "number": 4,
+        "screenshot": null,
+        "supplementaryScreenshots": [],
+        "views": [],
+        "callouts": []
+      },
+      {
+        "number": 5,
+        "screenshot": null,
+        "supplementaryScreenshots": [],
+        "views": [],
+        "callouts": []
+      }
+    ]
+  },
+  {
+    "slug": "manage-daily-work",
+    "audience": "staff",
+    "route": "/admin",
+    "sources": [
+      "src/app/_components/admin-nav.tsx",
+      "src/app/(admin)/admin/page.tsx",
+      "src/app/(admin)/admin/activity/page.tsx"
+    ],
+    "covers": [
+      "management overview",
+      "activity queues",
+      "mobile management navigation",
+      "search/filter/sort",
+      "applied versus proposed result"
+    ],
+    "screenshots": [
+      "admin-overview"
+    ],
+    "steps": [
+      {
+        "number": 1,
+        "screenshot": "admin-overview",
+        "supplementaryScreenshots": [],
+        "views": [
+          {
+            "id": "admin-overview",
+            "view": 1,
+            "callouts": []
+          }
+        ],
+        "callouts": []
+      },
+      {
+        "number": 2,
+        "screenshot": null,
+        "supplementaryScreenshots": [],
+        "views": [],
+        "callouts": []
+      },
+      {
+        "number": 3,
+        "screenshot": null,
+        "supplementaryScreenshots": [],
+        "views": [],
+        "callouts": []
+      },
+      {
+        "number": 4,
+        "screenshot": null,
+        "supplementaryScreenshots": [],
+        "views": [],
+        "callouts": []
+      }
+    ]
+  },
+  {
+    "slug": "match-tutoring-requests",
+    "audience": "staff",
+    "route": "/admin/requests",
+    "sources": [
+      "src/app/(admin)/admin/requests/student-request-board.tsx",
+      "src/server/api/routers/student-workflow.ts",
+      "src/server/tutor-workload.ts"
+    ],
+    "covers": [
+      "Needs matching",
+      "Assigned",
+      "Needs review",
+      "Closed",
+      "request provenance",
+      "Select tutor",
+      "qualification warning",
+      "workload advice",
+      "subject assignment"
+    ],
+    "screenshots": [
+      "admin-requests"
+    ],
+    "steps": [
+      {
+        "number": 1,
+        "screenshot": "admin-requests",
+        "supplementaryScreenshots": [],
+        "views": [
+          {
+            "id": "admin-requests",
+            "view": 1,
+            "callouts": []
+          }
+        ],
+        "callouts": []
+      },
+      {
+        "number": 2,
+        "screenshot": null,
+        "supplementaryScreenshots": [],
+        "views": [],
+        "callouts": []
+      },
+      {
+        "number": 3,
+        "screenshot": null,
+        "supplementaryScreenshots": [],
+        "views": [],
+        "callouts": []
+      },
+      {
+        "number": 4,
+        "screenshot": null,
+        "supplementaryScreenshots": [],
+        "views": [],
+        "callouts": []
+      }
+    ]
+  },
+  {
+    "slug": "review-signup-validity",
+    "audience": "staff",
+    "route": "/admin/requests",
+    "sources": [
+      "src/app/_components/request-invalidity-controls.tsx",
+      "src/app/_components/request-invalidity.tsx",
+      "src/app/(admin)/admin/requests/request-email-status.ts"
+    ],
+    "covers": [
+      "flag invalid",
+      "clear invalid flag",
+      "validity filters",
+      "invalidity reason",
+      "request-status mail",
+      "request appeal",
+      "appeal acceptance/rejection"
+    ],
+    "screenshots": [
+      "admin-requests"
+    ],
+    "steps": [
+      {
+        "number": 1,
+        "screenshot": "admin-requests",
+        "supplementaryScreenshots": [],
+        "views": [
+          {
+            "id": "admin-requests",
+            "view": 1,
+            "callouts": []
+          }
+        ],
+        "callouts": []
+      },
+      {
+        "number": 2,
+        "screenshot": null,
+        "supplementaryScreenshots": [],
+        "views": [],
+        "callouts": []
+      },
+      {
+        "number": 3,
+        "screenshot": null,
+        "supplementaryScreenshots": [],
+        "views": [],
+        "callouts": []
+      },
+      {
+        "number": 4,
+        "screenshot": null,
+        "supplementaryScreenshots": [],
+        "views": [],
+        "callouts": []
+      }
+    ]
+  },
+  {
+    "slug": "revise-student-signup",
+    "audience": "admin",
+    "route": "/admin/requests",
+    "sources": [
+      "src/app/_components/student-signup-editor.tsx",
+      "src/server/api/routers/student-workflow.ts"
+    ],
+    "covers": [
+      "staff signup answer revision",
+      "assigned choice release",
+      "headUnassign",
+      "original versus revised answers"
+    ],
+    "screenshots": [
+      "admin-requests"
+    ],
+    "steps": [
+      {
+        "number": 1,
+        "screenshot": "admin-requests",
+        "supplementaryScreenshots": [],
+        "views": [
+          {
+            "id": "admin-requests",
+            "view": 1,
+            "callouts": []
+          }
+        ],
+        "callouts": []
+      },
+      {
+        "number": 2,
+        "screenshot": null,
+        "supplementaryScreenshots": [],
+        "views": [],
+        "callouts": []
+      },
+      {
+        "number": 3,
+        "screenshot": null,
+        "supplementaryScreenshots": [],
+        "views": [],
+        "callouts": []
+      },
+      {
+        "number": 4,
+        "screenshot": null,
+        "supplementaryScreenshots": [],
+        "views": [],
+        "callouts": []
+      }
+    ]
+  },
+  {
+    "slug": "review-tutor-applications",
+    "audience": "staff",
+    "route": "/admin/applications",
+    "sources": [
+      "src/app/(admin)/admin/applications/page.tsx",
+      "src/app/_components/application-identity-correction.tsx",
+      "src/app/_components/application-filters.tsx"
+    ],
+    "covers": [
+      "application search/filter/history/sort",
+      "initial application name correction",
+      "account setup status",
+      "application invalidity entry"
+    ],
+    "screenshots": [
+      "admin-applications"
+    ],
+    "steps": [
+      {
+        "number": 1,
+        "screenshot": "admin-applications",
+        "supplementaryScreenshots": [],
+        "views": [
+          {
+            "id": "admin-applications",
+            "view": 1,
+            "callouts": []
+          }
+        ],
+        "callouts": []
+      },
+      {
+        "number": 2,
+        "screenshot": null,
+        "supplementaryScreenshots": [],
+        "views": [],
+        "callouts": []
+      },
+      {
+        "number": 3,
+        "screenshot": null,
+        "supplementaryScreenshots": [],
+        "views": [],
+        "callouts": []
+      },
+      {
+        "number": 4,
+        "screenshot": null,
+        "supplementaryScreenshots": [],
+        "views": [],
+        "callouts": []
+      }
+    ]
+  },
+  {
+    "slug": "manage-interview-panels",
+    "audience": "staff",
+    "route": "/admin/applications",
+    "sources": [
+      "src/app/_components/interview-panel-editor.tsx",
+      "src/app/_components/interview-management.tsx",
+      "src/server/api/routers/interview-management.ts",
+      "src/server/interviews.ts"
+    ],
+    "covers": [
+      "panel assignment",
+      "3–8 active panelists with qualified subject evidence",
+      "Admin/Head chair",
+      "interview scheduling",
+      "panel voting",
+      "chair decision",
+      "actual completion",
+      "interview hour correction"
+    ],
+    "screenshots": [
+      "admin-applications"
+    ],
+    "steps": [
+      {
+        "number": 1,
+        "screenshot": "admin-applications",
+        "supplementaryScreenshots": [],
+        "views": [
+          {
+            "id": "admin-applications",
+            "view": 1,
+            "callouts": []
+          }
+        ],
+        "callouts": []
+      },
+      {
+        "number": 2,
+        "screenshot": null,
+        "supplementaryScreenshots": [],
+        "views": [],
+        "callouts": []
+      },
+      {
+        "number": 3,
+        "screenshot": null,
+        "supplementaryScreenshots": [],
+        "views": [],
+        "callouts": []
+      },
+      {
+        "number": 4,
+        "screenshot": null,
+        "supplementaryScreenshots": [],
+        "views": [],
+        "callouts": []
+      }
+    ]
+  },
+  {
+    "slug": "inspect-subject-availability",
+    "audience": "staff",
+    "route": "/admin/subject-availability",
+    "sources": [
+      "src/app/_components/subject-availability.tsx",
+      "src/server/api/routers/qualification-application.ts",
+      "src/lib/approval-policy.ts"
+    ],
+    "covers": [
+      "qualification and willingness inspection",
+      "local subject filters",
+      "recorded inherited grants",
+      "pending qualification requests"
+    ],
+    "screenshots": [
+      "admin-subject-availability"
+    ],
+    "steps": [
+      {
+        "number": 1,
+        "screenshot": "admin-subject-availability",
+        "supplementaryScreenshots": [],
+        "views": [
+          {
+            "id": "admin-subject-availability",
+            "view": 1,
+            "callouts": []
+          }
+        ],
+        "callouts": []
+      },
+      {
+        "number": 2,
+        "screenshot": null,
+        "supplementaryScreenshots": [],
+        "views": [],
+        "callouts": []
+      },
+      {
+        "number": 3,
+        "screenshot": null,
+        "supplementaryScreenshots": [],
+        "views": [],
+        "callouts": []
+      },
+      {
+        "number": 4,
+        "screenshot": null,
+        "supplementaryScreenshots": [],
+        "views": [],
+        "callouts": []
+      }
+    ]
+  },
+  {
+    "slug": "decide-subject-qualifications",
+    "audience": "staff",
+    "route": "/admin/subject-availability",
+    "sources": [
+      "src/server/api/routers/interview-management.ts",
+      "src/server/qualifications.ts",
+      "src/lib/approval-policy.ts",
+      "src/app/_components/subject-availability.tsx"
+    ],
+    "covers": [
+      "manual qualification approval",
+      "Coordinator manual qualification proposal",
+      "approval source removal",
+      "qualification versus access"
+    ],
+    "screenshots": [
+      "admin-subject-availability"
+    ],
+    "steps": [
+      {
+        "number": 1,
+        "screenshot": "admin-subject-availability",
+        "supplementaryScreenshots": [],
+        "views": [
+          {
+            "id": "admin-subject-availability",
+            "view": 1,
+            "callouts": []
+          }
+        ],
+        "callouts": []
+      },
+      {
+        "number": 2,
+        "screenshot": null,
+        "supplementaryScreenshots": [],
+        "views": [],
+        "callouts": []
+      },
+      {
+        "number": 3,
+        "screenshot": null,
+        "supplementaryScreenshots": [],
+        "views": [],
+        "callouts": []
+      },
+      {
+        "number": 4,
+        "screenshot": null,
+        "supplementaryScreenshots": [],
+        "views": [],
+        "callouts": []
+      }
+    ]
+  },
+  {
+    "slug": "manage-tutor-roster",
+    "audience": "staff",
+    "route": "/admin/tutors",
+    "sources": [
+      "src/app/(admin)/admin/tutors/page.tsx",
+      "src/app/_components/tutor-details.tsx",
+      "src/app/_components/tutor-profile-editor.tsx"
+    ],
+    "covers": [
+      "tutor roster search",
+      "past tutors",
+      "tutor details",
+      "profile edits",
+      "roster membership",
+      "manual Add Tutor",
+      "account policy evidence"
+    ],
+    "screenshots": [
+      "admin-tutors"
+    ],
+    "steps": [
+      {
+        "number": 1,
+        "screenshot": "admin-tutors",
+        "supplementaryScreenshots": [],
+        "views": [
+          {
+            "id": "admin-tutors",
+            "view": 1,
+            "callouts": []
+          }
+        ],
+        "callouts": []
+      },
+      {
+        "number": 2,
+        "screenshot": null,
+        "supplementaryScreenshots": [],
+        "views": [],
+        "callouts": []
+      },
+      {
+        "number": 3,
+        "screenshot": null,
+        "supplementaryScreenshots": [],
+        "views": [],
+        "callouts": []
+      },
+      {
+        "number": 4,
+        "screenshot": null,
+        "supplementaryScreenshots": [],
+        "views": [],
+        "callouts": []
+      }
+    ]
+  },
+  {
+    "slug": "manage-tutee-roster",
+    "audience": "staff",
+    "route": "/admin/tutees",
+    "sources": [
+      "src/app/(admin)/admin/tutees/page.tsx",
+      "src/app/_components/tutee-details.tsx",
+      "src/app/_components/tutee-editor.tsx"
+    ],
+    "covers": [
+      "Current/History/All Records",
+      "tutee detail reader",
+      "contact copying",
+      "tutee history pagination",
+      "tutee profile",
+      "manual Add a Tutee",
+      "accountless enrollment"
+    ],
+    "screenshots": [
+      "admin-tutees"
+    ],
+    "steps": [
+      {
+        "number": 1,
+        "screenshot": "admin-tutees",
+        "supplementaryScreenshots": [],
+        "views": [
+          {
+            "id": "admin-tutees",
+            "view": 1,
+            "callouts": []
+          }
+        ],
+        "callouts": []
+      },
+      {
+        "number": 2,
+        "screenshot": null,
+        "supplementaryScreenshots": [],
+        "views": [],
+        "callouts": []
+      },
+      {
+        "number": 3,
+        "screenshot": null,
+        "supplementaryScreenshots": [],
+        "views": [],
+        "callouts": []
+      },
+      {
+        "number": 4,
+        "screenshot": null,
+        "supplementaryScreenshots": [],
+        "views": [],
+        "callouts": []
+      }
+    ]
+  },
+  {
+    "slug": "edit-pairings",
+    "audience": "staff",
+    "route": "/admin/pairings",
+    "sources": [
+      "src/app/(admin)/admin/pairings/page.tsx",
+      "src/server/pairing-creation.ts",
+      "src/server/pairing-groups.ts"
+    ],
+    "covers": [
+      "pairing details",
+      "edit assignment",
+      "student multiselect",
+      "manual New Pairing",
+      "pairing removal",
+      "creation retry receipt",
+      "group schedule"
+    ],
+    "screenshots": [
+      "admin-pairings"
+    ],
+    "steps": [
+      {
+        "number": 1,
+        "screenshot": "admin-pairings",
+        "supplementaryScreenshots": [],
+        "views": [
+          {
+            "id": "admin-pairings",
+            "view": 1,
+            "callouts": []
+          }
+        ],
+        "callouts": []
+      },
+      {
+        "number": 2,
+        "screenshot": null,
+        "supplementaryScreenshots": [],
+        "views": [],
+        "callouts": []
+      },
+      {
+        "number": 3,
+        "screenshot": null,
+        "supplementaryScreenshots": [],
+        "views": [],
+        "callouts": []
+      },
+      {
+        "number": 4,
+        "screenshot": null,
+        "supplementaryScreenshots": [],
+        "views": [],
+        "callouts": []
+      }
+    ]
+  },
+  {
+    "slug": "allocate-planned-rooms",
+    "audience": "staff",
+    "route": "/admin/pairings",
+    "sources": [
+      "src/app/(admin)/admin/pairings/page.tsx",
+      "src/server/room-allocation.ts",
+      "src/server/room-bookings.ts"
+    ],
+    "covers": [
+      "room badges",
+      "Needs room",
+      "automatic/fixed/no physical room",
+      "group reservations",
+      "retry allocation",
+      "batch auto-assign",
+      "allocation result counts"
+    ],
+    "screenshots": [
+      "admin-pairings"
+    ],
+    "steps": [
+      {
+        "number": 1,
+        "screenshot": "admin-pairings",
+        "supplementaryScreenshots": [],
+        "views": [
+          {
+            "id": "admin-pairings",
+            "view": 1,
+            "callouts": []
+          }
+        ],
+        "callouts": []
+      },
+      {
+        "number": 2,
+        "screenshot": null,
+        "supplementaryScreenshots": [],
+        "views": [],
+        "callouts": []
+      },
+      {
+        "number": 3,
+        "screenshot": null,
+        "supplementaryScreenshots": [],
+        "views": [],
+        "callouts": []
+      },
+      {
+        "number": 4,
+        "screenshot": null,
+        "supplementaryScreenshots": [],
+        "views": [],
+        "callouts": []
+      }
+    ]
+  },
+  {
+    "slug": "maintain-time-slots",
+    "audience": "staff",
+    "route": "/admin/time-slots",
+    "sources": [
+      "src/app/(admin)/admin/time-slots/page.tsx",
+      "src/lib/approval-policy.ts"
+    ],
+    "covers": [
+      "time slot creation",
+      "time slot edits",
+      "Active checkbox deactivate/reactivate",
+      "time slot deletion",
+      "schedule propagation"
+    ],
+    "screenshots": [
+      "admin-time-slots"
+    ],
+    "steps": [
+      {
+        "number": 1,
+        "screenshot": "admin-time-slots",
+        "supplementaryScreenshots": [],
+        "views": [
+          {
+            "id": "admin-time-slots",
+            "view": 1,
+            "callouts": []
+          }
+        ],
+        "callouts": []
+      },
+      {
+        "number": 2,
+        "screenshot": null,
+        "supplementaryScreenshots": [],
+        "views": [],
+        "callouts": []
+      },
+      {
+        "number": 3,
+        "screenshot": null,
+        "supplementaryScreenshots": [],
+        "views": [],
+        "callouts": []
+      },
+      {
+        "number": 4,
+        "screenshot": null,
+        "supplementaryScreenshots": [],
+        "views": [],
+        "callouts": []
+      }
+    ]
+  },
+  {
+    "slug": "maintain-rooms",
+    "audience": "staff",
+    "route": "/admin/rooms",
+    "sources": [
+      "src/app/(admin)/admin/rooms/page.tsx",
+      "src/server/room-bookings.ts",
+      "src/server/room-allocation.ts"
+    ],
+    "covers": [
+      "room catalogue",
+      "Add Room",
+      "room rename",
+      "room deletion",
+      "room order",
+      "room unavailability add/edit/delete",
+      "reservation conflicts"
+    ],
+    "screenshots": [
+      "admin-rooms"
+    ],
+    "steps": [
+      {
+        "number": 1,
+        "screenshot": "admin-rooms",
+        "supplementaryScreenshots": [],
+        "views": [
+          {
+            "id": "admin-rooms",
+            "view": 1,
+            "callouts": []
+          }
+        ],
+        "callouts": []
+      },
+      {
+        "number": 2,
+        "screenshot": null,
+        "supplementaryScreenshots": [],
+        "views": [],
+        "callouts": []
+      },
+      {
+        "number": 3,
+        "screenshot": null,
+        "supplementaryScreenshots": [],
+        "views": [],
+        "callouts": []
+      },
+      {
+        "number": 4,
+        "screenshot": null,
+        "supplementaryScreenshots": [],
+        "views": [],
+        "callouts": []
+      }
+    ]
+  },
+  {
+    "slug": "maintain-subject-catalogue",
+    "audience": "staff",
+    "route": "/admin/subjects",
+    "sources": [
+      "src/app/(admin)/admin/subjects/page.tsx",
+      "src/lib/approval-policy.ts",
+      "src/server/api/routers/admin.ts"
+    ],
+    "covers": [
+      "subjects/groups/levels",
+      "catalogue search",
+      "batch course edit",
+      "archive/restore subjects",
+      "JSON/CSV catalogue import",
+      "catalogue ordering"
+    ],
+    "screenshots": [
+      "admin-subjects"
+    ],
+    "steps": [
+      {
+        "number": 1,
+        "screenshot": "admin-subjects",
+        "supplementaryScreenshots": [],
+        "views": [
+          {
+            "id": "admin-subjects",
+            "view": 1,
+            "callouts": []
+          }
+        ],
+        "callouts": []
+      },
+      {
+        "number": 2,
+        "screenshot": null,
+        "supplementaryScreenshots": [],
+        "views": [],
+        "callouts": []
+      },
+      {
+        "number": 3,
+        "screenshot": null,
+        "supplementaryScreenshots": [],
+        "views": [],
+        "callouts": []
+      },
+      {
+        "number": 4,
+        "screenshot": null,
+        "supplementaryScreenshots": [],
+        "views": [],
+        "callouts": []
+      }
+    ]
+  },
+  {
+    "slug": "review-tutor-membership",
+    "audience": "staff",
+    "route": "/admin/tutor-requests",
+    "sources": [
+      "src/app/(admin)/admin/tutor-requests/page.tsx",
+      "src/server/membership.ts",
+      "src/lib/approval-policy.ts"
+    ],
+    "covers": [
+      "tutor opt-out review",
+      "tutor reentry review",
+      "seven-day wait",
+      "student requeue",
+      "membership decision history"
+    ],
+    "screenshots": [
+      "admin-tutor-requests"
+    ],
+    "steps": [
+      {
+        "number": 1,
+        "screenshot": "admin-tutor-requests",
+        "supplementaryScreenshots": [],
+        "views": [
+          {
+            "id": "admin-tutor-requests",
+            "view": 1,
+            "callouts": []
+          }
+        ],
+        "callouts": []
+      },
+      {
+        "number": 2,
+        "screenshot": null,
+        "supplementaryScreenshots": [],
+        "views": [],
+        "callouts": []
+      },
+      {
+        "number": 3,
+        "screenshot": null,
+        "supplementaryScreenshots": [],
+        "views": [],
+        "callouts": []
+      },
+      {
+        "number": 4,
+        "screenshot": null,
+        "supplementaryScreenshots": [],
+        "views": [],
+        "callouts": []
+      }
+    ]
+  },
+  {
+    "slug": "review-tutee-withdrawals",
+    "audience": "staff",
+    "route": "/admin/tutee-requests",
+    "sources": [
+      "src/app/(admin)/admin/tutee-requests/page.tsx",
+      "src/app/(admin)/admin/tutee-requests/student-withdrawals.tsx",
+      "src/server/membership.ts"
+    ],
+    "covers": [
+      "self withdrawal review",
+      "tutor-relayed removal",
+      "relay cancellation",
+      "withdrawal scope/effective date",
+      "resolved withdrawal history"
+    ],
+    "screenshots": [
+      "admin-tutee-requests"
+    ],
+    "steps": [
+      {
+        "number": 1,
+        "screenshot": "admin-tutee-requests",
+        "supplementaryScreenshots": [],
+        "views": [
+          {
+            "id": "admin-tutee-requests",
+            "view": 1,
+            "callouts": []
+          }
+        ],
+        "callouts": []
+      },
+      {
+        "number": 2,
+        "screenshot": null,
+        "supplementaryScreenshots": [],
+        "views": [],
+        "callouts": []
+      },
+      {
+        "number": 3,
+        "screenshot": null,
+        "supplementaryScreenshots": [],
+        "views": [],
+        "callouts": []
+      },
+      {
+        "number": 4,
+        "screenshot": null,
+        "supplementaryScreenshots": [],
+        "views": [],
+        "callouts": []
+      }
+    ]
+  },
+  {
+    "slug": "manage-crew-membership",
+    "audience": "staff",
+    "route": "/admin/crew",
+    "sources": [
+      "src/app/(admin)/admin/crew/page.tsx",
+      "src/app/_components/patrol-corrections.tsx",
+      "src/server/api/routers/crew.ts"
+    ],
+    "covers": [
+      "Crew application review",
+      "Crew roster",
+      "Crew invitation setup",
+      "Crew opt-out/reentry",
+      "patrol settings",
+      "Crew history"
+    ],
+    "screenshots": [
+      "admin-crew"
+    ],
+    "steps": [
+      {
+        "number": 1,
+        "screenshot": "admin-crew",
+        "supplementaryScreenshots": [],
+        "views": [
+          {
+            "id": "admin-crew",
+            "view": 1,
+            "callouts": []
+          }
+        ],
+        "callouts": []
+      },
+      {
+        "number": 2,
+        "screenshot": null,
+        "supplementaryScreenshots": [],
+        "views": [],
+        "callouts": []
+      },
+      {
+        "number": 3,
+        "screenshot": null,
+        "supplementaryScreenshots": [],
+        "views": [],
+        "callouts": []
+      },
+      {
+        "number": 4,
+        "screenshot": null,
+        "supplementaryScreenshots": [],
+        "views": [],
+        "callouts": []
+      }
+    ]
+  },
+  {
+    "slug": "manage-meetings",
+    "audience": "staff",
+    "route": "/admin/meetings",
+    "sources": [
+      "src/app/(admin)/admin/meetings/page.tsx",
+      "src/server/meeting-hours.ts",
+      "src/lib/approval-policy.ts"
+    ],
+    "covers": [
+      "meeting creation/edit/delete",
+      "attendance status",
+      "meeting excuses",
+      "per-meeting draft",
+      "meeting period history",
+      "Show past tutors",
+      "attendance comparison",
+      "Reload groups"
+    ],
+    "screenshots": [
+      "admin-meetings"
+    ],
+    "steps": [
+      {
+        "number": 1,
+        "screenshot": "admin-meetings",
+        "supplementaryScreenshots": [],
+        "views": [
+          {
+            "id": "admin-meetings",
+            "view": 1,
+            "callouts": []
+          }
+        ],
+        "callouts": []
+      },
+      {
+        "number": 2,
+        "screenshot": null,
+        "supplementaryScreenshots": [],
+        "views": [],
+        "callouts": []
+      },
+      {
+        "number": 3,
+        "screenshot": null,
+        "supplementaryScreenshots": [],
+        "views": [],
+        "callouts": []
+      },
+      {
+        "number": 4,
+        "screenshot": null,
+        "supplementaryScreenshots": [],
+        "views": [],
+        "callouts": []
+      }
+    ]
+  },
+  {
+    "slug": "correct-attendance",
+    "audience": "staff",
+    "route": "/admin/attendance",
+    "sources": [
+      "src/app/(admin)/admin/attendance/page.tsx",
+      "src/server/api/routers/corrections.ts",
+      "src/lib/approval-policy.ts"
+    ],
+    "covers": [
+      "attendance inspection",
+      "historical attendance correction",
+      "correction reasons",
+      "dependent hours/discipline effects"
+    ],
+    "screenshots": [
+      "admin-attendance"
+    ],
+    "steps": [
+      {
+        "number": 1,
+        "screenshot": "admin-attendance",
+        "supplementaryScreenshots": [],
+        "views": [
+          {
+            "id": "admin-attendance",
+            "view": 1,
+            "callouts": []
+          }
+        ],
+        "callouts": []
+      },
+      {
+        "number": 2,
+        "screenshot": null,
+        "supplementaryScreenshots": [],
+        "views": [],
+        "callouts": []
+      },
+      {
+        "number": 3,
+        "screenshot": null,
+        "supplementaryScreenshots": [],
+        "views": [],
+        "callouts": []
+      },
+      {
+        "number": 4,
+        "screenshot": null,
+        "supplementaryScreenshots": [],
+        "views": [],
+        "callouts": []
+      }
+    ]
+  },
+  {
+    "slug": "review-patrol-flags",
+    "audience": "staff",
+    "route": "/admin/session-flags",
+    "sources": [
+      "src/app/(admin)/admin/session-flags/page.tsx",
+      "src/server/api/routers/corrections.ts",
+      "src/server/api/routers/crew.ts"
+    ],
+    "covers": [
+      "attendance flag evidence",
+      "flag approval/rejection",
+      "patrol correction",
+      "flag deductions",
+      "source comparison"
+    ],
+    "screenshots": [
+      "admin-session-flags"
+    ],
+    "steps": [
+      {
+        "number": 1,
+        "screenshot": "admin-session-flags",
+        "supplementaryScreenshots": [],
+        "views": [
+          {
+            "id": "admin-session-flags",
+            "view": 1,
+            "callouts": []
+          }
+        ],
+        "callouts": []
+      },
+      {
+        "number": 2,
+        "screenshot": null,
+        "supplementaryScreenshots": [],
+        "views": [],
+        "callouts": []
+      },
+      {
+        "number": 3,
+        "screenshot": null,
+        "supplementaryScreenshots": [],
+        "views": [],
+        "callouts": []
+      },
+      {
+        "number": 4,
+        "screenshot": null,
+        "supplementaryScreenshots": [],
+        "views": [],
+        "callouts": []
+      }
+    ]
+  },
+  {
+    "slug": "review-discipline-and-appeals",
+    "audience": "staff",
+    "route": "/admin/discipline",
+    "sources": [
+      "src/app/(admin)/admin/discipline/page.tsx",
+      "src/app/_components/student-support.tsx",
+      "src/lib/approval-policy.ts"
+    ],
+    "covers": [
+      "card validation/rejection",
+      "discipline evidence",
+      "card appeal review",
+      "school-day appeal deadline",
+      "effective discipline standing",
+      "discipline reversal"
+    ],
+    "screenshots": [
+      "admin-discipline"
+    ],
+    "steps": [
+      {
+        "number": 1,
+        "screenshot": "admin-discipline",
+        "supplementaryScreenshots": [],
+        "views": [
+          {
+            "id": "admin-discipline",
+            "view": 1,
+            "callouts": []
+          }
+        ],
+        "callouts": []
+      },
+      {
+        "number": 2,
+        "screenshot": null,
+        "supplementaryScreenshots": [],
+        "views": [],
+        "callouts": []
+      },
+      {
+        "number": 3,
+        "screenshot": null,
+        "supplementaryScreenshots": [],
+        "views": [],
+        "callouts": []
+      },
+      {
+        "number": 4,
+        "screenshot": null,
+        "supplementaryScreenshots": [],
+        "views": [],
+        "callouts": []
+      }
+    ]
+  },
+  {
+    "slug": "review-student-feedback",
+    "audience": "staff",
+    "route": "/admin/student-support",
+    "sources": [
+      "src/app/(admin)/admin/student-support/page.tsx",
+      "src/app/_components/student-support.tsx"
+    ],
+    "covers": [
+      "staff feedback reader",
+      "feedback sharing settings",
+      "pending/resolved support lists",
+      "private support routing"
+    ],
+    "screenshots": [
+      "admin-student-support"
+    ],
+    "steps": [
+      {
+        "number": 1,
+        "screenshot": "admin-student-support",
+        "supplementaryScreenshots": [],
+        "views": [
+          {
+            "id": "admin-student-support",
+            "view": 1,
+            "callouts": []
+          }
+        ],
+        "callouts": []
+      },
+      {
+        "number": 2,
+        "screenshot": null,
+        "supplementaryScreenshots": [],
+        "views": [],
+        "callouts": []
+      },
+      {
+        "number": 3,
+        "screenshot": null,
+        "supplementaryScreenshots": [],
+        "views": [],
+        "callouts": []
+      },
+      {
+        "number": 4,
+        "screenshot": null,
+        "supplementaryScreenshots": [],
+        "views": [],
+        "callouts": []
+      }
+    ]
+  },
+  {
+    "slug": "inspect-service-hours",
+    "audience": "staff",
+    "route": "/admin/service-hours",
+    "sources": [
+      "src/app/(admin)/admin/service-hours/(roster)/page.tsx",
+      "src/app/_components/service-hours-comparison.tsx",
+      "src/lib/service-hours.ts"
+    ],
+    "covers": [
+      "service-hour period",
+      "Active/Inactive/All",
+      "records/no records",
+      "Summary/Breakdown",
+      "source hour details",
+      "period totals versus subtotal"
+    ],
+    "screenshots": [
+      "admin-service-hours"
+    ],
+    "steps": [
+      {
+        "number": 1,
+        "screenshot": "admin-service-hours",
+        "supplementaryScreenshots": [],
+        "views": [
+          {
+            "id": "admin-service-hours",
+            "view": 1,
+            "callouts": []
+          }
+        ],
+        "callouts": []
+      },
+      {
+        "number": 2,
+        "screenshot": null,
+        "supplementaryScreenshots": [],
+        "views": [],
+        "callouts": []
+      },
+      {
+        "number": 3,
+        "screenshot": null,
+        "supplementaryScreenshots": [],
+        "views": [],
+        "callouts": []
+      },
+      {
+        "number": 4,
+        "screenshot": null,
+        "supplementaryScreenshots": [],
+        "views": [],
+        "callouts": []
+      }
+    ]
+  },
+  {
+    "slug": "record-hour-adjustments",
+    "audience": "staff",
+    "route": "/admin/hour-adjustments",
+    "sources": [
+      "src/app/(admin)/admin/hour-adjustments/page.tsx",
+      "src/lib/approval-policy.ts"
+    ],
+    "covers": [
+      "extra-hour adjustment",
+      "punishment adjustment",
+      "adjustment reason",
+      "past tutor selector",
+      "adjustment removal/reversal"
+    ],
+    "screenshots": [
+      "admin-hour-adjustments"
+    ],
+    "steps": [
+      {
+        "number": 1,
+        "screenshot": "admin-hour-adjustments",
+        "supplementaryScreenshots": [],
+        "views": [
+          {
+            "id": "admin-hour-adjustments",
+            "view": 1,
+            "callouts": []
+          }
+        ],
+        "callouts": []
+      },
+      {
+        "number": 2,
+        "screenshot": null,
+        "supplementaryScreenshots": [],
+        "views": [],
+        "callouts": []
+      },
+      {
+        "number": 3,
+        "screenshot": null,
+        "supplementaryScreenshots": [],
+        "views": [],
+        "callouts": []
+      },
+      {
+        "number": 4,
+        "screenshot": null,
+        "supplementaryScreenshots": [],
+        "views": [],
+        "callouts": []
+      }
+    ]
+  },
+  {
+    "slug": "review-first-school-report",
+    "audience": "admin",
+    "route": "/admin/service-hours",
+    "sources": [
+      "src/app/_components/school-hours-baseline.tsx",
+      "src/app/_components/school-hours-panel.tsx",
+      "src/server/api/routers/school-hours.ts"
+    ],
+    "covers": [
+      "school-report opening balance",
+      "school-account reference",
+      "explicit reviewed zero",
+      "identity reconciliation",
+      "archive exclusion boundary",
+      "first issue prerequisites"
+    ],
+    "screenshots": [
+      "admin-school-reports"
+    ],
+    "steps": [
+      {
+        "number": 1,
+        "screenshot": "admin-school-reports",
+        "supplementaryScreenshots": [],
+        "views": [
+          {
+            "id": "admin-school-reports",
+            "view": 1,
+            "callouts": []
+          }
+        ],
+        "callouts": []
+      },
+      {
+        "number": 2,
+        "screenshot": null,
+        "supplementaryScreenshots": [],
+        "views": [],
+        "callouts": []
+      },
+      {
+        "number": 3,
+        "screenshot": null,
+        "supplementaryScreenshots": [],
+        "views": [],
+        "callouts": []
+      },
+      {
+        "number": 4,
+        "screenshot": null,
+        "supplementaryScreenshots": [],
+        "views": [],
+        "callouts": []
+      }
+    ]
+  },
+  {
+    "slug": "issue-school-report",
+    "audience": "admin",
+    "route": "/admin/service-hours",
+    "sources": [
+      "src/app/_components/school-hours-panel.tsx",
+      "src/app/_components/school-hours-preview.tsx",
+      "src/app/_components/school-hours-report.tsx",
+      "src/server/api/routers/school-hours.ts"
+    ],
+    "covers": [
+      "school-report preview",
+      "issue edition",
+      "0.1-hour posting",
+      "carry accounting",
+      "report correction",
+      "last-entered edition",
+      "incremental correction"
+    ],
+    "screenshots": [
+      "admin-school-reports"
+    ],
+    "steps": [
+      {
+        "number": 1,
+        "screenshot": "admin-school-reports",
+        "supplementaryScreenshots": [],
+        "views": [
+          {
+            "id": "admin-school-reports",
+            "view": 1,
+            "callouts": []
+          }
+        ],
+        "callouts": []
+      },
+      {
+        "number": 2,
+        "screenshot": null,
+        "supplementaryScreenshots": [],
+        "views": [],
+        "callouts": []
+      },
+      {
+        "number": 3,
+        "screenshot": null,
+        "supplementaryScreenshots": [],
+        "views": [],
+        "callouts": []
+      },
+      {
+        "number": 4,
+        "screenshot": null,
+        "supplementaryScreenshots": [],
+        "views": [],
+        "callouts": []
+      }
+    ]
+  },
+  {
+    "slug": "schedule-school-report-delivery",
+    "audience": "staff",
+    "route": "/admin/service-hours",
+    "sources": [
+      "src/app/_components/school-hours-recipients.tsx",
+      "src/app/_components/school-hours-panel.tsx",
+      "src/server/api/routers/school-hours.ts"
+    ],
+    "covers": [
+      "school recipients add/edit/remove",
+      "recipient labels",
+      "monthly schedule",
+      "month date override",
+      "delivery retry",
+      "link visit status",
+      "report link revoke/replace"
+    ],
+    "screenshots": [
+      "admin-school-reports"
+    ],
+    "steps": [
+      {
+        "number": 1,
+        "screenshot": "admin-school-reports",
+        "supplementaryScreenshots": [],
+        "views": [
+          {
+            "id": "admin-school-reports",
+            "view": 1,
+            "callouts": []
+          }
+        ],
+        "callouts": []
+      },
+      {
+        "number": 2,
+        "screenshot": null,
+        "supplementaryScreenshots": [],
+        "views": [],
+        "callouts": []
+      },
+      {
+        "number": 3,
+        "screenshot": null,
+        "supplementaryScreenshots": [],
+        "views": [],
+        "callouts": []
+      },
+      {
+        "number": 4,
+        "screenshot": null,
+        "supplementaryScreenshots": [],
+        "views": [],
+        "callouts": []
+      }
+    ]
+  },
+  {
+    "slug": "export-period-reports",
+    "audience": "staff",
+    "route": "/admin/history",
+    "sources": [
+      "src/app/(admin)/admin/history/page.tsx",
+      "src/app/_components/monthly-hours-report.tsx"
+    ],
+    "covers": [
+      "period report scope",
+      "historical reports",
+      "report masking",
+      "print",
+      "report table CSV",
+      "CSV formula protection"
+    ],
+    "screenshots": [
+      "admin-history"
+    ],
+    "steps": [
+      {
+        "number": 1,
+        "screenshot": "admin-history",
+        "supplementaryScreenshots": [],
+        "views": [
+          {
+            "id": "admin-history",
+            "view": 1,
+            "callouts": []
+          }
+        ],
+        "callouts": []
+      },
+      {
+        "number": 2,
+        "screenshot": null,
+        "supplementaryScreenshots": [],
+        "views": [],
+        "callouts": []
+      },
+      {
+        "number": 3,
+        "screenshot": null,
+        "supplementaryScreenshots": [],
+        "views": [],
+        "callouts": []
+      },
+      {
+        "number": 4,
+        "screenshot": null,
+        "supplementaryScreenshots": [],
+        "views": [],
+        "callouts": []
+      }
+    ]
+  },
+  {
+    "slug": "publish-announcements",
+    "audience": "staff",
+    "route": "/admin/announcements",
+    "sources": [
+      "src/app/(admin)/admin/announcements/page.tsx",
+      "src/app/(admin)/admin/announcements/recipient-picker.tsx"
+    ],
+    "covers": [
+      "announcement creation",
+      "audience snapshot",
+      "Include/Exclude overrides",
+      "publish/edit/pin/deactivate/reactivate",
+      "acknowledgement evidence"
+    ],
+    "screenshots": [
+      "admin-announcements"
+    ],
+    "steps": [
+      {
+        "number": 1,
+        "screenshot": "admin-announcements",
+        "supplementaryScreenshots": [],
+        "views": [
+          {
+            "id": "admin-announcements",
+            "view": 1,
+            "callouts": []
+          }
+        ],
+        "callouts": []
+      },
+      {
+        "number": 2,
+        "screenshot": null,
+        "supplementaryScreenshots": [],
+        "views": [],
+        "callouts": []
+      },
+      {
+        "number": 3,
+        "screenshot": null,
+        "supplementaryScreenshots": [],
+        "views": [],
+        "callouts": []
+      },
+      {
+        "number": 4,
+        "screenshot": null,
+        "supplementaryScreenshots": [],
+        "views": [],
+        "callouts": []
+      }
+    ]
+  },
+  {
+    "slug": "edit-website-content",
+    "audience": "staff",
+    "route": "/admin/landing",
+    "sources": [
+      "src/app/(admin)/admin/landing/landing-editor.tsx",
+      "src/app/landing-preview/page.tsx",
+      "src/app/p/[slug]/page.tsx"
+    ],
+    "covers": [
+      "landing layout",
+      "fixed content",
+      "landing sections",
+      "news",
+      "custom pages/slugs",
+      "images",
+      "language drafts",
+      "landing preview",
+      "content archive/restore"
+    ],
+    "screenshots": [
+      "admin-landing"
+    ],
+    "steps": [
+      {
+        "number": 1,
+        "screenshot": "admin-landing",
+        "supplementaryScreenshots": [],
+        "views": [
+          {
+            "id": "admin-landing",
+            "view": 1,
+            "callouts": []
+          }
+        ],
+        "callouts": []
+      },
+      {
+        "number": 2,
+        "screenshot": null,
+        "supplementaryScreenshots": [],
+        "views": [],
+        "callouts": []
+      },
+      {
+        "number": 3,
+        "screenshot": null,
+        "supplementaryScreenshots": [],
+        "views": [],
+        "callouts": []
+      },
+      {
+        "number": 4,
+        "screenshot": null,
+        "supplementaryScreenshots": [],
+        "views": [],
+        "callouts": []
+      }
+    ]
+  },
+  {
+    "slug": "publish-policy-revisions",
+    "audience": "staff",
+    "route": "/admin/policies",
+    "sources": [
+      "src/app/(admin)/admin/policies/page.tsx",
+      "src/server/policy-acceptance.ts",
+      "docs/guides/policies/README.md"
+    ],
+    "covers": [
+      "Tutor/Tutee policy editors",
+      "English-first policy",
+      "policy translation",
+      "version history",
+      "exact acceptance evidence",
+      "renewed acceptance"
+    ],
+    "screenshots": [
+      "admin-policies"
+    ],
+    "steps": [
+      {
+        "number": 1,
+        "screenshot": "admin-policies",
+        "supplementaryScreenshots": [],
+        "views": [
+          {
+            "id": "admin-policies",
+            "view": 1,
+            "callouts": []
+          }
+        ],
+        "callouts": []
+      },
+      {
+        "number": 2,
+        "screenshot": null,
+        "supplementaryScreenshots": [],
+        "views": [],
+        "callouts": []
+      },
+      {
+        "number": 3,
+        "screenshot": null,
+        "supplementaryScreenshots": [],
+        "views": [],
+        "callouts": []
+      },
+      {
+        "number": 4,
+        "screenshot": null,
+        "supplementaryScreenshots": [],
+        "views": [],
+        "callouts": []
+      }
+    ]
+  },
+  {
+    "slug": "issue-account-invitations",
+    "audience": "staff",
+    "route": "/admin/registration-codes",
+    "sources": [
+      "src/app/(admin)/admin/registration-codes/page.tsx",
+      "src/app/(admin)/admin/registration-codes/share-card.tsx",
+      "src/lib/approval-policy.ts"
+    ],
+    "covers": [
+      "Tutor/Crew invitations",
+      "Admin/Coordinator invitations",
+      "email-bound invitation",
+      "invitation expiry",
+      "copy/share invitation",
+      "Export Image",
+      "used/expired card",
+      "invitation revocation"
+    ],
+    "screenshots": [
+      "admin-registration-codes"
+    ],
+    "steps": [
+      {
+        "number": 1,
+        "screenshot": "admin-registration-codes",
+        "supplementaryScreenshots": [],
+        "views": [
+          {
+            "id": "admin-registration-codes",
+            "view": 1,
+            "callouts": []
+          }
+        ],
+        "callouts": []
+      },
+      {
+        "number": 2,
+        "screenshot": null,
+        "supplementaryScreenshots": [],
+        "views": [],
+        "callouts": []
+      },
+      {
+        "number": 3,
+        "screenshot": null,
+        "supplementaryScreenshots": [],
+        "views": [],
+        "callouts": []
+      },
+      {
+        "number": 4,
+        "screenshot": null,
+        "supplementaryScreenshots": [],
+        "views": [],
+        "callouts": []
+      }
+    ]
+  },
+  {
+    "slug": "inspect-accounts-and-identities",
+    "audience": "staff",
+    "route": "/admin/users",
+    "sources": [
+      "src/app/(admin)/admin/users/page.tsx",
+      "src/app/(admin)/admin/users/user-details.tsx",
+      "src/server/account-directory.ts"
+    ],
+    "covers": [
+      "Users & Roles filters",
+      "historical/unverified visibility",
+      "login setup predicates",
+      "permission badges",
+      "User details",
+      "policy history",
+      "account pathway advice",
+      "combined-person directory"
+    ],
+    "screenshots": [
+      "admin-users"
+    ],
+    "steps": [
+      {
+        "number": 1,
+        "screenshot": "admin-users",
+        "supplementaryScreenshots": [],
+        "views": [
+          {
+            "id": "admin-users",
+            "view": 1,
+            "callouts": []
+          }
+        ],
+        "callouts": []
+      },
+      {
+        "number": 2,
+        "screenshot": null,
+        "supplementaryScreenshots": [],
+        "views": [],
+        "callouts": []
+      },
+      {
+        "number": 3,
+        "screenshot": null,
+        "supplementaryScreenshots": [],
+        "views": [],
+        "callouts": []
+      },
+      {
+        "number": 4,
+        "screenshot": null,
+        "supplementaryScreenshots": [],
+        "views": [],
+        "callouts": []
+      }
+    ]
+  },
+  {
+    "slug": "edit-account-profile",
+    "audience": "staff",
+    "route": "/admin/users",
+    "sources": [
+      "src/app/_components/account-profile-editor.tsx",
+      "src/app/_components/admin-account-view.tsx",
+      "src/server/account-profile.ts"
+    ],
+    "covers": [
+      "staff name correction",
+      "account academics",
+      "unlinked profile edit",
+      "independent section save",
+      "profile version conflict",
+      "academic reference year"
+    ],
+    "screenshots": [
+      "admin-users"
+    ],
+    "steps": [
+      {
+        "number": 1,
+        "screenshot": "admin-users",
+        "supplementaryScreenshots": [],
+        "views": [
+          {
+            "id": "admin-users",
+            "view": 1,
+            "callouts": []
+          }
+        ],
+        "callouts": []
+      },
+      {
+        "number": 2,
+        "screenshot": null,
+        "supplementaryScreenshots": [],
+        "views": [],
+        "callouts": []
+      },
+      {
+        "number": 3,
+        "screenshot": null,
+        "supplementaryScreenshots": [],
+        "views": [],
+        "callouts": []
+      },
+      {
+        "number": 4,
+        "screenshot": null,
+        "supplementaryScreenshots": [],
+        "views": [],
+        "callouts": []
+      }
+    ]
+  },
+  {
+    "slug": "manage-account-access",
+    "audience": "admin",
+    "route": "/admin/users",
+    "sources": [
+      "src/app/(admin)/admin/users/page.tsx",
+      "src/server/api/routers/admin.ts",
+      "src/lib/approval-policy.ts"
+    ],
+    "covers": [
+      "non-Head rank grants/revocations",
+      "participant badge/access",
+      "Translator assignment",
+      "setup delivery",
+      "login recovery",
+      "suspend/restore",
+      "account appeal decision",
+      "eligible account deletion"
+    ],
+    "screenshots": [
+      "admin-users"
+    ],
+    "steps": [
+      {
+        "number": 1,
+        "screenshot": "admin-users",
+        "supplementaryScreenshots": [],
+        "views": [
+          {
+            "id": "admin-users",
+            "view": 1,
+            "callouts": []
+          }
+        ],
+        "callouts": []
+      },
+      {
+        "number": 2,
+        "screenshot": null,
+        "supplementaryScreenshots": [],
+        "views": [],
+        "callouts": []
+      },
+      {
+        "number": 3,
+        "screenshot": null,
+        "supplementaryScreenshots": [],
+        "views": [],
+        "callouts": []
+      },
+      {
+        "number": 4,
+        "screenshot": null,
+        "supplementaryScreenshots": [],
+        "views": [],
+        "callouts": []
+      }
+    ]
+  },
+  {
+    "slug": "manage-usernames",
+    "audience": "admin",
+    "route": "/admin/users",
+    "sources": [
+      "src/app/_components/account-username-editor.tsx",
+      "src/server/api/routers/admin.ts",
+      "src/lib/approval-policy.ts"
+    ],
+    "covers": [
+      "Assign Username",
+      "account username edit",
+      "unlinked roster username",
+      "username uniqueness",
+      "permanent handle",
+      "username synchronization"
+    ],
+    "screenshots": [
+      "admin-users"
+    ],
+    "steps": [
+      {
+        "number": 1,
+        "screenshot": "admin-users",
+        "supplementaryScreenshots": [],
+        "views": [
+          {
+            "id": "admin-users",
+            "view": 1,
+            "callouts": []
+          }
+        ],
+        "callouts": []
+      },
+      {
+        "number": 2,
+        "screenshot": null,
+        "supplementaryScreenshots": [],
+        "views": [],
+        "callouts": []
+      },
+      {
+        "number": 3,
+        "screenshot": null,
+        "supplementaryScreenshots": [],
+        "views": [],
+        "callouts": []
+      },
+      {
+        "number": 4,
+        "screenshot": null,
+        "supplementaryScreenshots": [],
+        "views": [],
+        "callouts": []
+      }
+    ]
+  },
+  {
+    "slug": "combine-person-records",
+    "audience": "admin",
+    "route": "/admin/users",
+    "sources": [
+      "src/app/_components/combine-records.tsx",
+      "src/app/_components/person-participation-review.tsx",
+      "src/lib/approval-policy.ts"
+    ],
+    "covers": [
+      "Combine records",
+      "retained login",
+      "explicit login retirement",
+      "identity evidence",
+      "current participation blockers",
+      "pending history invitation cancellation",
+      "Finalize reviewed group"
+    ],
+    "screenshots": [
+      "admin-users"
+    ],
+    "steps": [
+      {
+        "number": 1,
+        "screenshot": "admin-users",
+        "supplementaryScreenshots": [],
+        "views": [
+          {
+            "id": "admin-users",
+            "view": 1,
+            "callouts": []
+          }
+        ],
+        "callouts": []
+      },
+      {
+        "number": 2,
+        "screenshot": null,
+        "supplementaryScreenshots": [],
+        "views": [],
+        "callouts": []
+      },
+      {
+        "number": 3,
+        "screenshot": null,
+        "supplementaryScreenshots": [],
+        "views": [],
+        "callouts": []
+      },
+      {
+        "number": 4,
+        "screenshot": null,
+        "supplementaryScreenshots": [],
+        "views": [],
+        "callouts": []
+      }
+    ]
+  },
+  {
+    "slug": "link-historical-participant-records",
+    "audience": "admin",
+    "route": "/admin/users",
+    "sources": [
+      "src/app/_components/historical-record-invitation.tsx",
+      "src/app/_components/combine-records.tsx",
+      "docs/guides/historical-participant-transition.md"
+    ],
+    "covers": [
+      "archived tutor history link",
+      "historical tutee ownership",
+      "history-only invitation",
+      "frozen invitation scope",
+      "retained-owner correction",
+      "recipient history claim"
+    ],
+    "screenshots": [
+      "admin-users"
+    ],
+    "steps": [
+      {
+        "number": 1,
+        "screenshot": "admin-users",
+        "supplementaryScreenshots": [],
+        "views": [
+          {
+            "id": "admin-users",
+            "view": 1,
+            "callouts": []
+          }
+        ],
+        "callouts": []
+      },
+      {
+        "number": 2,
+        "screenshot": null,
+        "supplementaryScreenshots": [],
+        "views": [],
+        "callouts": []
+      },
+      {
+        "number": 3,
+        "screenshot": null,
+        "supplementaryScreenshots": [],
+        "views": [],
+        "callouts": []
+      },
+      {
+        "number": 4,
+        "screenshot": null,
+        "supplementaryScreenshots": [],
+        "views": [],
+        "callouts": []
+      }
+    ]
+  },
+  {
+    "slug": "correct-combined-records",
+    "audience": "admin",
+    "route": "/admin/users",
+    "sources": [
+      "src/app/_components/person-partition.tsx",
+      "src/app/_components/person-history-correction.tsx",
+      "src/app/_components/person-participation-transfer.tsx"
+    ],
+    "covers": [
+      "Separate Mistakenly Grouped Records",
+      "Correct Retired-Account History",
+      "history quarantine",
+      "per-row ownership decisions",
+      "Merge Active Participation",
+      "qualification/preference source review",
+      "published deadline preservation",
+      "exact-operation recovery"
+    ],
+    "screenshots": [
+      "admin-users"
+    ],
+    "steps": [
+      {
+        "number": 1,
+        "screenshot": "admin-users",
+        "supplementaryScreenshots": [],
+        "views": [
+          {
+            "id": "admin-users",
+            "view": 1,
+            "callouts": []
+          }
+        ],
+        "callouts": []
+      },
+      {
+        "number": 2,
+        "screenshot": null,
+        "supplementaryScreenshots": [],
+        "views": [],
+        "callouts": []
+      },
+      {
+        "number": 3,
+        "screenshot": null,
+        "supplementaryScreenshots": [],
+        "views": [],
+        "callouts": []
+      },
+      {
+        "number": 4,
+        "screenshot": null,
+        "supplementaryScreenshots": [],
+        "views": [],
+        "callouts": []
+      }
+    ]
+  },
+  {
+    "slug": "correct-historical-academics",
+    "audience": "staff",
+    "route": "/admin/academic-corrections",
+    "sources": [
+      "src/app/_components/historical-academic-corrections.tsx",
+      "src/lib/historical-academics.ts",
+      "src/app/(admin)/admin/academic-corrections/page.tsx"
+    ],
+    "covers": [
+      "historical academic search",
+      "single correction",
+      "CSV academic batch",
+      "before/after academic preview",
+      "source fingerprints",
+      "Coordinator correction proposal"
+    ],
+    "screenshots": [
+      "admin-academic-corrections"
+    ],
+    "steps": [
+      {
+        "number": 1,
+        "screenshot": "admin-academic-corrections",
+        "supplementaryScreenshots": [],
+        "views": [
+          {
+            "id": "admin-academic-corrections",
+            "view": 1,
+            "callouts": []
+          }
+        ],
+        "callouts": []
+      },
+      {
+        "number": 2,
+        "screenshot": null,
+        "supplementaryScreenshots": [],
+        "views": [],
+        "callouts": []
+      },
+      {
+        "number": 3,
+        "screenshot": null,
+        "supplementaryScreenshots": [],
+        "views": [],
+        "callouts": []
+      },
+      {
+        "number": 4,
+        "screenshot": null,
+        "supplementaryScreenshots": [],
+        "views": [],
+        "callouts": []
+      }
+    ]
+  },
+  {
+    "slug": "submit-management-proposals",
+    "audience": "staff",
+    "route": "/admin/approvals",
+    "sources": [
+      "src/app/_components/management-actions.tsx",
+      "src/lib/approval-policy.ts",
+      "src/server/approvals.ts"
+    ],
+    "covers": [
+      "Coordinator proposal",
+      "Admin refresh request",
+      "Management Actions receipt",
+      "status/requester filters",
+      "proposal withdrawal",
+      "pending versus applied evidence"
+    ],
+    "screenshots": [
+      "admin-approvals"
+    ],
+    "steps": [
+      {
+        "number": 1,
+        "screenshot": "admin-approvals",
+        "supplementaryScreenshots": [],
+        "views": [
+          {
+            "id": "admin-approvals",
+            "view": 1,
+            "callouts": []
+          }
+        ],
+        "callouts": []
+      },
+      {
+        "number": 2,
+        "screenshot": null,
+        "supplementaryScreenshots": [],
+        "views": [],
+        "callouts": []
+      },
+      {
+        "number": 3,
+        "screenshot": null,
+        "supplementaryScreenshots": [],
+        "views": [],
+        "callouts": []
+      },
+      {
+        "number": 4,
+        "screenshot": null,
+        "supplementaryScreenshots": [],
+        "views": [],
+        "callouts": []
+      }
+    ]
+  },
+  {
+    "slug": "decide-management-proposals",
+    "audience": "admin",
+    "route": "/admin/approvals",
+    "sources": [
+      "src/app/_components/management-actions.tsx",
+      "src/server/approvals.ts",
+      "src/lib/approval-policy.ts"
+    ],
+    "covers": [
+      "approve/reject proposal",
+      "captured/current evidence",
+      "fresh consequence review",
+      "self-review limits",
+      "review note",
+      "reviewer notification reconciliation"
+    ],
+    "screenshots": [
+      "admin-approvals"
+    ],
+    "steps": [
+      {
+        "number": 1,
+        "screenshot": "admin-approvals",
+        "supplementaryScreenshots": [],
+        "views": [
+          {
+            "id": "admin-approvals",
+            "view": 1,
+            "callouts": []
+          }
+        ],
+        "callouts": []
+      },
+      {
+        "number": 2,
+        "screenshot": null,
+        "supplementaryScreenshots": [],
+        "views": [],
+        "callouts": []
+      },
+      {
+        "number": 3,
+        "screenshot": null,
+        "supplementaryScreenshots": [],
+        "views": [],
+        "callouts": []
+      },
+      {
+        "number": 4,
+        "screenshot": null,
+        "supplementaryScreenshots": [],
+        "views": [],
+        "callouts": []
+      }
+    ]
+  },
+  {
+    "slug": "inspect-audit-evidence",
+    "audience": "staff",
+    "route": "/admin/audit",
+    "sources": [
+      "src/app/(admin)/admin/audit/page.tsx",
+      "src/server/recovery/record-inspector.ts"
+    ],
+    "covers": [
+      "audit filters",
+      "program-timezone dates",
+      "stable actors",
+      "audit details",
+      "before/after evidence",
+      "stored JSON",
+      "proposal/action distinction"
+    ],
+    "screenshots": [
+      "admin-audit"
+    ],
+    "steps": [
+      {
+        "number": 1,
+        "screenshot": "admin-audit",
+        "supplementaryScreenshots": [],
+        "views": [
+          {
+            "id": "admin-audit",
+            "view": 1,
+            "callouts": []
+          }
+        ],
+        "callouts": []
+      },
+      {
+        "number": 2,
+        "screenshot": null,
+        "supplementaryScreenshots": [],
+        "views": [],
+        "callouts": []
+      },
+      {
+        "number": 3,
+        "screenshot": null,
+        "supplementaryScreenshots": [],
+        "views": [],
+        "callouts": []
+      },
+      {
+        "number": 4,
+        "screenshot": null,
+        "supplementaryScreenshots": [],
+        "views": [],
+        "callouts": []
+      }
+    ]
+  },
+  {
+    "slug": "preview-admission-recovery",
+    "audience": "staff",
+    "route": "/admin/recovery",
+    "sources": [
+      "src/app/(admin)/admin/recovery/page.tsx",
+      "src/server/recovery/record-inspector.ts",
+      "docs/guides/recovery.md"
+    ],
+    "covers": [
+      "captured admission recovery",
+      "dependent consequence plan",
+      "recovery preview",
+      "reviewed recovery application",
+      "operator CLI escalation",
+      "legacy Undo limit"
+    ],
+    "screenshots": [
+      "admin-recovery"
+    ],
+    "steps": [
+      {
+        "number": 1,
+        "screenshot": "admin-recovery",
+        "supplementaryScreenshots": [],
+        "views": [
+          {
+            "id": "admin-recovery",
+            "view": 1,
+            "callouts": []
+          }
+        ],
+        "callouts": []
+      },
+      {
+        "number": 2,
+        "screenshot": null,
+        "supplementaryScreenshots": [],
+        "views": [],
+        "callouts": []
+      },
+      {
+        "number": 3,
+        "screenshot": null,
+        "supplementaryScreenshots": [],
+        "views": [],
+        "callouts": []
+      },
+      {
+        "number": 4,
+        "screenshot": null,
+        "supplementaryScreenshots": [],
+        "views": [],
+        "callouts": []
+      }
+    ]
+  },
+  {
+    "slug": "inspect-database-records",
+    "audience": "admin",
+    "route": "/admin/database",
+    "sources": [
+      "src/app/_components/database-inspector.tsx",
+      "src/server/recovery/record-inspector.ts",
+      "src/app/(admin)/admin/database/page.tsx"
+    ],
+    "covers": [
+      "database table metadata",
+      "exact JSON key",
+      "persisted field reader",
+      "omitted-field policy",
+      "recorded relationships",
+      "CLI reference copy",
+      "read-only inspector"
+    ],
+    "screenshots": [
+      "admin-database"
+    ],
+    "steps": [
+      {
+        "number": 1,
+        "screenshot": "admin-database",
+        "supplementaryScreenshots": [],
+        "views": [
+          {
+            "id": "admin-database",
+            "view": 1,
+            "callouts": []
+          }
+        ],
+        "callouts": []
+      },
+      {
+        "number": 2,
+        "screenshot": null,
+        "supplementaryScreenshots": [],
+        "views": [],
+        "callouts": []
+      },
+      {
+        "number": 3,
+        "screenshot": null,
+        "supplementaryScreenshots": [],
+        "views": [],
+        "callouts": []
+      },
+      {
+        "number": 4,
+        "screenshot": null,
+        "supplementaryScreenshots": [],
+        "views": [],
+        "callouts": []
+      }
+    ]
+  },
+  {
+    "slug": "transfer-program-records",
+    "audience": "admin",
+    "route": "/admin/records",
+    "sources": [
+      "src/app/_components/record-transfer.tsx",
+      "src/lib/record-transfer-archive.ts",
+      "src/lib/approval-policy.ts"
+    ],
+    "covers": [
+      "program CSV ZIP export",
+      "CSV templates",
+      "UTF-8/stable IDs",
+      "dependent archive import",
+      "preview new/skipped/conflicts",
+      "non-overwriting import",
+      "archive scope exclusions"
+    ],
+    "screenshots": [
+      "admin-records"
+    ],
+    "steps": [
+      {
+        "number": 1,
+        "screenshot": "admin-records",
+        "supplementaryScreenshots": [],
+        "views": [
+          {
+            "id": "admin-records",
+            "view": 1,
+            "callouts": []
+          }
+        ],
+        "callouts": []
+      },
+      {
+        "number": 2,
+        "screenshot": null,
+        "supplementaryScreenshots": [],
+        "views": [],
+        "callouts": []
+      },
+      {
+        "number": 3,
+        "screenshot": null,
+        "supplementaryScreenshots": [],
+        "views": [],
+        "callouts": []
+      },
+      {
+        "number": 4,
+        "screenshot": null,
+        "supplementaryScreenshots": [],
+        "views": [],
+        "callouts": []
+      }
+    ]
+  },
+  {
+    "slug": "supervise-disclosed-messages",
+    "audience": "admin",
+    "route": "/admin/messages/supervision",
+    "sources": [
+      "src/app/_components/message-admin.tsx",
+      "src/app/(admin)/admin/messages/supervision/page.tsx",
+      "src/server/messaging-permissions.ts"
+    ],
+    "covers": [
+      "disclosed-message supervision",
+      "reasoned conversation read",
+      "message hide/restore",
+      "contact restrict/unrestrict",
+      "role/user contact permissions",
+      "legacy participant-only boundary"
+    ],
+    "screenshots": [
+      "admin-supervision"
+    ],
+    "steps": [
+      {
+        "number": 1,
+        "screenshot": "admin-supervision",
+        "supplementaryScreenshots": [],
+        "views": [
+          {
+            "id": "admin-supervision",
+            "view": 1,
+            "callouts": []
+          }
+        ],
+        "callouts": []
+      },
+      {
+        "number": 2,
+        "screenshot": null,
+        "supplementaryScreenshots": [],
+        "views": [],
+        "callouts": []
+      },
+      {
+        "number": 3,
+        "screenshot": null,
+        "supplementaryScreenshots": [],
+        "views": [],
+        "callouts": []
+      },
+      {
+        "number": 4,
+        "screenshot": null,
+        "supplementaryScreenshots": [],
+        "views": [],
+        "callouts": []
+      }
+    ]
+  },
+  {
+    "slug": "configure-recruitment",
+    "audience": "staff",
+    "route": "/admin/program",
+    "sources": [
+      "src/app/_components/recruitment-settings.tsx",
+      "src/app/_components/next-recruitment-settings.tsx",
+      "src/app/_components/program-public-qr-links.tsx",
+      "src/app/_components/program-time-zone-settings.tsx"
+    ],
+    "covers": [
+      "current recruitment windows",
+      "acceptance/opening/closing",
+      "next-period Tutor/Tutee preparation",
+      "explicit clear opening",
+      "program timezone",
+      "signup preview",
+      "public signup QR"
+    ],
+    "screenshots": [
+      "admin-program"
+    ],
+    "steps": [
+      {
+        "number": 1,
+        "screenshot": "admin-program",
+        "supplementaryScreenshots": [],
+        "views": [
+          {
+            "id": "admin-program",
+            "view": 1,
+            "callouts": []
+          }
+        ],
+        "callouts": []
+      },
+      {
+        "number": 2,
+        "screenshot": null,
+        "supplementaryScreenshots": [],
+        "views": [],
+        "callouts": []
+      },
+      {
+        "number": 3,
+        "screenshot": null,
+        "supplementaryScreenshots": [],
+        "views": [],
+        "callouts": []
+      },
+      {
+        "number": 4,
+        "screenshot": null,
+        "supplementaryScreenshots": [],
+        "views": [],
+        "callouts": []
+      }
+    ]
+  },
+  {
+    "slug": "configure-school-calendar",
+    "audience": "staff",
+    "route": "/admin/program",
+    "sources": [
+      "src/app/_components/school-calendar.tsx",
+      "src/app/_components/program-calendar.tsx",
+      "src/app/_components/school-calendar-notice.tsx",
+      "src/lib/school-calendar.ts",
+      "src/server/program/school-calendar.ts"
+    ],
+    "covers": [
+      "school-day override",
+      "calendar override removal",
+      "appeal school days",
+      "inclusive holiday range",
+      "holiday override replacement review",
+      "holiday range conflict reload",
+      "no-tutoring notice",
+      "Pause regular tutoring",
+      "overlapping pauses",
+      "published-commitment review"
+    ],
+    "screenshots": [
+      "admin-program"
+    ],
+    "steps": [
+      {
+        "number": 1,
+        "screenshot": "admin-program",
+        "supplementaryScreenshots": [],
+        "views": [
+          {
+            "id": "admin-program",
+            "view": 1,
+            "callouts": []
+          }
+        ],
+        "callouts": []
+      },
+      {
+        "number": 2,
+        "screenshot": null,
+        "supplementaryScreenshots": [],
+        "views": [],
+        "callouts": []
+      },
+      {
+        "number": 3,
+        "screenshot": null,
+        "supplementaryScreenshots": [],
+        "views": [],
+        "callouts": []
+      },
+      {
+        "number": 4,
+        "screenshot": null,
+        "supplementaryScreenshots": [],
+        "views": [],
+        "callouts": []
+      },
+      {
+        "number": 5,
+        "screenshot": null,
+        "supplementaryScreenshots": [],
+        "views": [],
+        "callouts": []
+      }
+    ]
+  },
+  {
+    "slug": "configure-signup-fields",
+    "audience": "staff",
+    "route": "/admin/signup-forms",
+    "sources": [
+      "src/app/(admin)/admin/signup-forms/page.tsx",
+      "src/app/_components/program-name-settings.tsx",
+      "src/app/_components/program-profile-settings.tsx"
+    ],
+    "covers": [
+      "signup field Required/Optional/Hidden",
+      "form-specific requirements",
+      "name fields and Latin policy",
+      "name display",
+      "grade/reference-year confirmation",
+      "names/grades draft recovery"
+    ],
+    "screenshots": [
+      "admin-signup-forms"
+    ],
+    "steps": [
+      {
+        "number": 1,
+        "screenshot": "admin-signup-forms",
+        "supplementaryScreenshots": [],
+        "views": [
+          {
+            "id": "admin-signup-forms",
+            "view": 1,
+            "callouts": []
+          }
+        ],
+        "callouts": []
+      },
+      {
+        "number": 2,
+        "screenshot": null,
+        "supplementaryScreenshots": [],
+        "views": [],
+        "callouts": []
+      },
+      {
+        "number": 3,
+        "screenshot": null,
+        "supplementaryScreenshots": [],
+        "views": [],
+        "callouts": []
+      },
+      {
+        "number": 4,
+        "screenshot": null,
+        "supplementaryScreenshots": [],
+        "views": [],
+        "callouts": []
+      }
+    ]
+  },
+  {
+    "slug": "configure-mail-and-access-controls",
+    "audience": "staff",
+    "route": "/admin/program",
+    "sources": [
+      "src/app/_components/program-email-settings.tsx",
+      "src/app/_components/program-notification-locks.tsx",
+      "src/app/_components/program-captcha-settings.tsx",
+      "src/app/_components/message-admin.tsx"
+    ],
+    "covers": [
+      "program email switch",
+      "required notification preferences",
+      "secondary-email binding",
+      "SMTP readiness",
+      "email previews",
+      "stuck email retry",
+      "CAPTCHA settings",
+      "contact-permission settings"
+    ],
+    "screenshots": [
+      "admin-program"
+    ],
+    "steps": [
+      {
+        "number": 1,
+        "screenshot": "admin-program",
+        "supplementaryScreenshots": [],
+        "views": [
+          {
+            "id": "admin-program",
+            "view": 1,
+            "callouts": []
+          }
+        ],
+        "callouts": []
+      },
+      {
+        "number": 2,
+        "screenshot": null,
+        "supplementaryScreenshots": [],
+        "views": [],
+        "callouts": []
+      },
+      {
+        "number": 3,
+        "screenshot": null,
+        "supplementaryScreenshots": [],
+        "views": [],
+        "callouts": []
+      },
+      {
+        "number": 4,
+        "screenshot": null,
+        "supplementaryScreenshots": [],
+        "views": [],
+        "callouts": []
+      }
+    ]
+  },
+  {
+    "slug": "stage-program-modules",
+    "audience": "staff",
+    "route": "/admin/program",
+    "sources": [
+      "src/app/_components/program-feature-settings.tsx",
+      "src/server/program/features.ts",
+      "src/lib/approval-policy.ts"
+    ],
+    "covers": [
+      "effective/pending modules",
+      "stage feature switch",
+      "cancel pending switch",
+      "Crew/Interviews/Meetings/Service Hours",
+      "automatic room toggle",
+      "refresh activation"
+    ],
+    "screenshots": [
+      "admin-program"
+    ],
+    "steps": [
+      {
+        "number": 1,
+        "screenshot": "admin-program",
+        "supplementaryScreenshots": [],
+        "views": [
+          {
+            "id": "admin-program",
+            "view": 1,
+            "callouts": []
+          }
+        ],
+        "callouts": []
+      },
+      {
+        "number": 2,
+        "screenshot": null,
+        "supplementaryScreenshots": [],
+        "views": [],
+        "callouts": []
+      },
+      {
+        "number": 3,
+        "screenshot": null,
+        "supplementaryScreenshots": [],
+        "views": [],
+        "callouts": []
+      },
+      {
+        "number": 4,
+        "screenshot": null,
+        "supplementaryScreenshots": [],
+        "views": [],
+        "callouts": []
+      }
+    ]
+  },
+  {
+    "slug": "perform-official-refresh",
+    "audience": "head",
+    "route": "/admin/program",
+    "sources": [
+      "src/app/_components/program-refresh.tsx",
+      "src/app/_components/scheduled-program-refresh.tsx",
+      "src/app/_components/program-refresh-effects.tsx"
+    ],
+    "covers": [
+      "official refresh",
+      "REFRESH confirmation",
+      "destination opening review",
+      "scheduled refresh",
+      "cancel scheduled refresh",
+      "refresh participation consequences",
+      "activated staged modules"
+    ],
+    "screenshots": [
+      "admin-program"
+    ],
+    "steps": [
+      {
+        "number": 1,
+        "screenshot": "admin-program",
+        "supplementaryScreenshots": [],
+        "views": [
+          {
+            "id": "admin-program",
+            "view": 1,
+            "callouts": []
+          }
+        ],
+        "callouts": []
+      },
+      {
+        "number": 2,
+        "screenshot": null,
+        "supplementaryScreenshots": [],
+        "views": [],
+        "callouts": []
+      },
+      {
+        "number": 3,
+        "screenshot": null,
+        "supplementaryScreenshots": [],
+        "views": [],
+        "callouts": []
+      },
+      {
+        "number": 4,
+        "screenshot": null,
+        "supplementaryScreenshots": [],
+        "views": [],
+        "callouts": []
+      }
+    ]
+  },
+  {
+    "slug": "transfer-head-leadership",
+    "audience": "head",
+    "route": "/admin/users",
+    "sources": [
+      "src/app/(admin)/admin/users/page.tsx",
+      "src/server/api/routers/admin.ts",
+      "src/lib/approval-policy.ts"
+    ],
+    "covers": [
+      "Head leadership transfer",
+      "eligible Admin/Coordinator successor",
+      "fresh password",
+      "singleton Head",
+      "outgoing Admin",
+      "review notification ownership"
+    ],
+    "screenshots": [
+      "admin-users"
+    ],
+    "steps": [
+      {
+        "number": 1,
+        "screenshot": "admin-users",
+        "supplementaryScreenshots": [],
+        "views": [
+          {
+            "id": "admin-users",
+            "view": 1,
+            "callouts": []
+          }
+        ],
+        "callouts": []
+      },
+      {
+        "number": 2,
+        "screenshot": null,
+        "supplementaryScreenshots": [],
+        "views": [],
+        "callouts": []
+      },
+      {
+        "number": 3,
+        "screenshot": null,
+        "supplementaryScreenshots": [],
+        "views": [],
+        "callouts": []
+      },
+      {
+        "number": 4,
+        "screenshot": null,
+        "supplementaryScreenshots": [],
+        "views": [],
+        "callouts": []
+      }
+    ]
+  },
+  {
+    "slug": "download-help-handbooks",
+    "audience": "staff",
+    "route": "/admin/help",
+    "sources": [
+      "src/app/(admin)/admin/help/page.tsx",
+      "src/lib/help/types.ts"
+    ],
+    "covers": [
+      "admin help handbook downloads",
+      "role/language PDF",
+      "screenshot provenance",
+      "GitHub catalogue copy",
+      "repeatable help refresh",
+      "screenshot locale/crop disclosure"
+    ],
+    "screenshots": [
+      "admin-help"
+    ],
+    "steps": [
+      {
+        "number": 1,
+        "screenshot": "admin-help",
+        "supplementaryScreenshots": [],
+        "views": [
+          {
+            "id": "admin-help",
+            "view": 1,
+            "callouts": []
+          }
+        ],
+        "callouts": []
+      },
+      {
+        "number": 2,
+        "screenshot": null,
+        "supplementaryScreenshots": [],
+        "views": [],
+        "callouts": []
+      },
+      {
+        "number": 3,
+        "screenshot": null,
+        "supplementaryScreenshots": [],
+        "views": [],
+        "callouts": []
+      },
+      {
+        "number": 4,
+        "screenshot": null,
+        "supplementaryScreenshots": [],
+        "views": [],
+        "callouts": []
+      }
+    ]
+  },
+  {
+    "slug": "use-school-report-link",
+    "audience": "public",
+    "route": "/",
+    "sources": [
+      "src/app/_components/school-hours-report.tsx",
+      "src/app/reports/service-hours/[token]/route.ts",
+      "src/server/api/routers/school-hours.ts"
+    ],
+    "covers": [
+      "school recipient report",
+      "report language",
+      "Hours Details",
+      "last-entered edition correction",
+      "recipient CSV",
+      "personal reminder",
+      "reminder cancellation",
+      "live link access"
+    ],
+    "screenshots": [
+      "school-report"
+    ],
+    "steps": [
+      {
+        "number": 1,
+        "screenshot": "school-report",
+        "supplementaryScreenshots": [],
+        "views": [
+          {
+            "id": "school-report",
+            "view": 1,
+            "callouts": []
+          }
+        ],
+        "callouts": []
+      },
+      {
+        "number": 2,
+        "screenshot": null,
+        "supplementaryScreenshots": [],
+        "views": [],
+        "callouts": []
+      },
+      {
+        "number": 3,
+        "screenshot": null,
+        "supplementaryScreenshots": [],
+        "views": [],
+        "callouts": []
+      },
+      {
+        "number": 4,
+        "screenshot": null,
+        "supplementaryScreenshots": [],
+        "views": [],
+        "callouts": []
+      }
+    ]
+  },
+  {
+    "slug": "decide-additional-qualification-applications",
+    "audience": "admin",
+    "route": "/admin/applications",
+    "sources": [
+      "src/app/_components/qualification-review.tsx",
+      "src/server/api/routers/qualification-application.ts",
+      "src/lib/approval-policy.ts"
+    ],
+    "covers": [
+      "additional-subject decision",
+      "higher-level decision",
+      "Approve without Interview",
+      "Decision note",
+      "qualification application rejection",
+      "interview-required route"
+    ],
+    "screenshots": [
+      "admin-applications"
+    ],
+    "steps": [
+      {
+        "number": 1,
+        "screenshot": "admin-applications",
+        "supplementaryScreenshots": [],
+        "views": [
+          {
+            "id": "admin-applications",
+            "view": 1,
+            "callouts": []
+          }
+        ],
+        "callouts": []
+      },
+      {
+        "number": 2,
+        "screenshot": null,
+        "supplementaryScreenshots": [],
+        "views": [],
+        "callouts": []
+      },
+      {
+        "number": 3,
+        "screenshot": null,
+        "supplementaryScreenshots": [],
+        "views": [],
+        "callouts": []
+      },
+      {
+        "number": 4,
+        "screenshot": null,
+        "supplementaryScreenshots": [],
+        "views": [],
+        "callouts": []
+      }
+    ]
+  },
+  {
+    "slug": "review-translations-and-languages",
+    "audience": "admin",
+    "route": "/localization?view=review",
+    "sources": [
+      "src/lib/translation-access.ts",
+      "src/app/_components/translation-review.tsx",
+      "src/app/_components/translation-editor.tsx"
+    ],
+    "covers": [
+      "Admin/Head translation review",
+      "publish/reject translation",
+      "language enable/hide",
+      "language order",
+      "custom language deletion",
+      "review without Translator assignment"
+    ],
+    "screenshots": [
+      "localization"
+    ],
+    "steps": [
+      {
+        "number": 1,
+        "screenshot": "localization",
+        "supplementaryScreenshots": [],
+        "views": [
+          {
+            "id": "localization",
+            "view": 1,
+            "callouts": []
+          }
+        ],
+        "callouts": []
+      },
+      {
+        "number": 2,
+        "screenshot": null,
+        "supplementaryScreenshots": [],
+        "views": [],
+        "callouts": []
+      },
+      {
+        "number": 3,
+        "screenshot": null,
+        "supplementaryScreenshots": [],
+        "views": [],
+        "callouts": []
+      },
+      {
+        "number": 4,
+        "screenshot": null,
+        "supplementaryScreenshots": [],
+        "views": [],
+        "callouts": []
+      }
+    ]
+  },
+  {
+    "slug": "change-program-timezone",
+    "audience": "staff",
+    "route": "/admin/program",
+    "sources": [
+      "src/app/_components/program-time-zone-settings.tsx",
+      "src/lib/program-time.ts",
+      "src/lib/approval-policy.ts"
+    ],
+    "covers": [
+      "program IANA timezone",
+      "Preview date seasonal offset",
+      "12:00 UTC comparison",
+      "timezone acknowledgement",
+      "Coordinator timezone proposal",
+      "saved instants versus weekly wall clocks",
+      "DST ambiguous/skipped input"
+    ],
+    "screenshots": [
+      "admin-program"
+    ],
+    "steps": [
+      {
+        "number": 1,
+        "screenshot": "admin-program",
+        "supplementaryScreenshots": [],
+        "views": [
+          {
+            "id": "admin-program",
+            "view": 1,
+            "callouts": []
+          }
+        ],
+        "callouts": []
+      },
+      {
+        "number": 2,
+        "screenshot": null,
+        "supplementaryScreenshots": [],
+        "views": [],
+        "callouts": []
+      },
+      {
+        "number": 3,
+        "screenshot": null,
+        "supplementaryScreenshots": [],
+        "views": [],
+        "callouts": []
+      },
+      {
+        "number": 4,
+        "screenshot": null,
+        "supplementaryScreenshots": [],
+        "views": [],
+        "callouts": []
+      }
+    ]
+  }
+]

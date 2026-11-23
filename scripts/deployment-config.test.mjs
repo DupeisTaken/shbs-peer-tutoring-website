@@ -20,6 +20,35 @@ const bash = process.env.SHBS_TEST_BASH ?? "bash";
 
 const runtimeCliGraph = (entry, projectRoot = root) => inspectRuntimeCliGraph(projectRoot, entry);
 
+test("image context omits GitHub help derivatives while retaining CI-baked capture path and PDF fonts", () => {
+  const rules = readFileSync(path.join(root, ".dockerignore"), "utf8")
+    .split(/\r?\n/).map((line) => line.trim()).filter((line) => line && !line.startsWith("#"));
+  assert.equal(rules.filter((rule) => rule === "docs/guides/help/assets/annotated/").length, 1);
+  const captures = JSON.parse(readFileSync(path.join(root, "docs/guides/help/captures.json"), "utf8"));
+  assert.ok(Array.isArray(captures.screenshots), "capture manifest must declare a screenshots array");
+  // Conservatively reject positive path/basename rules matching any runtime
+  // input (including CI-baked raw JPEGs and PDF fonts).
+  for (const required of new Set([
+    ...captures.screenshots.map(({ file }) => `docs/guides/help/assets/${file}`),
+    "docs/guides/help/assets/example-step-1.en.jpg",
+    "docs/guides/help/captures.json",
+    "public/fonts/help/noto-sans-sc.otf",
+  ])) {
+    for (const rule of rules.filter((value) => !value.startsWith("!"))) {
+      const pattern = rule.replace(/^\//, "").replace(/\/$/, "");
+      const patterns = pattern.includes("/") ? [pattern] : [pattern, `**/${pattern}`];
+      assert.equal(patterns.some((value) => path.matchesGlob(required, value) || path.matchesGlob(required, `${value}/**`)), false,
+        `${rule} must not exclude required help input ${required}`);
+    }
+  }
+  const config = readFileSync(path.join(root, "next.config.js"), "utf8");
+  assert.match(config, /["']\.\/docs\/guides\/help\/assets\/\*\.jpg["']/);
+  assert.match(config, /["']\.\/public\/fonts\/help\/noto-sans-sc\.otf["']/);
+  assert.match(config, /["']\.\/node_modules\/geist\/dist\/fonts\/geist-sans\/Geist-Regular\.ttf["']/);
+  assert.match(config, /["']\.\/node_modules\/geist\/dist\/fonts\/geist-sans\/Geist-Bold\.ttf["']/);
+  assert.match(config, /["']\.\/node_modules\/geist\/dist\/fonts\/geist-mono\/GeistMono-Regular\.ttf["']/);
+});
+
 function runtimeSourceCopies(dockerfile = readFileSync(path.join(root, "Dockerfile"), "utf8")) {
   const runner = dockerfile.split(/^FROM .+ AS runner\s*$/m)[1];
   assert.ok(runner, "the final runtime stage must be inspected");
