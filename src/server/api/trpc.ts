@@ -257,11 +257,13 @@ export const protectedProcedure = t.procedure
       "student.feedback",
       "student.appeal",
       "studentWorkflow.mine",
+      "studentWorkflow.signupRestriction",
       "studentWorkflow.legacyParticipation",
       "studentWorkflow.applyLegacyWithdrawal",
       "studentWorkflow.editAvailability",
       "studentWorkflow.recall",
       "studentWorkflow.applyAbort",
+      "studentWorkflow.abortReceipt",
     ]);
     if (tuteeOperations.has(path)) {
       if (account.role === "VIEWER" || (!account.tuteeMember && !access.departed))

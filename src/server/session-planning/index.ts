@@ -2300,6 +2300,7 @@ async function finishAgreement(
             tuteeId: member.tuteeId,
             assignmentId: member.assignmentId,
             sourceSurveyId: member.sourceSurveyId,
+            sourceTuteeId: member.sourceTuteeId,
             joinedAt: member.joinedAt,
             releasedAt: member.releasedAt,
           })),
@@ -4139,6 +4140,7 @@ export async function syncContinuationPlanMembership(
   rawInput: {
     assignmentId?: string;
     sourceSurveyId?: string;
+    legacySourceTuteeId?: string;
     sourceTuteeId?: string;
     pairingId: string;
     tuteeId: string;
@@ -4148,7 +4150,8 @@ export async function syncContinuationPlanMembership(
   now = new Date(),
 ) {
   const input = rawInput;
-  if (Boolean(input.assignmentId) === Boolean(input.sourceSurveyId)) fail("Select exactly one original membership authority.");
+  if ([input.assignmentId, input.sourceSurveyId, input.legacySourceTuteeId].filter(Boolean).length !== 1 ||
+    (input.legacySourceTuteeId && !input.releasedAt)) fail("Select exactly one original membership authority.");
   await lockSessionPlanning(tx);
   const sourcePairing = !input.releasedAt
     ? await tx.pairing.findUnique({ where: { id: input.pairingId } })
@@ -4167,6 +4170,15 @@ export async function syncContinuationPlanMembership(
     const execution = await tx.sessionPlanExecution.findUnique({ where: { planId: plan.id } });
     const executedMembers = execution ? await tx.sessionParticipantExecution.findMany({ where: { participantId: { in: plan.participants.map((row) => row.id) }, tuteeId: rawInput.tuteeId } }) : [];
     let originalMember = plan.participants.find((row) => executedMembers.some((mapping) => mapping.participantId === row.id));
+    if (rawInput.legacySourceTuteeId) {
+      const original = plan.participants.find((row) => row.tuteeId === rawInput.legacySourceTuteeId);
+      if (original && (!execution || executedMembers.some((mapping) => mapping.participantId === original.id))) originalMember = original;
+      else {
+        if (executedMembers.length > 1) fail("The manual publication's original actor needs review.");
+        originalMember = plan.participants.find((row) => executedMembers.some((mapping) => mapping.participantId === row.id)) ?? plan.participants.find((row) => row.tuteeId === rawInput.tuteeId);
+      }
+      if (!originalMember) continue;
+    }
     if (rawInput.sourceSurveyId) {
       const authority = executedMembers.find((row) => row.sourceSurveyIds.includes(rawInput.sourceSurveyId!));
       if (authority) {
@@ -4302,6 +4314,7 @@ export async function syncContinuationPlanMembership(
         tuteeId: input.tuteeId,
         assignmentId: input.assignmentId,
         sourceSurveyId: input.sourceSurveyId,
+        sourceTuteeId: input.legacySourceTuteeId,
         joinedAt: input.joinedAt,
         releasedAt: input.releasedAt,
       },
@@ -4417,6 +4430,41 @@ export async function releaseSessionRequestParticipation(
     pairingId: assignment.pairingId, tuteeId: assignment.tuteeId,
     joinedAt: source.submittedAt, releasedAt: now,
   }, now);
+}
+
+/** A surveyless current source can release only its own detached physical
+ * membership. Exact request/publication authority is never borrowed by legacy
+ * deletion, and the shared membership writer preserves peers and past cohorts. */
+export async function releaseSessionLegacyParticipation(
+  tx: TransactionDb,
+  input: { pairingId: string; tuteeId: string; termId: string; sourceTuteeId: string },
+  now = new Date(),
+) {
+  await lockSessionPlanning(tx);
+  if (await tx.pairingTutee.count({ where: { pairingId: input.pairingId, tuteeId: input.tuteeId } }) ||
+    await tx.studentRequestExecutionAssignment.count({ where: { pairingId: input.pairingId, tuteeId: input.tuteeId, releasedAt: null } }))
+    fail("Legacy publication release requires an exact detached manual membership.");
+  const pairing = await tx.pairing.findFirst({ where: { id: input.pairingId, termId: input.termId, term: { active: true } }, select: { id: true } });
+  if (!pairing) fail("The manual assignment's period changed.");
+  const executed = await tx.sessionParticipantExecution.findMany({ where: { tuteeId: input.tuteeId, sourceSurveyIds: { isEmpty: false } }, select: { participantId: true } });
+  if (executed.length) {
+    const relatedPairingIds = await pairingEvidenceIds(tx, [input.pairingId]);
+    const exactFutureMembers = await tx.sessionPlanParticipant.count({
+      where: {
+        id: { in: executed.map((row) => row.participantId) },
+        status: "SCHEDULED",
+        cohort: { startsAt: { gt: now }, status: { not: "RECORDED" } },
+        plan: {
+          termId: input.termId,
+          assignments: { some: { pairingId: { in: relatedPairingIds } } },
+        },
+      },
+    });
+    if (exactFutureMembers)
+      fail("This publication has exact request authority. Review its original enrollment before manual withdrawal.");
+  }
+  const source = await tx.tutee.findUniqueOrThrow({ where: { id: input.sourceTuteeId }, select: { createdAt: true } });
+  await syncContinuationPlanMembership(tx, { ...input, legacySourceTuteeId: input.sourceTuteeId, joinedAt: source.createdAt, releasedAt: now }, now);
 }
 
 /** Existing lifecycle writers may call this under their room fence; reads also catch stale requests. */
