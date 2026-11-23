@@ -2486,6 +2486,9 @@
       "saving": "保存中…",
       "saved": "已保存。",
       "voteCommentPlaceholder": "对你投票的可选备注",
+      "voteSyncing": "投票已保存，正在刷新面试详情和日程…",
+      "voteRefreshFailed": "投票已保存，但部分面试详情或日程项目未能刷新。请重试刷新，无需再次投票。",
+      "voteRefresh": "重试刷新",
       "votingClosed": "此申请的投票已结束。",
       "accept": "通过",
       "reject": "拒绝",
@@ -3000,7 +3003,8 @@
     "empty": "暂无巡查记录。",
     "newer": "较新记录",
     "older": "较早记录",
-    "details": "变更详情"
+    "details": "变更详情",
+    "patrolChanged": "巡查记录已变更。请重新加载后再更正。"
   },
   "emailChange": {
     "title": "更改账号邮箱",
@@ -3279,6 +3283,11 @@
     "incompleteHelp": "仍需完成邮箱验证或最后的账号确认。"
   },
   "workflow": {
+    "actionFailed": "无法确认此操作是否成功。你的草稿已保留。",
+    "currentRequests": "当前申请",
+    "retryRefresh": "重试刷新",
+    "recallAccepted": "本申请已撤回。请刷新查看最新状态；系统不会重复撤回。",
+    "abortAccepted": "你的退出申请已提交。请刷新查看最新状态；系统不会重复提交申请。",
     "pleaseReview": "请阅读以下内容后再继续",
     "cancel": "取消",
     "confirm": "是，确认",
@@ -4883,6 +4892,9 @@
     "noTutor": "未关联辅导伙伴",
     "count": "显示 {count} / {total} 位用户"
   },
+  "saveErrors": {
+    "staleRecord": "此内容自加载后已发生变化。请刷新后重试。"
+  },
   "saveNotifications": {
     "saved": "更改已保存",
     "failed": "无法保存更改",
@@ -6275,6 +6287,8 @@
     "unnamed": "未提供姓名"
   },
   "signupEditing": {
+    "originalEmailLabel": "申请最初验证的邮箱",
+    "emailReadOnly": "只读",
     "title": "编辑报名回答",
     "edit": "编辑报名回答",
     "requestLocal": "此处修改仅适用于本次申请；如需更改账号姓名，请前往账号设置。",
@@ -7090,14 +7104,19 @@
     "tutoringAccessRevoked": "辅导伙伴权限已被撤销。批准此申请前，请管理员恢复辅导伙伴权限。面试证据予以保留。",
     "title": "批准面试 · {name}",
     "help": "批准前请记录实际面试出席情况和时长。",
+    "helpRetained": "批准资格前，请核对已记录的面试证据。",
     "attendanceHelp": "仅选择实际出席的评审。投票不代表出席。",
     "hours": "{minutes} 分钟 = 每名出席评审 {hours} 小时。",
     "recorded": "将沿用已记录的完成时间和出席情况，不重复计入时长。如需更正，请先联系管理人员。",
     "review": "核对批准与时长",
+    "reviewRetained": "核对资格批准",
     "confirm": "批准并计入时长",
+    "confirmRetained": "批准资格",
     "effectsInitial": "批准后立即录取此申请、记录面试时长、准备账号注册，并通知管理员和负责人。",
     "effectsQualification": "批准后立即授予所申请的科目资格、记录面试时长，并通知管理员和负责人。",
+    "effectsRetained": "批准后立即授予所申请的资格，并通知管理员和负责人。已记录的面试完成、出席和服务时长信息保持不变，不发放注册码。",
     "saved": "面试已批准，服务时长已记录。",
+    "savedRetained": "资格已批准。已记录的面试完成、出席和服务时数信息保持不变。",
     "reload": "重新加载面试（替换草稿）",
     "unavailable": "你已无法批准此面试。",
     "waitingVotes": "所有评审均须投票后才能批准。",
@@ -8423,6 +8442,16 @@
     "title": "确认拒绝 {name} 的报名？",
     "consequence": "拒绝后，此次报名将永久关闭，并解除当前分配。报名资料、账号关联和历史记录将保留。重新报名仍须符合现有资格规则。",
     "confirm": "拒绝报名",
+    "requestTitle": "申请拒绝 {name} 的报名？",
+    "requestConsequence": "提交拒绝报名申请，由管理员或总负责人审核。获批前，此次报名和当前分配均保持不变。获批后，此次报名将永久关闭，并解除当前分配。报名资料、账号关联和历史记录将保留。重新报名仍须符合现有资格规则。",
+    "requestConfirm": "提交拒绝报名申请",
+    "actorLoading": "正在加载账号信息以确认报名拒绝操作…",
+    "actorLoadFailed": "无法确认当前账号是否可执行此次报名拒绝操作。",
+    "actorRetry": "重试加载账号信息",
+    "actorUnavailable": "请等待账号信息加载完成，或重试读取账号信息后再提交。",
+    "actorChanged": "你的账号或管理角色已更改。请取消并重新查看此次报名的确认内容后再提交。",
+    "actorDenied": "此账号无法审核报名拒绝操作。",
+    "publishedSessionRecords": "此报名已有已发布的具体日期场次记录，无法拒绝。请改为查看其参与管理选项。",
     "declined": "已拒绝",
     "decision": "{name} 于 {when} 拒绝",
     "staff": "工作人员",

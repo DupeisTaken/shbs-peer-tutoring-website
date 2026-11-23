@@ -80,14 +80,20 @@ function fill() {
   fireEvent.click(within(editor()).getByLabelText("Admin Chair"));
   fireEvent.click(within(editor()).getByLabelText("Panelist One"));
 }
-const review = () =>
+const review = (retained = false) =>
   fireEvent.click(
-    within(editor()).getByRole("button", { name: en.interviewApproval.review }),
+    within(editor()).getByRole("button", {
+      name: retained
+        ? en.interviewApproval.reviewRetained
+        : en.interviewApproval.review,
+    }),
   );
-const confirm = () =>
+const confirm = (retained = false) =>
   fireEvent.click(
     within(confirmation()).getByRole("button", {
-      name: en.interviewApproval.confirm,
+      name: retained
+        ? en.interviewApproval.confirmRetained
+        : en.interviewApproval.confirm,
     }),
   );
 function deferred() {
@@ -314,6 +320,188 @@ it("reuses exact recorded completion including seconds and attendance without of
 });
 
 it.each([
+  ["en", "ADDITIONAL_SUBJECT"],
+  ["zh", "ADDITIONAL_SUBJECT"],
+  ["en", "HIGHER_LEVEL"],
+  ["zh", "HIGHER_LEVEL"],
+] as const)(
+  "describes retained qualification approval and preserves recorded service (%s, %s)",
+  async (locale, type) => {
+    const catalog = locale === "en" ? en : zh;
+    const recorded = {
+      ...record,
+      type,
+      interviewCompletedAt: new Date("2026-09-01T02:00:37.456Z"),
+      interviewDurationMin: 45,
+      panel: record.panel.map((person) => ({
+        ...person,
+        attended: person.tutorId === "one",
+      })),
+    };
+    render(element(recorded, true, true, locale));
+    expect(
+      screen.getByText(catalog.interviewApproval.helpRetained),
+    ).toBeTruthy();
+    expect(screen.queryByText(catalog.interviewApproval.help)).toBeNull();
+    expect(
+      screen.getByLabelText<HTMLInputElement>(
+        catalog.workflows.interviewComplete,
+      ).disabled,
+    ).toBe(true);
+    expect(
+      screen.getByLabelText<HTMLInputElement>(catalog.workflows.duration)
+        .disabled,
+    ).toBe(true);
+    expect(
+      screen.queryByRole("button", { name: catalog.interviewApproval.review }),
+    ).toBeNull();
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: catalog.interviewApproval.reviewRetained,
+      }),
+    );
+    expect(
+      within(confirmation()).getByText(catalog.interviewApproval.recorded),
+    ).toBeTruthy();
+    expect(
+      within(confirmation()).getByText(
+        catalog.interviewApproval.effectsRetained,
+      ),
+    ).toBeTruthy();
+    expect(
+      within(confirmation()).queryByText(
+        catalog.interviewApproval.effectsQualification,
+      ),
+    ).toBeNull();
+    expect(
+      within(confirmation()).queryByRole("button", {
+        name: catalog.interviewApproval.confirm,
+      }),
+    ).toBeNull();
+    expect(commit).not.toHaveBeenCalled();
+    fireEvent.click(
+      within(confirmation()).getByRole("button", {
+        name: catalog.interviewApproval.confirmRetained,
+      }),
+    );
+    expect(
+      await screen.findByText(catalog.interviewApproval.savedRetained),
+    ).toBeTruthy();
+    expect(screen.queryByText(catalog.interviewApproval.saved)).toBeNull();
+    await waitFor(() =>
+      expect(commit).toHaveBeenCalledExactlyOnceWith({
+        comment: "Panel evidence reviewed",
+        expectedUpdatedAt: record.updatedAt,
+        completion: {
+          completedAt: recorded.interviewCompletedAt,
+          durationMin: 45,
+          attendedTutorIds: ["one"],
+        },
+      }),
+    );
+  },
+);
+
+it("keeps the captured retained-service payload and token through a failed write and background refresh", async () => {
+  commit.mockRejectedValueOnce(new Error("Response lost"));
+  const recorded = {
+    ...record,
+    type: "HIGHER_LEVEL" as const,
+    interviewCompletedAt: new Date("2026-09-01T02:00:37.456Z"),
+    interviewDurationMin: 45,
+    panel: record.panel.map((person) => ({
+      ...person,
+      attended: person.tutorId === "one",
+    })),
+  };
+  const view = render(element(recorded));
+  review(true);
+  confirm(true);
+  await screen.findByText("Response lost");
+  const submitted = commit.mock.calls[0]?.[0] as unknown;
+  fireEvent.click(
+    within(confirmation()).getByRole("button", {
+      name: en.actionReview.cancel,
+    }),
+  );
+  view.rerender(
+    element(
+      {
+        ...recorded,
+        interviewDurationMin: 60,
+        updatedAt: new Date("2026-09-02T00:00:00Z"),
+        panel: recorded.panel.map((person) => ({ ...person, attended: false })),
+      },
+      false,
+      true,
+      "en",
+      true,
+    ),
+  );
+  review(true);
+  confirm(true);
+  await waitFor(() => expect(commit).toHaveBeenCalledTimes(2));
+  expect(commit.mock.calls[1]?.[0]).toBe(submitted);
+  expect(commit.mock.calls[1]?.[0]).toMatchObject({
+    completion: { durationMin: 45, attendedTutorIds: ["one"] },
+    expectedUpdatedAt: record.updatedAt,
+  });
+});
+
+it.each(["en", "zh"] as const)(
+  "keeps retained approval accepted after a failed refresh and retries reads only (%s)",
+  async (locale) => {
+    const catalog = locale === "en" ? en : zh;
+    refresh.mockRejectedValueOnce(new Error("Read offline"));
+    render(
+      element(
+        {
+          ...record,
+          type: "HIGHER_LEVEL",
+          interviewCompletedAt: new Date("2026-09-01T02:00:37.456Z"),
+          interviewDurationMin: 45,
+          panel: record.panel.map((person) => ({
+            ...person,
+            attended: person.tutorId === "one",
+          })),
+        },
+        true,
+        true,
+        locale,
+      ),
+    );
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: catalog.interviewApproval.reviewRetained,
+      }),
+    );
+    const yes = within(confirmation()).getByRole("button", {
+      name: catalog.interviewApproval.confirmRetained,
+    });
+    act(() => {
+      yes.click();
+      yes.click();
+    });
+    await screen.findByText(catalog.actionReview.refreshFailed);
+    expect(
+      screen.getByText(catalog.interviewApproval.savedRetained),
+    ).toBeTruthy();
+    expect(screen.queryByText(catalog.interviewApproval.saved)).toBeNull();
+    expect(commit).toHaveBeenCalledTimes(1);
+    fireEvent.click(
+      screen.getByRole("button", { name: catalog.actionReview.close }),
+    );
+    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(close).not.toHaveBeenCalled();
+    fireEvent.click(
+      screen.getByRole("button", { name: catalog.actionReview.retry }),
+    );
+    await waitFor(() => expect(close).toHaveBeenCalledOnce());
+    expect(refresh).toHaveBeenCalledTimes(2);
+    expect(commit).toHaveBeenCalledTimes(1);
+  },
+);
+it.each([
   ["en", en],
   ["zh", zh],
 ] as const)(
@@ -469,24 +657,88 @@ it("withholds confirmation until voting is complete and hides private evidence w
   expect(commit).not.toHaveBeenCalled();
 });
 
-it("describes qualification effects without a registration-code grant and renders Chinese fields", () => {
-  render(element({ ...record, type: "HIGHER_LEVEL" }, true, true, "zh"));
-  fireEvent.change(screen.getByLabelText(zh.workflows.interviewComplete), {
-    target: { value: "2026-09-01T10:00" },
-  });
-  fireEvent.change(screen.getByLabelText(zh.workflows.duration), {
-    target: { value: "30" },
-  });
-  fireEvent.click(screen.getByLabelText("Admin Chair"));
-  fireEvent.click(
-    screen.getByRole("button", { name: zh.interviewApproval.review }),
-  );
-  expect(
-    within(confirmation()).getByText(zh.interviewApproval.effectsQualification),
-  ).toBeTruthy();
-  expect(
-    within(confirmation()).getByRole("button", {
-      name: zh.interviewApproval.confirm,
-    }),
-  ).toBeTruthy();
-});
+it.each([
+  ["en", "INITIAL"],
+  ["zh", "INITIAL"],
+  ["en", "ADDITIONAL_SUBJECT"],
+  ["zh", "ADDITIONAL_SUBJECT"],
+  ["en", "HIGHER_LEVEL"],
+  ["zh", "HIGHER_LEVEL"],
+] as const)(
+  "keeps actual attendance, award copy and first-award payload unchanged (%s, %s)",
+  async (locale, type) => {
+    const catalog = locale === "en" ? en : zh;
+    render(element({ ...record, type }, true, true, locale));
+    expect(screen.getByText(catalog.interviewApproval.help)).toBeTruthy();
+    expect(
+      screen.queryByText(catalog.interviewApproval.helpRetained),
+    ).toBeNull();
+    expect(
+      screen.queryByText(catalog.interviewApproval.recorded),
+    ).toBeNull();
+    expect(screen.getAllByRole("checkbox")).toHaveLength(3);
+    expect(
+      screen.getByLabelText<HTMLInputElement>(
+        catalog.workflows.interviewComplete,
+      ).disabled,
+    ).toBe(false);
+    expect(
+      screen.getByLabelText<HTMLInputElement>(catalog.workflows.duration)
+        .disabled,
+    ).toBe(false);
+    fireEvent.change(
+      screen.getByLabelText(catalog.workflows.interviewComplete),
+      {
+        target: { value: "2026-09-01T10:00" },
+      },
+    );
+    fireEvent.change(screen.getByLabelText(catalog.workflows.duration), {
+      target: { value: "30" },
+    });
+    fireEvent.click(screen.getByLabelText("Admin Chair"));
+    fireEvent.click(
+      screen.getByRole("button", { name: catalog.interviewApproval.review }),
+    );
+    expect(
+      within(confirmation()).getByText(
+        type === "INITIAL"
+          ? catalog.interviewApproval.effectsInitial
+          : catalog.interviewApproval.effectsQualification,
+      ),
+    ).toBeTruthy();
+    expect(
+      within(confirmation()).queryByText(
+        catalog.interviewApproval.effectsRetained,
+      ),
+    ).toBeNull();
+    expect(within(confirmation()).getByText("Admin Chair")).toBeTruthy();
+    expect(
+      within(confirmation()).queryByRole("button", {
+        name: catalog.interviewApproval.confirmRetained,
+      }),
+    ).toBeNull();
+    expect(commit).not.toHaveBeenCalled();
+    fireEvent.click(
+      within(confirmation()).getByRole("button", {
+        name: catalog.interviewApproval.confirm,
+      }),
+    );
+    await waitFor(() =>
+      expect(commit).toHaveBeenCalledExactlyOnceWith({
+        comment: "Panel evidence reviewed",
+        expectedUpdatedAt: record.updatedAt,
+        completion: {
+          completedAt: new Date("2026-09-01T02:00:00Z"),
+          durationMin: 30,
+          attendedTutorIds: ["chair"],
+        },
+      }),
+    );
+    expect(
+      await screen.findByText(catalog.interviewApproval.saved),
+    ).toBeTruthy();
+    expect(
+      screen.queryByText(catalog.interviewApproval.savedRetained),
+    ).toBeNull();
+  },
+);

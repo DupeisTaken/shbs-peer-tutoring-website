@@ -95,7 +95,8 @@ export function CodeInput({
   );
 }
 
-/** Keep copy/export text intact, including leading zeros and issued legacy codes. */
+/** Keep copy/export text intact, including leading zeros and issued legacy codes.
+ * Labels need normal-text contrast against both purpose backgrounds. */
 export function CodeDisplay({
   code,
   purpose = "invitation",
@@ -108,7 +109,7 @@ export function CodeDisplay({
   const t = useTranslations("codes");
   return (
     <div className={`code-display ${className}`} data-code-purpose={purpose}>
-      <p className="mb-2 text-sm text-slate-500">{t(`${purpose}Label`)}</p>
+      <p className="mb-2 text-sm text-slate-600">{t(`${purpose}Label`)}</p>
       <p className="text-2xl font-semibold tracking-[0.4em] break-all text-slate-900">
         {code}
       </p>

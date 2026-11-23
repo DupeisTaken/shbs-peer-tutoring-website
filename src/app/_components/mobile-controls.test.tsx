@@ -102,9 +102,21 @@ vi.mock("~/trpc/react", () => ({
   api: {
     account: {
       me: {
-        useQuery: () => ({
-          data: { role: state.readOnly ? "VIEWER" : "HEAD" },
-        }),
+        useQuery: () => {
+          const data = {
+            id: "synthetic-mobile-controls-account",
+            role: state.readOnly ? "VIEWER" : "HEAD",
+          };
+          return {
+            data,
+            error: null,
+            isSuccess: true,
+            status: "success",
+            isLoading: false,
+            isFetching: false,
+            refetch: async () => ({ data, isSuccess: true }),
+          };
+        },
       },
     },
     useUtils: () => ({

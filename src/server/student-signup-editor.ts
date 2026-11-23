@@ -32,7 +32,7 @@ export async function inspectOwnedStudentSignup(
       select: { active: true },
     });
     const assigned = row.tuteeId
-      ? await assignedSignupSubjects(tx, row.tuteeId, row.intakeTermId)
+      ? await assignedSignupSubjects(tx, row)
       : { subjectIds: [], unresolved: false };
     const payload = currentStudentSignupPayload(row);
     const subjectIds = [payload.firstChoiceId, payload.secondChoiceId].filter(

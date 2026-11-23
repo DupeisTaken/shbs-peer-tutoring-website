@@ -8,6 +8,7 @@ import { Button } from "./ui/button";
 import { api } from "~/trpc/react";
 import { isProgramTimeZone, programDateTimeInput } from "~/lib/program-time";
 import { programTimeZoneLabel } from "~/lib/program-time-zone-label";
+import { useProgramWriteAdmission } from "./program-write-admission";
 
 export function ProgramTimeZoneSettings() {
   const settings = api.program.timeZoneSettings.useQuery();
@@ -39,6 +40,7 @@ export function ProgramTimeZoneSettings() {
       <TimeZoneEditor
         key={generation}
         {...settings.data}
+        readFailed={!!settings.error}
         onReload={async () => {
           const result = await settings.refetch();
           if (result.isSuccess) setGeneration((value) => value + 1);
@@ -52,12 +54,14 @@ export function TimeZoneEditor({
   timeZone: initialTimeZone,
   canEdit,
   canApply = true,
+  readFailed = false,
   timeZoneOptions,
   onReload,
 }: {
   timeZone: string;
   canEdit: boolean;
   canApply?: boolean;
+  readFailed?: boolean;
   timeZoneOptions: string[];
   onReload?: () => Promise<void>;
 }) {
@@ -86,6 +90,7 @@ export function TimeZoneEditor({
     [timeZone, timeZoneOptions, example, locale],
   );
   const valid = isProgramTimeZone(zone);
+  const admission = useProgramWriteAdmission(canEdit && !readFailed);
   const save = api.program.setTimeZone.useMutation({
     onSuccess: async () => {
       setSaved(true);
@@ -128,7 +133,7 @@ export function TimeZoneEditor({
           className="input min-h-11 w-full min-w-0 lg:min-h-10"
           aria-describedby="program-time-zone-label"
           value={zone}
-          disabled={!canEdit || save.isPending || reloading}
+          disabled={!admission.allowed || save.isPending || reloading}
           onChange={(e) => {
             setZone(e.target.value);
             setConfirmed(false);
@@ -206,7 +211,7 @@ export function TimeZoneEditor({
               checked={confirmed}
               onChange={(e) => setConfirmed(e.target.checked)}
               disabled={
-                zone === timeZone || !valid || save.isPending || reloading
+                !admission.allowed || zone === timeZone || !valid || save.isPending || reloading
               }
               className="mt-1"
             />
@@ -216,15 +221,17 @@ export function TimeZoneEditor({
             <Button
               variant="primary"
               disabled={
+                !admission.allowed ||
                 !valid ||
                 !confirmed ||
                 zone === timeZone ||
                 save.isPending ||
                 reloading
               }
-              onClick={() =>
-                save.mutate({ timeZone: zone, expectedTimeZone: timeZone })
-              }
+              onClick={() => {
+                if (!admission.isAllowed() || save.isPending || reloading || !valid || !confirmed || zone === timeZone) return;
+                save.mutate({ timeZone: zone, expectedTimeZone: timeZone });
+              }}
             >
               {save.isPending
                 ? t("saving")

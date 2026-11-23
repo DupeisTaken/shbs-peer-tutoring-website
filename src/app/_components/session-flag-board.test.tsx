@@ -272,53 +272,71 @@ it("keeps notes after rejection and protects pending dismissal", () => {
   ).toBe("Retained");
   expect(screen.getByRole("alert").textContent).toBe("Decision rejected");
 });
-it("retains cached rows beside transport recovery but conceals denied evidence and observer mutations", () => {
-  mock.readOnly = true;
-  const view = show();
-  expect(
-    screen.queryByRole("button", { name: en.admin.sessionFlags.warn }),
-  ).toBeNull();
-  mock.error = { message: "Offline" };
-  view.rerender(
-    <QueryClientProvider client={client}>
-      <NextIntlClientProvider locale="en" messages={en} timeZone="UTC">
-        <SessionFlagBoard />
-      </NextIntlClientProvider>
-    </QueryClientProvider>,
-  );
-  expect(screen.getByText("Alex · Math")).toBeTruthy();
-  expect(screen.queryByText(en.admin.sessionFlags.empty)).toBeNull();
-  mock.error = { message: "Denied", data: { code: "FORBIDDEN" } };
-  view.rerender(
-    <QueryClientProvider client={client}>
-      <NextIntlClientProvider locale="en" messages={en} timeZone="UTC">
-        <SessionFlagBoard />
-      </NextIntlClientProvider>
-    </QueryClientProvider>,
-  );
-  expect(screen.queryByText("Alex · Math")).toBeNull();
-  mock.error = { message: "Offline again" };
-  view.rerender(
-    <QueryClientProvider client={client}>
-      <NextIntlClientProvider locale="en" messages={en} timeZone="UTC">
-        <SessionFlagBoard />
-      </NextIntlClientProvider>
-    </QueryClientProvider>,
-  );
-  expect(screen.queryByText("Alex · Math")).toBeNull();
-  mock.error = null;
-  mock.data = [{ ...flag, tutor: "Fresh authorized tutor" }];
-  view.rerender(
-    <QueryClientProvider client={client}>
-      <NextIntlClientProvider locale="en" messages={en} timeZone="UTC">
-        <SessionFlagBoard />
-      </NextIntlClientProvider>
-    </QueryClientProvider>,
-  );
-  expect(screen.getByText("Fresh authorized tutor · Math")).toBeTruthy();
-});
+it.each([true, false])(
+  "retains cached rows beside transport recovery and conceals denied evidence (read-only: %s)",
+  (readOnly) => {
+    mock.readOnly = readOnly;
+    const view = show();
+    if (readOnly) {
+      expect(
+        screen.queryByRole("button", { name: en.admin.sessionFlags.warn }),
+      ).toBeNull();
+    }
+    mock.error = { message: "Offline" };
+    view.rerender(
+      <QueryClientProvider client={client}>
+        <NextIntlClientProvider locale="en" messages={en} timeZone="UTC">
+          <SessionFlagBoard />
+        </NextIntlClientProvider>
+      </QueryClientProvider>,
+    );
+    expect(screen.getByText("Alex · Math")).toBeTruthy();
+    expect(screen.queryByText(en.admin.sessionFlags.empty)).toBeNull();
+    expect(screen.queryByText(en.common.loading)).toBeNull();
+    expect(screen.getByRole("alert").textContent).toContain("Offline");
+    expect(
+      screen.getByRole<HTMLButtonElement>("button", { name: "Dismissed" })
+        .disabled,
+    ).toBe(false);
+    if (!readOnly) {
+      expect(
+        screen.getByRole<HTMLButtonElement>("button", {
+          name: en.admin.sessionFlags.warn,
+        }).disabled,
+      ).toBe(true);
+    }
+    mock.error = { message: "Denied", data: { code: "FORBIDDEN" } };
+    view.rerender(
+      <QueryClientProvider client={client}>
+        <NextIntlClientProvider locale="en" messages={en} timeZone="UTC">
+          <SessionFlagBoard />
+        </NextIntlClientProvider>
+      </QueryClientProvider>,
+    );
+    expect(screen.queryByText("Alex · Math")).toBeNull();
+    mock.error = { message: "Offline again" };
+    view.rerender(
+      <QueryClientProvider client={client}>
+        <NextIntlClientProvider locale="en" messages={en} timeZone="UTC">
+          <SessionFlagBoard />
+        </NextIntlClientProvider>
+      </QueryClientProvider>,
+    );
+    expect(screen.queryByText("Alex · Math")).toBeNull();
+    mock.error = null;
+    mock.data = [{ ...flag, tutor: "Fresh authorized tutor" }];
+    view.rerender(
+      <QueryClientProvider client={client}>
+        <NextIntlClientProvider locale="en" messages={en} timeZone="UTC">
+          <SessionFlagBoard />
+        </NextIntlClientProvider>
+      </QueryClientProvider>,
+    );
+    expect(screen.getByText("Fresh authorized tutor · Math")).toBeTruthy();
+  },
+);
 
-it("keeps nondefault-filter denial latched across a cached default and failed retry until a fresh success", () => {
+it("shows one idle denial status with unavailable filters through failed Retry and fresh Pending recovery", () => {
   window.sessionStorage.clear();
   const remove = vi.spyOn(client, "removeQueries");
   let defaultRead = {
@@ -356,7 +374,7 @@ it("keeps nondefault-filter denial latched across a cached default and failed re
     </QueryClientProvider>
   );
   const view = render(tree());
-  fireEvent.click(screen.getByRole("button", { name: "Dismissed" }));
+  fireEvent.click(screen.getByRole("button", { name: "All states" }));
   expect(screen.getByText("Resolved tutor · Math")).toBeTruthy();
   historyDenied = true;
   view.rerender(tree());
@@ -364,6 +382,42 @@ it("keeps nondefault-filter denial latched across a cached default and failed re
   expect(screen.queryByText("Resolved tutor · Math")).toBeNull();
   expect(screen.queryByText("Cached pending tutor · Math")).toBeNull();
   expect(remove).toHaveBeenCalledWith({ queryKey: ["flags"], exact: false });
+
+  const expectDeniedBoard = () => {
+    expect(screen.getAllByRole("status")).toHaveLength(1);
+    expect(screen.getByRole("status").getAttribute("aria-busy")).toBe("false");
+    expect(screen.queryByRole("alert")).toBeNull();
+    expect(screen.queryByText(en.common.loading)).toBeNull();
+    expect(screen.queryByText(en.admin.sessionFlags.empty)).toBeNull();
+    expect(screen.queryByText("Resolved tutor · Math")).toBeNull();
+    expect(screen.queryByText("Cached pending tutor · Math")).toBeNull();
+    expect(screen.queryByText("Fresh authorized tutor · Math")).toBeNull();
+    const choices = within(
+      screen.getByRole("region", { name: en.admin.sessionFlags.filterLabel }),
+    ).getAllByRole<HTMLButtonElement>("button");
+    expect(choices.length).toBeGreaterThanOrEqual(4);
+    for (const choice of choices) expect(choice.disabled).toBe(true);
+    expect(
+      screen.getByRole("button", { name: "Pending" }).getAttribute("aria-pressed"),
+    ).toBe("true");
+  };
+  expectDeniedBoard();
+  expect(screen.getByRole("status").textContent).toContain(
+    en.uiPatterns.loadFailed,
+  );
+  const retry = screen.getByRole<HTMLButtonElement>("button", {
+    name: en.uiPatterns.retry,
+  });
+  expect(retry.disabled).toBe(false);
+  retry.focus();
+  const dismissed = screen.getByRole<HTMLButtonElement>("button", {
+    name: "Dismissed",
+  });
+  dismissed.focus();
+  expect(document.activeElement).toBe(retry);
+  fireEvent.click(dismissed);
+  expect(mock.input).toEqual({ state: "PENDING" });
+  expect(mock.refetch).not.toHaveBeenCalled();
 
   defaultRead = {
     ...defaultRead,
@@ -373,9 +427,11 @@ it("keeps nondefault-filter denial latched across a cached default and failed re
   };
   view.rerender(tree());
   expect(screen.queryByText("Cached pending tutor · Math")).toBeNull();
-  fireEvent.click(screen.getByRole("button", { name: en.uiPatterns.retry }));
+  fireEvent.click(retry);
   expect(mock.refetch).toHaveBeenCalledTimes(1);
+  expectDeniedBoard();
 
+  historyDenied = false;
   defaultRead = {
     ...defaultRead,
     data: [{ ...flag, tutor: "Fresh authorized tutor" }],
@@ -385,4 +441,14 @@ it("keeps nondefault-filter denial latched across a cached default and failed re
   };
   view.rerender(tree());
   expect(screen.getByText("Fresh authorized tutor · Math")).toBeTruthy();
+  expect(screen.queryByRole("status")).toBeNull();
+  expect(screen.queryByRole("alert")).toBeNull();
+  for (const choice of within(
+    screen.getByRole("region", { name: en.admin.sessionFlags.filterLabel }),
+  ).getAllByRole<HTMLButtonElement>("button")) {
+    expect(choice.disabled).toBe(false);
+  }
+  fireEvent.click(dismissed);
+  expect(mock.input).toEqual({ state: "DISMISSED" });
+  expect(mock.mutate).not.toHaveBeenCalled();
 });

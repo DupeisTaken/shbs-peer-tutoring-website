@@ -16,11 +16,13 @@ import { FormActions, InlineNotice, StatePanel } from "./ui/patterns";
 import { SummaryTable, TableAction, TableActions } from "./ui/summary-table";
 import { queuedApprovalId } from "~/lib/approval-outcome";
 import { invalidateAndReport } from "~/lib/invalidate-refresh";
+import { useProgramWriteAdmission } from "./program-write-admission";
 
 export function ProgramNameSettings() {
   const t = useTranslations("nameFields");
   const roles = useTranslations("admin.users.roles");
   const query = api.program.nameFieldSettings.useQuery();
+  const admission = useProgramWriteAdmission(!!query.data?.canEdit && !query.error);
   const [editing, setEditing] = useState<{
     accountType: NameAccountType;
     states: NameFieldStates;
@@ -87,7 +89,7 @@ export function ProgramNameSettings() {
               <TableActions>
                 {data.canEdit && (
                   <TableAction
-                    disabled={!!query.error}
+                    disabled={!admission.allowed}
                     onClick={() =>
                       setEditing({
                         accountType: role,
@@ -113,7 +115,7 @@ export function ProgramNameSettings() {
             key={generation}
             initial={editing}
             canApply={data.canApply}
-            disabled={!!query.error}
+            disabled={!admission.allowed}
             onReload={async () => {
               const result = await query.refetch();
               if (!result.isSuccess)
@@ -151,6 +153,7 @@ function NamePolicyEditor({
   const names = useTranslations("personName");
   const requirements = useTranslations("signupFields");
   const approvals = useTranslations("approvals");
+  const admission = useProgramWriteAdmission(!disabled);
   const router = useRouter();
   const utils = api.useUtils();
   const [states, setStates] = useState(initial.states);
@@ -190,7 +193,7 @@ function NamePolicyEditor({
       className="space-y-4"
       onSubmit={async (event) => {
         event.preventDefault();
-        if (disabled || pending || admitted.current || committed.current)
+        if (!admission.isAllowed() || pending || admitted.current || committed.current)
           return;
         admitted.current = true;
         try {
@@ -216,7 +219,7 @@ function NamePolicyEditor({
       <p className="muted text-sm">{t("help")}</p>
       <fieldset
         className="min-w-0 space-y-4"
-        disabled={disabled || pending || accepted}
+        disabled={!admission.allowed || pending || accepted}
       >
         {NAME_FIELD_KEYS.map((field) => (
           <label key={field} className="block">

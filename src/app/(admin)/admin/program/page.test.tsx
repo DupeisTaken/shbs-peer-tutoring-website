@@ -72,7 +72,15 @@ vi.mock("~/trpc/react", () => ({
     account: {
       me: {
         useQuery: () => ({
-          data: access.known ? { role: access.role } : undefined,
+          data: access.known
+            ? { id: "synthetic-account", role: access.role }
+            : undefined,
+          isSuccess: access.known && !navigation.denied && !access.error,
+          status: access.known && !navigation.denied && !access.error
+            ? "success"
+            : access.error || navigation.denied
+              ? "error"
+              : "pending",
           error: navigation.denied
             ? { data: { code: "FORBIDDEN" } }
             : access.error,
@@ -84,6 +92,8 @@ vi.mock("~/trpc/react", () => ({
     admin: {
       currentPeriod: {
         useQuery: () => ({
+          isSuccess: true,
+          status: "success",
           data: {
             name: "Current",
             semester: 1,

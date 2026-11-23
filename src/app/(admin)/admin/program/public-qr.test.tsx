@@ -76,7 +76,9 @@ vi.mock("~/trpc/react", () => ({
     account: {
       me: {
         useQuery: () => ({
-          data: { role: state.role },
+          data: { id: "synthetic-account", role: state.role },
+          isSuccess: !state.denied,
+          status: state.denied ? "error" : "success",
           error: state.denied ? { data: { code: "FORBIDDEN" } } : null,
         }),
       },
@@ -101,6 +103,8 @@ vi.mock("~/trpc/react", () => ({
       cancelRefresh: { useMutation: () => ({ mutateAsync: state.cancelRefresh }) },
       currentPeriod: {
         useQuery: () => ({
+          isSuccess: true,
+          status: "success",
           data: state.hasPeriod
             ? {
                 name: "Current",

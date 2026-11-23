@@ -27,8 +27,11 @@ Measure the interactive target separately from its artwork against the
 [control-height hierarchy](#control-height-hierarchy), including 44 px narrow-screen
 targets. Normal-size text needs at least 4.5:1 contrast against its actual rendered
 background, including muted metadata, inactive records and zero values. Check the
-painted leaf rather than assuming a parent color applies. Translate every rendered
-enum/status value in every bundled catalog, including hidden languages; follow the
+painted leaf rather than assuming a parent color applies. Enabled placeholders
+need the same text contrast: at least 4.5:1 at normal size, or 3:1 for regular text
+24 px and larger. Check the actual control background, including purpose tints.
+Translate every rendered enum/status value in every bundled catalog, including
+hidden languages; follow the
 [catalog checks](verification.md#required-checks) and verify the displayed states.
 
 ## Compose a page by its purpose
@@ -72,6 +75,14 @@ Preserve semantic heading order independently of font size. Do not add a heading
 to every wrapper or repeat the active tab name as an otherwise empty section title.
 Essential evidence and instructions must remain readable; do not fade an entire
 historical record or truncate the text needed to make a decision.
+
+`InlineNotice` gives guidance a flexible 16rem basis so recovery moves below it
+when their combined widths do not fit. This follows the notice's available width,
+including narrow cards in a desktop workspace. Its action slot bounds buttons,
+links and wrapping groups and lets long labels wrap locally at every breakpoint;
+keep a caller's nested action groups wrapping. A short message may also stack
+when the remaining space is below that basis. Preserve control targets and full
+labels rather than truncating recovery or changing global button styles.
 
 Start a page with its task title and only the context needed to act, followed by
 local navigation/filters and the working content. Use specific section names such
@@ -254,6 +265,14 @@ weight, not an arbitrary height difference.
 - At desktop widths retain a single compact row, 18 px branding, and 32 px workspace
   buttons/language selector. Keep only one instance of each interactive control.
 
+`WorkspaceHeaderFrame` measures the rendered header for native document scroll
+padding, including translated wrapping and enlarged text. After ordinary focus
+scrolling, it reveals a covered control through its actual vertical scroll owner
+without focusing it again. Management's desktop content pane already starts below
+the header; do not add the header height to that pane's inset. Preserve visible
+large tabpanels, header utilities and dialog-owned scrolling/focus. Verify native
+Tab and Shift+Tab through date controls as well as ordinary links and fields.
+
 ## Table summaries and detail submenus
 
 - Use one table language throughout the application: columns contain brief names,
@@ -311,6 +330,8 @@ never split assembled bilingual prose or remove characters heuristically. New in
 emailed challenges contain four digits, preserving leading zeros. Keep the legacy
 single wide site input, gray `XXXXX`/`XXXX` placeholders and neutral text/borders;
 change only the box background to green for invitations or blue for verification.
+Display labels use neutral `slate-600` text to meet normal-text contrast on both
+purpose backgrounds; retain the same readable label treatment for each purpose.
 Email keeps the legacy single code panel's layout, typography and border, with dark
 green (`#18342C`) or blue (`#172F49`) backgrounds and no added label/guidance wrapper.
 Never infer authorization from this presentation metadata. Include old-format

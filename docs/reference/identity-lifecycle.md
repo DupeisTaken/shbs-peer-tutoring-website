@@ -140,9 +140,12 @@ directory reads when synchronization fails; changing displayed groups does not
 discard the retained controller's receipt.
 
 While an identity write or its outcome recovery is pending, User details disables
-sibling profile/record openers and parent read retries as well as dismissal.
+sibling profile/record openers and ordinary parent read retries as well as dismissal.
 Receipt recovery stays available in the original controller; opening a nested
 reader must not hide those controls behind another busy dialog.
+If the directory itself denies access, the retained reader's named **Retry Users
+& Roles** remains available to recheck that authority. This scoped read preserves
+the captured operation and cannot replay its mutation.
 
 The dedicated `recovery_capture_person_partition()` journal matches typed affected
 Person/User/Tutor/Tutee references, never the reviewer's ID as a generic edge. It
@@ -211,6 +214,41 @@ their original snapshots; separate plan/participant/pending-response execution
 records bind the exact reviewed live actors. Source freshness, collision checks,
 calendar/delivery, response authorization and attendance must use that same mapping.
 Completed lessons and existing response deadlines are never rewritten by transfer.
+
+A later review can keep the same canonical Tutor/Tutee and hand its selected
+participation to another eligible login. Under the existing transaction and locks,
+the writer clears both selected kinds of current login pointers before changing
+exact history readers, then updates retained ownership and restores the selected
+active pointers. This lets history-reader session revocation run against consistent
+ownership. Unselected roles and earlier source-history assignments remain intact;
+old reader sessions and calendar tokens are invalidated, and an exact receipt retry
+does not repeat the handover.
+
+The Users & Roles route retains the opening's exact details/group controller even
+when the accepted handover removes the former login from the current filtered
+directory. Its operation reference and receipt stay available until idle Close;
+failed synchronization retries reads, and unknown outcomes first read the same
+actor-bound operation receipt. A refreshed missing/different group cannot replace
+that controller. Directory access denial conceals private evidence and nested
+editors while retaining safe receipt/recovery state and pending-dismissal guards.
+Filtering and the handover's server authority remain unchanged.
+A successful outcome read returning no receipt deliberately leaves the unknown
+operation and dismissal guard in place. After directory authority is freshly
+restored, the transfer's **Refresh current records** rechecks its candidate authority;
+**Check recorded outcome** can then read the original operation again. A found receipt
+settles the unknown outcome without a write. If it is still missing, only the
+existing deliberate exact retry with a fresh password can resend that frozen
+operation ID and intent; neither authority recovery nor a missing receipt retries
+the mutation automatically.
+When a successful details read has a missing or different group, the original
+controller keeps its unknown outcome and dismissal guard. That mismatch continues
+to block normal previews and editors. The existing frozen exact retry alone can
+proceed after current directory/details authority and an explicit successful
+candidate refresh; later activity, failure or denial of those exact reads fences
+that permission. The same actor-bound UUID, fingerprint and intent reach the
+server, which may return the original receipt, reject stale scope or accept the
+still-valid original operation. A known rejection or receipt settles uncertainty;
+an absent receipt and authority refresh never settle it on their own.
 
 Qualification transfer materializes only the concrete approved
 `sourceSubjectId`/`subjectId` tuples reviewed, retaining their original approval and

@@ -255,10 +255,11 @@
   .label {
     @apply block text-sm font-medium text-slate-700;
   }
+  /* Format hints need text contrast on white controls and purpose-tinted code boxes. */
   .input,
   .select,
   .textarea {
-    @apply focus:border-accent-500 focus:ring-accent-500 min-h-11 w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm shadow-sm placeholder:text-slate-400 focus:ring-1 focus:outline-none lg:min-h-0;
+    @apply focus:border-accent-500 focus:ring-accent-500 min-h-11 w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm shadow-sm placeholder:text-slate-500 focus:ring-1 focus:outline-none lg:min-h-0;
   }
 
   /* Standalone text actions (resend, account recovery and table actions) remain usable on

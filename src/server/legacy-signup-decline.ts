@@ -152,7 +152,7 @@ export async function declineLegacySignup(
       });
     // Retain the same evidence guards as the old delete-based Decline. A retained
     // decision does not authorize removing already published or attended work.
-    await assertNoPublishedTuteeDeletion(tx, row.id);
+    await assertNoPublishedTuteeDeletion(tx, row.id, "declineSignup");
     if (await tx.sessionTutee.count({ where: { tuteeId: row.id } }))
       throw new TRPCError({
         code: "BAD_REQUEST",

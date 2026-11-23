@@ -7,6 +7,7 @@ import { InlineNotice, StatePanel } from "./ui/patterns";
 import { ProgramSchoolHoursPreview } from "./school-hours-preview";
 import { SectionTabs } from "./ui/section-tabs";
 import { ProgramNotificationLocks } from "./program-notification-locks";
+import { useProgramWriteAdmission } from "./program-write-admission";
 
 /** Independent immediate controls share query invalidation, never a combined toggle. */
 export function ProgramEmailSettings({
@@ -36,6 +37,7 @@ export function ProgramEmailSettings({
     },
   });
   const data = settings.data;
+  const admission = useProgramWriteAdmission(!!data?.canEdit && !settings.error);
   const deliveryAccessDenied =
     settings.error?.data?.code === "FORBIDDEN" ||
     settings.error?.data?.code === "UNAUTHORIZED";
@@ -87,16 +89,22 @@ export function ProgramEmailSettings({
                 type="checkbox"
                 checked={data.enabled}
                 disabled={
+                  !admission.allowed ||
                   save.isPending ||
-                  !!settings.error ||
                   (!data.enabled && !data.deliveryAvailable)
                 }
-                onChange={(e) =>
+                onChange={(e) => {
+                  if (
+                    !admission.isAllowed() ||
+                    save.isPending ||
+                    (!data.enabled && !data.deliveryAvailable)
+                  )
+                    return;
                   save.mutate({
                     enabled: e.target.checked,
                     expectedEnabled: data.enabled,
-                  })
-                }
+                  });
+                }}
                 className="accent-accent-600 h-4 w-4"
               />
               {data.canApply === false
@@ -130,13 +138,14 @@ export function ProgramEmailSettings({
                 <input
                   type="checkbox"
                   checked={data.secondaryEmailBindingEnabled}
-                  disabled={binding.isPending || !!settings.error}
-                  onChange={(e) =>
+                  disabled={!admission.allowed || binding.isPending}
+                  onChange={(e) => {
+                    if (!admission.isAllowed() || binding.isPending) return;
                     binding.mutate({
                       enabled: e.target.checked,
                       expectedEnabled: data.secondaryEmailBindingEnabled,
-                    })
-                  }
+                    });
+                  }}
                   className="accent-accent-600 h-4 w-4 shrink-0"
                 />
                 {data.canApply === false
@@ -251,11 +260,15 @@ function EmailDeliveryStatus({
       setRefreshing(false);
     }
   };
+  const admission = useProgramWriteAdmission(
+    canResend && settingsReady && !!status.data && !status.error && !readFailed,
+  );
   const stuck = (status.data?.retrying ?? 0) + (status.data?.failed ?? 0);
   const statusFailed = !!status.error || readFailed;
   const queueStuck = async () => {
     if (
       !canResend ||
+      !admission.isAllowed() ||
       !settingsReady ||
       statusFailed ||
       status.isFetching ||
@@ -371,7 +384,7 @@ function EmailDeliveryStatus({
           <Button
             size="compact"
             disabled={
-              !settingsReady ||
+              !admission.allowed ||
               statusFailed ||
               status.isFetching ||
               refreshing ||

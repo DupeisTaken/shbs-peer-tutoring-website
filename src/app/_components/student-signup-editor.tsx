@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import Link from "next/link";
 import { useQueryClient } from "@tanstack/react-query";
 import { getQueryKey } from "@trpc/react-query";
@@ -39,10 +39,13 @@ export function StudentSignupEditor({
   requestId,
   onClose,
   managed = false,
+  requestContext,
 }: {
   requestId: string;
   onClose: () => void;
   managed?: boolean;
+  /** Human source context from the owning list; never a technical request ID. */
+  requestContext?: string;
 }) {
   const t = useTranslations("signupEditing");
   return (
@@ -51,6 +54,9 @@ export function StudentSignupEditor({
       size="wide"
       onClose={onClose}
     >
+      {requestContext && (
+        <p className="mb-4 text-sm font-medium break-words">{requestContext}</p>
+      )}
       <SignupEditorForm
         key={`${managed ? "managed" : "self"}:${requestId}`}
         requestId={requestId}
@@ -70,6 +76,7 @@ function SignupEditorForm({
   const t = useTranslations("signupEditing");
   const labels = useTranslations();
   const locale = useLocale();
+  const emailHelpId = useId();
   const utils = api.useUtils();
   const queryClient = useQueryClient();
   const queryProcedure = managed
@@ -456,16 +463,19 @@ function SignupEditorForm({
             />
             <label className="block space-y-1">
               <span className="label">
-                {labels("survey.emailLabel")}
-                <FieldRequirement state="required" />
+                {t("originalEmailLabel")}{" "}
+                <span className="badge-slate ml-2">{t("emailReadOnly")}</span>
               </span>
               <input
                 className="input min-h-11 lg:min-h-10"
                 value={snapshot.email}
                 readOnly
+                aria-describedby={emailHelpId}
               />
             </label>
-            <p className="muted text-sm">{t("emailFixed")}</p>
+            <p id={emailHelpId} className="muted text-sm">
+              {t("emailFixed")}
+            </p>
             {fields.gradeLevel !== "hidden" && (
               <label className="block space-y-1">
                 <span className="label">

@@ -346,7 +346,7 @@ actions. Each list keeps its own page and navigation state.
 | Change an assigned subject   | Ask Admin/Head to review the assignment        | Owners cannot drop assigned choices; Admin/Head review assignment release and request edits together, retaining recorded sessions |
 | Cancel an unassigned request | Recall it and confirm the consequences    | That request closes permanently; applying again creates a new timestamp                                                  |
 | Leave after assignment       | **Request withdrawal…** and give a reason | Assignment continues during review; approval ends participation and blocks another request in the current program period |
-| See the result               | **Current Request** and **Closed**     | Review state and assignment are shown separately                                                                         |
+| See the result               | **Current Requests** and **Closed**     | Review state and assignment are shown separately                                                                         |
 
 Important actions display consequences and a countdown before confirmation. A pending request is not an approved change. If a tutor reports a schedule conflict, an approved rejection removes only that tutor’s assignment and returns your request for matching at its original priority.
 
@@ -359,6 +359,17 @@ another edit changed the request, your draft remains available, but explicitly
 reload its current version before deciding what to save. A later policy publication
 does not rewrite a submission's signature or accept the new policy for you; the
 workspace's separate current-policy requirement still applies.
+
+If your account owns several open requests after a participation transfer, each
+appears separately with its original submission time, requested subjects and own
+controls. Use the controls for the request you intend to change. Assigned choices
+belong to that original request, even when tutoring now runs through a retained
+participant profile; another request's assignments do not lock your choices.
+
+The editor's **Original verified request email** is read-only source information.
+It can differ from the account address you currently use to sign in. Change your
+account addresses in **Account Settings**; editing a request keeps its original
+mailbox, priority and signed evidence.
 
 An invalid request shows a notice and sends an email notification. Give a reason
 to appeal before the active program period rolls over. The request stays invalid
@@ -460,6 +471,12 @@ status. Collapsing either section and background refresh/reordering retain sched
 vote and decision drafts, errors and pending state. Read failures offer Retry without
 replacing loaded records. Optional editors also retain drafts when collapsed. Pending qualification requests remain visible
 even when completed history is collapsed or filtered.
+
+In the chair's scheduling editor, **Set Time** saves the displayed time.
+**Saved.** confirms that submission. Editing again clears the previous
+confirmation or scheduling error and keeps the new time as a draft. Choose
+**Set Time** again to save it, or **Cancel** to restore the latest recorded time
+without a write. These scheduling controls stay disabled while a save is pending.
 
 Pending tutors confirm whether to participate before tutoring actions appear.
 Inactive tutors retain their records but cannot edit pairings or submit attendance.
@@ -565,7 +582,7 @@ When selecting interviewers, **Group panelists by subject** puts tutors with rec
 
 In **Tutor Applications**, open an initial request's details and choose **Edit signup
 request**. Admin/Head apply the correction; Coordinators submit it for review through
-Management Actions. Coordinators and read-only users cannot submit corrections.
+Management Actions. Read-only users cannot submit corrections.
 Confirm the spelling with the applicant, then enter First Name, Last Name,
 Preferred Name and Name in Another Language as appropriate, with a correction
 reason. Never guess a transliteration or divide an old name into guessed parts.
@@ -606,6 +623,15 @@ The dashboard’s **Service Hours** summary shows the reporting period separatel
 The application explains loading failures and offers a retry. Intake needs configured subjects and a published policy; contact management if it is unavailable. Repeating a tutor or crew application while that email's application is under review keeps the original submission and displays the same confirmation. It does not replace your answers or send the team another notification. Contact the program team to correct an application. If management also granted you tutor participation, use the account menu to switch between management and tutor areas. Active crew members and assigned translators retain their return links when using the tutee workspace.
 
 The assigned Admin or Head chair selects **Approve** after every panelist has voted. Enter the actual completion time, duration in minutes and attending panelists, then review and confirm **Approve & award hours**. The panel majority still applies; the chair resolves a tie. The same transaction accepts the application, awards each attendee `minutes / 60` hours, prepares the initial applicant’s registration code (or links an existing verified account), and notifies active Admin and Head accounts. Initial acceptance no longer waits for a second Head approval. Codes appear in **Registration Codes**. Interviewed additional-subject and higher-level approvals award hours and qualifications without creating a registration code. Previously recorded completion is reused exactly; correct it through management before approving if necessary.
+
+Completed additional/higher approval explicitly reuses the recorded completion,
+attendance and service credits, including authorized corrections. Review the existing
+evidence, choose **Review qualification approval**, then **Approve qualification**.
+The review and saved result confirm that the qualification is granted while recorded
+completion, attendance and service credits remain unchanged. Initial and unrecorded
+interviews retain their attendance and hours workflow. Once an initial interview is
+accepted or rejected, a fresh application version cannot authorize a new decision or
+final note; an exact accepted retry only reads its existing receipt.
 
 For rejected interviews, legacy records or separate completion entry, management records actual interview completion through **Tutor Applications → Interview Records**
 in the Tutors navigation group. Expand a record and select **Record completion & award hours**.
@@ -665,6 +691,10 @@ following window. **Upcoming** also keeps ended sessions missing attendance and
 past open interviews until their decision. Yellow **Needs Action** marks your
 missing attendance or interview vote. **Vote recorded / Awaiting decision** means
 your vote is saved while the interview remains open; it is not yet Completed.
+Saving a vote refreshes its details and the active Schedule lists. If a refresh
+fails, the vote remains saved: use **Retry refresh** to load the result without
+voting again. Further votes stay disabled until that refresh succeeds; you can
+then deliberately revise your vote while the interview remains open.
 **Excused for Absence** identifies an excused meeting, including a staff-recorded
 excuse. Meetings awaiting staff attendance records do not require you to record
 attendance. Gray labels distinguish regular sessions, extras, interviews and
@@ -1335,10 +1365,18 @@ the original request, appeal and review history.
 
 Signup Requests includes self-service and **Staff-entered** requests in the same tabs and counts. The source badge describes how the signup was entered; it does not change approval status, priority or participation rules. **Earlier signup** means the original source cannot be confirmed. Staff can still enter tutees through the roster. Needs matching includes valid empty or partially assigned requests; Assigned contains valid requests whose requested subjects all have tutors. Sources keep their original submission order. Pending decisions, including invalidity appeals, take precedence in Needs review. Closed groups closed or declined requests, invalid entries and completed review history. This is a general queue status, not a permanent-closure action: clearing an invalid flag returns an open request to matching or assigned without changing assignments, original priority or verification deadlines. Requests move automatically when refreshed; staff keep their selected tab. The validity filter initially shows all entries, so Closed includes invalid requests immediately. Its **Not flagged invalid** choice describes validity, not whether a request is still open.
 
-For an older signup without a survey, **Decline** now retains a decision
-instead of deleting the source. The review names the signup and explains that its
-current assignments will be released. Existing management approval rules still
-apply: Coordinators submit a proposal; Admin or Head applies the decision.
+For an older signup without a survey, **Decline** retains a decision instead of
+deleting the source. The review names the signup and explains permanent closure,
+release of its current assignments and retained intake/history. Coordinators see
+**Request Signup Decline** and **Submit decline request**: submission creates an
+Admin/Head review request, leaving the signup and assignments unchanged until
+approval. Admin or Head sees the direct **Decline signup** action. Loading or failed
+account reads block submission. Failed reads offer a read-only retry inside an open
+review, preserving its original signup and submission details. If the account
+read remains unavailable when you Cancel or press Escape, keyboard focus returns
+to the page's **Retry account details** control when it is ready. Retrying reads
+account details without submitting a decline. If the account or
+management role changes while a review is open, cancel and open a fresh review.
 Invalid flags and pending participation reviews must be resolved first. Attendance
 or published-session evidence still prevents decline.
 
@@ -1763,7 +1801,7 @@ Use **Messages** to send separate private deliveries to allowed contacts. Search
 
 **Reply** opens a composer with the sender’s name and username, then moves keyboard focus to its message field. Your general message and other reply drafts remain separate while the page stays open. **Cancel reply** restores the general draft and returns focus to the Reply button. Sending a reply also restores the general draft. Pending sending prevents recipient changes; permission errors offer Retry and keep your text. Drafts are not stored after leaving or refreshing the page.
 
-On the Tutee page, **Messages** and **Account** open inside the same navigation and header. Account settings use your shared profile, verified email changes, password changes and two-factor settings. HEAD, ADMIN and COORDINATOR open Messages inside the management shell at `/admin/messages`. HEAD/ADMIN also have **Message Supervision** for audited review, reversible hiding, and messaging restrictions; coordinators cannot supervise other conversations. Head/Admin configure role and user contact permissions in **Program Settings → Account Settings**.
+On the Tutee page, **Messages** and **Account** retain the workspace header. Account settings use your shared profile, verified email changes, password changes and two-factor settings. Before joining the tutee workspace or while participation consent is pending, these destinations still open your authorized personal controls. Saved and notification links to these views work the same way. Other tutee views keep their participation notice; opening either personal view does not join the program or accept a policy. For HEAD, ADMIN and COORDINATOR, global and management **Messages** entry points open the management shell at `/admin/messages`; the explicit **Messages** link in the Tutee workspace retains that workspace. HEAD/ADMIN also have **Message Supervision** for audited review, reversible hiding, and messaging restrictions; coordinators cannot supervise other conversations. Head/Admin configure role and user contact permissions in **Program Settings → Account Settings**.
 
 ### Associated email addresses
 

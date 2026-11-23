@@ -12,6 +12,7 @@ import { lockStudentRequestReview } from "./request-invalidity";
 import { lockAccountProfile } from "./account-profile";
 import { assertSignupEditPeriod } from "./student-signup-editor";
 import { consumeStudentAction } from "./student-workflow";
+import { releaseStudentRequestExecution, studentRequestExecutionAssignments } from "./student-request-execution";
 import {
   currentStudentSignupPayload,
   studentSignupLocalAnswers,
@@ -219,13 +220,14 @@ export async function assertHeadDiscretionarySignupChange(
         },
         select: { name: true },
       });
-      const assignments = await tx.pairingTutee.findMany({
-        where: { tuteeId: input.id, pairing: { termId: source.intakeTermId } },
-        select: { pairing: { select: { subject: true } } },
+      const assignments = await studentRequestExecutionAssignments(tx, source);
+      const pairings = await tx.pairing.findMany({
+        where: { id: { in: assignments.map(({ pairingId }) => pairingId) } },
+        select: { subject: true },
       });
       if (
-        assignments.some(
-          ({ pairing }) => !catalog.some((s) => s.name === pairing.subject),
+        pairings.some(
+          (pairing) => !catalog.some((s) => s.name === pairing.subject),
         )
       )
         throw new TRPCError({
@@ -300,21 +302,11 @@ export async function unassignStudentSignup(
             message:
               "This changed since you loaded it — refresh and try again.",
           });
-        const pairing = await tx.pairing.findUnique({
-          where: { id: input.pairingId },
-          select: { termId: true },
-        });
         if (
           !row.tuteeId ||
-          pairing?.termId !== row.intakeTermId ||
-          !(await tx.pairingTutee.findUnique({
-            where: {
-              pairingId_tuteeId: {
-                pairingId: input.pairingId,
-                tuteeId: row.tuteeId,
-              },
-            },
-          }))
+          !(await studentRequestExecutionAssignments(tx, row)).some(
+            ({ pairingId }) => pairingId === input.pairingId,
+          )
         )
           throw new TRPCError({
             code: "CONFLICT",
@@ -327,26 +319,7 @@ export async function unassignStudentSignup(
           "SIGNUP_UNASSIGN",
           `${row.id}:${input.pairingId}`,
         );
-        await tx.pairingTutee.delete({
-          where: {
-            pairingId_tuteeId: {
-              pairingId: input.pairingId,
-              tuteeId: row.tuteeId,
-            },
-          },
-        });
-        if (
-          !(await tx.pairingTutee.count({
-            where: {
-              tuteeId: row.tuteeId,
-              pairing: { termId: row.intakeTermId },
-            },
-          }))
-        )
-          await tx.tutee.update({
-            where: { id: row.tuteeId },
-            data: { status: "PENDING" },
-          });
+        await releaseStudentRequestExecution(tx, row, { pairingId: input.pairingId, unassignedStatus: "PENDING" });
         await tx.studentRequestReview.updateMany({
           where: {
             surveyId: row.id,

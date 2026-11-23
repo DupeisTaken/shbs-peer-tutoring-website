@@ -28,6 +28,8 @@ import { StatePanel } from "~/app/_components/ui/patterns";
 import { SectionTabs } from "~/app/_components/ui/section-tabs";
 import { FeatureToggles } from "~/app/_components/program-feature-settings";
 import { useReadOnly } from "~/app/_components/read-only";
+import { QueryFeedback } from "~/app/_components/ui/query-feedback";
+import { ProgramWriteAdmissionProvider } from "~/app/_components/program-write-admission";
 
 export default function ProgramSettings({ deliveryQuota }: { deliveryQuota?: ReactNode }) {
   const t = useTranslations();
@@ -43,6 +45,7 @@ export default function ProgramSettings({ deliveryQuota }: { deliveryQuota?: Rea
 }
 const programPanels = ["period", "people", "communication", "access"] as const;
 type ProgramPanel = (typeof programPanels)[number];
+type CurrentPeriod = NonNullable<RouterOutputs["admin"]["currentPeriod"]>;
 function ProgramSettingsPage({ deliveryQuota }: { deliveryQuota?: ReactNode }) {
   const t = useTranslations();
   const current = api.admin.currentPeriod.useQuery();
@@ -84,43 +87,43 @@ function ProgramSettingsPage({ deliveryQuota }: { deliveryQuota?: ReactNode }) {
     enabled: !denied,
   });
   const readOnly = useReadOnly();
-  // Public/observer period reads do not confer access to private settings children.
+  // Ordinary account-read failures retain the same authorized identity's owners.
+  // Public/observer period reads still confer no access to private settings.
   const canReadSettings =
     !readOnly &&
-    !account.error &&
+    !!account.data?.id &&
     ["HEAD", "ADMIN", "COORDINATOR"].includes(account.data?.role ?? "");
+  const canWriteSettings =
+    canReadSettings && account.isSuccess && !account.error;
+  const settingsIdentity = `${account.data?.id ?? "unknown"}:${account.data?.role ?? "unknown"}`;
 
   const period = current.data;
-  // Only our accepted refresh replaces current-editor drafts automatically.
-  // A remote period change remains an explicit Reload decision for each editor.
-  const [activatedPeriod, setActivatedPeriod] = useState<RouterOutputs["admin"]["currentPeriod"]>(null);
-  const canEditPeriod = canReadSettings && ["HEAD", "ADMIN"].includes(account.data?.role ?? "") && !current.error && !!period?.canEdit;
+  const canEditPeriod =
+    canReadSettings &&
+    ["HEAD", "ADMIN"].includes(account.data?.role ?? "") &&
+    !!period?.canEdit;
   const canApplyPeriod =
     canEditPeriod && account.data?.role === "HEAD" && !!period?.canApply;
-  // The panel owns feedback; denied/unknown identities never mount private query children.
-  const privatePanelState = (key: "people" | "communication" | "access") => {
+  // Named read-only recovery sits beside retained owners, including hidden panels.
+  const privatePanelState = (key: ProgramPanel) => {
     const section = t(`admin.program.panels.${key}`);
+    if (!account.data || account.error)
+      return (
+        <QueryFeedback
+          hasData={canReadSettings}
+          loading={!account.data}
+          error={!!account.error}
+          retrying={account.isFetching}
+          loadingTitle={t("managementRecovery.loading", { section })}
+          errorTitle={t("managementRecovery.loadFailed", { section })}
+          retryLabel={t("managementRecovery.retry", { section })}
+          onRetry={() => void account.refetch()}
+        />
+      );
     return (
       <StatePanel
-        kind={account.error ? "error" : account.data ? "denied" : "loading"}
-        title={t(
-          account.error
-            ? "managementRecovery.loadFailed"
-            : account.data
-              ? "managementRecovery.denied"
-              : "managementRecovery.loading",
-          { section },
-        )}
-        action={
-          account.error && (
-            <button
-              className="btn-secondary min-h-11 lg:min-h-8"
-              onClick={() => void account.refetch()}
-            >
-              {t("managementRecovery.retry", { section })}
-            </button>
-          )
-        }
+        kind="denied"
+        title={t("managementRecovery.denied", { section })}
       />
     );
   };
@@ -156,78 +159,144 @@ function ProgramSettingsPage({ deliveryQuota }: { deliveryQuota?: ReactNode }) {
           </p>
         </section>
       )}
-      <SectionTabs
-        label={t("admin.program.title")}
-        value={panel}
-        onChange={setPanel}
-        items={(["period", "people", "communication", "access"] as const).map(
-          (value) => ({
-            value,
-            label: t(`admin.program.panels.${value}`),
-          }),
-        )}
+      <ProgramWriteAdmissionProvider
+        key={settingsIdentity}
+        allowed={canWriteSettings}
       >
-        {/* Hidden panels retain independent settings drafts and refresh confirmation. */}
-        <div hidden={panel !== "period"} className="space-y-6">
-          {canReadSettings && (
-            <>
-              <ProgramTimeZoneSettings />
-              <ProgramCalendarSettings />
-              <SchoolCalendar />
-            </>
+        <SectionTabs
+          label={t("admin.program.title")}
+          value={panel}
+          onChange={setPanel}
+          items={(["period", "people", "communication", "access"] as const).map(
+            (value) => ({
+              value,
+              label: t(`admin.program.panels.${value}`),
+            }),
           )}
-          {period && (
-            <>
-              {(["tutee", "tutor"] as const).map((audience) => (
-                <RecruitmentSettings
-                  key={`${activatedPeriod?.termId ?? "current"}:${audience}`}
-                  termId={activatedPeriod?.termId ?? period.termId}
-                  audience={audience}
-                  window={(activatedPeriod ?? period).recruitment[audience]}
-                  canEdit={canReadSettings && !current.error}
-                  canApply={canReadSettings && !current.error && ["ADMIN", "HEAD"].includes(account.data?.role ?? "")}
-                />
-              ))}
-
-              <ProgramPublicQrLinks />
-
-              {canReadSettings && <><NextRecruitmentSettings /><ProgramRefresh period={period} canEdit={canEditPeriod} canApply={canApplyPeriod} onActivated={setActivatedPeriod} /></>}
-            </>
-          )}
-        </div>
-        <div hidden={panel !== "people"} className="space-y-6">
-          {!canReadSettings && privatePanelState("people")}
-          {canReadSettings && (
-            <>
-              <ProgramProfileSettings />
-              <ProgramNameSettings />
-            </>
-          )}
-          {canReadSettings &&
-            ["HEAD", "ADMIN"].includes(account.data?.role ?? "") && (
-              <MessagePermissions />
-            )}
-        </div>
-        <div hidden={panel !== "communication"} className="space-y-6">
-          {!canReadSettings && privatePanelState("communication")}
-          {canReadSettings && (
-            <>
-              <ProgramEmailSettings
-                deliveryQuota={
-                  ["HEAD", "ADMIN"].includes(account.data?.role ?? "")
-                    ? deliveryQuota
-                    : null
-                }
+        >
+          {/* Hidden panels retain independent settings drafts and refresh confirmation. */}
+          <div hidden={panel !== "period"} className="space-y-6">
+            {account.error && privatePanelState("period")}
+            {current.error && (
+              <QueryFeedback
+                hasData={!!period}
+                loading={current.isLoading}
+                error
+                retrying={current.isFetching}
+                loadingTitle={t("admin.program.loading")}
+                errorTitle={t("managementRecovery.loadFailed", {
+                  section: t("admin.program.currentPeriod"),
+                })}
+                retryLabel={t("managementRecovery.retry", {
+                  section: t("admin.program.currentPeriod"),
+                })}
+                onRetry={() => void current.refetch()}
               />
-              <ProgramCaptchaSettings />
-            </>
-          )}
-        </div>
-        <div hidden={panel !== "access"} className="space-y-6">
-          {!canReadSettings && privatePanelState("access")}
-          {period && canReadSettings && <FeatureToggles />}
-        </div>
-      </SectionTabs>
+            )}
+            {canReadSettings && (
+              <>
+                <ProgramTimeZoneSettings />
+                <ProgramCalendarSettings />
+                <SchoolCalendar />
+              </>
+            )}
+            {period && (
+              <ProgramPeriodSettings
+                period={period}
+                canReadSettings={canReadSettings}
+                canApplyRecruitment={
+                  canReadSettings &&
+                  ["ADMIN", "HEAD"].includes(account.data?.role ?? "")
+                }
+                canEditPeriod={canEditPeriod}
+                canApplyPeriod={canApplyPeriod}
+                readFailed={!!current.error}
+              />
+            )}
+          </div>
+          <div hidden={panel !== "people"} className="space-y-6">
+            {(!canReadSettings || account.error) && privatePanelState("people")}
+            {canReadSettings && (
+              <>
+                <ProgramProfileSettings />
+                <ProgramNameSettings />
+              </>
+            )}
+            {canReadSettings &&
+              ["HEAD", "ADMIN"].includes(account.data?.role ?? "") && (
+                <MessagePermissions />
+              )}
+          </div>
+          <div hidden={panel !== "communication"} className="space-y-6">
+            {(!canReadSettings || account.error) &&
+              privatePanelState("communication")}
+            {canReadSettings && (
+              <>
+                <ProgramEmailSettings deliveryQuota={["HEAD", "ADMIN"].includes(account.data?.role ?? "") ? deliveryQuota : null} />
+                <ProgramCaptchaSettings />
+              </>
+            )}
+          </div>
+          <div hidden={panel !== "access"} className="space-y-6">
+            {(!canReadSettings || account.error) && privatePanelState("access")}
+            {period && canReadSettings && <FeatureToggles />}
+          </div>
+        </SectionTabs>
+      </ProgramWriteAdmissionProvider>
     </div>
+  );
+}
+
+/** This owner lives inside the account-keyed boundary. Replacing an identity
+ * retires its activation state and any late callback from that old owner. */
+function ProgramPeriodSettings({
+  period,
+  canReadSettings,
+  canApplyRecruitment,
+  canEditPeriod,
+  canApplyPeriod,
+  readFailed,
+}: {
+  period: CurrentPeriod;
+  canReadSettings: boolean;
+  canApplyRecruitment: boolean;
+  canEditPeriod: boolean;
+  canApplyPeriod: boolean;
+  readFailed: boolean;
+}) {
+  // Only our accepted refresh replaces current-editor drafts automatically.
+  // A remote period change remains an explicit Reload decision for each editor.
+  const [activatedPeriod, setActivatedPeriod] = useState<CurrentPeriod | null>(
+    null,
+  );
+  return (
+    <>
+      <ProgramWriteAdmissionProvider allowed={!readFailed}>
+        {(["tutee", "tutor"] as const).map((audience) => (
+          <RecruitmentSettings
+            key={`${activatedPeriod?.termId ?? "current"}:${audience}`}
+            termId={activatedPeriod?.termId ?? period.termId}
+            audience={audience}
+            window={(activatedPeriod ?? period).recruitment[audience]}
+            canEdit={canReadSettings}
+            canApply={canApplyRecruitment}
+          />
+        ))}
+      </ProgramWriteAdmissionProvider>
+      <ProgramPublicQrLinks />
+      {canReadSettings && (
+        <>
+          <NextRecruitmentSettings />
+          <ProgramWriteAdmissionProvider allowed={!readFailed}>
+            <ProgramRefresh
+              period={period}
+              canEdit={canEditPeriod}
+              canApply={canApplyPeriod}
+              onActivated={setActivatedPeriod}
+            />
+          </ProgramWriteAdmissionProvider>
+        </>
+      )}
+    </>
   );
 }

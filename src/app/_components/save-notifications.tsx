@@ -2,6 +2,9 @@
 import { useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
 import { TUTOR_ACCESS_REVOKED_PROMOTION_MESSAGE } from "~/lib/tutor-promotion";
+import { localizedLegacySignupDeclineError } from "~/lib/legacy-signup-decline-error";
+import { localizedPatrolCorrectionError } from "~/lib/patrol-correction-error";
+import { localizedStaleRecordError } from "~/lib/stale-record-error";
 import { ProfilePolicyError } from "./profile-policy-error";
 import { TranslationReviewError } from "./translation-review-error";
 import { TRANSLATION_PAGE_MISSING } from "~/lib/translation-review-errors";
@@ -25,6 +28,9 @@ export function SaveNotifications() {
   const t = useTranslations("saveNotifications");
   const historical = useTranslations("historicalAcademics");
   const interview = useTranslations("interviewApproval");
+  const decline = useTranslations("legacySignupDecline");
+  const corrections = useTranslations("corrections");
+  const saveErrors = useTranslations("saveErrors");
   const [results, setResults] = useState<Result[]>([]);
   useEffect(() => {
     let sequence = 0;
@@ -89,16 +95,19 @@ export function SaveNotifications() {
         <p className="mt-2 text-sm">
           {/* The page and global notice must describe the same recoverable conflict
               in the active language, never expose a stable server code as UI text. */}
-          {result.message === TUTOR_ACCESS_REVOKED_PROMOTION_MESSAGE ? (
-            interview("tutoringAccessRevoked")
-          ) : result.message === TRANSLATION_PAGE_MISSING ? (
-            <TranslationReviewError message={result.message} />
-          ) : result.message?.startsWith("HISTORICAL_") &&
-            historical.has(result.message) ? (
-            historical(result.message)
-          ) : (
-            <ProfilePolicyError message={result.message} />
-          )}
+          {localizedStaleRecordError(result.message, saveErrors) ??
+            localizedPatrolCorrectionError(result.message, corrections) ??
+            localizedLegacySignupDeclineError(result.message, decline) ??
+            (result.message === TUTOR_ACCESS_REVOKED_PROMOTION_MESSAGE ? (
+              interview("tutoringAccessRevoked")
+            ) : result.message === TRANSLATION_PAGE_MISSING ? (
+              <TranslationReviewError message={result.message} />
+            ) : result.message?.startsWith("HISTORICAL_") &&
+              historical.has(result.message) ? (
+              historical(result.message)
+            ) : (
+              <ProfilePolicyError message={result.message} />
+            ))}
         </p>
       )}
     </aside>

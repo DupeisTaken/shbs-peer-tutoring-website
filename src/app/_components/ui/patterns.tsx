@@ -64,8 +64,14 @@ export function InlineNotice({
       className={`min-w-0 rounded-lg border p-3 text-sm ${colors[tone]}`}
     >
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="min-w-0 flex-1">{children}</div>
-        {action && <div className="shrink-0">{action}</div>}
+        {/* A nonzero basis moves recovery below readable guidance before a long
+            action can squeeze it. It still shrinks to fit a narrow notice alone. */}
+        <div className="min-w-0 flex-[1_1_16rem] wrap-anywhere">{children}</div>
+        {action && (
+          <div className="flex max-w-full min-w-0 flex-wrap items-center gap-2 wrap-anywhere [&_a]:max-w-full [&_a]:whitespace-normal [&_button]:max-w-full [&_button]:whitespace-normal [&>*]:max-w-full">
+            {action}
+          </div>
+        )}
       </div>
     </div>
   );
