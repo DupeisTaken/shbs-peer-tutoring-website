@@ -18,13 +18,18 @@ import { InlineNotice } from "./patterns";
 
 afterEach(cleanup);
 
-it.each(["info", "warning", "success", "error"] as const)(
-  "preserves the %s notice's full content, chosen announcement and feature callbacks",
+it.each(["info", "warning", "success", "error", "accent"] as const)(
+  "preserves the %s notice's full content, optional title, chosen announcement and feature callbacks",
   (tone) => {
     const retry = vi.fn();
-    const content = (announcement?: "alert" | "status", disabled = false) => (
+    const content = (
+      announcement?: "alert" | "status",
+      disabled = false,
+      title?: string,
+    ) => (
       <InlineNotice
         tone={tone}
+        title={title}
         announcement={announcement}
         action={
           <div className="flex flex-wrap gap-2">
@@ -64,7 +69,8 @@ it.each(["info", "warning", "success", "error"] as const)(
     expect(draft.value).toBe("Unsaved example");
     expect(screen.getByRole("button")).toBe(retryButton);
     expect(document.activeElement).toBe(retryButton);
-    view.rerender(content("status", true));
+    view.rerender(content("status", true, "Refresh warning"));
+    expect(screen.getByText("Refresh warning")).toBeTruthy();
     expect(retryButton.matches(":disabled")).toBe(true);
     fireEvent.click(retryButton);
     expect(retry).toHaveBeenCalledOnce();

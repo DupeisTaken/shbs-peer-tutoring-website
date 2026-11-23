@@ -146,12 +146,12 @@ const zh: Record<keyof typeof en, string> = {
   failed: "无法保存个人资料。",
   failedHelp: "草稿仍保留在此处。连接恢复后请重试。",
   retry: "重试",
-  readOnlyHelp: "在此状态下，您可以查看个人资料，但无法编辑。",
+  readOnlyHelp: "在此状态下，你可以查看个人资料，但无法编辑。",
   choices: "先选择，再执行",
   choicesUse: "选中值表示草稿内容。提交操作有独立的视觉强调和明确名称。",
   recipients: "会议参加人员",
   tutors: "辅导伙伴",
-  crew: "工作人员",
+  crew: "巡查队",
   confirmAudience: "使用所选参加人员",
   audienceSaved: "已更新示例参加人员。",
   notifications: "邮件提醒",
@@ -206,7 +206,7 @@ const zh: Record<keyof typeof en, string> = {
   emptyTitle: "暂无会议",
   emptyBody: "团队准备好后即可创建会议。",
   deniedTitle: "需要编辑权限",
-  deniedBody: "您当前的角色可以查看记录，但无法编辑。",
+  deniedBody: "你当前的角色可以查看记录，但无法编辑。",
   errorTitle: "无法加载日程",
   errorBody: "请检查连接并重新加载。",
   recoveryDone: "示例日程已加载，目前暂无会议。",
@@ -290,6 +290,7 @@ export function UIGallery() {
       messages={{ tablePatterns: { details: t.viewDetails, close: t.close } }}
     >
       <main
+        id="ui-gallery-main"
         lang={locale === "zh" ? "zh-CN" : "en"}
         className="mx-auto max-w-7xl space-y-6 px-4 py-8 sm:px-6 lg:py-12"
       >
@@ -439,7 +440,7 @@ export function UIGallery() {
               </StatePanel>
             )}
             {saved && (
-              <p role="status" className="text-sm text-emerald-800">
+              <p role="status" className="text-sm text-green-800">
                 {t.saved}
               </p>
             )}
@@ -478,7 +479,7 @@ export function UIGallery() {
                 </Button>
               </fieldset>
               {audienceSaved && (
-                <p role="status" className="text-sm text-emerald-800">
+                <p role="status" className="text-sm text-green-800">
                   {t.audienceSaved}
                 </p>
               )}
@@ -527,7 +528,7 @@ export function UIGallery() {
             <p className="text-sm font-medium">{t.modalBody}</p>
             <Button onClick={openDialog}>{t.open}</Button>
             {archived && (
-              <p role="status" className="text-sm text-emerald-800">
+              <p role="status" className="text-sm text-green-800">
                 {t.archived}
               </p>
             )}

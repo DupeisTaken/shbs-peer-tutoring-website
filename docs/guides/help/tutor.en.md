@@ -163,15 +163,15 @@ Open: `/dashboard#tutor-pairings`
 
 ### Walkthrough
 
-1. **Open Combine / split pairings** In My Pairings select Combine / split pairings. Choose the assignments and primary member. Every student in the group must already have every selected subject; combining never creates a missing assignment.
+1. **Select groups to combine** Every pairing starts as its own group in My Pairings. Choose Combine groups, select two or more populated groups, and choose Combine selected. Every student in the combined group must already have every selected subject; combining never creates a missing assignment.
 
-   Look for: Combine / split pairings and grouped assignment summary
+   Look for: Unified pairing group cards with inline combine selection and split controls
 
-2. **Choose the shared schedule** Leave the group Awaiting schedule or choose one shared catalogue slot; use the explicit retained-time option only when preserving a confirmed interval. Review students, subjects, time and room consequences before saving.
+2. **Choose the primary member and shared schedule** In the Combine Pairing Groups dialog choose the primary member, then leave the group Awaiting schedule or choose one shared catalogue slot. Review students, subjects, time and room consequences before saving.
 
-   Look for: Selected assignments, primary member and shared schedule in the group editor
+   Look for: Primary member and shared schedule in the group action dialog
 
-3. **Repair or split deliberately** Reopen the editor to add or untick assignments, or choose Split this group. Each remaining group needs at least two members. Leaving assignments keep their students/subjects/room but return to Awaiting schedule until separately scheduled.
+3. **Repair or split deliberately** Choose Split this group or Repair or split directly on a combined group card. Two-assignment groups dissolve into separate single-assignment groups; larger groups can split completely or keep two to six valid assignments together (retaining an unpublished confirmed interval only when membership is unchanged). Leaving assignments keep their students/subjects/room but return to Awaiting schedule until separately scheduled.
 
 ### What happens next
 
