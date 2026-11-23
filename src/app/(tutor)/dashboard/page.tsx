@@ -7,8 +7,7 @@ import { db } from "~/server/db";
 import { getFeatures } from "~/server/program/features";
 import { api } from "~/trpc/server";
 import { AnnouncementsBanner } from "~/app/(tutor)/_components/announcements-banner";
-import { TutorWorkloadPreference } from "~/app/_components/tutor-workload-preference";
-import { AvailabilityEditor } from "~/app/(tutor)/_components/availability-editor";
+import { TimeAvailability } from "~/app/(tutor)/_components/time-availability";
 import { TutorPairings } from "~/app/(tutor)/_components/tutor-pairings";
 import { MyInterviews } from "~/app/(tutor)/_components/my-interviews";
 import { TutorActivation } from "~/app/(tutor)/_components/tutor-activation";
@@ -223,25 +222,7 @@ export default async function TutorDashboard() {
               className="scroll-mt-6 space-y-4"
             >
               <SubjectWillingness />
-              <section className="card p-4 sm:p-5">
-                <h2 className="section-title">
-                  {t("dashboard.availability.title")}
-                </h2>
-                <p className="muted mt-1 mb-4 text-sm">
-                  {t("dashboard.availability.help")}
-                </p>
-                {inactive && <TutorWorkloadPreference summaryOnly />}
-                {!inactive && (
-                  <DisclosureSection
-                    title={t("dashboard.availability.edit")}
-                    lifetime="retained"
-                  >
-                    <AvailabilityEditor />
-                    {/* Independent sibling forms retain their own drafts and save recovery. */}
-                    <TutorWorkloadPreference embedded />
-                  </DisclosureSection>
-                )}
-              </section>
+              <TimeAvailability active={!inactive} />
             </section>
           </div>
         }
