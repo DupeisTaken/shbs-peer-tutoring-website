@@ -14,6 +14,8 @@ type Props = {
   tuteeId: string;
   name: string;
   subject: string;
+  /** Disambiguate accessible button names when one learner has multiple subjects in a combined group. */
+  includeSubjectInLabel?: boolean;
   active: boolean;
   row?: RouterOutputs["studentWorkflow"]["tutorRoster"][number];
   pendingRequest?: RouterOutputs["tutor"]["myTuteeRemovalRequests"][number];
@@ -81,7 +83,11 @@ export function PairingTuteeDetails(props: Props) {
     <>
       <TableAction
         onClick={() => setOpen(true)}
-        aria-label={`${t("tablePatterns.details")}: ${name}`}
+        aria-label={
+          props.includeSubjectInLabel
+            ? `${t("tablePatterns.details")}: ${name} · ${subject}`
+            : `${t("tablePatterns.details")}: ${name}`
+        }
         aria-haspopup="dialog"
       >
         {t("tablePatterns.details")}

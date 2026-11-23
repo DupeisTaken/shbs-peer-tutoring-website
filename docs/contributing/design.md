@@ -164,11 +164,7 @@ tickets and pending-dismissal rules remain owned by the existing feature.
 
 ## Room and participant composition
 
-Tutor saved-group summaries keep the subjects and combined badge in one header,
-with shared schedule/room facts beside the distinct student roster on wider screens
-and above it on narrow screens. Show a single shared subject once; retain each
-student’s subject associations for mixed-subject groups. Keep dated-session
-navigation and retained assignment controls in the summary footer. Dashboard hour
+Tutor pairing cards render both single-assignment groups and combined groups in one unified layout: subject heading (with leading combine selection checkboxes revealed only when Combine groups is active — dynamically greying out incompatible cards and auto-selecting required companion cards to preserve complete student × subject coverage — a combined badge for multi-assignment groups, and dated-session navigation ahead of the split action in the card header), split 50/50 on wider screens with shared schedule/room facts and a compact default slot selector on the left and distinct students listed one per row on the right (stacking on narrow screens). Show a single shared subject once; retain each student’s subject associations for mixed-subject groups, with direct per-assignment Details entries. Dashboard hour
 summaries separate the reporting period, primary total and wrapping breakdown;
 Crew credit remains distinct from tutoring credit. Align the hours labels, period,
 totals and wrapping breakdown to the right edge of their header summary cards.
