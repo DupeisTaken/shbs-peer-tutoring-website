@@ -1,0 +1,39 @@
+.compactTimestamp {
+  display: none;
+}
+
+@media (max-width: 1023px) {
+  /* The shared scroll/sticky-action contract stays in charge. Reserve useful
+     summary widths locally instead of shrinking dates to individual tokens. */
+  .table .when {
+    min-width: 7rem;
+  }
+
+  .table .kind {
+    white-space: nowrap;
+  }
+
+  .table .operation {
+    min-width: 12rem;
+  }
+
+  .fullTimestamp {
+    display: none;
+  }
+
+  .compactTimestamp,
+  .compactTimestamp > span {
+    display: block;
+  }
+
+  .compactTimestamp > span {
+    white-space: nowrap;
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* Shorter local action columns expose more of the actor at scroll start.
+     Shared links still own their 44px touch targets, wrapping and focus style. */
+  .table :global(.table-action-list) {
+    min-width: 4rem;
+  }
+}

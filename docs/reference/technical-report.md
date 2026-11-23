@@ -1320,6 +1320,15 @@ Subject willingness UI: `subjectAvailability.mySubjects` loads on dialog open an
 
 Audit events identify actors by stable account ID and current role. The default signed-in mutation boundary commits domain writes and safe before/after evidence atomically; workflows that own their transactions retain their isolation/retry contracts and write evidence inside those boundaries. Failure/denial receipts are independent of rolled-back changes. The audit records actions rather than page access. Review metadata and undo payloads are not exposed to VIEWER accounts.
 
+The [Audit Log list](<../../src/app/(admin)/admin/audit/page.tsx>) distinguishes
+**Recorded operation** from **Row actions**. Its scoped narrow-screen styles keep
+each localized date and clock intact on two separate lines below 1024 px; desktop
+retains the combined localized timestamp and punctuation. The semantic `time`
+element retains the original instant. Audit-only column minimums and a compact
+trailing action column preserve the shared keyboard-scroll region and sticky
+44 px touch controls. Names and operation summaries remain brief, with full
+recorded actor names available in Details when the summary is clipped or scrolled.
+
 Prospectively captured initial admissions use the separate
 [causal recovery contract](recovery.md). Website execution requires complete
 coverage and at most one later logical event; longer supported chains use the
@@ -2673,6 +2682,12 @@ evidence without rematching it. The complete original reader and exact JSON
 remain available, including unknown historical
 envelopes. These readers perform no writes and do not replace request permissions,
 stale-evidence checks, private-evidence allowlists or transactional replay.
+
+Viewer and departed observer audit dialogs keep a compact summary whose label
+uses only the allowlisted event kind and the active locale's existing event-title
+catalog. Unknown historical kinds use the generic recorded change label. The
+server projection still replaces stored action text and masks details/undo data;
+the compact reader never mounts the staff evidence reader or recovery actions.
 
 The shared [`review vocabulary`](../../src/lib/review-vocabulary.ts) maps known
 entities, fields and enums to authored catalog keys. Meanings are scoped by entity

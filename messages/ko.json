@@ -1244,7 +1244,8 @@
       "columns": {
         "when": "시간",
         "who": "작업자",
-        "action": "작업"
+        "action": "기록된 작업",
+        "actions": "행 작업"
       },
       "undone": "취소됨",
       "undo": "실행 취소",

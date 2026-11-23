@@ -1244,7 +1244,8 @@
       "columns": {
         "when": "Quand",
         "who": "Qui",
-        "action": "Action"
+        "action": "Opération enregistrée",
+        "actions": "Actions de ligne"
       },
       "undone": "annulé",
       "undo": "Annuler",

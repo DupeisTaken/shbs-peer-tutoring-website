@@ -1236,7 +1236,8 @@
       "columns": {
         "when": "时间",
         "who": "操作者",
-        "action": "操作"
+        "action": "操作内容",
+        "actions": "可用操作"
       },
       "undone": "已撤销",
       "undo": "撤销",

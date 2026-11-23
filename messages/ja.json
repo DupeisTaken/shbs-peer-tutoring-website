@@ -1244,7 +1244,8 @@
       "columns": {
         "when": "日時",
         "who": "操作者",
-        "action": "操作"
+        "action": "記録された操作",
+        "actions": "行の操作"
       },
       "undone": "取り消し済み",
       "undo": "元に戻す",

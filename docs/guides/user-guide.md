@@ -1213,7 +1213,12 @@ In **Users & Roles**, choose **Review appeal** to read the complete account appe
 before approving or denying it. A saved decision whose list refresh fails offers
 refresh recovery; it must not be submitted a second time.
 
-In **Audit Log → Actions → Details**, Head, Admin and Coordinator can inspect the
+In **Audit Log**, **Recorded operation** describes the event, while **Row actions**
+contains **View details** and other available controls. On narrow screens, the
+date and time stay on separate lines, and the records scroll horizontally while
+row controls remain reachable. Open Details to read a full recorded actor name.
+
+In **Audit Log → Row actions → View details**, Head, Admin and Coordinator can inspect the
 recorded actor and account ID, event and target IDs, operation, exact timestamp
 (including UTC), approval link and undo time. Recorded before/after values and other
 evidence are shown as readable fields; the stored field names remain visible.
