@@ -1705,6 +1705,7 @@
     "applications": {
       "title": "Candidatures tuteurs",
       "intro": "Examinez les candidats et constituez un jury d'entretien de {n} tuteurs (désignez un responsable). Cliquez sur une ligne pour développer. Le responsable planifie l'entretien et enregistre la décision depuis son propre tableau de bord.",
+      "panelRangeIntro": "Examinez les candidats et constituez un jury d'entretien de {min} à {max} tuteurs, dont un responsable. Cliquez sur une ligne pour développer. Le responsable planifie l'entretien et enregistre la décision depuis son propre tableau de bord.",
       "empty": "Aucune candidature pour l'instant.",
       "status": {
         "PENDING": "en attente",
@@ -1715,6 +1716,7 @@
       },
       "noCourses": "aucune matière",
       "panelSummary": "jury {n}/{total}",
+      "panelCount": "jury de {n} personnes (minimum {min})",
       "votesSummary": "votes {accepts}/{total}",
       "accept": "Accepter",
       "reject": "Refuser",
@@ -1729,6 +1731,7 @@
       },
       "noQualification": "aucune qualification indiquée",
       "panelHeading": "Jury d'entretien (choisir {n}, désigner un responsable)",
+      "panelRangeHeading": "Jury d'entretien (de {min} à {max} tuteurs, un responsable)",
       "scheduled": "Planifié : {when} (défini par le responsable)",
       "panelistSlot": "— membre du jury {n} —",
       "head": "responsable",
@@ -1736,6 +1739,7 @@
       "savePanel": "Enregistrer le jury",
       "saved": "Enregistré.",
       "pickHint": "Choisissez {n} tuteurs et un responsable.",
+      "pickRangeHint": "Choisissez de {min} à {max} tuteurs distincts et désignez un responsable parmi eux.",
       "votesDecisionHeading": "Votes & décision",
       "voteTally": "{accepts} pour · {rejects} contre",
       "noVotes": "Aucun vote pour l'instant.",

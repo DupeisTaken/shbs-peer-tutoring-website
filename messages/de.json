@@ -1705,6 +1705,7 @@
     "applications": {
       "title": "Tutor-Bewerbungen",
       "intro": "Bewerber prüfen und ein {n}-köpfiges Interviewgremium zuweisen (einen Leiter markieren). Auf eine Zeile klicken, um sie aufzuklappen. Der Leiter terminiert das Interview und erfasst die Entscheidung im eigenen Dashboard.",
+      "panelRangeIntro": "Bewerber prüfen und ein Interviewgremium mit {min}–{max} Tutoren zusammenstellen. Einen davon als Leiter markieren. Auf eine Zeile klicken, um sie aufzuklappen. Der Leiter terminiert das Interview und erfasst die Entscheidung im eigenen Dashboard.",
       "empty": "Noch keine Bewerbungen.",
       "status": {
         "PENDING": "ausstehend",
@@ -1715,6 +1716,7 @@
       },
       "noCourses": "keine Fächer",
       "panelSummary": "Gremium {n}/{total}",
+      "panelCount": "Gremium mit {n} Personen (mindestens {min})",
       "votesSummary": "Stimmen {accepts}/{total}",
       "accept": "Annehmen",
       "reject": "Ablehnen",
@@ -1729,6 +1731,7 @@
       },
       "noQualification": "Keine Qualifikation angegeben",
       "panelHeading": "Interviewgremium (wählen Sie {n}, einen Leiter markieren)",
+      "panelRangeHeading": "Interviewgremium ({min}–{max} Tutoren, ein Leiter)",
       "scheduled": "Geplant: {when} (vom Leiter festgelegt)",
       "panelistSlot": "— Panelist {n} —",
       "head": "Leiter",
@@ -1736,6 +1739,7 @@
       "savePanel": "Gremium speichern",
       "saved": "Gespeichert.",
       "pickHint": "{n} Tutoren und einen Leiter auswählen.",
+      "pickRangeHint": "{min}–{max} verschiedene Tutoren auswählen und einen davon als Leiter markieren.",
       "votesDecisionHeading": "Stimmen & Entscheidung",
       "voteTally": "{accepts} dafür · {rejects} dagegen",
       "noVotes": "Noch keine Stimmen.",

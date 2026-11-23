@@ -1627,6 +1627,7 @@
     "applications": {
       "title": "Solicitudes de tutores",
       "intro": "Revisa a los solicitantes y asigna un panel de entrevista de {n} tutores (marca uno como responsable). Haz clic en una fila para expandirla. El responsable programa la entrevista y registra la decisión desde su propio panel.",
+      "panelRangeIntro": "Revisa a los solicitantes y asigna un panel de entrevista de {min} a {max} tutores, con uno de ellos como responsable. Haz clic en una fila para expandirla. El responsable programa la entrevista y registra la decisión desde su propio panel.",
       "empty": "Aún no hay solicitudes.",
       "status": {
         "PENDING": "pendiente",
@@ -1637,6 +1638,7 @@
       },
       "noCourses": "sin materias",
       "panelSummary": "panel {n}/{total}",
+      "panelCount": "panel de {n} (mínimo {min})",
       "votesSummary": "votos {accepts}/{total}",
       "accept": "Aceptar",
       "reject": "Rechazar",
@@ -1651,6 +1653,7 @@
       },
       "noQualification": "no indicó cualificación",
       "panelHeading": "Panel de entrevista (elige {n}, marca uno como responsable)",
+      "panelRangeHeading": "Panel de entrevista (de {min} a {max} tutores, un responsable)",
       "scheduled": "Programada: {when} (fijada por el responsable)",
       "panelistSlot": "— panelista {n} —",
       "head": "responsable",
@@ -1658,6 +1661,7 @@
       "savePanel": "Guardar panel",
       "saved": "Guardado.",
       "pickHint": "Elige {n} tutores y un responsable.",
+      "pickRangeHint": "Elige de {min} a {max} tutores distintos y designa a uno como responsable.",
       "votesDecisionHeading": "Votos y decisión",
       "voteTally": "{accepts} aceptan · {rejects} rechazan",
       "noVotes": "Aún no hay votos.",
