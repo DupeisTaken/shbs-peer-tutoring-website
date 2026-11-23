@@ -12,11 +12,13 @@ import {
 
 import { api } from "~/trpc/react";
 import { DetailsAutoClose } from "~/app/_components/details-auto-close";
+import { BellIcon } from "~/app/_components/icons";
 import { useClampedPopover } from "~/app/_components/use-clamped-popover";
 import { QueryFeedback } from "./ui/query-feedback";
 import { InlineNotice, StatePanel } from "./ui/patterns";
 import { Button } from "./ui/button";
 import { useSessionAccessDenied } from "./session-view-state";
+import { formatClientError } from "~/lib/client-error-message";
 
 /**
  * Bell + dropdown of the signed-in user's in-app notifications, with an unread badge.
@@ -75,9 +77,7 @@ export function NotificationBell() {
         title={bellLabel}
         className="focus-visible:ring-accent-500 relative flex min-h-11 min-w-11 cursor-pointer list-none items-center justify-center rounded-md hover:bg-slate-100 focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-hidden [&::-webkit-details-marker]:hidden"
       >
-        <span aria-hidden="true" className="text-xl">
-          🔔
-        </span>
+        <BellIcon className="h-5 w-5 text-slate-700" />
         {count > 0 && (
           <span
             aria-hidden="true"
@@ -149,7 +149,7 @@ export function NotificationBell() {
               .filter(Boolean)
               .map((error, index) => (
                 <InlineNotice key={index} tone="error" announcement="alert">
-                  {error!.message}
+                  {formatClientError(error, t)}
                 </InlineNotice>
               ))}
         </div>

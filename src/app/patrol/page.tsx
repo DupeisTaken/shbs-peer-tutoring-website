@@ -569,13 +569,14 @@ export default function PatrolPage() {
                     >
                       {t("crew.patrol.optOut.submit")}
                     </Button>
-                    <button
-                      className="btn-secondary btn-sm"
+                    <Button
+                      variant="secondary"
+                      size="compact"
                       disabled={membershipBusy}
                       onClick={() => setShowOptOut(false)}
                     >
                       {t("common.close")}
-                    </button>
+                    </Button>
                   </div>
                 </div>
               ) : (

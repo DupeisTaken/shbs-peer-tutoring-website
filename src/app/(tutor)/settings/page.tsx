@@ -654,8 +654,8 @@ export default function SettingsPage() {
 
           <FormActions>
             {!sentTo ? (
-              <button
-                className="btn-primary"
+              <Button
+                variant="primary"
                 disabled={
                   (email2fa
                     ? requestCode.isPending
@@ -673,30 +673,30 @@ export default function SettingsPage() {
                   : changePassword.isPending
                     ? t("tutor.settings.changing")
                     : t("tutor.settings.changePasswordBtn")}
-              </button>
+              </Button>
             ) : (
               <>
-                <button
-                  className="btn-primary"
+                <Button
+                  variant="primary"
                   disabled={passwordBusy || !code.trim()}
                   onClick={submitPassword}
                 >
                   {changePassword.isPending
                     ? t("tutor.settings.changing")
                     : t("tutor.settings.changePasswordBtn")}
-                </button>
-                <button
+                </Button>
+                <Button
                   type="button"
-                  className="btn-secondary"
+                  variant="secondary"
                   disabled={passwordBusy}
                   onClick={resetPasswordForm}
                 >
                   {t("account.password.cancel")}
-                </button>
+                </Button>
               </>
             )}
             {changePassword.isSuccess && (
-              <span className="text-sm text-green-600">
+              <span className="text-sm text-green-700">
                 {t("tutor.settings.passwordChanged")}
               </span>
             )}
@@ -704,7 +704,7 @@ export default function SettingsPage() {
               <span
                 id="tutor-password-error"
                 role="alert"
-                className="text-sm text-red-600"
+                className="text-sm text-red-700"
               >
                 {pwError ??
                   changePassword.error?.message ??

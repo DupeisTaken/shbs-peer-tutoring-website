@@ -134,6 +134,7 @@ export default async function TutorLayout({
         title={APP_TITLE}
         items={workspaceItems}
         skipLabel={t("common.skipToContent")}
+        containerClassName="mx-auto max-w-6xl"
         identity={
           <Link
             href="/settings"

@@ -55,6 +55,7 @@ export default async function PatrolLayout({
         href="/patrol"
         title={t("crew.brand", { team: TEAM_TITLE })}
         skipLabel={t("common.skipToContent")}
+        containerClassName="mx-auto max-w-3xl"
         items={[
           { href: "/help", label: t("helpNav.title") },
           ...(session.role !== "VIEWER"

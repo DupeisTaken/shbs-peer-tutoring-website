@@ -8486,5 +8486,18 @@
     "loadFailed": "No se pudieron cargar los últimos requisitos. Se conserva el borrador. Reintenta la lectura antes de guardar.",
     "refreshFailed": "Los requisitos se guardaron, pero no se pudieron cargar los ajustes. Reintenta la lectura; no vuelvas a guardar.",
     "reload": "Recargar últimos requisitos"
+  },
+  "errorRecovery": {
+    "unauthorized": "Inicia sesión de nuevo para continuar.",
+    "forbidden": "No tienes permiso para realizar esta acción.",
+    "notFound": "No se encontró este registro. Actualiza la página para ver los datos actuales.",
+    "conflict": "Este registro cambió desde que lo abriste. Actualiza y revisa antes de intentarlo de nuevo.",
+    "tooManyRequests": "Demasiadas solicitudes en poco tiempo. Espera un momento e inténtalo de nuevo.",
+    "timeout": "La solicitud agotó el tiempo de espera. Revisa tu conexión e inténtalo de nuevo.",
+    "preconditionFailed": "Falta un paso o ajuste necesario. Actualiza la página y comprueba el estado actual.",
+    "badRequest": "Revisa los datos ingresados e inténtalo de nuevo.",
+    "internal": "No pudimos completar la solicitud. Inténtalo de nuevo en un momento.",
+    "network": "No se pudo conectar con el servidor. Revisa tu conexión e inténtalo de nuevo.",
+    "generic": "Algo salió mal. Inténtalo de nuevo."
   }
 }

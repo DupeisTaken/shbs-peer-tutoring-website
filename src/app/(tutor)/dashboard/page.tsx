@@ -18,6 +18,7 @@ import { SubjectWillingness } from "~/app/(tutor)/_components/subject-willingnes
 import { getTranslations } from "next-intl/server";
 import { DashboardTasks } from "~/app/(tutor)/_components/dashboard-tasks";
 import { DisclosureSection } from "~/app/_components/ui/disclosure-section";
+import { InlineNotice } from "~/app/_components/ui/patterns";
 import { SessionPagePosition } from "~/app/_components/session-view-state";
 
 import { TutorWorkspace } from "~/app/(tutor)/_components/tutor-workspace";
@@ -149,19 +150,19 @@ export default async function TutorDashboard() {
       )}
 
       {inactive && !pending && (
-        <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-4 text-amber-800">
-          <p className="font-semibold">{t("tutor.dashboard.inactive.title")}</p>
-          <p className="mt-1 text-sm">
+        <InlineNotice
+          tone="warning"
+          title={t("tutor.dashboard.inactive.title")}
+        >
+          <p className="mt-1">
             {t("tutor.dashboard.inactive.body", {
               status: t(`tutor.status.${me.status}`),
             })}
           </p>
           {me.status === "OPTED_OUT" && (
-            <p className="mt-2 text-sm">
-              {t("tutor.dashboard.inactive.reentryHint")}
-            </p>
+            <p className="mt-2">{t("tutor.dashboard.inactive.reentryHint")}</p>
           )}
-        </div>
+        </InlineNotice>
       )}
 
       <TutorWorkspace

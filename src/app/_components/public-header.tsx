@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import type { ReactNode } from "react";
+import { BrandMark } from "./brand-mark";
 import { useBranding } from "./branding-provider";
 import { LanguageSwitcher } from "./language-switcher";
 import { ThemeSwitcher } from "./theme-switcher";
@@ -62,16 +63,23 @@ export function PublicHeaderFrame({
           {skipLabel}
         </a>
       ) : null}
-      <div className="mx-auto grid max-w-6xl grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 gap-y-2 px-4 py-3 lg:flex">
+      <div className="mx-auto grid max-w-5xl grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 gap-y-2 px-4 py-2.5 lg:flex lg:py-3">
         <Link
           href="/"
-          className="flex min-h-11 min-w-0 items-center text-xl font-bold break-words text-slate-900 lg:order-1 lg:mr-auto lg:min-h-8 lg:text-lg"
+          className="col-start-1 row-start-1 flex min-h-11 min-w-0 items-center gap-2.5 text-xl font-bold break-words text-slate-900 lg:mr-auto lg:min-h-8 lg:text-lg"
         >
-          {title}
+          <BrandMark />
+          <span className="min-w-0">{title}</span>
         </Link>
-        <div className="justify-self-end lg:order-4">{language}</div>
-        <div className="min-w-0 lg:order-2">{navigation}</div>
-        <div className="justify-self-end lg:order-3">{theme}</div>
+        <div className="col-start-1 row-start-2 min-w-0 lg:row-start-auto">
+          {navigation}
+        </div>
+        <div className="col-start-2 row-start-2 justify-self-end lg:row-start-auto">
+          {theme}
+        </div>
+        <div className="col-start-2 row-start-1 justify-self-end lg:row-start-auto">
+          {language}
+        </div>
       </div>
     </header>
   );

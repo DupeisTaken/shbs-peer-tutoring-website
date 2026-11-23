@@ -204,7 +204,7 @@
   }
   /* Size modifier — declared after variants so it overrides their padding. */
   .btn-sm {
-    @apply px-3 py-1.5 text-xs;
+    @apply px-3 py-1.5 text-xs lg:min-h-8;
   }
 
   /* Context sizes shared by the gallery and product; long translations may grow. */
@@ -284,6 +284,18 @@
   }
   .muted {
     @apply text-sm text-slate-500;
+  }
+  /* Shared small uppercase label for KPI eyebrows, card kickers, and metadata headings. */
+  .eyebrow {
+    @apply text-xs leading-snug font-semibold tracking-wider text-slate-600 uppercase;
+  }
+  /* Architectural dot-paper backdrop for the public landing hero — subtle, theme-neutral. */
+  .hero-grid-bg {
+    background-image: radial-gradient(
+      color-mix(in srgb, var(--accent-600) 14%, transparent) 1px,
+      transparent 1px
+    );
+    background-size: 24px 24px;
   }
 
   /* Public entry forms share a calm surface and predictable control rhythm.

@@ -10,6 +10,7 @@ import { resolveBranding } from "~/lib/branding-config";
 import { NavLink } from "./nav-link";
 import { ThemeSwitcher } from "./theme-switcher";
 import { WorkspaceHeader } from "./workspace-header";
+import { InlineNotice } from "./ui/patterns";
 import RouteError from "../error";
 
 const navState = vi.hoisted(() => ({ pathname: "/admin/users" }));
@@ -43,22 +44,53 @@ describe("shared accessibility fixes (#843, #844, #845)", () => {
     ).toBeNull();
   });
 
-  it("renders a skip-to-content link targeting the configured main landmark", () => {
-    render(
+  it("renders a skip-to-content link, brand mark, and desktop-aligned DOM Tab order", () => {
+    const { container } = render(
       <NextIntlClientProvider locale="en" messages={en} timeZone="Asia/Shanghai">
         <WorkspaceHeader
           href="/admin"
           title="SHBS Peer Tutoring Team"
-          items={[]}
+          items={[{ href: "/student", label: "Enter Tutee Page" }]}
           identity={<span>Admin</span>}
           account={<button type="button">Account</button>}
           skipLabel={en.common.skipToContent}
           skipToId="admin-content"
+          containerClassName="mx-auto max-w-6xl"
         />
       </NextIntlClientProvider>,
     );
     const skip = screen.getByRole("link", { name: en.common.skipToContent });
     expect(skip.getAttribute("href")).toBe("#admin-content");
+    expect(container.querySelector("header svg")).toBeTruthy();
+    const controls = [
+      ...container.querySelectorAll("header a, header button, header select"),
+    ];
+    const enterIndex = controls.indexOf(
+      screen.getByRole("link", { name: "Enter Tutee Page" }),
+    );
+    const languageIndex = controls.indexOf(
+      screen.getByRole("combobox", { name: "Language" }),
+    );
+    // Language switcher follows workspace navigation in DOM/Tab order on desktop.
+    expect(enterIndex).toBeGreaterThan(0);
+    expect(languageIndex).toBeGreaterThan(enterIndex);
+  });
+
+  it("supports accent tone, title, and green semantic success on InlineNotice", () => {
+    render(
+      <>
+        <InlineNotice tone="accent" title="Program update" announcement="status">
+          <p>Details here.</p>
+        </InlineNotice>
+        <InlineNotice tone="success" announcement="status">
+          <p>Saved.</p>
+        </InlineNotice>
+      </>,
+    );
+    const notices = screen.getAllByRole("status");
+    expect(notices[0]?.className).toContain("bg-accent-50");
+    expect(screen.getByText("Program update")).toBeTruthy();
+    expect(notices[1]?.className).toContain("bg-green-50");
   });
 
   it("returns keyboard focus to the ThemeSwitcher trigger after selecting a swatch or pressing Escape", () => {

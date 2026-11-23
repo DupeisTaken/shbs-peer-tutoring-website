@@ -8486,5 +8486,18 @@
     "loadFailed": "Impossible de charger les dernières exigences. Votre brouillon est conservé. Réessayez la lecture avant d’enregistrer.",
     "refreshFailed": "Les exigences ont été enregistrées, mais les paramètres n’ont pas pu être chargés. Réessayez la lecture sans enregistrer à nouveau.",
     "reload": "Recharger les dernières exigences"
+  },
+  "errorRecovery": {
+    "unauthorized": "Reconnectez-vous pour continuer.",
+    "forbidden": "Vous n’avez pas l’autorisation d’effectuer cette action.",
+    "notFound": "Cet élément est introuvable. Actualisez la page pour afficher les données actuelles.",
+    "conflict": "Cet élément a changé depuis son ouverture. Actualisez et vérifiez avant de réessayer.",
+    "tooManyRequests": "Trop de requêtes en peu de temps. Patientez un instant puis réessayez.",
+    "timeout": "La requête a expiré. Vérifiez votre connexion puis réessayez.",
+    "preconditionFailed": "Une condition requise est manquante. Actualisez la page et vérifiez l’état actuel.",
+    "badRequest": "Vérifiez les informations saisies puis réessayez.",
+    "internal": "Impossible de finaliser cette requête. Réessayez dans un instant.",
+    "network": "Impossible de joindre le serveur. Vérifiez votre connexion puis réessayez.",
+    "generic": "Une erreur s’est produite. Réessayez."
   }
 }

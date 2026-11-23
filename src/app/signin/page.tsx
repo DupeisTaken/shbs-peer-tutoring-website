@@ -4,6 +4,7 @@ import {
   PublicFormCard,
   PublicFormRoute,
 } from "~/app/_components/public-form-page";
+import { InlineNotice } from "~/app/_components/ui/patterns";
 import { redirect } from "next/navigation";
 import { cookies } from "next/headers";
 import { getTranslations } from "next-intl/server";
@@ -46,18 +47,18 @@ export default async function SignInPage({
       title={t("auth.signinTitle")}
       description={t("auth.signinSubtitle")}
       backLabel={t("common.backToMain")}
+      skipLabel={t("common.skipToContent")}
       notice={
         (expired || passwordChanged) && (
-          <p
-            role="status"
-            className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-center text-sm leading-6 text-amber-950"
-          >
-            {t(
-              passwordChanged
-                ? "auth.passwordChangedSignIn"
-                : "auth.sessionExpired",
-            )}
-          </p>
+          <InlineNotice tone="warning" announcement="status">
+            <p className="text-center leading-6">
+              {t(
+                passwordChanged
+                  ? "auth.passwordChangedSignIn"
+                  : "auth.sessionExpired",
+              )}
+            </p>
+          </InlineNotice>
         )
       }
       footer={

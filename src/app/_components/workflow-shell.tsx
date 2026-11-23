@@ -67,6 +67,7 @@ export async function WorkflowShell({
         href="/"
         title={APP_TITLE}
         skipLabel={common("skipToContent")}
+        containerClassName="mx-auto max-w-5xl"
         items={workspaceItems}
         identity={
           <Link

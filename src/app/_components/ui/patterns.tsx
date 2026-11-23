@@ -43,11 +43,13 @@ export function FormActions({ children }: { children: ReactNode }) {
  * announcements explicitly; domain errors that already own an alert need none here. */
 export function InlineNotice({
   tone = "info",
+  title,
   announcement,
   children,
   action,
 }: {
-  tone?: "info" | "warning" | "success" | "error";
+  tone?: "info" | "warning" | "success" | "error" | "accent";
+  title?: string;
   announcement?: "alert" | "status";
   children: ReactNode;
   action?: ReactNode;
@@ -55,8 +57,10 @@ export function InlineNotice({
   const colors = {
     info: "border-slate-200 bg-slate-50 text-slate-700",
     warning: "border-amber-200 bg-amber-50 text-amber-900",
-    success: "border-emerald-200 bg-emerald-50 text-emerald-900",
+    // Keep semantic success distinct from the emerald runtime accent palette.
+    success: "border-green-200 bg-green-50 text-green-900",
     error: "border-red-200 bg-red-50 text-red-800",
+    accent: "border-accent-200 bg-accent-50 text-accent-900",
   };
   return (
     <div
@@ -66,7 +70,10 @@ export function InlineNotice({
       <div className="flex flex-wrap items-center justify-between gap-3">
         {/* A nonzero basis moves recovery below readable guidance before a long
             action can squeeze it. It still shrinks to fit a narrow notice alone. */}
-        <div className="min-w-0 flex-[1_1_16rem] wrap-anywhere">{children}</div>
+        <div className="min-w-0 flex-[1_1_16rem] wrap-anywhere">
+          {title ? <p className="font-semibold">{title}</p> : null}
+          {children}
+        </div>
         {action && (
           <div className="flex max-w-full min-w-0 flex-wrap items-center gap-2 wrap-anywhere [&_a]:max-w-full [&_a]:whitespace-normal [&_button]:max-w-full [&_button]:whitespace-normal [&>*]:max-w-full">
             {action}
