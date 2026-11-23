@@ -18,6 +18,8 @@ const state = vi.hoisted(() => ({
   writeError: null as Error | null,
   success: false,
   canExcuse: true,
+  meetingDate: new Date("2026-10-29T08:00:00Z"),
+  serverNow: undefined as Date | undefined,
   responseMeetingId: null as string | null,
   close: vi.fn(),
   mutate: vi.fn(),
@@ -55,12 +57,13 @@ vi.mock("~/trpc/react", () => ({
               ? {
                   id: state.responseMeetingId ?? input.meetingId,
                   title: `Synthetic ${state.responseMeetingId ?? input.meetingId}`,
-                  date: new Date("2026-10-29T08:00:00Z"),
+                  date: state.meetingDate,
                   status: null,
                   reason: "Private own reason",
                   excused: false,
                   canExcuse: state.canExcuse,
                   upcoming: true,
+                  serverNow: state.serverNow,
                 }
               : undefined,
             error: state.readError,
@@ -154,7 +157,11 @@ afterEach(() => {
   state.writeError = null;
   state.success = false;
   state.canExcuse = true;
+  state.meetingDate = new Date("2026-10-29T08:00:00Z");
+  state.serverNow = undefined;
   state.responseMeetingId = null;
+  vi.restoreAllMocks();
+  vi.useRealTimers();
 });
 
 const element = (
@@ -457,5 +464,40 @@ it.each(["en", "zh"])(
     expect(
       screen.queryByRole("button", { name: catalog.tutor.meetings.excuseBtn }),
     ).toBeNull();
+  },
+);
+
+it.each(["en", "zh"])(
+  "auto-hides the open meeting detail excuse editor when the 45-minute cutoff passes (%s)",
+  (locale) => {
+    vi.useFakeTimers();
+    let monotonic = 0;
+    vi.spyOn(performance, "now").mockImplementation(() => monotonic);
+    const catalog = locale === "zh" ? zh : messages;
+    state.meetingDate = new Date("2026-10-29T08:00:00.000Z");
+    state.serverNow = new Date("2026-10-29T07:14:30.000Z"); // 45m30s before start
+    render(element("one", false, locale));
+    fireEvent.click(
+      screen.getByRole("button", { name: catalog.tutor.meetings.excuseBtn }),
+    );
+    fireEvent.change(screen.getByRole("textbox"), {
+      target: { value: "Late draft" },
+    });
+
+    monotonic = 30_001;
+    act(() => {
+      vi.advanceTimersByTime(30_001);
+    });
+    expect(screen.queryByRole("textbox")).toBeNull();
+    expect(
+      screen.queryByRole("button", {
+        name: catalog.tutor.meetings.submitExcuse,
+      }),
+    ).toBeNull();
+    expect(
+      screen.queryByRole("button", { name: catalog.tutor.meetings.excuseBtn }),
+    ).toBeNull();
+    expect(screen.getByText(catalog.tutor.meetings.tooLate)).toBeTruthy();
+    expect(state.mutate).not.toHaveBeenCalled();
   },
 );

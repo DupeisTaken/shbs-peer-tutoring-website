@@ -2490,6 +2490,7 @@ export const tutorRouter = createTRPCRouter({
           upcoming: meeting.date >= now,
           excused: own?.status === "EXCUSED_ABSENT" && own.excusedAt != null,
           canExcuse: !historical && canExcusePersonalMeeting(meeting.date, now),
+          serverNow: now,
         };
       });
     }),
