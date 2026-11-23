@@ -79,7 +79,7 @@ Tutor status does not grant crew membership. An active crew member's eligible pa
 
 ### 1. Attendance expectations and tutor meetings
 
-Attend assigned sessions and meetings and raise recurring problems promptly. Follow published meeting dates; a fixed Monday lunch meeting is not assumed. Submit or cancel your own meeting excuse on the website no later than 60 minutes before the meeting. Staff record attendance and correct staff-entered statuses.
+Attend assigned sessions and meetings and raise recurring problems promptly. Follow published meeting dates; a fixed Monday lunch meeting is not assumed. Submit or cancel your own meeting excuse on the website no later than 45 minutes before the meeting. Staff record attendance and correct staff-entered statuses.
 
 ### 2. Meeting deductions
 

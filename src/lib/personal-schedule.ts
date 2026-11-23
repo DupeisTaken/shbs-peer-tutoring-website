@@ -52,7 +52,12 @@ export function personalScheduleWindow(now: Date, timeZone: string) {
   };
 }
 
-/** Match the source meeting workflow's inclusive sixty-minute excuse cutoff. */
+/** A tutor may self-excuse (or cancel a self-excuse) until this many minutes
+ * before a meeting starts, leaving a brief window after the 1-hour reminder email. */
+export const MEETING_EXCUSE_CUTOFF_MINUTES = 45;
+export const MEETING_EXCUSE_CUTOFF_MS = MEETING_EXCUSE_CUTOFF_MINUTES * 60_000;
+
+/** Match the source meeting workflow's inclusive 45-minute excuse cutoff. */
 export function canExcusePersonalMeeting(date: Date, now: Date) {
-  return now.getTime() <= date.getTime() - 60 * 60_000;
+  return now.getTime() <= date.getTime() - MEETING_EXCUSE_CUTOFF_MS;
 }
