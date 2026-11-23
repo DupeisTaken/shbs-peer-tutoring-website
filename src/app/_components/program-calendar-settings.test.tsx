@@ -729,6 +729,24 @@ it.each(["en", "zh"] as const)(
     expect(screen.getByText(copy.programCalendar.pauseEffectTable)).toBeTruthy();
     expect(screen.getByText(locale === "en" ? "2 days" : "2天")).toBeTruthy();
     expect(screen.getByText(locale === "en" ? "1 day" : "1天")).toBeTruthy();
+    // Free-text notes and notice reasons stay tucked inside View details, keeping summary rows single-line.
+    expect(screen.queryByText("Thanksgiving")).toBeNull();
+    expect(screen.queryByText("Staff training")).toBeNull();
+    expect(screen.queryByText("Exam week pause")).toBeNull();
+    const detailButtons = screen.getAllByRole("button", {
+      name: new RegExp(`^${copy.schoolCalendar.details}:`),
+    });
+    fireEvent.click(detailButtons[0]!);
+    const holidayDialog = screen.getByRole("dialog");
+    expect(within(holidayDialog).getByText("Thanksgiving")).toBeTruthy();
+    fireEvent.click(
+      within(holidayDialog).getByRole("button", {
+        name: copy.tablePatterns.close,
+      }),
+    );
+    fireEvent.click(detailButtons[2]!);
+    const pauseDialog = screen.getByRole("dialog");
+    expect(within(pauseDialog).getByText("Exam week pause")).toBeTruthy();
   },
 );
 

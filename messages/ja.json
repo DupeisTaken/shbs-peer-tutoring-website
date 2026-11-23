@@ -6184,8 +6184,7 @@
     "denied": "チュータリングのお知らせと休止設定は利用できません。",
     "holidayEffect": "学校休暇（休校）",
     "pauseEffectTable": "通常チュータリング休止（登校日）",
-    "noticeEffectTable": "お知らせのみ（登校日）",
-    "reasonOrNote": "理由 / メモ"
+    "noticeEffectTable": "お知らせのみ（登校日）"
   },
   "roomOrder": {
     "title": "教室の表示順",

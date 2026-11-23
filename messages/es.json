@@ -6184,8 +6184,7 @@
     "denied": "Los avisos y pausas de tutoría no están disponibles.",
     "holidayEffect": "Vacaciones escolares (Sin clases)",
     "pauseEffectTable": "Pausa de tutoría (Día lectivo)",
-    "noticeEffectTable": "Solo aviso (Día lectivo)",
-    "reasonOrNote": "Motivo / Nota"
+    "noticeEffectTable": "Solo aviso (Día lectivo)"
   },
   "roomOrder": {
     "title": "Orden de las aulas",

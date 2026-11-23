@@ -570,12 +570,9 @@ it("keeps long calendar reasons in a full readonly Details reader without granti
   mocks.canEdit = false;
   mocks.reason = "完整的原始通知理由。".repeat(30);
   show(<ProgramCalendarSettings />);
+  // Free-text reasons stay out of the compact summary table and open only in Details.
   expect(screen.queryByText(mocks.reason)).toBeNull();
-  expect(
-    screen
-      .getByText(mocks.reason.slice(0, 80) + "…")
-      .classList.contains("line-clamp-2"),
-  ).toBe(true);
+  expect(screen.queryByText(/完整的原始通知理由/)).toBeNull();
   expect(
     screen.queryByRole("button", { name: en.programCalendar.edit }),
   ).toBeNull();

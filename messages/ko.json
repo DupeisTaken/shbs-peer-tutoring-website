@@ -6184,8 +6184,7 @@
     "denied": "튜터링 공지 및 중단 설정에 접근할 수 없습니다.",
     "holidayEffect": "학교 휴일 (휴교)",
     "pauseEffectTable": "정규 튜터링 중단 (등교일)",
-    "noticeEffectTable": "공지 전용 (등교일)",
-    "reasonOrNote": "사유 / 메모"
+    "noticeEffectTable": "공지 전용 (등교일)"
   },
   "roomOrder": {
     "title": "교실 표시 순서",
