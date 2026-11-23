@@ -1330,7 +1330,7 @@ history reads the union of current and retained identities without granting tuto
 membership or altering recorded credits. Combine transfers retained ownership and
 includes it in its preview fingerprint. Academic corrections recognize retained owners.
 
-The client cache is replaced when the server-supplied account or role identity changes. Route changes and tab focus/visibility share one live session check. Private content stays mounted but hidden while verification is pending, preserving form edits. A failed check or changed identity clears the cache and reloads the server layout. Once the same identity is verified, content is restored immediately; stale active queries refresh in the background without cancelling an existing request. Fresh queries are retained. Deterministic authentication, authorization and precondition errors are not retried; transient failures retain bounded retries.
+The client cache is replaced when the server-supplied account or role identity changes. Route changes and tab focus/visibility share one live session check. Private content—including portaled native dialogs—stays mounted but concealed behind a fixed viewport curtain (`visibility: hidden`, `inert`, `aria-hidden` and hidden dialog backdrops) while verification is pending, preserving form edits and document/pane scroll positions without collapsing layout boxes. Same-route focus checks keep the already-verified session-view boundary stable while route changes and identity discards clear it, and anonymous pages check quietly without flashing the curtain while still reloading if another tab signs in. A failed check or changed identity clears the cache and reloads the server layout. Once the same identity is verified, content is restored immediately; stale active queries refresh in the background without cancelling an existing request. Fresh queries are retained. Deterministic authentication, authorization and precondition errors are not retried; transient failures retain bounded retries.
 
 The global participation-policy query uses this shared navigation/focus refresh. It fetches on initial enable and separately on query-only student tab changes; it does not install competing focus listeners. A verified return to the tab resets dismissal, while ordinary navigation preserves dismissal of the same published revision. Participation mutations always validate current policy acceptance on the server.
 
@@ -1591,7 +1591,10 @@ Join attempts after that proof. Immutable continuation receipts distinguish
 continuation-created or adopted requests from ordinary confirmation, preserving
 signed additions. Accepted receipt replay and read-only recovery remain available.
 The UI clears continuation choices and reviews after suppression and resets its
-cached status after mailbox confirmation.
+cached status after mailbox confirmation. It also auto-hides the continuation
+selection interface and closes any open unsubmitted review once the one-hour
+window expires (on load or at the server-anchored monotonic clock boundary),
+retaining only an already-filed submission receipt or held read-only recovery.
 
 [Assignment and release](../../src/server/student-continuation-assignment.ts)
 revalidate tutor eligibility, qualification, willingness, prior confirmed weekly
@@ -1708,11 +1711,25 @@ existing domain contracts; these presentation changes create no new authority.
 | Admin/Head edit assigned choices     | Review and release affected assignments with the answer change; preserve sessions and attendance |
 | Read terminal or historical signup | Keep original answers and accepted revisions read only |
 | Recall an unassigned request    | Close it permanently; a later application receives a new request and priority               |
-| Approve withdrawal              | Release all assignments and block another signup for that account/email in the period       |
+| Approve withdrawal              | End all explicitly owned current-period enrollment and block another signup for that account in the period |
 | Approve a schedule rejection    | Remove only the affected pairing and return the request for matching                        |
 | Expire an unverified assignment | Permanently disqualify it and release assignments; a fresh eligible application is separate |
 
 `StudentProfileOwnership` retains explicit links across intakes and verified email changes. Attendance, feedback and appeals use all owned profiles. Staff-entered enrollment withdrawal also requires explicit ownership and current-term evidence; it never relies on a matching email. Signup-source labels describe recorded provenance and do not change permissions or priority.
+
+[Quarter withdrawal](../../src/server/student-quarter-withdrawal.ts) rechecks
+the requesting account's exact ownership and affected period before approval.
+One decision closes its current OPEN requests and eligible staff-entered
+enrollments, releases their assignment and future-session authority, and records
+the period restriction in the same transaction. The originating review remains
+the approved decision. Obsolete pending reviews for the ended enrollments close
+with it. Shared execution remains available to independently owned requests.
+Original requests, consent, attendance and completed session history remain readable.
+
+Coordinator approval captures the full affected scope. If the scope changes
+between proposal and approval, reject the stale proposal and review the current
+withdrawal again. Earlier proposals that captured only the originating request
+require fresh review before account-wide approval.
 
 `student-signup-intents.ts` stages `StudentSignupIntent` records separately from
 `StudentSurvey`. The client retry key is hashed and bound to the exact parsed
@@ -1767,6 +1784,50 @@ by its submitted name, subjects and original submission time. Stable source IDs
 bind its editor, expected version and ticketed recall or withdrawal action. The
 workspace retains dialog admission and accepted-action receipts when cards reorder
 or become terminal; failed synchronization retries reads without replaying a write.
+Withdrawal receipts identify the persisted review returned by `applyAbort`. A
+new review's domain-separated ID hashes its original actor, source, one-use ticket
+and normalized reason. The review itself is the durable exact receipt: same-intent
+transport repeats return that review without a second write or notification, even
+after a decision, proof cleanup or period rollover. `abortReceipt` is an explicitly
+owned, participant-authorized read under the same ticket lock; it never expires
+requests or consumes proof. Old random review IDs are preserved and never inferred
+as receipts from matching reasons, timestamps or unrelated pending reviews.
+Receipt checks remain true tRPC queries, sent through an unbatched POST transport
+only for `studentWorkflow.abortReceipt`. The route enables that method override
+only for the exact single procedure; other queries and batches retain their normal
+transport. The proof and reason digest stay in the body. Protected query gates and
+history checks still apply; checking creates no mutation audit or domain rows.
+
+An interrupted result moves the mounted source to read-only **Check submission**
+recovery, retaining its exact submitted reason and ticket. A missing receipt means
+unconfirmed, not rejected. **Start fresh review** explicitly retires only an unused
+ticket, then rechecks the receipt before opening a fresh timed review with the draft.
+If the original write won that race, the accepted receipt is recovered instead.
+New survey reviews prepare `SURVEY_ABORT`, with the same delay as `ABORT`, and
+store a versioned proof ID plus internal `SURVEY_ABORT_V1` action. Legacy
+staff-entered withdrawal keeps ordinary `ABORT` proof. Existing in-flight
+ordinary survey tickets remain valid. Old servers cannot consume the new internal
+action, so every accepted versioned proof must have its exact review receipt.
+Under the ticket lock, absent proof or an expired unused versioned proof establishes
+`NOT_ACCEPTED` and cannot commit later. This also recovers a lost retirement
+reply or proof cleanup before the first check. Missing/used old ordinary tickets
+without exact receipts remain uncertain and offer reads rather than a dead-end
+restart action.
+
+A fresh source read must still show an OPEN, assigned request with no pending
+withdrawal before another timed review opens. Otherwise the retained negative
+receipt explains the current closed, unassigned, pending or unavailable state,
+keeps its draft, and offers a status read. A
+successful network read observing that exact review as declined on an OPEN source
+permits a new ticketed attempt, even when the page never observed its pending state.
+Older or unrelated declines, cached updates and failed or denied reads cannot
+release that receipt. Observing the exact accepted review also clears its read-only
+refresh warning; pending and approved withdrawals remain guarded.
+Withdrawal confirmation and explicit receipt/status reads own a one-shot keyboard
+focus handoff after the timed dialog's native cleanup. Focus reaches the exact
+request's enabled recovery control or resulting status/heading; a deliberate move
+elsewhere, a disabled recovery, a new dialog, ordinary recall and background reads
+do not reclaim it. Terminal requests use the workspace's owned history heading.
 Each editor opening owns its request-local draft. Its read-only **Original verified
 request email** names the immutable source mailbox, independently of the current
 account's sign-in address; public signup keeps **Email for Sign In**.
@@ -2065,7 +2126,10 @@ registration follow-up remain in Applications; initial admission stays in chair 
 Meeting details and the period/history browser share one retained excuse controller.
 Drafts are keyed by meeting, pending writes block dismissal, and accepted-write refresh
 failures offer reads without repeating the mutation. The 45-minute cutoff
-and server eligibility checks remain authoritative. Session-specific attendance stays
+and server eligibility checks remain authoritative; meeting reads also return
+`serverNow` so a server-anchored monotonic client clock automatically hides
+excuse, inline draft and cancel-excuse controls (and drops expired meetings from
+actionable schedule previews) as soon as the 45-minute interval passes. Session-specific attendance stays
 with its dated agenda controller and records actual duration. Known session fragments
 reveal the loaded card without opening a form or moving focus out of an active dialog.
 
@@ -2735,11 +2799,19 @@ are unchanged; no missing map entry may produce an invalid confirmation instant.
 
 ### Management registration codes
 
-Expanded used and expired codes reuse the active setup card's centered layout,
+Expanded used, expired and unavailable codes reuse the active setup card's centered layout,
 heading and role. Their gray surface and outline, struck-through code and localized
-invalid notice identify historical codes without redemption instructions or share,
+invalid notice identify historical or blocked codes without redemption instructions or share,
 export or revoke actions. Masked codes retain the no-code fallback; this presentation
 does not change code visibility or validity.
+
+Auto-issued interview and application invitations record the approving staff member as issuer,
+adopt the promoted tutor identity as label, and display localized source badges, bound email
+addresses (redacted for masked viewers) and direct links to the source application in
+Registration Codes. Both Registration Codes and Interview Records check live attempt limits,
+plaintext presence and source-application validity/acceptance status so blocked, invalidated
+or deleted-application codes are never shown as active or shareable. Deleting an application
+expires any unused codes tied to it in the same transaction.
 
 Registration Codes supports Tutor, Crew, Admin and Coordinator invitations. Every code grants only its displayed role. Admin/Head can issue Tutor/Crew/Admin/Coordinator codes directly (including the legacy omitted-kind Tutor default). Coordinators can request Tutor/Crew invitations for Admin/Head review but cannot request management-role invitations. The input-dependent policy preserves review of Coordinator proposals and records direct Admin/Head issuance in the transactional audit trail. Admin/Head can list, share and revoke management codes. The selected role appears in the list, share card and every redemption step after code validation. There is no Head code; leadership transfer remains separate.
 

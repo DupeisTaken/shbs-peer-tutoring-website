@@ -530,10 +530,12 @@ export function assertReviewedRecoverySchema(
       provenance.join("\n") === IMPORT_PROVENANCE_COLUMNS.join("\n"),
     "UNREVIEWED_PUBLIC_RECOVERY_SCHEMA",
   );
-  // Compose reviewed policy phases with the independent archive boundary before
-  // normalizing the optional staff-only recipient labels on older backups.
+  // Compose reviewed policy phases with the independent archive boundary and
+  // additive manual release evidence before normalizing optional recipient labels.
   const withoutProvenance = comparedDomain.filter(
-    (column) => !column.startsWith("ImportedRecordProvenance|"),
+    (column) =>
+      !column.startsWith("ImportedRecordProvenance|") &&
+      column !== "SessionPlanContinuationMember|sourceTuteeId|text",
   );
   // Labels add no authority or bearer state. Keep the previously reviewed
   // backups readable while requiring the exact JSONB type when this field exists.

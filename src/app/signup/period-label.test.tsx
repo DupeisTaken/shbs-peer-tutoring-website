@@ -6,6 +6,8 @@ import SignupPage from "./page";
 
 const state = vi.hoisted(() => ({ read: vi.fn() }));
 vi.mock("~/server/db", () => ({ db: {} }));
+vi.mock("~/server/auth", () => ({ auth: async () => null }));
+vi.mock("./signup-intro", () => ({ SignupIntro: () => <p>survey.intro</p> }));
 vi.mock("~/server/program/public-signup-transition", () => ({ readPublicSignupTransition: state.read }));
 vi.mock("next-intl/server", () => ({ getTranslations: async () => (key: string) => key }));
 vi.mock("./signup-form", () => ({ SignupForm: ({ initialTransition }: { initialTransition: PublicSignupTransition }) =>

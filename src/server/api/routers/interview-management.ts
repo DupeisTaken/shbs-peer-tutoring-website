@@ -1,4 +1,5 @@
 import { approveQualification, lockCatalogue } from "~/server/qualifications";
+import { MAX_CODE_ATTEMPTS } from "~/server/auth/registration";
 import {
   assertRequestProcessable,
   lockApplicationReview,
@@ -199,6 +200,8 @@ export const interviewManagementRouter = createTRPCRouter({
           where: { applicationId: { in: ids }, kind: "TUTOR" },
           select: {
             id: true,
+            code: true,
+            attempts: true,
             applicationId: true,
             tutorId: true,
             usedAt: true,
@@ -280,13 +283,19 @@ export const interviewManagementRouter = createTRPCRouter({
                 promotedTutorId ??
                 (codeTutorIds.size === 1 ? [...codeTutorIds][0] : null);
               const tutor = linkedTutors.find((row) => row.id === setupTutorId);
+              const now = new Date();
               const activeCode = ownCodes.find(
-                (code) => !code.usedAt && code.expiresAt > new Date(),
+                (code) =>
+                  !code.usedAt &&
+                  code.expiresAt > now &&
+                  (code.attempts ?? 0) < MAX_CODE_ATTEMPTS &&
+                  !!code.code?.trim(),
               );
-              const code =
-                activeCode ??
-                ownCodes.find((row) => !!row.usedAt) ??
-                ownCodes[0];
+              const usedCode = ownCodes.find((row) => !!row.usedAt);
+              const allExpired =
+                ownCodes.length > 0 &&
+                ownCodes.every((row) => row.expiresAt <= now);
+              const code = activeCode ?? usedCode ?? ownCodes[0];
               const registered =
                 tutor?.status === "ACTIVE" &&
                 tutor.user?.emailVerifiedAt &&
@@ -307,22 +316,31 @@ export const interviewManagementRouter = createTRPCRouter({
                             state: "setupAvailable" as const,
                             href: tutorDirectoryHref(tutor.id),
                           }
-                        : code
+                        : activeCode
                           ? {
-                              state: code.usedAt
-                                ? ("codeUsed" as const)
-                                : activeCode
-                                  ? ("codeActive" as const)
-                                  : ("codeExpired" as const),
-                              href:
-                                (code.usedAt || !activeCode) && tutor
-                                  ? tutorDirectoryHref(tutor.id)
-                                  : `/admin/registration-codes#registration-code-${code.id}`,
+                              state: "codeActive" as const,
+                              href: `/admin/registration-codes#registration-code-${activeCode.id}`,
                             }
-                          : {
-                              state: "followUp" as const,
-                              href: tutor ? tutorDirectoryHref(tutor.id) : null,
-                            };
+                          : usedCode
+                            ? {
+                                state: "codeUsed" as const,
+                                href: tutor
+                                  ? tutorDirectoryHref(tutor.id)
+                                  : `/admin/registration-codes#registration-code-${usedCode.id}`,
+                              }
+                            : allExpired && code
+                              ? {
+                                  state: "codeExpired" as const,
+                                  href: tutor
+                                    ? tutorDirectoryHref(tutor.id)
+                                    : `/admin/registration-codes#registration-code-${code.id}`,
+                                }
+                              : {
+                                  state: "followUp" as const,
+                                  href: tutor
+                                    ? tutorDirectoryHref(tutor.id)
+                                    : null,
+                                };
               return {
                 ...application,
                 isInvalid: !!invalidatedAt,

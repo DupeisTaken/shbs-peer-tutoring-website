@@ -7,6 +7,7 @@ import {
 } from "~/lib/registration-kind";
 import { EmailDetails } from "~/app/_components/email-details";
 
+import Link from "next/link";
 import {
   useEffect,
   useId,
@@ -366,6 +367,18 @@ export default function RegistrationCodesPage() {
       <div className="space-y-2">
         {(codes.data ?? []).map((c) => {
           const open = expandedId === c.id;
+          const sourceBadge =
+            c.source === "interview"
+              ? t("admin.registrationCodes.source.interview")
+              : c.source === "application" || (!c.source && c.fromApplication)
+                ? t("admin.registrationCodes.source.application")
+                : c.source === "crewApplication"
+                  ? t("admin.registrationCodes.source.crewApplication")
+                  : null;
+          const issuerLabel =
+            !c.issuedByEmail && c.issuedByName === "Accepted application"
+              ? t("admin.registrationCodes.source.application")
+              : (c.issuedByName ?? "—");
           return (
             <div key={c.id} className="rounded-lg border border-slate-200 p-4">
               {/* Both groups may shrink and wrap: long labels must never push record actions offscreen. */}
@@ -401,24 +414,51 @@ export default function RegistrationCodesPage() {
                           `admin.registrationCodes.${registrationKindLabel[c.kind]}`,
                         )}
                       </span>
+                      {sourceBadge && (
+                        <span className="badge bg-accent-100 text-accent-700">
+                          {sourceBadge}
+                        </span>
+                      )}
                     </p>
+                    {c.email && (
+                      <p className="mt-1 text-xs break-all text-slate-500">
+                        {t("admin.registrationCodes.boundEmail", {
+                          email: c.email,
+                        })}
+                      </p>
+                    )}
+                    {c.status === "unavailable" && c.statusReason && (
+                      <p className="mt-1 text-xs text-amber-800">
+                        {t(
+                          `admin.registrationCodes.unavailableReason.${c.statusReason}`,
+                        )}
+                      </p>
+                    )}
                   </div>
                 </div>
                 <div className="flex w-full min-w-0 flex-wrap items-center gap-3 lg:w-auto lg:justify-end">
-                  {/* Issuer account + bound email, to the left of the expiry. */}
+                  {/* Issuer account + source application link, to the left of the expiry. */}
                   <div className="flex min-w-0 flex-wrap items-center gap-1 text-xs text-slate-500">
                     <span>{t("admin.registrationCodes.colIssuedBy")}:</span>
                     {c.issuedByEmail ? (
                       <EmailDetails
                         contactOnly
-                        triggerLabel={c.issuedByName ?? "—"}
+                        triggerLabel={issuerLabel}
                         email={c.issuedByEmail}
-                        name={c.issuedByName ?? "—"}
+                        name={issuerLabel}
                       />
                     ) : (
-                      <span>{c.issuedByName ?? "—"}</span>
+                      <span>{issuerLabel}</span>
                     )}
                   </div>
+                  {!readOnly && c.applicationId && (
+                    <Link
+                      href={`/admin/applications#application-${c.applicationId}`}
+                      className="link text-xs"
+                    >
+                      {t("admin.registrationCodes.viewApplication")}
+                    </Link>
+                  )}
                   <p className="text-xs text-slate-500">
                     {t("admin.registrationCodes.expiresOn", {
                       date: programFormat.dateTime(new Date(c.expiresAt), {

@@ -23,9 +23,9 @@ export default async function PrivacyPage() {
 
   return (
     <div className="min-h-screen">
-      <PublicHeader sticky={false} />
+      <PublicHeader sticky={false} skipLabel={t("skipToContent")} />
 
-      <main className="mx-auto max-w-5xl px-4 py-8 sm:py-12">
+      <main id="main-content" className="mx-auto max-w-5xl px-4 py-8 sm:py-12">
         <Link
           href="/"
           className="link inline-flex min-h-11 items-center text-sm"

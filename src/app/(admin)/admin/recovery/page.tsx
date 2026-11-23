@@ -1,8 +1,13 @@
+import { pageMetadata } from "~/server/branding-metadata";
 import { redirect } from "next/navigation";
 import { AdmissionRecovery } from "~/app/_components/admission-recovery";
 import { CheckpointRecovery } from "~/app/_components/checkpoint-recovery";
 import { auth } from "~/server/auth";
 import { db } from "~/server/db";
+
+export async function generateMetadata() {
+  return pageMetadata("recovery.title");
+}
 
 export default async function RecoveryPage({
   searchParams,

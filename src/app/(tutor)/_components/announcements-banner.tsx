@@ -3,6 +3,9 @@
 import { useFormatter, useTranslations } from "next-intl";
 
 import { api } from "~/trpc/react";
+import { Button } from "~/app/_components/ui/button";
+import { InlineNotice, StatePanel } from "~/app/_components/ui/patterns";
+import { formatClientError } from "~/lib/client-error-message";
 
 /**
  * Team announcements share one prominent card. Pinned posts stay visible regardless
@@ -27,62 +30,65 @@ export function AnnouncementsBanner() {
   return (
     <section className="space-y-3" aria-label={t("tutor.announcements.label")}>
       {announcements.isLoading && (
-        <p role="status">{t("tutor.tasks.loading")}</p>
+        <StatePanel kind="loading" title={t("tutor.tasks.loading")} />
       )}
       {announcements.error && (
-        <p role="alert">
-          {t("tutor.tasks.loadError")}{" "}
-          <button
-            className="btn-secondary btn-sm"
-            onClick={() => void announcements.refetch()}
-          >
-            {t("tutor.tasks.retry")}
-          </button>
-        </p>
+        <InlineNotice
+          tone="error"
+          announcement="alert"
+          action={
+            <Button
+              size="compact"
+              onClick={() => void announcements.refetch()}
+            >
+              {t("tutor.tasks.retry")}
+            </Button>
+          }
+        >
+          {t("tutor.tasks.loadError")}
+        </InlineNotice>
       )}
       {ack.error && (
-        <p role="alert" className="text-sm text-red-700">
-          {ack.error.message}
-        </p>
+        <InlineNotice tone="error" announcement="alert">
+          {formatClientError(ack.error, t)}
+        </InlineNotice>
       )}
       {visible.map((a) => (
-        <div
+        <InlineNotice
           key={a.id}
-          className="border-accent-200 bg-accent-50 rounded-lg border px-4 py-3"
-        >
-          <div className="grid gap-3 sm:flex sm:items-start sm:justify-between">
-            <div className="min-w-0">
-              <p className="text-accent-900 font-semibold">
-                {a.pinned && (
-                  <>
-                    <span aria-hidden="true">📌 </span>
-                    <span className="sr-only">
-                      {t("tutor.announcements.pinned")}{" "}
-                    </span>
-                  </>
-                )}
-                📣 {a.title}
-              </p>
-              <p className="text-accent-800 mt-1 text-sm whitespace-pre-line">
-                {a.body}
-              </p>
-              <p className="text-accent-700 mt-1 text-xs">
-                {programFormat.dateTime(new Date(a.createdAt), {
-                  dateStyle: "medium",
-                })}
-              </p>
-            </div>
-            {!a.pinned && (
-              <button
-                className="btn-secondary btn-sm justify-self-start sm:shrink-0"
+          tone="accent"
+          action={
+            !a.pinned ? (
+              <Button
+                size="compact"
                 disabled={ack.isPending}
                 onClick={() => ack.mutate({ announcementId: a.id })}
               >
                 {t("common.dismiss")}
-              </button>
+              </Button>
+            ) : undefined
+          }
+        >
+          <p className="text-accent-900 font-semibold">
+            {a.pinned && (
+              <>
+                <span aria-hidden="true">📌 </span>
+                <span className="sr-only">
+                  {t("tutor.announcements.pinned")}{" "}
+                </span>
+              </>
             )}
-          </div>
-        </div>
+            📣 {a.title}
+          </p>
+          <p className="text-accent-800 mt-1 text-sm whitespace-pre-line">
+            {a.body}
+          </p>
+          <p className="text-accent-700 mt-1 text-xs">
+            {programFormat.dateTime(new Date(a.createdAt), {
+              dateStyle: "medium",
+            })}
+          </p>
+        </InlineNotice>
       ))}
     </section>
   );

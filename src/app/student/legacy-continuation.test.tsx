@@ -564,14 +564,14 @@ it("requires a new review when the server revision changes", () => {
   ).toBe(false);
 });
 
-it("disables an open review at the exact server-anchored hour boundary", () => {
+it("auto-hides an open review and continuation panel at the exact server-anchored hour boundary", () => {
   vi.useFakeTimers();
   let monotonic = 0;
   vi.spyOn(performance, "now").mockImplementation(() => monotonic);
   mount();
   reviewMath();
   agree();
-  monotonic = 60 * 60_000;
+  monotonic = 60 * 60_000 - 1;
   act(() => {
     vi.advanceTimersByTime(1_000);
   });
@@ -579,11 +579,116 @@ it("disables an open review at the exact server-anchored hour boundary", () => {
     screen
       .getByRole("button", { name: "Join selected pairings" })
       .hasAttribute("disabled"),
-  ).toBe(true);
+  ).toBe(false);
+  monotonic = 60 * 60_000;
+  act(() => {
+    vi.advanceTimersByTime(1_000);
+  });
+  expect(screen.queryByRole("dialog")).toBeNull();
+  expect(
+    screen.queryByRole("heading", { name: messages.legacyContinuation.title }),
+  ).toBeNull();
+  expect(screen.queryByRole("checkbox")).toBeNull();
+  expect(screen.queryByRole("button")).toBeNull();
+  expect(mocks.join).not.toHaveBeenCalled();
+});
+
+it("hides the continuation interface immediately on load when the window has already expired", () => {
+  data = { ...data, status: "expired" };
+  mount();
+  expect(
+    screen.queryByRole("heading", { name: messages.legacyContinuation.title }),
+  ).toBeNull();
+  expect(screen.queryByText(/Math Tutor/)).toBeNull();
+  expect(screen.queryByRole("checkbox")).toBeNull();
+  expect(screen.queryByRole("button")).toBeNull();
+});
+
+it("auto-hides a paused continuation panel once its server-anchored hour expires", () => {
+  vi.useFakeTimers();
+  let monotonic = 0;
+  vi.spyOn(performance, "now").mockImplementation(() => monotonic);
+  data = { ...data, status: "paused" };
+  mount();
+  expect(screen.getByText(messages.legacyContinuation.status.paused)).toBeTruthy();
+  monotonic = 60 * 60_000;
+  act(() => {
+    vi.advanceTimersByTime(1_000);
+  });
+  expect(
+    screen.queryByRole("heading", { name: messages.legacyContinuation.title }),
+  ).toBeNull();
+  expect(screen.queryByText(messages.legacyContinuation.status.paused)).toBeNull();
+});
+
+it("keeps only read-only receipt recovery when the hour expires during Join and hides if no receipt exists", async () => {
+  vi.useFakeTimers();
+  let monotonic = 0;
+  vi.spyOn(performance, "now").mockImplementation(() => monotonic);
+  let rejectJoin!: (error: Error) => void;
+  mocks.join.mockReturnValue(
+    new Promise((_, fail) => {
+      rejectJoin = fail;
+    }),
+  );
+  mount();
+  reviewMath();
+  agree();
   fireEvent.click(
     screen.getByRole("button", { name: "Join selected pairings" }),
   );
-  expect(mocks.join).not.toHaveBeenCalled();
+  monotonic = 60 * 60_000;
+  act(() => {
+    vi.advanceTimersByTime(1_000);
+  });
+  expect(screen.queryByRole("dialog")).toBeNull();
+  expect(screen.queryByRole("checkbox")).toBeNull();
+  expect(
+    screen
+      .getByRole("button", { name: "Check request result" })
+      .hasAttribute("disabled"),
+  ).toBe(true);
+  await act(async () => rejectJoin(new Error("Response lost")));
+  expect(
+    screen
+      .getByRole("button", { name: "Check request result" })
+      .hasAttribute("disabled"),
+  ).toBe(false);
+  await act(async () => {
+    fireEvent.click(
+      screen.getByRole("button", { name: "Check request result" }),
+    );
+  });
+  expect(screen.queryByRole("button")).toBeNull();
+  expect(screen.queryByText(/Math Tutor/)).toBeNull();
+  expect(mocks.join).toHaveBeenCalledTimes(1);
+});
+
+it("retains an already-filed receipt after the continuation hour expires without showing selection controls", async () => {
+  vi.useFakeTimers();
+  let monotonic = 0;
+  vi.spyOn(performance, "now").mockImplementation(() => monotonic);
+  mount();
+  reviewMath();
+  agree();
+  await act(async () => {
+    fireEvent.click(
+      screen.getByRole("button", { name: "Join selected pairings" }),
+    );
+  });
+  expect(screen.getByText("Your signup request has been filed.")).toBeTruthy();
+  monotonic = 60 * 60_000;
+  act(() => {
+    vi.advanceTimersByTime(1_000);
+  });
+  expect(screen.getByText("Your signup request has been filed.")).toBeTruthy();
+  expect(
+    screen.queryByRole("heading", { name: messages.legacyContinuation.title }),
+  ).toBeNull();
+  expect(screen.queryByRole("checkbox")).toBeNull();
+  expect(
+    screen.queryByRole("button", { name: "Review selected pairings" }),
+  ).toBeNull();
 });
 
 it("offers the normal signup fallback when required details need review", () => {

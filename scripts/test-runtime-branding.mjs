@@ -25,16 +25,16 @@ const scripts = new Set();
 
 for (const [path, prefix] of [
   ["/", ""],
-  ["/signin", ""],
-  ["/register", "Register"],
-  ["/register-account", "Register"],
-  ["/forgot-password", "Forgot password"],
-  ["/reset-password", "Reset password"],
-  ["/signup", "Request a tutor"],
-  ["/tutee", "Request a tutor"],
-  ["/tutee-signup", "Request a tutor"],
-  ["/tutor", "Become a tutor"],
-  ["/tutor-signup", "Become a tutor"],
+  ["/signin", "Sign In"],
+  ["/register", "Register with an Invitation"],
+  ["/register-account", "Register with an Invitation"],
+  ["/forgot-password", "Reset Your Password"],
+  ["/reset-password", "Choose a New Password"],
+  ["/signup", "Request a Peer Tutor"],
+  ["/tutee", "Request a Peer Tutor"],
+  ["/tutee-signup", "Request a Peer Tutor"],
+  ["/tutor", "Apply to Become a Peer Tutor"],
+  ["/tutor-signup", "Apply to Become a Peer Tutor"],
 ]) {
   test(`${path}: runtime title, public client projection and no server secrets`, async () => {
     const response = await fetch(new URL(path, base));

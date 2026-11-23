@@ -1,17 +1,31 @@
 /** @vitest-environment jsdom */
-import { expect, it, vi } from "vitest";
+import { beforeEach, expect, it, vi } from "vitest";
+import type { ReactNode } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import StudentPage from "./page";
+import { tuteeViews } from "./views";
 const state = vi.hoisted(() => ({ quarters: true, departed: false }));
+const mocks = vi.hoisted(() => ({
+  restriction: vi.fn(),
+  workspace: vi.fn((_props: unknown) => null),
+  transaction: vi.fn(),
+}));
 vi.mock("~/server/auth", () => ({
   auth: async () => ({ user: { id: "student" } }),
 }));
 vi.mock("~/server/portal-access", () => ({
   accountPortalAccess: async () => ({ departed: state.departed }),
 }));
-vi.mock("~/server/db", () => ({ db: {} }));
+vi.mock("~/server/db", () => ({ db: { $transaction: mocks.transaction } }));
+vi.mock("~/server/student-intake-restriction", () => ({
+  readStudentSignupRestriction: mocks.restriction,
+}));
 vi.mock("~/server/period", () => ({
-  getActivePeriodOrNull: async () => ({ schoolYear: "26-27", quarter: "Q3" }),
+  getActivePeriodOrNull: async () => ({
+    termId: "current-term",
+    schoolYear: "26-27",
+    quarter: "Q3",
+  }),
 }));
 vi.mock("~/server/program/features", () => ({
   getFeatures: async () => ({ QUARTER_SYSTEM: state.quarters }),
@@ -25,7 +39,20 @@ vi.mock("./legacy-participation", () => ({ LegacyParticipation: () => null }));
 vi.mock("./legacy-continuation", () => ({
   LegacyContinuation: () => <section data-testid="continuation" />,
 }));
-vi.mock("./student-workspace", () => ({ StudentWorkspace: () => null }));
+vi.mock("./student-workspace", () => ({ StudentWorkspace: mocks.workspace }));
+vi.mock("./signup-restriction", () => ({
+  StudentSignupRestrictionProvider: ({ children }: { children: ReactNode }) =>
+    children,
+  StudentSignupRestrictionFeedback: () => null,
+  StudentSignupAction: ({
+    initiallyBlocked,
+    departed,
+  }: {
+    initiallyBlocked: boolean;
+    departed: boolean;
+  }) =>
+    initiallyBlocked || departed ? null : <a href="/tutee">requestTutor</a>,
+}));
 vi.mock("~/app/_components/student-portal", () => ({
   StudentPortal: () => null,
 }));
@@ -37,6 +64,18 @@ vi.mock("~/app/_components/account-settings", () => ({
     <section data-testid="settings" data-embedded={embedded} />
   ),
 }));
+beforeEach(() => {
+  vi.clearAllMocks();
+  state.quarters = true;
+  state.departed = false;
+  mocks.transaction.mockImplementation(
+    async (work: (tx: object) => Promise<unknown>) => work({}),
+  );
+  mocks.restriction.mockResolvedValue({
+    blocked: false,
+    canOpenWorkspace: true,
+  });
+});
 it.each([true, false])(
   "labels the tutee workspace using the applied period mode (%s)",
   async (quarters) => {
@@ -88,3 +127,59 @@ it.each(["messages", "account"])(
     expect(html).toContain('href="/tutee"');
   },
 );
+
+it.each(tuteeViews)(
+  "hides the restricted signup entry on the %s view",
+  async (view) => {
+    mocks.restriction.mockResolvedValueOnce({
+      blocked: true,
+      canOpenWorkspace: true,
+    });
+    const html = renderToStaticMarkup(
+      await StudentPage({ searchParams: Promise.resolve({ view }) }),
+    );
+    expect(html).not.toContain('href="/tutee"');
+    expect(mocks.restriction).toHaveBeenCalledWith(
+      expect.anything(),
+      "current-term",
+      "student",
+    );
+    if (view === "requests")
+      expect(mocks.workspace.mock.calls[0]?.[0]).toMatchObject({
+        quarterBlocked: true,
+      });
+  },
+);
+
+it("uses a fresh restriction after a sibling approval and shares the flag with the request workspace", async () => {
+  const input = () => ({ searchParams: Promise.resolve({ view: "requests" }) });
+  expect(renderToStaticMarkup(await StudentPage(input()))).toContain(
+    'href="/tutee"',
+  );
+  mocks.restriction.mockResolvedValueOnce({
+    blocked: true,
+    canOpenWorkspace: true,
+  });
+  expect(renderToStaticMarkup(await StudentPage(input()))).not.toContain(
+    'href="/tutee"',
+  );
+  expect(mocks.workspace.mock.calls.at(-1)?.[0]).toMatchObject({
+    quarterBlocked: true,
+  });
+});
+
+it("does not render an eligible entry when the restriction cannot be read", async () => {
+  const error = new Error("Synthetic restriction read unavailable");
+  mocks.restriction.mockRejectedValueOnce(error);
+  await expect(StudentPage({ searchParams: Promise.resolve({}) })).rejects.toBe(
+    error,
+  );
+});
+
+it("binds the period and restriction in a consistent read snapshot without the writer barrier", async () => {
+  await StudentPage({ searchParams: Promise.resolve({}) });
+  expect(mocks.transaction).toHaveBeenCalledWith(expect.any(Function), {
+    timeout: 20000,
+    isolationLevel: "RepeatableRead",
+  });
+});

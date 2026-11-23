@@ -528,7 +528,8 @@
     "collapseAll": "모두 접기",
     "expandAll": "모두 펼치기",
     "loading": "Loading…",
-    "retry": "다시 시도"
+    "retry": "다시 시도",
+    "skipToContent": "본문으로 건너뛰기"
   },
   "auth": {
     "signinTitle": "로그인",
@@ -678,7 +679,8 @@
       "becomeTutor": "튜터 지원",
       "teamSignin": "로그인",
       "becomeCrew": "순찰조 지원",
-      "viewerSignup": "프로그램 팔로우"
+      "viewerSignup": "프로그램 팔로우",
+      "landmark": "사이트 탐색"
     },
     "tagline": "또래 튜터링 프로그램",
     "heroTitle": "함께 배우고, 함께 성장하세요.",
@@ -732,7 +734,7 @@
     "availability": {
       "title": "내 가능한 시간",
       "help": "수업 가능한 시간대를 표시하세요. 코디네이터가 일정을 잡는 데 활용합니다.",
-      "edit": "내 가능한 시간 수정"
+      "edit": "가능한 시간 수정"
     },
     "attendance": {
       "title": "출석 제출",
@@ -1370,8 +1372,22 @@
       "status": {
         "active": "활성",
         "used": "사용됨",
-        "expired": "만료됨"
+        "expired": "만료됨",
+        "unavailable": "사용 불가"
       },
+      "source": {
+        "interview": "면접 합격",
+        "application": "승인된 지원서",
+        "crewApplication": "순찰조 지원서"
+      },
+      "unavailableReason": {
+        "attemptsExhausted": "입력 실패 횟수 초과로 차단되었습니다.",
+        "applicationInvalid": "원본 지원서가 무효로 표시되어 일시 중지되었습니다.",
+        "applicationInactive": "원본 지원서가 더 이상 승인 상태가 아닙니다.",
+        "codeMissing": "초대 코드를 사용할 수 없습니다."
+      },
+      "boundEmail": "연결된 이메일: {email}",
+      "viewApplication": "지원서 보기",
       "revoke": "취소",
       "showCode": "코드 표시",
       "hideCode": "숨기기",
@@ -2847,7 +2863,8 @@
     "notifications": {
       "title": "알림",
       "markAllRead": "모두 읽음으로 표시",
-      "empty": "아직 없습니다."
+      "empty": "아직 없습니다.",
+      "unreadLabel": "{title} (읽지 않음 {count}건)"
     },
     "signOut": {
       "label": "로그아웃"
@@ -3292,6 +3309,20 @@
     "retryRefresh": "Retry refresh",
     "recallAccepted": "This request was recalled. Refresh its status; your recall will not be repeated.",
     "abortAccepted": "Your withdrawal application was submitted. Refresh its status; your application will not be repeated.",
+    "abortUnconfirmed": "이번 참여 철회 신청의 제출 결과를 확인할 수 없습니다. 계속하기 전에 이번 제출 건의 결과를 확인하세요. 자동으로 다시 제출되지 않습니다.",
+    "abortNotConfirmed": "제출이 접수되었다는 기록을 찾지 못했습니다. 다시 시도하기 전에 새 확인 절차를 시작하여 아직 사용하지 않은 확인을 무효화하세요.",
+    "abortStillUnknown": "결과가 아직 확인되지 않았습니다. 이번 제출을 안전하게 반복할 수 없습니다. 다시 확인하거나 관리자에게 도움을 요청하세요.",
+    "abortNotAccepted": "이번 제출은 접수되지 않았습니다. 이전 확인은 다시 사용할 수 없습니다. 입력한 사유는 유지됩니다.",
+    "abortRefreshFailed": "이번 제출은 접수되지 않았지만 현재 신청 상태를 새로 고칠 수 없습니다. 새 확인 절차를 시작하기 전에 상태 조회를 다시 시도하세요.",
+    "abortFreshMissing": "이 신청은 현재 신청 목록에서 더 이상 확인할 수 없습니다.",
+    "abortFreshUnavailable": {
+      "pending": "이 신청에는 이미 검토를 기다리는 참여 철회 신청이 있습니다. 새 확인 절차를 시작하기 전에 현재 상태를 새로 고치세요.",
+      "unassigned": "이 신청에는 더 이상 배정이 없습니다. 신청을 취소하려면 현재 카드의 ‘Recall request’(신청 철회)를 사용하세요.",
+      "closed": "이 신청은 현재 종료되었습니다. 신청 이력에서 현재 상태를 확인하세요."
+    },
+    "abortCheckFailed": "제출 결과 확인을 완료하지 못했습니다. 원래 제출 정보는 유지됩니다. 다시 확인하세요.",
+    "checkAbortSubmission": "제출 결과 확인",
+    "freshAbortReview": "새 확인 절차 시작",
     "pleaseReview": "Please review before continuing",
     "cancel": "Cancel",
     "confirm": "Yes, confirm",
@@ -3465,6 +3496,7 @@
       "yes": "예",
       "no": "아니요",
       "approveUnderlying": "원래 신청 승인",
+      "quarterWithdrawalOutcome": "승인하면 이 계정의 현재 프로그램 기간에 진행 중인 모든 튜터링과 대기 중인 매칭이 종료됩니다. 새 신청은 다음 기간부터 가능합니다.",
       "rejectUnderlying": "원래 신청 거부",
       "overturn": "이의 신청을 인정하고 카드를 취소",
       "uphold": "이의 신청을 거부하고 카드를 유지",
@@ -3583,6 +3615,7 @@
         "quarter": "프로그램 기간",
         "accept": "요청된 면접 결정",
         "originalReason": "원래 신청의 사유",
+        "withdrawalEnrollmentCount": "종료되는 등록 건수",
         "requestReason": "이번 정정 사유",
         "explanation": "신청 설명",
         "expectedSchoolYear": "제출 당시 프로그램 학년도",
@@ -4932,6 +4965,7 @@
     "dashboard": "Dashboard",
     "schedule": "My Tutors & Schedule",
     "requests": "Requests",
+    "viewMyRequests": "내 신청 보기",
     "attendance": "Attendance",
     "support": "Support",
     "messages": "Messages",
@@ -5768,7 +5802,10 @@
   },
   "pageRecovery": {
     "title": "페이지를 찾을 수 없음",
-    "body": "이 페이지가 이동했거나 더 이상 제공되지 않을 수 있습니다. 홈으로 돌아가거나 로그인하여 계속하세요."
+    "body": "이 페이지가 이동했거나 더 이상 제공되지 않을 수 있습니다. 홈으로 돌아가거나 로그인하여 계속하세요.",
+    "errorTitle": "문제가 발생했습니다",
+    "errorBody": "이 페이지를 불러올 수 없습니다. 다시 시도하거나 홈으로 돌아가세요.",
+    "loadingTitle": "페이지 불러오는 중…"
   },
   "historicalAcademics": {
     "graduatedRecorded": "The original record also marked academic graduation. This correction does not change participation or school-departure status.",
@@ -7554,6 +7591,7 @@
       "PARTICIPANT_TUTOR": "Tutor participation",
       "PARTICIPANT_TUTEE": "Tutee participation",
       "STUDENT_WORKFLOW": "Student request workflow",
+      "STUDENT_QUARTER_WITHDRAWAL": "Quarter withdrawal (inspection only)",
       "ATTENDANCE": "Attendance correction",
       "CARD": "Discipline card review",
       "PROGRAM_REFRESH": "Program refresh (Head approval)"
@@ -8498,5 +8536,18 @@
     "loadFailed": "최신 요구사항을 불러오지 못했습니다. 초안은 유지됩니다. 저장하기 전에 읽기를 다시 시도하세요.",
     "refreshFailed": "요구사항은 저장되었지만 최신 설정을 불러오지 못했습니다. 다시 저장하지 말고 읽기를 다시 시도하세요.",
     "reload": "최신 요구사항 다시 불러오기"
+  },
+  "errorRecovery": {
+    "unauthorized": "계속하려면 다시 로그인하세요.",
+    "forbidden": "이 작업을 수행할 권한이 없습니다.",
+    "notFound": "항목을 찾을 수 없습니다. 페이지를 새로고침해 최신 목록을 확인하세요.",
+    "conflict": "열어 둔 사이 항목이 변경되었습니다. 새로고침 후 확인하고 다시 시도하세요.",
+    "tooManyRequests": "짧은 시간에 요청이 너무 많습니다. 잠시 후 다시 시도하세요.",
+    "timeout": "요청 시간이 초과되었습니다. 연결을 확인하고 다시 시도하세요.",
+    "preconditionFailed": "필수 조건이나 설정이 빠져 있습니다. 페이지를 새로고침해 현재 상태를 확인하세요.",
+    "badRequest": "입력한 내용을 확인하고 다시 시도하세요.",
+    "internal": "요청을 완료할 수 없습니다. 잠시 후 다시 시도하세요.",
+    "network": "서버에 연결할 수 없습니다. 연결을 확인하고 다시 시도하세요.",
+    "generic": "문제가 발생했습니다. 다시 시도하세요."
   }
 }

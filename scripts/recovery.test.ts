@@ -10,6 +10,7 @@ import { Client } from "pg";
 import {
   parseRecoveryCommand,
   parseRecordKey,
+  RECOVERY_HELP,
 } from "../src/server/recovery/operator-cli";
 import {
   databaseIdentity,
@@ -35,6 +36,16 @@ const maintenanceUrl =
   "postgresql://operator:secret-stage@127.0.0.1:5544/postgres";
 const sql =
   "--\n-- PostgreSQL database dump\n--\nCREATE TABLE example (id int);\n";
+
+void test("quarter withdrawal checkpoints use real review references and remain inspection-only", () => {
+  assert.deepEqual(
+    parseRecoveryCommand(["checkpoint", "capture", "--adapter", "STUDENT_QUARTER_WITHDRAWAL",
+      "--source-id", "actual-student-review", "--actor-id", "head"]),
+    { kind: "checkpoint.capture", adapter: "STUDENT_QUARTER_WITHDRAWAL", sourceId: "actual-student-review", actorId: "head" },
+  );
+  assert.match(RECOVERY_HELP, /STUDENT_QUARTER_WITHDRAWAL uses the actual withdrawal review ID and is inspection-only\./);
+  assert.match(RECOVERY_HELP, /Website and operator apply cannot reopen its requests/);
+});
 
 void test("scoped checkpoint capture is distinct from read-only inspection and operator apply", () => {
   assert.deepEqual(

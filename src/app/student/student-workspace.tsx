@@ -1,7 +1,15 @@
 "use client";
 import { pairingScheduleText } from "~/lib/pairing-schedule";
 import Link from "next/link";
-import { useEffect, useId, useRef, useState, type ReactNode } from "react";
+import {
+  useEffect,
+  useId,
+  useLayoutEffect,
+  useRef,
+  useState,
+  useSyncExternalStore,
+  type ReactNode,
+} from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { getQueryKey } from "@trpc/react-query";
 import { useFormatter, useLocale, useTranslations } from "next-intl";
@@ -14,13 +22,34 @@ import { QueryFeedback } from "~/app/_components/ui/query-feedback";
 import { useSessionPageScroll } from "~/app/_components/session-view-state";
 import { ParticipantName } from "~/app/_components/participant-name";
 import { StudentSignupEditor } from "~/app/_components/student-signup-editor";
+import { getSessionReadReceipts } from "~/lib/session-read-receipts";
+import { studentAbortReasonHash } from "~/lib/student-abort-intent";
+import { useStudentSignupRestriction } from "./signup-restriction";
 
 type Request = RouterOutputs["studentWorkflow"]["mine"][number];
-export function StudentWorkspace({ viewScope = "" }: { viewScope?: string }) {
+const noReadSubscription = () => () => undefined;
+const emptyReadSnapshot = () => 0;
+export function StudentWorkspace({
+  viewScope = "",
+  quarterBlocked = false,
+}: {
+  viewScope?: string;
+  quarterBlocked?: boolean;
+}) {
+  const restriction = useStudentSignupRestriction();
+  const refreshRestriction = restriction?.refreshAfterSourceRead;
   const t = useTranslations("workflow");
+  const currentHeading = useRef<HTMLHeadingElement>(null);
+  const historyHeading = useRef<HTMLHeadingElement>(null);
   const appeal = useTranslations("signupAppeal");
   const recovery = useTranslations("participantRecovery");
   const queryClient = useQueryClient();
+  const readReceipts = getSessionReadReceipts(queryClient);
+  useSyncExternalStore(
+    readReceipts?.subscribe ?? noReadSubscription,
+    readReceipts?.getSnapshot ?? emptyReadSnapshot,
+    emptyReadSnapshot,
+  );
   const [denied, setDenied] = useState(false);
   const query = api.studentWorkflow.mine.useQuery(undefined, {
     enabled: !denied,
@@ -34,6 +63,33 @@ export function StudentWorkspace({ viewScope = "" }: { viewScope?: string }) {
   const legacyDenied =
     legacy.error?.data?.code === "FORBIDDEN" ||
     legacy.error?.data?.code === "UNAUTHORIZED";
+  // Hide creation guidance before painting freshly read source rows; the
+  // restriction still comes from its independent authoritative read.
+  useLayoutEffect(() => {
+    if (
+      query.isSuccess &&
+      legacy.isSuccess &&
+      !query.error &&
+      !legacy.error &&
+      !query.isFetching &&
+      !legacy.isFetching &&
+      !requestDenied &&
+      !legacyDenied
+    )
+      void refreshRestriction?.();
+  }, [
+    query.dataUpdatedAt,
+    legacy.dataUpdatedAt,
+    query.isSuccess,
+    legacy.isSuccess,
+    query.error,
+    legacy.error,
+    query.isFetching,
+    legacy.isFetching,
+    requestDenied,
+    legacyDenied,
+    refreshRestriction,
+  ]);
   useSessionPageScroll({
     id: "student-requests-v1",
     scope: viewScope,
@@ -74,6 +130,22 @@ export function StudentWorkspace({ viewScope = "" }: { viewScope?: string }) {
   };
   const readBlocked =
     !!query.error || !!legacy.error || !query.data || !legacy.data;
+  const sourceQuery = queryClient.getQueryCache().find({
+    queryKey: getQueryKey(api.studentWorkflow.mine, undefined, "query"),
+    exact: true,
+  });
+  const sourceProof = sourceQuery && readReceipts?.read(sourceQuery).proof;
+  // An exact review must come from a completed network read of this generation.
+  // Manual cache writes and reads crossing a denial cannot release a receipt.
+  const readVerified = Boolean(
+    sourceProof &&
+    sourceProof.firstDenialFence === undefined &&
+    sourceQuery?.state.data === query.data &&
+    query.isSuccess &&
+    legacy.isSuccess &&
+    !query.isFetching &&
+    !legacy.isFetching,
+  );
   const readFeedback = (
     <>
       <QueryFeedback
@@ -101,12 +173,18 @@ export function StudentWorkspace({ viewScope = "" }: { viewScope?: string }) {
   const currentRequests = useCurrentRequests({
     rows: query.data ?? [],
     readBlocked,
+    readVerified,
     readFeedback,
     concealed: denied || requestDenied || legacyDenied,
+    focusFallback: (id) =>
+      query.data?.find((row) => row.id === id)?.state === "OPEN"
+        ? currentHeading.current
+        : historyHeading.current,
     onRefresh: async () => {
       const fresh = await query.refetch();
       if (fresh.error || !fresh.data)
         throw new Error(recovery("refreshFailed"));
+      return fresh.data;
     },
   });
   if (denied || requestDenied || legacyDenied)
@@ -130,12 +208,8 @@ export function StudentWorkspace({ viewScope = "" }: { viewScope?: string }) {
   if (!query.data) return <div className="space-y-4">{readFeedback}</div>;
   const active = query.data.filter((r) => r.state === "OPEN");
   const currentLabel = t(active.length > 1 ? "currentRequests" : "current");
-  const quarterBlocked =
-    (query.data?.some((r) => r.state === "ABORTED") ?? false) ||
-    (legacy.data?.some((r) =>
-      r.reviews.some((review) => review.state === "APPROVED"),
-    ) ??
-      false);
+  const signupBlocked = restriction?.blocked ?? quarterBlocked;
+  const signupReady = restriction?.ready ?? true;
   return (
     <div className="space-y-6">
       {readFeedback}
@@ -151,14 +225,17 @@ export function StudentWorkspace({ viewScope = "" }: { viewScope?: string }) {
         </a>
       </nav>
       <section id="current-request" className="space-y-4">
-        <h2 className="section-title">{currentLabel}</h2>
+        <h2 ref={currentHeading} tabIndex={-1} className="section-title">
+          {currentLabel}
+        </h2>
         {currentRequests}
         {!active.length &&
           !readBlocked &&
+          (signupBlocked || signupReady) &&
           !legacy.data?.some((row) => row.status !== "INACTIVE") && (
             <div className="card space-y-3 p-6">
-              <p>{t(quarterBlocked ? "abortFinal" : "noActive")}</p>
-              {!quarterBlocked && (
+              <p>{t(signupBlocked ? "abortFinal" : "noActive")}</p>
+              {!signupBlocked && signupReady && (
                 <Link href="/tutee" className="btn-primary">
                   {t("newRequest")}
                 </Link>
@@ -167,7 +244,9 @@ export function StudentWorkspace({ viewScope = "" }: { viewScope?: string }) {
           )}
       </section>
       <section id="request-history" className="space-y-3">
-        <h2 className="section-title">{t("processed")}</h2>
+        <h2 ref={historyHeading} tabIndex={-1} className="section-title">
+          {t("processed")}
+        </h2>
         {query.data
           ?.filter((r) => r.state !== "OPEN")
           .map((row) => (
@@ -195,21 +274,45 @@ export function StudentWorkspace({ viewScope = "" }: { viewScope?: string }) {
   );
 }
 type RequestAction = { row: Request; kind: "RECALL" | "ABORT" };
+type AcceptedRequestAction =
+  { kind: "RECALL" } | { kind: "ABORT"; reviewId: string };
+type UnconfirmedAbort = {
+  selected: RequestAction;
+  ticket: string;
+  reason: string;
+  checked: boolean;
+  retired: boolean;
+  notAccepted?: boolean;
+  canRetire?: boolean;
+  unavailable?: "pending" | "unassigned" | "closed" | "missing";
+  error?: string;
+};
+type WithdrawalFocus = {
+  id: string;
+  origin: HTMLElement;
+  scope?: Element | null;
+  ready: boolean;
+  moved: boolean;
+};
 
 /** Dialogs and accepted receipts belong to the list, not a removable OPEN card.
  * Source IDs keep actions stable when reads reorder or close another request. */
 function useCurrentRequests({
   rows,
   readBlocked,
+  readVerified,
   readFeedback,
   concealed,
   onRefresh,
+  focusFallback,
 }: {
   rows: Request[];
   readBlocked: boolean;
+  readVerified: boolean;
   readFeedback: ReactNode;
   concealed: boolean;
-  onRefresh: () => Promise<void>;
+  onRefresh: () => Promise<Request[]>;
+  focusFallback: (id: string) => HTMLElement | null;
 }) {
   const format = useFormatter();
   const t = useTranslations("workflow");
@@ -218,17 +321,124 @@ function useCurrentRequests({
   const [reason, setReason] = useState("");
   const [working, setWorking] = useState(false);
   const [failure, setFailure] = useState<string | null>(null);
-  const [accepted, setAccepted] = useState<Set<string>>(() => new Set());
+  const [accepted, setAccepted] = useState<Map<string, AcceptedRequestAction>>(
+    () => new Map(),
+  );
   const [recoveries, setRecoveries] = useState<RequestAction[]>([]);
+  const [unconfirmed, setUnconfirmed] = useState<Map<string, UnconfirmedAbort>>(
+    () => new Map(),
+  );
   const admitted = useRef(false);
+  const confirmationContext = useRef<HTMLParagraphElement>(null);
+  const withdrawalFocus = useRef<WithdrawalFocus | null>(null);
+  const withdrawalTargets = useRef(new Map<string, HTMLElement>());
+  const registerWithdrawalTarget =
+    (key: string) => (node: HTMLElement | null) => {
+      if (node) withdrawalTargets.current.set(key, node);
+      else withdrawalTargets.current.delete(key);
+    };
+  const beginWithdrawalFocus = (
+    id: string,
+    origin?: HTMLElement,
+    scope?: Element | null,
+  ) => {
+    if (!origin || origin === document.body) return null;
+    const intent = { id, origin, scope, ready: false, moved: false };
+    withdrawalFocus.current = intent;
+    return intent;
+  };
+  const utils = api.useUtils();
   const recall = api.studentWorkflow.recall.useMutation();
-  const abort = api.studentWorkflow.applyAbort.useMutation();
+  const abort = api.studentWorkflow.applyAbort.useMutation({ retry: false });
+  const cancel = api.studentWorkflow.cancelAction.useMutation({ retry: false });
   const busy = working || recall.isPending || abort.isPending;
+  useEffect(() => {
+    const moved = (event: FocusEvent) => {
+      const intent = withdrawalFocus.current;
+      const target = event.target;
+      if (
+        intent &&
+        target instanceof HTMLElement &&
+        target.isConnected &&
+        target !== document.body &&
+        target !== intent.origin &&
+        !intent.scope?.contains(target)
+      )
+        intent.moved = true;
+    };
+    document.addEventListener("focusin", moved);
+    return () => document.removeEventListener("focusin", moved);
+  }, []);
+  useEffect(() => {
+    const intent = withdrawalFocus.current;
+    if (!intent?.ready || busy) return;
+    if (action || concealed || (unconfirmed.has(intent.id) && readBlocked)) {
+      withdrawalFocus.current = null;
+      return;
+    }
+    // TimedActionDialog releases native modality in passive cleanup. Wait until
+    // that finishes; a usable opener or a deliberate move elsewhere keeps focus.
+    const frame = requestAnimationFrame(() => {
+      if (withdrawalFocus.current !== intent) return;
+      withdrawalFocus.current = null;
+      const active = document.activeElement;
+      if (
+        intent.moved ||
+        (active?.isConnected &&
+          active !== document.body &&
+          active !== intent.origin &&
+          !intent.scope?.contains(active))
+      )
+        return;
+      const target = unconfirmed.has(intent.id)
+        ? withdrawalTargets.current.get(`check:${intent.id}`)
+        : recoveries.some((item) => item.row.id === intent.id)
+          ? withdrawalTargets.current.get(`retry:${intent.id}`)
+          : (withdrawalTargets.current
+              .get(`request:${intent.id}`)
+              ?.querySelector<HTMLElement>("[data-withdrawal-status]") ??
+            withdrawalTargets.current
+              .get(`request:${intent.id}`)
+              ?.querySelector<HTMLElement>("h3") ??
+            focusFallback(intent.id));
+      if (
+        !target?.isConnected ||
+        target.matches(':disabled, [aria-disabled="true"]') ||
+        target.closest("[hidden], [inert], dialog:not([open])")
+      )
+        return;
+      target.focus();
+    });
+    return () => cancelAnimationFrame(frame);
+  });
   // Reconcile denial before committing private children. An in-flight action
   // keeps its captured source/admission and accepted receipt in this owner.
   if (concealed && (editing || action)) {
     setEditing(null);
     setAction(null);
+  }
+  if (readVerified && !readBlocked && !concealed) {
+    const nextAccepted = new Map(accepted);
+    const observed = new Set<string>();
+    for (const [id, receipt] of accepted) {
+      const row = rows.find((item) => item.id === id);
+      const review =
+        receipt.kind === "ABORT"
+          ? row?.reviews.find(
+              (item) =>
+                item.id === receipt.reviewId && item.kind === "STUDENT_ABORT",
+            )
+          : undefined;
+      if (review || (receipt.kind === "RECALL" && row?.state === "RECALLED"))
+        observed.add(id);
+      // A decline of this exact submission permits a fresh ticketed attempt,
+      // even if no intervening PENDING snapshot reached the mounted workspace.
+      if (row?.state === "OPEN" && review?.state === "DENIED")
+        nextAccepted.delete(id);
+    }
+    if (nextAccepted.size !== accepted.size) setAccepted(nextAccepted);
+    if (recoveries.some((item) => observed.has(item.row.id)))
+      setRecoveries(recoveries.filter((item) => !observed.has(item.row.id)));
   }
   const active = rows.filter((row) => row.state === "OPEN");
   const context = (row: Request) =>
@@ -241,18 +451,18 @@ function useCurrentRequests({
         }),
       },
     )}`;
-  const recover = async (id: string) => {
+  const recover = async (item: RequestAction, origin: HTMLElement) => {
     if (admitted.current || busy) return;
     admitted.current = true;
+    const focus =
+      item.kind === "ABORT" ? beginWithdrawalFocus(item.row.id, origin) : null;
     setWorking(true);
     try {
       await onRefresh();
-      setRecoveries((previous) =>
-        previous.filter((item) => item.row.id !== id),
-      );
     } catch {
       // The accepted source keeps its own read-only recovery; never replay it.
     } finally {
+      if (focus) focus.ready = true;
       admitted.current = false;
       setWorking(false);
     }
@@ -262,6 +472,9 @@ function useCurrentRequests({
     action &&
     liveAction?.state === "OPEN" &&
     !accepted.has(action.row.id) &&
+    (!unconfirmed.has(action.row.id) ||
+      (action.kind === "RECALL" &&
+        unconfirmed.get(action.row.id)?.notAccepted)) &&
     !readBlocked &&
     (action.kind === "RECALL"
       ? !liveAction.pairings.length
@@ -272,26 +485,173 @@ function useCurrentRequests({
         ) &&
         reason.trim()),
   );
+  const checkAbort = async (
+    attempt: UnconfirmedAbort,
+    restart = false,
+    origin?: HTMLElement,
+  ) => {
+    if (admitted.current || busy || concealed || readBlocked) return;
+    admitted.current = true;
+    const focus = beginWithdrawalFocus(attempt.selected.row.id, origin);
+    setWorking(true);
+    const id = attempt.selected.row.id;
+    let retired = attempt.retired;
+    let notAccepted = attempt.notAccepted ?? false;
+    let receiptChecked = false;
+    try {
+      // Retiring an unused proof fences a delayed original POST. A missing/used
+      // proof alone never establishes rejection of an old, unreceipted write.
+      if (restart && !retired && !notAccepted) {
+        const result = await cancel.mutateAsync({ ticket: attempt.ticket });
+        retired = result.count === 1;
+      }
+      const receipt = await utils.studentWorkflow.abortReceipt.fetch(
+        {
+          id,
+          ticket: attempt.ticket,
+          reasonHash: await studentAbortReasonHash(attempt.reason),
+        },
+        { staleTime: 0 },
+      );
+      receiptChecked = true;
+      if (receipt.status === "ACCEPTED") {
+        setUnconfirmed((previous) => {
+          const next = new Map(previous);
+          next.delete(id);
+          return next;
+        });
+        setAccepted((previous) =>
+          new Map(previous).set(id, {
+            kind: "ABORT",
+            reviewId: receipt.reviewId,
+          }),
+        );
+        setRecoveries((previous) => [...previous, attempt.selected]);
+        try {
+          await onRefresh();
+        } catch {
+          /* Exact accepted receipt retains read-only refresh. */
+        }
+      } else {
+        notAccepted =
+          notAccepted || retired || receipt.status === "NOT_ACCEPTED";
+        let unavailable = attempt.unavailable;
+        if (notAccepted) {
+          const fresh = (await onRefresh()).find((row) => row.id === id);
+          unavailable = !fresh
+            ? "missing"
+            : fresh.state !== "OPEN"
+              ? "closed"
+              : fresh.reviews.some(
+                    (review) =>
+                      review.kind === "STUDENT_ABORT" &&
+                      review.state === "PENDING",
+                  )
+                ? "pending"
+                : !fresh.pairings.length
+                  ? "unassigned"
+                  : undefined;
+          if (restart && fresh && !unavailable) {
+            setUnconfirmed((previous) => {
+              const next = new Map(previous);
+              next.delete(id);
+              return next;
+            });
+            setReason(attempt.reason);
+            setFailure(null);
+            setAction({ row: fresh, kind: "ABORT" });
+            return;
+          }
+        }
+        setUnconfirmed((previous) =>
+          new Map(previous).set(id, {
+            ...attempt,
+            checked: true,
+            retired,
+            notAccepted,
+            canRetire: receipt.status === "UNCONFIRMED" && receipt.canRetire,
+            unavailable,
+            error: undefined,
+          }),
+        );
+      }
+    } catch {
+      setUnconfirmed((previous) =>
+        new Map(previous).set(id, {
+          ...attempt,
+          retired,
+          notAccepted,
+          error: t(
+            receiptChecked && notAccepted
+              ? "abortRefreshFailed"
+              : "abortCheckFailed",
+          ),
+        }),
+      );
+    } finally {
+      if (focus) focus.ready = true;
+      admitted.current = false;
+      setWorking(false);
+    }
+  };
   const confirm = async (ticket: string) => {
     if (admitted.current || busy || !action || !actionAllowed) return;
     admitted.current = true;
+    const selected = action;
+    const origin = document.activeElement;
+    const scope = confirmationContext.current?.closest(
+      "dialog, [role='dialog']",
+    );
+    const focus =
+      selected.kind === "ABORT" &&
+      origin instanceof HTMLElement &&
+      scope?.contains(origin)
+        ? beginWithdrawalFocus(selected.row.id, origin, scope)
+        : null;
     setWorking(true);
     setFailure(null);
-    const selected = action;
+    const submittedReason = reason.trim();
     try {
-      if (selected.kind === "ABORT")
-        await abort.mutateAsync({ id: selected.row.id, reason, ticket });
-      else await recall.mutateAsync({ id: selected.row.id, ticket });
-      setAccepted((previous) => new Set(previous).add(selected.row.id));
+      let receipt: AcceptedRequestAction;
+      if (selected.kind === "ABORT") {
+        const result = await abort.mutateAsync({
+          id: selected.row.id,
+          reason: submittedReason,
+          ticket,
+        });
+        receipt = { kind: "ABORT", reviewId: result.reviewId };
+      } else {
+        await recall.mutateAsync({ id: selected.row.id, ticket });
+        receipt = { kind: "RECALL" };
+      }
+      setAccepted((previous) =>
+        new Map(previous).set(selected.row.id, receipt),
+      );
+      setRecoveries((previous) => [...previous, selected]);
       setAction(null);
       try {
         await onRefresh();
       } catch {
-        setRecoveries((previous) => [...previous, selected]);
+        // Keep read-only recovery until the exact accepted result is observed.
       }
     } catch (error) {
-      setFailure(error instanceof Error ? error.message : t("actionFailed"));
+      if (selected.kind === "ABORT") {
+        // Preserve the exact intent even when a transport retry reports a used
+        // ticket. This source cannot submit again until its outcome is resolved.
+        setUnconfirmed((previous) =>
+          new Map(previous).set(selected.row.id, {
+            selected,
+            ticket,
+            reason: submittedReason,
+            checked: false,
+            retired: false,
+          }),
+        );
+        setAction(null);
+      } else
+        setFailure(error instanceof Error ? error.message : t("actionFailed"));
     } finally {
+      if (focus) focus.ready = true;
       admitted.current = false;
       setWorking(false);
     }
@@ -299,6 +659,63 @@ function useCurrentRequests({
   if (concealed) return null;
   return (
     <>
+      {[...unconfirmed.values()].map((attempt) => (
+        <InlineNotice
+          key={attempt.selected.row.id}
+          tone="warning"
+          announcement="status"
+          action={
+            <>
+              <Button
+                ref={registerWithdrawalTarget(
+                  `check:${attempt.selected.row.id}`,
+                )}
+                disabled={busy || readBlocked}
+                onClick={(event) =>
+                  void checkAbort(attempt, false, event.currentTarget)
+                }
+              >
+                {t("checkAbortSubmission")}
+              </Button>
+              {attempt.checked &&
+                !attempt.unavailable &&
+                (attempt.canRetire === true ||
+                  attempt.retired ||
+                  attempt.notAccepted === true) && (
+                  <Button
+                    disabled={busy || readBlocked}
+                    onClick={(event) =>
+                      void checkAbort(attempt, true, event.currentTarget)
+                    }
+                  >
+                    {t("freshAbortReview")}
+                  </Button>
+                )}
+            </>
+          }
+        >
+          <p className="font-medium">
+            {attempt.unavailable === "missing"
+              ? t("abortFreshMissing")
+              : context(attempt.selected.row)}
+          </p>
+          <p>
+            {t(
+              attempt.notAccepted
+                ? "abortNotAccepted"
+                : attempt.checked
+                  ? attempt.canRetire || attempt.retired
+                    ? "abortNotConfirmed"
+                    : "abortStillUnknown"
+                  : "abortUnconfirmed",
+            )}
+          </p>
+          {attempt.unavailable && attempt.unavailable !== "missing" && (
+            <p>{t(`abortFreshUnavailable.${attempt.unavailable}`)}</p>
+          )}
+          {attempt.error && <p role="alert">{attempt.error}</p>}
+        </InlineNotice>
+      ))}
       {recoveries.map((item) => (
         <InlineNotice
           key={item.row.id}
@@ -306,13 +723,14 @@ function useCurrentRequests({
           announcement="status"
           action={
             <Button
+              ref={registerWithdrawalTarget(`retry:${item.row.id}`)}
               disabled={busy}
               aria-label={
                 recoveries.length > 1
                   ? `${t("retryRefresh")} · ${context(item.row)}`
                   : undefined
               }
-              onClick={() => void recover(item.row.id)}
+              onClick={(event) => void recover(item, event.currentTarget)}
             >
               {t("retryRefresh")}
             </Button>
@@ -328,12 +746,24 @@ function useCurrentRequests({
         <CurrentRequest
           key={row.id}
           row={row}
+          requestRef={registerWithdrawalTarget(`request:${row.id}`)}
           context={context(row)}
           multiple={active.length > 1}
           readBlocked={readBlocked || busy}
-          actionAccepted={accepted.has(row.id)}
+          actionAccepted={
+            accepted.has(row.id) ||
+            (unconfirmed.has(row.id) &&
+              (!unconfirmed.get(row.id)?.notAccepted || !!row.pairings.length))
+          }
           onEdit={() => {
-            if (editing || action || admitted.current || busy || readBlocked)
+            if (
+              editing ||
+              action ||
+              admitted.current ||
+              busy ||
+              readBlocked ||
+              (unconfirmed.has(row.id) && !unconfirmed.get(row.id)?.notAccepted)
+            )
               return;
             setEditing(row);
           }}
@@ -344,7 +774,9 @@ function useCurrentRequests({
               admitted.current ||
               busy ||
               readBlocked ||
-              accepted.has(row.id)
+              accepted.has(row.id) ||
+              (unconfirmed.has(row.id) &&
+                !(kind === "RECALL" && unconfirmed.get(row.id)?.notAccepted))
             )
               return;
             setReason("");
@@ -363,7 +795,7 @@ function useCurrentRequests({
       )}
       {action && (
         <TimedActionDialog
-          action={action.kind}
+          action={action.kind === "ABORT" ? "SURVEY_ABORT" : action.kind}
           target={action.row.id}
           title={t(action.kind === "ABORT" ? "applyAbort" : "recall")}
           message={t(
@@ -379,7 +811,9 @@ function useCurrentRequests({
           }}
           onConfirm={confirm}
         >
-          <p className="font-medium">{context(action.row)}</p>
+          <p ref={confirmationContext} className="font-medium">
+            {context(action.row)}
+          </p>
           {readFeedback}
           {action.kind === "ABORT" && (
             <label className="block text-sm">
@@ -402,6 +836,7 @@ function useCurrentRequests({
 
 function CurrentRequest({
   row,
+  requestRef,
   context,
   multiple,
   readBlocked,
@@ -410,6 +845,7 @@ function CurrentRequest({
   onAction,
 }: {
   row: Request;
+  requestRef: (node: HTMLElement | null) => void;
   context: string;
   multiple: boolean;
   readBlocked: boolean;
@@ -430,6 +866,7 @@ function CurrentRequest({
   );
   return (
     <article
+      ref={requestRef}
       className="space-y-4"
       aria-labelledby={headingId}
       aria-describedby={submissionId}
@@ -439,7 +876,7 @@ function CurrentRequest({
           <span className="badge-green">{t("verified")}</span>
           {row.editedAt && <span className="badge-slate">{t("edited")}</span>}
         </div>
-        <h3 id={headingId} className="text-lg font-semibold">
+        <h3 id={headingId} tabIndex={-1} className="text-lg font-semibold">
           {row.subjects.map((s) => s.name).join(" · ")}
         </h3>
         {multiple && row.name && <p className="text-sm">{row.name}</p>}
@@ -532,7 +969,12 @@ function CurrentRequest({
           {t(row.pairings.length ? "abortHelp" : "recallHelp")}
         </p>
         {abortPending ? (
-          <p role="status" className="mt-3 font-medium">
+          <p
+            role="status"
+            tabIndex={-1}
+            data-withdrawal-status
+            className="mt-3 font-medium"
+          >
             {t("abortPending")}
           </p>
         ) : (

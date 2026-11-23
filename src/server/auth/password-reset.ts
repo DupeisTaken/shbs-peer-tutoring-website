@@ -338,6 +338,7 @@ export async function issueTutorSetupLink(
           tutorId,
           email: currentEmail,
           kind: "TUTOR",
+          label: currentTutor.englishName?.trim() || null,
           issuedById: actor.id,
           issuedByName: actor.name,
         },

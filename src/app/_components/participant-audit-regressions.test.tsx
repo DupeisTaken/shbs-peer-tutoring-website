@@ -574,7 +574,9 @@ it("announces unread-count and mark-read failures without hiding cached notices"
   });
   state.markError = new Error("Mark read failed");
   view.rerender(wrap(<NotificationBell />));
-  expect(screen.getByRole("alert").textContent).toContain("Mark read failed");
+  expect(screen.getByRole("alert").textContent).toContain(
+    en.errorRecovery.generic,
+  );
   expect(screen.getByText("Synthetic notice")).toBeTruthy();
 });
 

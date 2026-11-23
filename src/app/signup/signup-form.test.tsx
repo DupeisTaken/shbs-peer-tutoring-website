@@ -18,8 +18,10 @@ import { resolveBranding } from "~/lib/branding-config";
 import { signupSettings } from "~/lib/signup-fields";
 import type * as SignupTransitionNoticeModule from "./signup-transition-notice";
 import { SignupForm } from "./signup-form";
+import { SignupIntro } from "./signup-intro";
 import type { PublicSignupTransition } from "~/lib/public-signup-transition";
 import type { RouterOutputs } from "~/trpc/react";
+import type { RecoverySignupDraft } from "~/lib/recovery-workflow";
 
 type OptionsMockResult = {
   data?: Partial<RouterOutputs["tutee"]["signupOptions"]>;
@@ -234,7 +236,7 @@ it("prefills only recovery answers and requires fresh mailbox and policy input b
 });
 
 /** Minimal configured intake makes retry/receipt behavior independent of unrelated fields. */
-function completeMinimalSubmission() {
+function completeMinimalSubmission(recoveryDraft?: RecoverySignupDraft) {
   mocks.options.mockReturnValue({
     isFetchedAfterMount: true,
     data: {
@@ -252,7 +254,7 @@ function completeMinimalSubmission() {
     },
     refetch: mocks.retry,
   });
-  const mounted = render(<SignupForm />);
+  const mounted = render(<SignupForm recoveryDraft={recoveryDraft} />);
   fireEvent.change(screen.getByLabelText("firstName signupFields.required"), {
     target: { value: "Student" },
   });
@@ -946,6 +948,230 @@ it("keeps a draft bound to its original term until explicit successful review of
     expectedTermId: "q2",
   });
 });
+
+it.each([false, true])(
+  "retains an open draft and blocks further submission after approval (recovery=%s)",
+  (recovery) => {
+    const recoveryDraft: RecoverySignupDraft | undefined = recovery
+      ? {
+          draftId: "synthetic-recovery",
+          version: 1,
+          answers: {
+            englishName: "Recovered Student",
+            firstName: "Recovered",
+            lastName: "Student",
+            firstChoiceId: "math",
+            slotIds: [],
+            preferredContact: "",
+          },
+        }
+      : undefined;
+    const mounted = completeMinimalSubmission(recoveryDraft);
+    const name = screen.getByLabelText<HTMLInputElement>(
+      "firstName signupFields.required",
+    );
+    const current = mocks.options() as OptionsMockResult;
+    mocks.options.mockReturnValue({
+      ...current,
+      data: {
+        ...current.data,
+        signupRestriction: { blocked: true, canOpenWorkspace: true },
+      },
+    });
+    mounted.rerender(<SignupForm recoveryDraft={recoveryDraft} />);
+    expect(screen.getByText("workflow.abortFinal")).toBeTruthy();
+    expect(
+      screen
+        .getByRole("link", { name: "tuteePortal.viewMyRequests" })
+        .getAttribute("href"),
+    ).toBe("/student?view=requests");
+    expect(name.value).toBe("Student");
+    expect(name.matches(":disabled")).toBe(true);
+    fireEvent.submit(mounted.container.querySelector("form")!);
+    expect(mocks.mutate).not.toHaveBeenCalled();
+  },
+);
+
+it("keeps an accepted response available when a fresh restriction arrives during its pending write", async () => {
+  let finish!: (result: {
+    ok: boolean;
+    emailSent: boolean;
+    intentId: string;
+  }) => void;
+  mocks.mutate.mockImplementationOnce(
+    () =>
+      new Promise((resolve) => {
+        finish = resolve;
+      }),
+  );
+  const mounted = completeMinimalSubmission();
+  fireEvent.submit(mounted.container.querySelector("form")!);
+  await waitFor(() => expect(mocks.mutate).toHaveBeenCalledOnce());
+  const current = mocks.options() as OptionsMockResult;
+  mocks.options.mockReturnValue({
+    ...current,
+    isError: true,
+    data: {
+      ...current.data,
+      signupRestriction: { blocked: true, canOpenWorkspace: true },
+    },
+  });
+  mounted.rerender(<SignupForm />);
+  await act(async () =>
+    finish({ ok: true, emailSent: true, intentId: "accepted-before-block" }),
+  );
+  expect(
+    (await screen.findByTestId("verification-source")).textContent,
+  ).toContain("accepted-before-block");
+  expect(screen.queryByText("workflow.abortFinal")).toBeNull();
+  expect(mocks.mutate).toHaveBeenCalledOnce();
+});
+
+it("recovers an ambiguous receipt after a new restriction without redispatching an absent receipt", async () => {
+  mocks.mutate.mockRejectedValueOnce(new Error("Response lost"));
+  const mounted = completeMinimalSubmission();
+  fireEvent.submit(mounted.container.querySelector("form")!);
+  await waitFor(() =>
+    expect(
+      screen.getByRole<HTMLButtonElement>("button", {
+        name: "recoverSubmission",
+      }).disabled,
+    ).toBe(false),
+  );
+  const current = mocks.options() as OptionsMockResult;
+  mocks.options.mockReturnValue({
+    ...current,
+    data: {
+      ...current.data,
+      signupRestriction: { blocked: true, canOpenWorkspace: false },
+    },
+  });
+  mounted.rerender(<SignupForm />);
+  mocks.receipt.mockResolvedValueOnce(null);
+  fireEvent.click(screen.getByRole("button", { name: "recoverSubmission" }));
+  await waitFor(() => expect(mocks.receipt).toHaveBeenCalledOnce());
+  await waitFor(() =>
+    expect(
+      screen.getByRole<HTMLButtonElement>("button", {
+        name: "recoverSubmission",
+      }).disabled,
+    ).toBe(false),
+  );
+  expect(mocks.mutate).toHaveBeenCalledOnce();
+  expect(screen.getByDisplayValue("Student").matches(":disabled")).toBe(true);
+  mocks.receipt.mockResolvedValueOnce({
+    ok: true,
+    emailSent: true,
+    intentId: "late-recovered",
+  });
+  fireEvent.click(screen.getByRole("button", { name: "recoverSubmission" }));
+  expect(
+    (await screen.findByTestId("verification-source")).textContent,
+  ).toContain("late-recovered");
+  expect(mocks.mutate).toHaveBeenCalledOnce();
+});
+
+it("requires explicit new-period review after a same-period restriction clears on actual rollover", async () => {
+  const mounted = completeMinimalSubmission();
+  const current = mocks.options() as OptionsMockResult;
+  mocks.options.mockReturnValue({
+    ...current,
+    data: {
+      ...current.data,
+      signupRestriction: { blocked: true, canOpenWorkspace: true },
+    },
+  });
+  mounted.rerender(<SignupForm />);
+  const latest = {
+    ...current.data,
+    transition: transitionFixture("q2"),
+    signupRestriction: { blocked: false, canOpenWorkspace: true },
+  };
+  mocks.options.mockReturnValue({ ...current, data: latest });
+  mocks.retry.mockResolvedValue({ data: latest });
+  mounted.rerender(<SignupForm />);
+  expect(screen.getByDisplayValue("Student").matches(":disabled")).toBe(true);
+  fireEvent.submit(mounted.container.querySelector("form")!);
+  expect(mocks.mutate).not.toHaveBeenCalled();
+  fireEvent.click(screen.getByRole("button", { name: "reviewPeriod" }));
+  await waitFor(() =>
+    expect(screen.getByDisplayValue("Student").matches(":disabled")).toBe(
+      false,
+    ),
+  );
+  expect(screen.getByLabelText<HTMLInputElement>("Accept policy").checked).toBe(
+    false,
+  );
+  fireEvent.click(screen.getByLabelText("Accept policy"));
+  fireEvent.submit(mounted.container.querySelector("form")!);
+  await waitFor(() => expect(mocks.mutate).toHaveBeenCalledOnce());
+  expect(mocks.mutate.mock.calls[0]?.[0]).toMatchObject({
+    expectedTermId: "q2",
+  });
+});
+
+it("observes the existing options read to suppress the submit intro after a live block", () => {
+  const mounted = render(
+    <>
+      <SignupIntro />
+      <SignupForm />
+    </>,
+  );
+  expect(screen.getByText("survey.intro")).toBeTruthy();
+  expect(mocks.options).toHaveBeenCalledWith(undefined, { enabled: false });
+  const current = mocks.options() as OptionsMockResult;
+  mocks.options.mockReturnValue({
+    ...current,
+    data: {
+      ...current.data,
+      signupRestriction: { blocked: true, canOpenWorkspace: false },
+    },
+  });
+  mounted.rerender(
+    <>
+      <SignupIntro />
+      <SignupForm />
+    </>,
+  );
+  expect(screen.queryByText("survey.intro")).toBeNull();
+  expect(screen.getByText("workflow.abortFinal")).toBeTruthy();
+});
+
+it.each(["blocked", "error", "loading"])(
+  "checks latest committed authority before a delayed CAPTCHA dispatch (%s)",
+  async (state) => {
+    let dispatch!: () => Promise<unknown>;
+    let finish!: () => void;
+    mocks.captchaRun.mockImplementationOnce((work: () => Promise<unknown>) => {
+      dispatch = work;
+      return new Promise<void>((resolve) => {
+        finish = resolve;
+      });
+    });
+    const mounted = completeMinimalSubmission();
+    fireEvent.submit(mounted.container.querySelector("form")!);
+    const current = mocks.options() as OptionsMockResult;
+    mocks.options.mockReturnValue({
+      ...current,
+      isError: state === "error",
+      isFetching: state === "loading",
+      data: {
+        ...current.data,
+        signupRestriction: {
+          blocked: state === "blocked",
+          canOpenWorkspace: true,
+        },
+      },
+    });
+    mounted.rerender(<SignupForm />);
+    await act(async () => {
+      await dispatch();
+      finish();
+    });
+    expect(mocks.mutate).not.toHaveBeenCalled();
+    expect(screen.getByDisplayValue("Student")).toBeTruthy();
+  },
+);
 
 it("retains the original period and draft when the explicit new-period read fails", async () => {
   const view = completeMinimalSubmission();

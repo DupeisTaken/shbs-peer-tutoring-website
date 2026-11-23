@@ -357,6 +357,7 @@ it("keeps meeting eligibility identical to personal source history and never pro
     ],
   });
   const result = await caller().meetings();
+  expect(result.serverNow).toBeInstanceOf(Date);
   expect(result.appointments.map((row) => row.id)).toEqual(["late", "cutoff"]);
   expect(result.appointments.find((row) => row.id === "cutoff")).toMatchObject({
     excused: true,
@@ -371,9 +372,9 @@ it("keeps meeting eligibility identical to personal source history and never pro
       (row) => row.id,
     ),
   ).toEqual(["own-history", "current-history"]);
-  expect(
-    (await caller().meetingDetail({ meetingId: "own-history" })).reason,
-  ).toBe("Private own reason");
+  const ownDetail = await caller().meetingDetail({ meetingId: "own-history" });
+  expect(ownDetail.reason).toBe("Private own reason");
+  expect(ownDetail.serverNow).toBeInstanceOf(Date);
   await expect(
     caller().meetingDetail({ meetingId: "other-history" }),
   ).rejects.toMatchObject({ code: "NOT_FOUND" });

@@ -528,7 +528,8 @@
     "collapseAll": "Tout réduire",
     "expandAll": "Tout développer",
     "loading": "Loading…",
-    "retry": "Réessayer"
+    "retry": "Réessayer",
+    "skipToContent": "Aller au contenu principal"
   },
   "auth": {
     "signinTitle": "Connexion",
@@ -678,7 +679,8 @@
       "becomeTutor": "Devenir tuteur",
       "teamSignin": "Connexion",
       "becomeCrew": "Rejoindre la ronde",
-      "viewerSignup": "Suivre le Programme"
+      "viewerSignup": "Suivre le Programme",
+      "landmark": "Navigation du site"
     },
     "tagline": "Programme de tutorat par les pairs",
     "heroTitle": "Apprendre ensemble. Progresser ensemble.",
@@ -732,7 +734,7 @@
     "availability": {
       "title": "Mes créneaux disponibles",
       "help": "Indiquez les créneaux horaires où vous pouvez enseigner. Cela aide les coordinateurs à vous planifier.",
-      "edit": "Modifier mes créneaux disponibles"
+      "edit": "Modifier les disponibilités"
     },
     "attendance": {
       "title": "Soumettre la présence",
@@ -1370,8 +1372,22 @@
       "status": {
         "active": "Actif",
         "used": "Utilisé",
-        "expired": "Expiré"
+        "expired": "Expiré",
+        "unavailable": "Indisponible"
       },
+      "source": {
+        "interview": "Entretien",
+        "application": "Candidature acceptée",
+        "crewApplication": "Candidature de ronde"
+      },
+      "unavailableReason": {
+        "attemptsExhausted": "Bloqué après trop de tentatives échouées.",
+        "applicationInvalid": "Suspendu tant que la candidature d'origine est marquée comme invalide.",
+        "applicationInactive": "La candidature d'origine n'est plus acceptée.",
+        "codeMissing": "Le code d'invitation est indisponible."
+      },
+      "boundEmail": "Lié à {email}",
+      "viewApplication": "Voir la candidature",
       "revoke": "Révoquer",
       "showCode": "Afficher le code",
       "hideCode": "Masquer",
@@ -2847,7 +2863,8 @@
     "notifications": {
       "title": "Notifications",
       "markAllRead": "Tout marquer comme lu",
-      "empty": "Rien pour l'instant."
+      "empty": "Rien pour l'instant.",
+      "unreadLabel": "{title} ({count} non lues)"
     },
     "signOut": {
       "label": "Se déconnecter"
@@ -3292,6 +3309,20 @@
     "retryRefresh": "Retry refresh",
     "recallAccepted": "This request was recalled. Refresh its status; your recall will not be repeated.",
     "abortAccepted": "Your withdrawal application was submitted. Refresh its status; your application will not be repeated.",
+    "abortUnconfirmed": "Le résultat de cet envoi de votre demande de retrait n’a pas pu être confirmé. Vérifiez cette tentative précise avant de continuer ; elle ne sera pas renvoyée automatiquement.",
+    "abortNotConfirmed": "Aucun justificatif d’acceptation de l’envoi n’a été trouvé. Lancez une nouvelle confirmation pour invalider cette confirmation inutilisée avant de réessayer.",
+    "abortStillUnknown": "Le résultat reste inconnu. Cette tentative ne peut pas être répétée en toute sécurité. Vérifiez à nouveau ou demandez de l’aide à un administrateur.",
+    "abortNotAccepted": "Cet envoi n’a pas été enregistré. Sa précédente confirmation ne peut plus être utilisée. Le motif que vous avez saisi est conservé.",
+    "abortRefreshFailed": "Cet envoi n’a pas été enregistré, mais l’état actuel de la demande n’a pas pu être actualisé. Réessayez de consulter l’état avant de lancer une nouvelle confirmation.",
+    "abortFreshMissing": "Cette demande n’est plus disponible dans votre liste des demandes en cours.",
+    "abortFreshUnavailable": {
+      "pending": "Une demande de retrait liée à cette demande est déjà en attente d’examen. Actualisez son état actuel avant de lancer une nouvelle confirmation.",
+      "unassigned": "Cette demande n’a plus d’attribution. Si vous souhaitez l’annuler, utilisez « Recall request » (Retirer la demande) sur sa fiche actuelle.",
+      "closed": "Cette demande est désormais close. Consultez son état actuel dans l’historique des demandes."
+    },
+    "abortCheckFailed": "La vérification de l’envoi n’a pas pu aboutir. Votre tentative initiale est conservée ; vérifiez à nouveau.",
+    "checkAbortSubmission": "Vérifier l’envoi",
+    "freshAbortReview": "Nouvelle confirmation",
     "pleaseReview": "Please review before continuing",
     "cancel": "Cancel",
     "confirm": "Yes, confirm",
@@ -3465,6 +3496,7 @@
       "yes": "Oui",
       "no": "Non",
       "approveUnderlying": "Approuver la demande sous-jacente",
+      "quarterWithdrawalOutcome": "L’approbation met fin à tous les tutorats et aux mises en relation en attente pour ce compte durant la période en cours. De nouvelles demandes pourront être déposées à partir de la prochaine période.",
       "rejectUnderlying": "Rejeter la demande sous-jacente",
       "overturn": "Accepter le recours et annuler le carton",
       "uphold": "Rejeter le recours et maintenir le carton",
@@ -3583,6 +3615,7 @@
         "quarter": "Période du programme",
         "accept": "Décision d’entretien demandée",
         "originalReason": "Motif de la demande d’origine",
+        "withdrawalEnrollmentCount": "Inscriptions qui prennent fin",
         "requestReason": "Motif de cette correction",
         "explanation": "Explication de la demande",
         "expectedSchoolYear": "Année scolaire du programme lors de l’envoi",
@@ -4932,6 +4965,7 @@
     "dashboard": "Dashboard",
     "schedule": "My Tutors & Schedule",
     "requests": "Requests",
+    "viewMyRequests": "Voir mes demandes",
     "attendance": "Attendance",
     "support": "Support",
     "messages": "Messages",
@@ -5768,7 +5802,10 @@
   },
   "pageRecovery": {
     "title": "Page Introuvable",
-    "body": "Cette page a peut-être été déplacée ou n’est plus disponible. Revenez à l’accueil ou connectez-vous pour continuer."
+    "body": "Cette page a peut-être été déplacée ou n’est plus disponible. Revenez à l’accueil ou connectez-vous pour continuer.",
+    "errorTitle": "Une erreur s’est produite",
+    "errorBody": "Impossible de charger cette page. Réessayez ou retournez à l’accueil.",
+    "loadingTitle": "Chargement de la page…"
   },
   "historicalAcademics": {
     "graduatedRecorded": "The original record also marked academic graduation. This correction does not change participation or school-departure status.",
@@ -7554,6 +7591,7 @@
       "PARTICIPANT_TUTOR": "Tutor participation",
       "PARTICIPANT_TUTEE": "Tutee participation",
       "STUDENT_WORKFLOW": "Student request workflow",
+      "STUDENT_QUARTER_WITHDRAWAL": "Quarter withdrawal (inspection only)",
       "ATTENDANCE": "Attendance correction",
       "CARD": "Discipline card review",
       "PROGRAM_REFRESH": "Program refresh (Head approval)"
@@ -8498,5 +8536,18 @@
     "loadFailed": "Impossible de charger les dernières exigences. Votre brouillon est conservé. Réessayez la lecture avant d’enregistrer.",
     "refreshFailed": "Les exigences ont été enregistrées, mais les paramètres n’ont pas pu être chargés. Réessayez la lecture sans enregistrer à nouveau.",
     "reload": "Recharger les dernières exigences"
+  },
+  "errorRecovery": {
+    "unauthorized": "Reconnectez-vous pour continuer.",
+    "forbidden": "Vous n’avez pas l’autorisation d’effectuer cette action.",
+    "notFound": "Cet élément est introuvable. Actualisez la page pour afficher les données actuelles.",
+    "conflict": "Cet élément a changé depuis son ouverture. Actualisez et vérifiez avant de réessayer.",
+    "tooManyRequests": "Trop de requêtes en peu de temps. Patientez un instant puis réessayez.",
+    "timeout": "La requête a expiré. Vérifiez votre connexion puis réessayez.",
+    "preconditionFailed": "Une condition requise est manquante. Actualisez la page et vérifiez l’état actuel.",
+    "badRequest": "Vérifiez les informations saisies puis réessayez.",
+    "internal": "Impossible de finaliser cette requête. Réessayez dans un instant.",
+    "network": "Impossible de joindre le serveur. Vérifiez votre connexion puis réessayez.",
+    "generic": "Une erreur s’est produite. Réessayez."
   }
 }

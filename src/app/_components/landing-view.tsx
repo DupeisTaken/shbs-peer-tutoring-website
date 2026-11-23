@@ -19,6 +19,12 @@ import {
   ColumnsBlock,
 } from "~/app/_components/page-blocks";
 import { HeaderMenu, HeaderMenuGroup } from "~/app/_components/header-menu";
+import {
+  ArrowRightIcon,
+  BookOpenIcon,
+  LayersIcon,
+  UsersIcon,
+} from "~/app/_components/icons";
 import { PublicHeader } from "~/app/_components/public-header";
 
 /**
@@ -31,7 +37,7 @@ import { PublicHeader } from "~/app/_components/public-header";
  */
 export async function LandingView({ preview = false }: { preview?: boolean }) {
   const locale = await getLocale();
-  const [features, overrides, news, sections, layout, navPages, t] =
+  const [features, overrides, news, sections, layout, navPages, t, tc] =
     await Promise.all([
       getFeatures(db),
       getHomeOverrides(db, locale),
@@ -40,6 +46,7 @@ export async function LandingView({ preview = false }: { preview?: boolean }) {
       getLandingLayout(db),
       getNavPages(db, locale),
       getTranslations("landing"),
+      getTranslations("common"),
     ]);
 
   // Resolve a landing text slot: an admin override (with {appTitle} substituted) wins, else the
@@ -79,36 +86,58 @@ export async function LandingView({ preview = false }: { preview?: boolean }) {
     switch (block.type) {
       case "HERO":
         return (
-          <section className="from-accent-50 relative overflow-hidden bg-gradient-to-b via-white to-white">
+          <section className="hero-grid-bg relative overflow-hidden border-b border-slate-200/80 bg-white">
             <div
-              aria-hidden
-              className="bg-accent-200/35 pointer-events-none absolute -top-28 left-1/2 h-72 w-[36rem] -translate-x-1/2 rounded-full blur-3xl sm:w-[42rem]"
+              aria-hidden="true"
+              className="from-accent-50/70 pointer-events-none absolute inset-x-0 top-0 h-44 bg-gradient-to-b to-transparent"
             />
-            <div className="relative mx-auto max-w-3xl px-4 py-14 text-center sm:py-24 lg:py-28">
-              <span className="badge-slate mb-5">{text("tagline")}</span>
-              <GradientTitle
-                text={text("heroTitle")}
-                primary={block === primaryHero}
-              />
-              {heroImageId && (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img
-                  src={`/api/images/${heroImageId}`}
-                  alt=""
-                  className="mx-auto mt-7 h-auto max-h-80 w-full max-w-2xl rounded-xl border border-slate-200 object-cover shadow-sm"
+            <div
+              className={`relative mx-auto max-w-5xl px-4 py-14 sm:py-20 lg:py-24 ${
+                heroImageId
+                  ? "grid items-center gap-10 lg:grid-cols-12"
+                  : "text-center"
+              }`}
+            >
+              <div className={heroImageId ? "lg:col-span-7" : "mx-auto max-w-3xl"}>
+                <span className="border-accent-200 bg-accent-50 text-accent-800 mb-5 inline-flex items-center rounded-full border px-3 py-1 text-xs font-semibold tracking-wide">
+                  {text("tagline")}
+                </span>
+                <GradientTitle
+                  text={text("heroTitle")}
+                  primary={block === primaryHero}
+                  centered={!heroImageId}
                 />
-              )}
-              <p className="mx-auto mt-5 max-w-sm text-base leading-7 text-slate-600 sm:max-w-2xl sm:text-lg">
-                {text("intro")}
-              </p>
-              <div className="mx-auto mt-8 grid max-w-sm grid-cols-1 gap-3 sm:flex sm:max-w-none sm:flex-wrap sm:items-center sm:justify-center">
-                <Link href="/tutee" className="btn-primary min-h-11">
-                  {text("ctaPrimary")}
-                </Link>
-                <Link href="/tutor" className="btn-secondary min-h-11">
-                  {text("ctaSecondary")}
-                </Link>
+                <p
+                  className={`mt-5 text-base leading-7 text-slate-600 sm:text-lg ${
+                    heroImageId ? "max-w-xl" : "mx-auto max-w-2xl"
+                  }`}
+                >
+                  {text("intro")}
+                </p>
+                <div
+                  className={`mt-8 grid max-w-sm grid-cols-1 gap-3 sm:flex sm:max-w-none sm:flex-wrap sm:items-center ${
+                    heroImageId ? "" : "mx-auto sm:justify-center"
+                  }`}
+                >
+                  <Link href="/tutee" className="btn-primary min-h-11">
+                    <span>{text("ctaPrimary")}</span>
+                    <ArrowRightIcon />
+                  </Link>
+                  <Link href="/tutor" className="btn-secondary min-h-11">
+                    {text("ctaSecondary")}
+                  </Link>
+                </div>
               </div>
+              {heroImageId && (
+                <div className="lg:col-span-5">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={`/api/images/${heroImageId}`}
+                    alt=""
+                    className="h-auto max-h-88 w-full rounded-2xl border border-slate-200 object-cover shadow-md"
+                  />
+                </div>
+              )}
             </div>
           </section>
         );
@@ -118,17 +147,17 @@ export async function LandingView({ preview = false }: { preview?: boolean }) {
           <section className="mx-auto max-w-5xl px-4 py-12 sm:py-16">
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-3 sm:gap-5">
               <FeatureCard
-                emoji="🎓"
+                icon={<BookOpenIcon />}
                 title={text("features.students.title")}
                 body={text("features.students.body")}
               />
               <FeatureCard
-                emoji="🧑‍🏫"
+                icon={<UsersIcon />}
                 title={text("features.tutors.title")}
                 body={text("features.tutors.body")}
               />
               <FeatureCard
-                emoji="🗂️"
+                icon={<LayersIcon />}
                 title={text("features.team.title")}
                 body={text("features.team.body")}
               />
@@ -139,8 +168,8 @@ export async function LandingView({ preview = false }: { preview?: boolean }) {
       case "SECTIONS":
         if (sections.length === 0) return null;
         return (
-          <section className="mx-auto max-w-3xl px-4 py-4">
-            <div className="card px-6 py-2">
+          <section className="mx-auto max-w-5xl px-4 py-4">
+            <div className="card px-5 py-2 sm:px-6">
               <LandingSections
                 sections={sections.map((s) => ({
                   id: s.id,
@@ -159,13 +188,11 @@ export async function LandingView({ preview = false }: { preview?: boolean }) {
       case "NEWS":
         if (news.length === 0) return null;
         return (
-          <section className="mx-auto max-w-3xl px-4 py-8">
-            <h2 className="mb-6 text-2xl font-bold tracking-tight text-slate-900">
-              {t("news.title")}
-            </h2>
-            <ol className="space-y-5">
+          <section className="mx-auto max-w-5xl px-4 py-8">
+            <h2 className="section-title mb-5">{t("news.title")}</h2>
+            <ol className="space-y-4">
               {news.map((item) => (
-                <li key={item.id} className="card p-6">
+                <li key={item.id} className="card p-5 sm:p-6">
                   <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
                     <div className="flex items-center gap-2">
                       <h3 className="text-lg font-semibold text-slate-900">
@@ -211,8 +238,12 @@ export async function LandingView({ preview = false }: { preview?: boolean }) {
       {preview && <PreviewRibbon />}
 
       <PublicHeader
+        skipLabel={tc("skipToContent")}
         navigation={
-          <HeaderMenuGroup className="flex min-w-0 flex-wrap items-center gap-2">
+          <HeaderMenuGroup
+            label={t("nav.landmark")}
+            className="flex min-w-0 flex-wrap items-center gap-2"
+          >
             <div className="lg:hidden">
               <HeaderMenu
                 label={t("nav.menu")}
@@ -257,7 +288,7 @@ export async function LandingView({ preview = false }: { preview?: boolean }) {
         }
       />
 
-      <main className="flex-1">
+      <main id="main-content" className="flex-1">
         {!primaryHero && <h1 className="sr-only">{APP_TITLE}</h1>}
         {layout.map((block) => (
           <div key={block.id}>{renderBlock(block)}</div>
@@ -313,42 +344,44 @@ async function PreviewRibbon() {
 }
 
 function FeatureCard({
-  emoji,
+  icon,
   title,
   body,
 }: {
-  emoji: string;
+  icon: React.ReactNode;
   title: string;
   body: string;
 }) {
   return (
-    <div className="card p-5 text-center sm:p-6 sm:text-left">
-      <div className="text-2xl">{emoji}</div>
-      <h2 className="mt-3 font-semibold text-slate-900">{title}</h2>
-      <p className="muted mt-1 text-sm">{body}</p>
+    <div className="card hover:border-accent-200 p-5 text-center transition hover:shadow-md sm:p-6 sm:text-left">
+      <div className="bg-accent-50 text-accent-700 ring-accent-200/70 mx-auto inline-flex h-10 w-10 items-center justify-center rounded-xl ring-1 sm:mx-0">
+        {icon}
+      </div>
+      <h2 className="mt-4 text-base font-semibold text-slate-900">{title}</h2>
+      <p className="muted mt-1.5 text-sm leading-6">{body}</p>
     </div>
   );
 }
 
-function GradientTitle({ text, primary }: { text: string; primary: boolean }) {
+function GradientTitle({
+  text,
+  primary,
+  centered = true,
+}: {
+  text: string;
+  primary: boolean;
+  centered?: boolean;
+}) {
   const Heading = primary ? "h1" : "h2";
-  const words = text.trim().split(/\s+/).filter(Boolean);
+  // Stay within accent-800..accent-600 across the whole headline so large text exceeds WCAG AA
+  // contrast in every accent theme (including amber, sky and emerald) and across EN/ZH scripts.
   return (
-    <Heading className="mx-auto flex max-w-sm flex-wrap justify-center gap-x-2 text-3xl leading-tight font-extrabold tracking-tight sm:max-w-none sm:text-5xl lg:text-6xl">
-      {words.length > 0 ? (
-        words.map((word, i) => (
-          <span
-            key={`${word}-${i}`}
-            className="from-accent-700 to-accent-400 bg-gradient-to-r bg-clip-text text-transparent"
-          >
-            {word}
-          </span>
-        ))
-      ) : (
-        <span className="from-accent-700 to-accent-400 bg-gradient-to-r bg-clip-text text-transparent">
-          {text}
-        </span>
-      )}
+    <Heading
+      className={`${centered ? "mx-auto max-w-sm sm:max-w-none" : ""} text-3xl leading-tight font-extrabold tracking-tight text-balance sm:text-5xl lg:text-6xl`}
+    >
+      <span className="from-accent-800 via-accent-700 to-accent-600 bg-gradient-to-r bg-clip-text text-transparent">
+        {text}
+      </span>
     </Heading>
   );
 }

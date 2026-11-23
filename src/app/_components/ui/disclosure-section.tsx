@@ -38,7 +38,7 @@ export function DisclosureSection({
         if (next) setOpened(true);
       }}
     >
-      <summary className="focus-visible:ring-accent-500 min-h-11 cursor-pointer rounded-lg px-4 py-3 text-sm font-semibold focus-visible:ring-2 focus-visible:outline-none lg:min-h-8 lg:py-2">
+      <summary className="focus-visible:ring-accent-500 min-h-11 cursor-pointer rounded-lg px-4 py-3 text-sm font-semibold focus-visible:ring-2 focus-visible:outline-hidden lg:min-h-8 lg:py-2">
         {title}
       </summary>
       {mounted && (

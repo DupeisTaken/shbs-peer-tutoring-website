@@ -8,14 +8,17 @@ import type { ReactNode } from "react";
  * (no hooks) so it renders in both server and client components.
  */
 
-export type BarTone = "accent" | "amber" | "red" | "emerald" | "slate";
+export type BarTone = "accent" | "amber" | "red" | "emerald" | "slate" | "teal";
 
 const FILL: Record<BarTone, string> = {
   accent: "bg-accent-500",
   amber: "bg-amber-400",
-  red: "bg-red-400",
-  emerald: "bg-emerald-500",
+  red: "bg-red-500",
+  // Keep success distinct from the emerald runtime accent palette.
+  emerald: "bg-green-600",
   slate: "bg-slate-400",
+  // Fixed non-accent hue for inbound queues so Amber/Rose themes never confuse urgency.
+  teal: "bg-teal-600",
 };
 
 const DOT: Record<BarTone, string> = FILL;
@@ -62,7 +65,7 @@ export function BarList({ items, emptyLabel }: { items: BarItem[]; emptyLabel?: 
             {it.href ? (
               <Link
                 href={it.href}
-                className="block rounded-md outline-none transition hover:opacity-80 focus-visible:ring-2 focus-visible:ring-accent-400"
+                className="block rounded-md outline-hidden transition hover:opacity-80 focus-visible:ring-2 focus-visible:ring-accent-400"
               >
                 {body}
               </Link>

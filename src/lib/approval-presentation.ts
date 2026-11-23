@@ -369,6 +369,20 @@ export function approvalPresentation(
         : input.approve === false
           ? "rejectUnderlying"
           : "actionHelp";
+    const scope = record(evidence.studentQuarterWithdrawal);
+    const count = scope?.enrollmentCount;
+    if (
+      input.approve === true &&
+      review?.kind === "STUDENT_ABORT" &&
+      scope?.version === 1 &&
+      record(scope.review)?.id === review.id &&
+      typeof count === "number" &&
+      Number.isSafeInteger(count) &&
+      count > 0
+    ) {
+      outcome = "quarterWithdrawalOutcome";
+      add("withdrawalEnrollmentCount", count);
+    }
   }
 
   if (operation === "translationReview.decide") {

@@ -83,6 +83,9 @@ function TutorInterviewApproval({
           () => invalidateAndReport(utils.tutor.myInterviews),
           () => invalidateAndReport(utils.notification.list),
           () => invalidateAndReport(utils.notification.unreadCount),
+          () => utils.admin.registrationCodes.invalidate(),
+          () => utils.admin.tutorApplications.invalidate(),
+          () => utils.interviewManagement.options.invalidate(),
           async () => {
             // The dashboard total is server-rendered. Verify a fresh read, then
             // replace that payload while preserving independent client drafts.
@@ -428,7 +431,7 @@ function HeadDecision({
   return (
     <div className="mt-2 space-y-2 border-t border-slate-100 pt-2">
       {dialog}
-      <p className="text-xs font-semibold tracking-wide text-slate-400 uppercase">
+      <p className="text-xs font-semibold tracking-wide text-slate-600 uppercase">
         {t("tutor.interviews.headDecision")}
       </p>
       <p className="muted text-xs">

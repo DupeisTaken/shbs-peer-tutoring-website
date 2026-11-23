@@ -528,7 +528,8 @@
     "collapseAll": "Alle zuklappen",
     "expandAll": "Alle aufklappen",
     "loading": "Loading…",
-    "retry": "Erneut versuchen"
+    "retry": "Erneut versuchen",
+    "skipToContent": "Zum Hauptinhalt springen"
   },
   "auth": {
     "signinTitle": "Anmelden",
@@ -678,7 +679,8 @@
       "becomeTutor": "Tutor werden",
       "teamSignin": "Anmelden",
       "becomeCrew": "Rundgang beitreten",
-      "viewerSignup": "Programm Verfolgen"
+      "viewerSignup": "Programm Verfolgen",
+      "landmark": "Seitennavigation"
     },
     "tagline": "Peer-Tutoring-Programm",
     "heroTitle": "Gemeinsam lernen. Gemeinsam wachsen.",
@@ -732,7 +734,7 @@
     "availability": {
       "title": "Meine verfügbaren Zeiten",
       "help": "Zeitfenster markieren, in denen Sie unterrichten können. Das hilft Koordinatoren bei der Planung.",
-      "edit": "Meine verfügbaren Zeiten bearbeiten"
+      "edit": "Verfügbarkeit bearbeiten"
     },
     "attendance": {
       "title": "Anwesenheit einreichen",
@@ -1370,8 +1372,22 @@
       "status": {
         "active": "Aktiv",
         "used": "Verwendet",
-        "expired": "Abgelaufen"
+        "expired": "Abgelaufen",
+        "unavailable": "Nicht verfügbar"
       },
+      "source": {
+        "interview": "Interview",
+        "application": "Angenommene Bewerbung",
+        "crewApplication": "Rundgang-Bewerbung"
+      },
+      "unavailableReason": {
+        "attemptsExhausted": "Nach zu vielen Fehlversuchen gesperrt.",
+        "applicationInvalid": "Pausiert, solange die zugehörige Bewerbung als ungültig markiert ist.",
+        "applicationInactive": "Die zugehörige Bewerbung ist nicht mehr angenommen.",
+        "codeMissing": "Einladungscode nicht verfügbar."
+      },
+      "boundEmail": "Gebunden an {email}",
+      "viewApplication": "Bewerbung anzeigen",
       "revoke": "Widerrufen",
       "showCode": "Code anzeigen",
       "hideCode": "Ausblenden",
@@ -2847,7 +2863,8 @@
     "notifications": {
       "title": "Benachrichtigungen",
       "markAllRead": "Alle als gelesen markieren",
-      "empty": "Noch nichts."
+      "empty": "Noch nichts.",
+      "unreadLabel": "{title} ({count} ungelesen)"
     },
     "signOut": {
       "label": "Abmelden"
@@ -3292,6 +3309,20 @@
     "retryRefresh": "Retry refresh",
     "recallAccepted": "This request was recalled. Refresh its status; your recall will not be repeated.",
     "abortAccepted": "Your withdrawal application was submitted. Refresh its status; your application will not be repeated.",
+    "abortUnconfirmed": "Das Ergebnis dieser Übermittlung deines Austrittsantrags konnte nicht bestätigt werden. Prüfe genau diesen Versuch, bevor du fortfährst; er wird nicht erneut übermittelt.",
+    "abortNotConfirmed": "Es wurde kein Beleg für eine erfolgreiche Übermittlung gefunden. Starte eine neue Bestätigung, um diese ungenutzte Bestätigung ungültig zu machen, bevor du es erneut versuchst.",
+    "abortStillUnknown": "Das Ergebnis ist weiterhin unbekannt. Dieser Versuch kann nicht sicher wiederholt werden. Prüfe es erneut oder bitte die Administration um Hilfe.",
+    "abortNotAccepted": "Diese Übermittlung wurde nicht registriert. Die bisherige Bestätigung kann nicht erneut verwendet werden. Deine Begründung bleibt erhalten.",
+    "abortRefreshFailed": "Diese Übermittlung wurde nicht registriert, aber der aktuelle Antragsstatus konnte nicht aktualisiert werden. Versuche erneut, den Status abzurufen, bevor du eine neue Bestätigung startest.",
+    "abortFreshMissing": "Dieser Antrag ist in deiner Liste der aktuellen Anträge nicht mehr verfügbar.",
+    "abortFreshUnavailable": {
+      "pending": "Für diesen Antrag liegt bereits ein Austrittsantrag zur Prüfung vor. Aktualisiere den aktuellen Status, bevor du eine neue Bestätigung startest.",
+      "unassigned": "Diesem Antrag ist keine Betreuung mehr zugeordnet. Verwende auf der aktuellen Karte „Recall request“ (Antrag zurückziehen), wenn du den Antrag zurückziehen möchtest.",
+      "closed": "Dieser Antrag ist jetzt geschlossen. Den aktuellen Status findest du im Antragsverlauf."
+    },
+    "abortCheckFailed": "Die Prüfung der Übermittlung konnte nicht abgeschlossen werden. Dein ursprünglicher Versuch bleibt erhalten; prüfe ihn erneut.",
+    "checkAbortSubmission": "Übermittlung prüfen",
+    "freshAbortReview": "Neue Bestätigung starten",
     "pleaseReview": "Please review before continuing",
     "cancel": "Cancel",
     "confirm": "Yes, confirm",
@@ -3465,6 +3496,7 @@
       "yes": "Ja",
       "no": "Nein",
       "approveUnderlying": "Zugrunde liegenden Antrag genehmigen",
+      "quarterWithdrawalOutcome": "Die Genehmigung beendet alle Nachhilfestunden und offenen Vermittlungen für dieses Konto im laufenden Programmzeitraum. Neue Anträge sind erst im nächsten Zeitraum möglich.",
       "rejectUnderlying": "Zugrunde liegenden Antrag ablehnen",
       "overturn": "Beschwerde stattgeben und Karte aufheben",
       "uphold": "Beschwerde ablehnen und Karte beibehalten",
@@ -3583,6 +3615,7 @@
         "quarter": "Programmzeitraum",
         "accept": "Beantragte Interviewentscheidung",
         "originalReason": "Begründung im ursprünglichen Antrag",
+        "withdrawalEnrollmentCount": "Endende Teilnahmen",
         "requestReason": "Begründung dieser Korrektur",
         "explanation": "Antragsbegründung",
         "expectedSchoolYear": "Programmschuljahr bei Antragstellung",
@@ -4932,6 +4965,7 @@
     "dashboard": "Dashboard",
     "schedule": "My Tutors & Schedule",
     "requests": "Requests",
+    "viewMyRequests": "Meine Anfragen ansehen",
     "attendance": "Attendance",
     "support": "Support",
     "messages": "Messages",
@@ -5768,7 +5802,10 @@
   },
   "pageRecovery": {
     "title": "Seite Nicht Gefunden",
-    "body": "Diese Seite wurde möglicherweise verschoben oder ist nicht mehr verfügbar. Kehren Sie zur Startseite zurück oder melden Sie sich an."
+    "body": "Diese Seite wurde möglicherweise verschoben oder ist nicht mehr verfügbar. Kehren Sie zur Startseite zurück oder melden Sie sich an.",
+    "errorTitle": "Ein Fehler ist aufgetreten",
+    "errorBody": "Diese Seite konnte nicht geladen werden. Versuche es erneut oder kehre zur Startseite zurück.",
+    "loadingTitle": "Seite wird geladen…"
   },
   "historicalAcademics": {
     "graduatedRecorded": "The original record also marked academic graduation. This correction does not change participation or school-departure status.",
@@ -7554,6 +7591,7 @@
       "PARTICIPANT_TUTOR": "Tutor participation",
       "PARTICIPANT_TUTEE": "Tutee participation",
       "STUDENT_WORKFLOW": "Student request workflow",
+      "STUDENT_QUARTER_WITHDRAWAL": "Quarter withdrawal (inspection only)",
       "ATTENDANCE": "Attendance correction",
       "CARD": "Discipline card review",
       "PROGRAM_REFRESH": "Program refresh (Head approval)"
@@ -8498,5 +8536,18 @@
     "loadFailed": "Die aktuellen Vorgaben konnten nicht geladen werden. Ihr Entwurf bleibt erhalten. Laden Sie sie vor dem Speichern erneut.",
     "refreshFailed": "Die Vorgaben wurden gespeichert, aber die aktuellen Einstellungen konnten nicht geladen werden. Wiederholen Sie nur das Laden.",
     "reload": "Aktuelle Vorgaben laden"
+  },
+  "errorRecovery": {
+    "unauthorized": "Melde dich erneut an, um fortzufahren.",
+    "forbidden": "Du hast keine Berechtigung für diese Aktion.",
+    "notFound": "Dieser Eintrag wurde nicht gefunden. Lade die Seite neu.",
+    "conflict": "Dieser Eintrag wurde inzwischen geändert. Lade neu und prüfe vor dem erneuten Versuch.",
+    "tooManyRequests": "Zu viele Anfragen in kurzer Zeit. Warte kurz und versuche es erneut.",
+    "timeout": "Zeitüberschreitung bei der Anfrage. Prüfe deine Verbindung und versuche es erneut.",
+    "preconditionFailed": "Eine erforderliche Voraussetzung fehlt. Lade die Seite neu und prüfe den aktuellen Stand.",
+    "badRequest": "Prüfe die eingegebenen Angaben und versuche es erneut.",
+    "internal": "Die Anfrage konnte nicht abgeschlossen werden. Versuche es gleich erneut.",
+    "network": "Server nicht erreichbar. Prüfe deine Verbindung und versuche es erneut.",
+    "generic": "Etwas ist schiefgelaufen. Versuche es erneut."
   }
 }
