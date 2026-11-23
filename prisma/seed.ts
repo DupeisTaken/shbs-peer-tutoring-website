@@ -941,7 +941,7 @@ async function main() {
   // --- Announcements ---------------------------------------------------------
   const announcements = [
     { id: seedId("ann-welcome"), title: "Welcome back — Q1 pairings are live", body: "Please confirm your session times with your tutees this week and submit attendance within 24h of each session.", pinned: true, active: true },
-    { id: seedId("ann-meeting"), title: "Tutor meeting Monday at lunch", body: "Weekly tutor meeting in the Library during lunch. Excuse yourself at least 1 hour ahead if you can't make it.", pinned: false, active: true },
+    { id: seedId("ann-meeting"), title: "Tutor meeting Monday at lunch", body: "Weekly tutor meeting in the Library during lunch. Excuse yourself at least 45 minutes ahead if you can't make it.", pinned: false, active: true },
     { id: seedId("ann-old"), title: "Q2 wrap-up (archived)", body: "Thanks for a great Q2! This notice is archived.", pinned: false, active: false },
   ];
   for (const a of announcements) {
@@ -951,7 +951,7 @@ async function main() {
 
   // --- Tutor meetings + attendance -------------------------------------------
   // Excused entries carry a tutor-submitted reason + `excusedAt` so the meeting page's amber
-  // "self-excused" panel renders (a tutor self-excuses from their dashboard at least 60m before).
+  // "self-excused" panel renders (a tutor self-excuses from their dashboard at least 45m before).
   const meetings = [
     {
       id: seedId("meeting-1"), title: "Weekly tutor meeting", daysAgo: 1,

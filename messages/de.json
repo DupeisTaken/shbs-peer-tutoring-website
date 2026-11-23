@@ -2342,7 +2342,7 @@
     },
     "meetings": {
       "title": "Anstehende Sitzungen",
-      "help": "Sie können nicht teilnehmen? Entschuldigen Sie Ihre Abwesenheit bis 30 Minuten vor Beginn.",
+      "help": "Sie können nicht teilnehmen? Entschuldigen Sie Ihre Abwesenheit bis 45 Minuten vor Beginn.",
       "excuseBtn": "Abwesenheit entschuldigen",
       "submitExcuse": "Abwesenheitsentschuldigung einreichen",
       "cancelExcuse": "Entschuldigung zurücknehmen",

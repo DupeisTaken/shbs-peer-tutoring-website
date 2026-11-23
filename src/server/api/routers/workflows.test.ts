@@ -3428,22 +3428,39 @@ it("meeting allowance counts unexcused absences across Q1/Q2 and corrects the th
     await db.serviceHourAdjustment.count({ where: { tutorId: person.id } }),
   ).toBe(0);
 });
-it("meeting excuses close 60 minutes before the meeting", async () => {
+it("meeting excuses close 45 minutes before the meeting", async () => {
   const m = await db.tutorMeeting.create({
     data: {
       title: "Soon",
-      date: new Date(Date.now() + 45 * 60000),
+      date: new Date(Date.now() + 44 * 60000),
       termId: "review-term",
     },
   });
   await expect(
     tutor().tutor.excuseMeeting({ meetingId: m.id, reason: "Class" }),
-  ).rejects.toMatchObject({ code: "BAD_REQUEST" });
+  ).rejects.toMatchObject({
+    code: "BAD_REQUEST",
+    message: "Too late to excuse — this meeting is within 45 minutes.",
+  });
+  // After the 1-hour reminder email (50 minutes before start), excusing and
+  // cancelling remain available until the 45-minute cutoff.
   await db.tutorMeeting.update({
     where: { id: m.id },
-    data: { date: new Date(Date.now() + 61 * 60000) },
+    data: { date: new Date(Date.now() + 50 * 60000) },
   });
   await tutor().tutor.excuseMeeting({ meetingId: m.id, reason: "Class" });
+  await tutor().tutor.cancelMeetingExcuse({ meetingId: m.id });
+  await tutor().tutor.excuseMeeting({ meetingId: m.id, reason: "Class" });
+  await db.tutorMeeting.update({
+    where: { id: m.id },
+    data: { date: new Date(Date.now() + 44 * 60000) },
+  });
+  await expect(
+    tutor().tutor.cancelMeetingExcuse({ meetingId: m.id }),
+  ).rejects.toMatchObject({
+    code: "BAD_REQUEST",
+    message: "Too late to change — this meeting is within 45 minutes.",
+  });
 });
 async function interviewFixture() {
   const panel = [];
