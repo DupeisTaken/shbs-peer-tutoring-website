@@ -617,7 +617,13 @@ it for Admin/Head approval. A queued request has not awarded new hours.
 For an existing completion, **Correct completion & hours** previews each change,
 including removed attendees. It replaces that interview’s automatic credits while
 preserving unrelated manual adjustments and its original school year/quarter; Admin/Head
-apply corrections and Coordinator proposals await Admin/Head review. Failed saves
+apply corrections and Coordinator proposals await Admin/Head review. Every changed
+recording must include the version reviewed by the editor; a missing or stale version
+requires **Reload current evidence (replace draft)** before applying or requesting
+review. The requester can cancel an older pending correction that lacks a version,
+or a reviewer can reject it before a new reviewed correction is requested.
+An exact already-applied completion and its full credit ledger can be recovered
+without changing hours or creating another request. Failed saves
 retain the draft. An already completed interview keeps its historical chair for hour
 corrections and repeated completion submissions, including a legacy Coordinator or
 subsequently demoted chair. The other panel and qualification checks still apply;

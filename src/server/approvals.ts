@@ -17,7 +17,10 @@ import {
   proposalConfirmation,
 } from "~/lib/approval-policy";
 import { validateInterviewDecision } from "./interviews";
-import { isAppliedInterviewCompletion } from "./interview-hours";
+import {
+  inspectInterviewCompletionReview,
+  interviewCompletionInput,
+} from "./interview-hours";
 import { validateRoomBlockProposal } from "./room-block-proposals";
 import {
   historicalApplyInput,
@@ -114,7 +117,7 @@ export async function proposalAuthority(
   // The API rechecks this classification under the application's review lock.
   if (
     operation === "interviewManagement.complete" &&
-    (await isAppliedInterviewCompletion(client, value))
+    (await inspectInterviewCompletionReview(client, value)) === "EXACT_RECEIPT"
   )
     return {
       category: "DAILY_OPERATION",
@@ -1311,7 +1314,27 @@ export async function queueProposal(
     operation === "admin.correctApplicationIdentity"
       ? applicationIdentityCorrectionInput.parse(value)
       : null;
+  const interviewCompletion =
+    operation === "interviewManagement.complete"
+      ? interviewCompletionInput.parse(value)
+      : null;
   return inTransaction(db, async (tx) => {
+    if (interviewCompletion) {
+      // Classifying outside this transaction is advisory. Hold the writer's
+      // source lock through the recheck and immutable proposal/notice capture.
+      const { lockApplicationReview } = await import("./request-invalidity");
+      await lockApplicationReview(tx, interviewCompletion.applicationId);
+      if (
+        (await inspectInterviewCompletionReview(tx, value)) === "EXACT_RECEIPT"
+      )
+        // A matching writer may have finished while this proposal waited. Let a
+        // fresh retry read its receipt instead of fabricating a review request.
+        throw new TRPCError({
+          code: "CONFLICT",
+          message:
+            "This interview service is already recorded. Retry against the current evidence to read its receipt.",
+        });
+    }
     if (identityCorrection) {
       await lockUsernameNamespace(tx);
       await tx.$queryRaw`SELECT id FROM "User" WHERE id = ${session.user.id} FOR SHARE`;
