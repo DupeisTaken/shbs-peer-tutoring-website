@@ -255,11 +255,11 @@ export async function propagateSlotAttendance(
             count: changed.length,
           },
           {
-            en: `${changed.length === 1 ? "1 past session" : `${changed.length} past sessions`} moved from ${notificationList(changed.map(({ primary }) => `${clock(primary.startMin)}–${clock(primary.endMin)}`))} to ${clock(window.startMin)}–${clock(window.endMin)}. Related flags and deductions were updated.`,
-            zh: `${changed.length} 个历史辅导时段由 ${notificationList(changed.map(({ primary }) => `${clock(primary.startMin)}–${clock(primary.endMin)}`))} 改为 ${clock(window.startMin)}–${clock(window.endMin)}，相关出勤标记及扣减已更新。`,
+            en: `${changed.length} historical teaching block(s) changed from ${notificationList(changed.map(({ primary }) => `${clock(primary.startMin)}–${clock(primary.endMin)}`))} to ${clock(window.startMin)}–${clock(window.endMin)}. Attendance flags and linked deductions were reconsidered.`,
+            zh: `${changed.length} 个历史教学时段由 ${notificationList(changed.map(({ primary }) => `${clock(primary.startMin)}–${clock(primary.endMin)}`))} 改为 ${clock(window.startMin)}–${clock(window.endMin)}，考勤标记及关联扣分已重新核算。`,
           },
         ),
-        body: `${changed.length === 1 ? "1 past session was" : `${changed.length} past sessions were`} updated. Related attendance flags and deductions were updated.`,
+        body: `${changed.length} teaching block(s) were updated. Changed attendance flags and linked deductions were reconsidered.`,
         link: "/admin/audit",
       })),
     });
