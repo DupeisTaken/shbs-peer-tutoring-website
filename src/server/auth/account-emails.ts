@@ -208,12 +208,16 @@ export async function requestSecondaryEmail(
       to: email,
       ...codeEmailCopy({
         locale: emailLocale,
+        preview: emailText(emailLocale, {
+          en: "Enter this 4-digit code within 10 minutes to add your secondary email.",
+          zh: "请在 10 分钟内输入 4 位验证码以添加备用邮箱。",
+        }),
         subject: emailText(emailLocale, { en: "Verify your secondary email", zh: "验证备用邮箱" }),
         code,
         eyebrow: emailText(emailLocale, { en: "EMAIL VERIFICATION", zh: "邮箱验证" }),
         body: emailText(emailLocale, {
-          en: "Enter this code to add a secondary email address. It expires in 10 minutes. The address is added only after confirmation.\n\nIf you did not request this, ignore this email.",
-          zh: "输入此验证码以添加备用邮箱，10 分钟内有效。确认后才会添加邮箱。\n\n如非本人申请，请忽略此邮件。",
+          en: "Enter this 4-digit code on the website to add this secondary email to your account. It expires in 10 minutes.\n\nDidn't request this? Ignore this email—nothing will be added.",
+          zh: "请在网站输入此 4 位验证码，将此邮箱添加为你的备用邮箱，10 分钟内有效。\n\n如果这不是你的操作，忽略此邮件即可，不会添加任何邮箱。",
         }),
       }),
     });

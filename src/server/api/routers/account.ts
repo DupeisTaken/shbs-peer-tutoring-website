@@ -679,7 +679,7 @@ export const accountRouter = createTRPCRouter({
       await notifyAdmins({
         ...notificationInAppEvent("account_appeal_requested", undefined, {
           en: `${user.name ?? "A suspended user"} submitted an account suspension appeal.`,
-          zh: `${user.name ?? "一位账户被停用的用户"} 提交了账户停用申诉。`,
+          zh: `${user.name ?? "一位账号被暂停的用户"}提交了账号暂停申诉。`,
         }),
         title: "Account appeal",
         body: `${user.name ?? "A suspended user"} submitted an appeal.`,

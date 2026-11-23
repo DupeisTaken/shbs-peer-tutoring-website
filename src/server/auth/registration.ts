@@ -48,7 +48,13 @@ import type { TransactionDb } from "~/server/transactions";
 
 import { env } from "~/env";
 import { db } from "~/server/db";
-import { approvalScope } from "~/server/db-scope";
+import { approvalScope, deferUntilCommit } from "~/server/db-scope";
+import { emailSender, isEmailDeliveryAvailable } from "~/server/email/sender";
+import { invitationEmailCopy } from "~/server/email/direct-email-copy";
+import { invitationPurpose } from "~/server/email/required-notice-details";
+import { emailOrigin } from "~/server/email/urls";
+import { verifiedRecipientEmailLocale } from "~/server/email/recipient-locale";
+import { getProgramTimeZone } from "~/server/program/time-zone";
 import { hashPassword } from "./password";
 import {
   generateRegistrationCode,
@@ -270,6 +276,55 @@ async function createRegistrationCode(
     return { id: row.id, code, expiresAt };
   }
   throw new Error("Could not generate a unique registration code.");
+}
+
+/** Email a five-character invitation code after its issuing transaction commits.
+ * Delivery is best-effort so a transient mail outage never rolls back a created
+ * code or accepted application; staff can still share the code from the menu. */
+export async function deliverRegistrationCodeEmail(
+  input: {
+    email: string;
+    code: string;
+    kind: RegistrationKind;
+    expiresAt: Date;
+    locale?: EmailLocale;
+  },
+  client: DomainDb = db,
+): Promise<boolean> {
+  const email = input.email.trim().toLowerCase();
+  if (!email || !isEmailDeliveryAvailable("SECURITY")) return false;
+  const [timeZone, locale] = await Promise.all([
+    getProgramTimeZone(client),
+    input.locale
+      ? Promise.resolve(normalizeEmailLocale(input.locale))
+      : verifiedRecipientEmailLocale(client, email),
+  ]);
+  const message = {
+    category: "SECURITY" as const,
+    to: email,
+    ...invitationEmailCopy({
+      locale,
+      code: input.code,
+      purpose: invitationPurpose(input.kind),
+      deadline: { at: input.expiresAt, timeZone },
+      url: `${emailOrigin()}/register?code=${encodeURIComponent(input.code)}`,
+    }),
+  };
+  const send = async () => {
+    try {
+      await emailSender.send(message);
+      return true;
+    } catch {
+      return false;
+    }
+  };
+  if (
+    deferUntilCommit(async () => {
+      await send();
+    })
+  )
+    return true;
+  return send();
 }
 
 /** Public-application grants remain bound to their live approval and module.

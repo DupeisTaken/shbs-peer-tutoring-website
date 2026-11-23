@@ -20,8 +20,8 @@ it.each(["en", "zh"] as const)(
     const optional = notificationEmailContent(input);
     const guidance =
       locale === "en"
-        ? "administrator requires"
-        : "项目管理员要求接收此类别通知";
+        ? "This notification category is required by the program."
+        : "此类别邮件为项目必发通知。";
     const managementLabel =
       locale === "en" ? "Manage email preferences" : "管理邮件偏好";
     const optionalLabel = locale === "en" ? "Unsubscribe" : "取消订阅";
@@ -49,8 +49,8 @@ it("does not reclassify essential security copy as an administrator-required cat
     context: { changedFields: ["password"] },
     requiredByProgram: true,
   });
-  expect(content.text).toContain("If you do not recognize this activity");
-  expect(content.text).not.toContain("administrator requires");
+  expect(content.text).toContain("If you didn't make this change");
+  expect(content.text).not.toContain("required by the program");
   expect(content.presentation.unsubscribeUrl).toBeUndefined();
 });
 
@@ -94,7 +94,7 @@ it("retains the security response guidance in both alternatives", () => {
   });
   for (const body of [content.text, content.presentation.body]) {
     expect(body).toContain("Your password was changed.");
-    expect(body).toContain("If you do not recognize this activity");
+    expect(body).toContain("If you didn't make this change");
   }
   expect(content.presentation.eyebrow).toBe("ACCOUNT SECURITY");
   expect(content.presentation.unsubscribeUrl).toBeUndefined();
@@ -150,12 +150,12 @@ it.each(["en", "zh"] as const)(
     });
     for (const body of [security.text, security.presentation.body]) {
       expect(body).toContain(
-        locale === "en" ? "Your password was changed." : "您的密码已更改。",
+        locale === "en" ? "Your password was changed." : "你的密码已更改。",
       );
       expect(body).toContain(
         locale === "en"
-          ? "If you do not recognize this activity"
-          : "如非本人操作",
+          ? "If you didn't make this change"
+          : "如果这不是你的操作",
       );
       if (locale === "en") expect(body).not.toMatch(/\p{Script=Han}/u);
       else expect(body).not.toContain("Your password");

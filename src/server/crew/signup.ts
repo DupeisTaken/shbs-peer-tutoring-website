@@ -14,6 +14,7 @@ import {
   invitationEmailOwner,
 } from "~/server/auth/account-invitations";
 import {
+  deliverRegistrationCodeEmail,
   hashCode,
   freshEmailCode,
   issueRegistrationCode,
@@ -206,9 +207,13 @@ export async function stageCrewVerification(
       to: email,
       ...codeEmailCopy({
         locale,
+        preview: emailText(locale, {
+          en: `Enter this 4-digit code within ${CREW_CODE_TTL_MINUTES} minutes to verify your crew application.`,
+          zh: `请在 ${CREW_CODE_TTL_MINUTES} 分钟内输入 4 位验证码以验证巡查队申请。`,
+        }),
         subject: emailText(locale, {
           en: "Verify your crew application",
-          zh: "验证值勤人员申请",
+          zh: "验证巡查队申请",
         }),
         code,
         eyebrow: emailText(locale, {
@@ -216,8 +221,8 @@ export async function stageCrewVerification(
           zh: "邮箱验证",
         }),
         body: emailText(locale, {
-          en: `Enter this code to verify your crew application email. It expires in ${CREW_CODE_TTL_MINUTES} minutes. Crew access still requires approval.\n\nIf you did not request this, ignore this email.`,
-          zh: `输入此验证码以验证值勤人员申请邮箱，${CREW_CODE_TTL_MINUTES} 分钟内有效。值勤人员权限仍须审批。\n\n如非本人申请，请忽略此邮件。`,
+          en: `Enter this 4-digit code to submit your crew application for review. It expires in ${CREW_CODE_TTL_MINUTES} minutes.\n\nDidn't apply? Ignore this email.`,
+          zh: `输入此 4 位验证码以提交你的巡查队申请等待审核，${CREW_CODE_TTL_MINUTES} 分钟内有效。\n\n如非本人申请，忽略此邮件即可。`,
         }),
       }),
     });
@@ -284,8 +289,8 @@ export async function verifyCrewApplication(
           await notifyAdmins(
             {
               ...notificationInAppEvent("crew_application_pending", undefined, {
-                en: `${draft.name} applied to join the crew. Management review is required.`,
-                zh: `${draft.name} 申请加入工作组，待管理人员审核。`,
+                en: `${draft.name} applied to join the crew.`,
+                zh: `${draft.name} 申请加入巡查队。`,
               }),
               title: "New crew application awaiting management review",
               body: `${draft.name} applied to join the crew.`,
@@ -434,7 +439,7 @@ export async function decideCrewApplication(
   },
   actor: { id: string; name: string | null },
 ) {
-  return inTransaction(client, async (tx) => {
+  const outcome = await inTransaction(client, async (tx) => {
     await lockUsernameNamespace(tx);
     await assertEnabled(tx);
     // Leadership transfer has its own lock, so hold this actor row through the
@@ -499,6 +504,24 @@ export async function decideCrewApplication(
       },
       tx,
     );
-    return { ok: true, code: issued?.code ?? null };
+    return {
+      ok: true,
+      code: issued?.code ?? null,
+      emailInvite: issued
+        ? {
+            email: application.email,
+            code: issued.code,
+            expiresAt: issued.expiresAt,
+            locale: normalizeEmailLocale(application.emailLocale),
+          }
+        : null,
+    };
   });
+  if (outcome.emailInvite) {
+    await deliverRegistrationCodeEmail(
+      { ...outcome.emailInvite, kind: "CREW" },
+      client,
+    );
+  }
+  return { ok: outcome.ok, code: outcome.code };
 }

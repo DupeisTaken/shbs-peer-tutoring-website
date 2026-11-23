@@ -95,6 +95,10 @@ export async function requestEmailChange(
     to: targetEmail,
     ...codeEmailCopy({
       locale,
+      preview: emailText(locale, {
+        en: "Enter this 4-digit code within 10 minutes to update your primary email.",
+        zh: "请在 10 分钟内输入 4 位验证码以更换主邮箱。",
+      }),
       subject: emailText(locale, {
         en: "Verify your new primary email",
         zh: "验证新主邮箱",
@@ -102,8 +106,8 @@ export async function requestEmailChange(
       code,
       eyebrow: emailText(locale, { en: "EMAIL VERIFICATION", zh: "邮箱验证" }),
       body: emailText(locale, {
-        en: "Enter this code to change your primary email address. It expires in 10 minutes. Your email changes only after confirmation.\n\nIf you did not request this, ignore this email.",
-        zh: "输入此验证码以更改主邮箱，10 分钟内有效。确认后才会更改邮箱。\n\n如非本人申请，请忽略此邮件。",
+        en: "Enter this 4-digit code on the website to make this your new primary email. It expires in 10 minutes.\n\nDidn't request this? Ignore this email—your primary email won't change.",
+        zh: "请在网站输入此 4 位验证码，将此邮箱设为你的新主邮箱，10 分钟内有效。\n\n如果这不是你的操作，忽略此邮件即可，你的主邮箱不会改变。",
       }),
     }),
   });

@@ -23,7 +23,7 @@ import {
  * authorized management decision. It creates (or reactivates) the Tutor record and issues a code
  * bound to the applicant's email — which they redeem at /register to self-create a verified login
  * (set their own password, confirm their email). The code is surfaced on the admin "Registration
- * codes" menu for the team to hand out; it is NOT auto-emailed.
+ * codes" menu and emailed to the applicant after commit when security mail is available.
  *
  * Idempotent by email (a returning applicant is reactivated, not duplicated) and by application
  * (an outstanding code isn't re-issued). Requires an application email.
@@ -38,7 +38,11 @@ import {
   lockEntity,
   type TransactionDb,
 } from "~/server/transactions";
-import { issueRegistrationCode } from "~/server/auth/registration";
+import { normalizeEmailLocale } from "~/lib/email-locale";
+import {
+  deliverRegistrationCodeEmail,
+  issueRegistrationCode,
+} from "~/server/auth/registration";
 import {
   defaultUsername,
   canonicalUsername,
@@ -68,7 +72,7 @@ export async function promoteApplicantToTutor(
   applicationId: string,
   client: TransactionDb = db,
 ): Promise<void> {
-  return inTransaction(client, async (db) => {
+  const issuedInvite = await inTransaction(client, async (db) => {
     await lockUsernameNamespace(db);
     await lockApplicationReview(db, applicationId);
     // Keep the grant writer fenced even when a caller bypasses reconciliation.
@@ -85,6 +89,7 @@ export async function promoteApplicantToTutor(
         preferredName: true,
         alternativeNames: true,
         email: true,
+        emailLocale: true,
         type: true,
         invalidatedAt: true,
       },
@@ -324,7 +329,7 @@ export async function promoteApplicantToTutor(
     });
     if (openCode) return;
 
-    await issueRegistrationCode(
+    const issued = await issueRegistrationCode(
       {
         email,
         tutorId,
@@ -334,5 +339,17 @@ export async function promoteApplicantToTutor(
       },
       db,
     );
+    return {
+      email,
+      code: issued.code,
+      expiresAt: issued.expiresAt,
+      locale: normalizeEmailLocale(app.emailLocale),
+    };
   });
+  if (issuedInvite) {
+    await deliverRegistrationCodeEmail(
+      { ...issuedInvite, kind: "TUTOR" },
+      client,
+    );
+  }
 }

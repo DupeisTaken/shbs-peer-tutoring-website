@@ -29,7 +29,7 @@ export async function completeOnboardingAction(
       !rateLimit(`pwreset:id:${user.email}`, { max: 3, windowMs: 60 * 60_000 }).ok)
     return { sent: false };
   try {
-    await issuePasswordReset(user.email);
+    await issuePasswordReset(user.email, { mode: "setup" });
     return { sent: true };
   } catch {
     return { sent: false };

@@ -6417,27 +6417,27 @@
   "notificationEvents": {
     "primary_changed": {
       "title": "Primary Email Changed",
-      "body": "Your primary account email changed. Review your account and contact private support if you do not recognize this activity.",
+      "body": "Your primary account email was updated. Review your account settings to confirm.",
       "action": "Review your account"
     },
     "secondary_added": {
       "title": "Secondary Email Verified",
-      "body": "A secondary email was verified on your account. Review your email addresses.",
+      "body": "A secondary email was verified on your account. Check your email settings if needed.",
       "action": "Review your account"
     },
     "secondary_removed": {
       "title": "Secondary Email Removed",
-      "body": "A secondary email was removed from your account. Review your email addresses.",
+      "body": "A secondary email was removed from your account. Check your email settings if needed.",
       "action": "Review your account"
     },
     "security_changed": {
       "title": "Account Security Changed",
-      "body": "Your password or two-step verification settings changed. Contact private support if you do not recognize this activity.",
+      "body": "Your password or two-factor verification settings were updated. Review your account security settings.",
       "action": "Review your account"
     },
     "information_changed": {
       "title": "Account Information Updated",
-      "body": "Your account information or access changed. Sign in to review your current account.",
+      "body": "Your account details or access were updated. Open Account Settings to review.",
       "action": "Review your account"
     },
     "message_received": {
@@ -6447,17 +6447,17 @@
     },
     "program_update": {
       "title": "Program Update",
-      "body": "You have a program update. Sign in to review the notice and any next steps.",
+      "body": "You have a new program update. Open the site to view details.",
       "action": "View program update"
     },
     "tutor_application_pending": {
-      "title": "New Pending Tutor Request",
-      "body": "You have a new pending tutor application. Review the application before arranging an interview or making a decision.",
+      "title": "New Tutor Application",
+      "body": "A new tutor application is ready for review.",
       "action": "Review tutor applications"
     },
     "qualification_requested": {
       "title": "Additional Qualification Request",
-      "body": "A tutor requested an additional subject or qualification level. Review the request through the qualification workflow.",
+      "body": "A tutor requested an additional subject or level.",
       "action": "Review qualification request"
     },
     "qualification_approved": {
@@ -6471,8 +6471,8 @@
       "action": "Review qualification decision"
     },
     "crew_application_pending": {
-      "title": "New Crew Application Awaiting Admin Review",
-      "body": "A new crew application is awaiting Admin review. Open the crew workflow to review it.",
+      "title": "New Crew Application",
+      "body": "A new crew application is ready for review.",
       "action": "Review crew applications"
     },
     "viewer_registered": {
@@ -6482,174 +6482,174 @@
     },
     "tutor_setup_needed": {
       "title": "Tutor Account Setup Needed",
-      "body": "A tutor was added without a login account. Review the account setup workflow and send the authorized setup invitation.",
+      "body": "A tutor was added without a login account. Open Users & Roles to send a setup link.",
       "action": "Review account setup"
     },
     "interview_panel_assigned": {
       "title": "Interview Panel Assignment",
-      "body": "You were assigned to an interview panel. Review the application and panel duties in Schedule; a panel assignment alone does not schedule an interview.",
+      "body": "You were assigned to an interview panel. Check Schedule to review the application and coordinate the interview time.",
       "action": "View interview panel"
     },
     "interview_scheduled": {
-      "title": "New Interview Scheduled",
-      "body": "You have a new interview scheduled. Review the recorded time and interview details in Schedule. If no time is shown here, check Schedule.",
-      "action": "View scheduled interview"
+      "title": "Interview Scheduled",
+      "body": "An interview has been scheduled. Check Schedule for the time and details.",
+      "action": "View interview"
     },
     "management_review_pending": {
       "title": "Management Change Awaiting Review",
-      "body": "A management change proposal is awaiting approval. Review its recorded evidence before applying or declining it; the proposed change has not been applied.",
+      "body": "A proposed management change is waiting for your approval before it takes effect.",
       "action": "Review management change"
     },
     "management_head_review_pending": {
       "title": "Management Change Awaiting Head Review",
-      "body": "A management change proposal requires the program Head's approval. Review its recorded evidence; the proposed change has not been applied.",
+      "body": "A proposed management change needs Head approval before it takes effect.",
       "action": "Review management change"
     },
     "management_approved": {
       "title": "Management Change Approved",
-      "body": "Your management change proposal was approved and applied. Review the recorded decision and resulting state.",
+      "body": "Your management change proposal was approved and applied.",
       "action": "Review decision"
     },
     "management_rejected": {
       "title": "Management Change Declined",
-      "body": "Your management change proposal was declined. The proposed change was not applied; review the recorded decision.",
+      "body": "Your management change proposal was declined and no changes were made.",
       "action": "Review decision"
     },
     "translation_review_pending": {
       "title": "Translation Awaiting Review",
-      "body": "A translation draft is awaiting review. Open localization review to inspect the draft and decide whether to publish it.",
+      "body": "A translation draft is waiting for review.",
       "action": "Review translation"
     },
     "announcement_published": {
       "title": "New Program Announcement",
-      "body": "A program announcement was published for you. Open the announcement to read it and acknowledge it where required.",
+      "body": "A new program announcement was published. Open it to read and acknowledge if needed.",
       "action": "Read announcement"
     },
     "tutor_optout_requested": {
       "title": "Tutor Opt-Out Request Awaiting Review",
-      "body": "A tutor requested to opt out. Review the request after the required cooldown; the request alone does not change participation.",
+      "body": "A tutor requested to opt out. Their participation stays active until approved after the cooldown.",
       "action": "Review tutor requests"
     },
     "tutor_reentry_requested": {
       "title": "Tutor Reentry Request Awaiting Review",
-      "body": "A tutor requested to rejoin. Review the request before restoring active participation.",
+      "body": "A tutor requested to rejoin.",
       "action": "Review tutor requests"
     },
     "crew_optout_requested": {
-      "title": "Crew Opt-Out Request Awaiting Admin Review",
-      "body": "A crew member requested to opt out. An Admin can review the request after the required cooldown.",
+      "title": "Crew Opt-Out Request",
+      "body": "A crew member requested to opt out. It can be reviewed after the cooldown.",
       "action": "Review crew request"
     },
     "crew_reentry_requested": {
-      "title": "Crew Reentry Request Awaiting Admin Review",
-      "body": "A crew member requested to rejoin. An Admin must review the request before participation is restored.",
+      "title": "Crew Reentry Request",
+      "body": "A crew member requested to rejoin.",
       "action": "Review crew request"
     },
     "membership_optout_approved": {
       "title": "Opt-Out Approved",
-      "body": "Your opt-out request was approved. Review your current participation status and retained records.",
+      "body": "Your opt-out request was approved.",
       "action": "View participation"
     },
     "membership_reentry_approved": {
       "title": "Reentry Approved",
-      "body": "Your reentry request was approved and your participation is active again. Review your workspace for current responsibilities.",
+      "body": "Your reentry request was approved. You are active again.",
       "action": "Open your workspace"
     },
     "membership_declined": {
       "title": "Participation Request Declined",
-      "body": "Your participation change request was declined. Review the decision in your workspace.",
+      "body": "Your participation request was declined.",
       "action": "Review participation decision"
     },
     "tutee_optout_requested": {
       "title": "Tutee Opt-Out Awaiting Review",
-      "body": "A tutor relayed a tutee opt-out request. Review it during the recorded cooldown; the workflow may apply it automatically when that period ends.",
+      "body": "A tutor relayed a tutee opt-out request. It will auto-approve after the cooldown unless cancelled.",
       "action": "Review tutee requests"
     },
     "tutee_optout_cancelled": {
       "title": "Tutee Opt-Out Cancelled",
-      "body": "Management cancelled a tutee opt-out request. Review the current assignment and request state on your dashboard.",
+      "body": "Management cancelled a tutee opt-out request.",
       "action": "Review assignment"
     },
     "tutee_removed": {
       "title": "Tutee Removed from Current Roster",
-      "body": "A tutee was removed from the current roster. Review the current assignment and retained history in your workspace.",
+      "body": "A tutee was removed from the current roster.",
       "action": "Review roster update"
     },
     "attendance_cards_pending": {
       "title": "Discipline Cards Awaiting Review",
-      "body": "An attendance survey submitted {count} discipline card request(s). Review each request before issuing a card.",
+      "body": "{count, plural, one {# discipline card request} other {# discipline card requests}} awaiting review.",
       "action": "Review discipline cards",
-      "bodyWithoutCount": "An attendance survey submitted discipline card requests. Review each request before issuing a card."
+      "bodyWithoutCount": "Discipline card requests are awaiting review."
     },
     "attendance_room_reported": {
-      "title": "Allocated-Room Attendance Reported",
-      "body": "Attendance was reported in an allocated room. Open attendance review to inspect the recorded submission.",
+      "title": "Room Conflict in Attendance",
+      "body": "Attendance was logged in a room that is booked elsewhere or blocked.",
       "action": "Review attendance"
     },
     "attendance_review_warning": {
       "title": "Attendance Warning Recorded",
-      "body": "An attendance review recorded a warning. Review the recorded decision on your dashboard.",
+      "body": "A warning was recorded for an attendance review.",
       "action": "Review attendance decision"
     },
     "attendance_review_penalty": {
       "title": "Attendance Penalty Applied",
-      "body": "An attendance review applied a service-hour penalty. Review the recorded decision and updated service hours.",
+      "body": "A service-hour deduction was applied after an attendance review.",
       "action": "Review attendance decision"
     },
     "attendance_review_escalated": {
       "title": "Attendance Flag Escalated for Review",
-      "body": "An attendance flag was escalated for further review. Review the recorded state; this notice does not itself confirm a penalty.",
+      "body": "An attendance flag was escalated for further review. No penalty has been applied yet.",
       "action": "Review attendance decision"
     },
     "attendance_history_updated": {
       "title": "Historical Attendance Updated",
-      "body": "A catalogue change updated {count} teaching block(s). Related attendance flags and deductions were reconsidered; review the audit evidence.",
+      "body": "A time-slot update changed {count, plural, one {# past session} other {# past sessions}}. Related flags and deductions were updated.",
       "action": "Review audit evidence",
-      "bodyWithoutCount": "A catalogue change updated historical teaching blocks. Related attendance flags and deductions were reconsidered; review the audit evidence."
+      "bodyWithoutCount": "A time-slot update changed past sessions. Related flags and deductions were updated."
     },
     "account_suspended": {
       "title": "Account Suspended",
-      "body": "Your account access was suspended pending review. Open the suspension page to review the available appeal steps.",
+      "body": "Your account is suspended. Open the suspension page to submit an appeal.",
       "action": "Review suspension"
     },
     "account_reinstated": {
       "title": "Account Reinstated",
-      "body": "Your account access was restored. Sign in to review your current permissions and workspace.",
+      "body": "Your account is active again.",
       "action": "Open your workspace"
     },
     "account_appeal_requested": {
       "title": "Account Appeal Awaiting Review",
-      "body": "A suspended account submitted an appeal. Authorized management can review the appeal in Users & Roles.",
+      "body": "A suspended account submitted an appeal.",
       "action": "Review account appeal"
     },
     "account_appeal_approved": {
       "title": "Account Appeal Approved",
-      "body": "Your account appeal was approved and account access was restored. Sign in to review your current access.",
+      "body": "Your appeal was approved and your account is active again.",
       "action": "Open your workspace"
     },
     "account_appeal_declined": {
       "title": "Account Appeal Declined",
-      "body": "Your account appeal was declined and the account remains suspended. Review the available support steps.",
+      "body": "Your appeal was declined and your account stays suspended.",
       "action": "Review appeal decision"
     },
     "record_corrected": {
       "title": "Management Record Correction Applied",
-      "body": "Management applied a record correction. Review the original and corrected evidence in the audit log.",
+      "body": "Management corrected a record. View the details in the audit log.",
       "action": "Review audit evidence"
     },
     "tutee_feedback_received": {
       "title": "New Tutee Feedback",
-      "body": "A tutee submitted session feedback. Authorized management can review the feedback in Student Support.",
+      "body": "A tutee submitted session feedback.",
       "action": "Review feedback"
     },
     "tutee_card_appeal": {
       "title": "Tutee Card Appeal Awaiting Review",
-      "body": "A tutee appealed a discipline card. Review the appeal and recorded card evidence in Student Support.",
+      "body": "A tutee appealed a discipline card.",
       "action": "Review card appeal"
     },
     "tutee_appeal_reviewed": {
       "title": "Tutee Appeal Reviewed",
-      "body": "Your discipline card appeal was reviewed. Open your student workspace to see the decision and current standing.",
+      "body": "Your discipline card appeal was reviewed. Open your workspace to see the decision.",
       "action": "Review appeal decision"
     },
     "student_assignment_updated": {
@@ -6659,82 +6659,82 @@
     },
     "student_availability_updated": {
       "title": "Tutee Availability Updated",
-      "body": "A tutee updated their available time slots. Review the current availability before adjusting an assignment.",
+      "body": "A tutee updated their available times.",
       "action": "Review availability"
     },
     "student_request_recalled": {
       "title": "Signup Request Recalled",
-      "body": "A signup request was recalled and closed. Review its retained history; a new submission is required to request participation again.",
+      "body": "A signup request was recalled. Submit a new request if you want to join again.",
       "action": "Review request history"
     },
     "student_request_expired": {
       "title": "Signup Verification Overdue",
-      "body": "A signup request closed because verification was not completed by its deadline. A new request is required; review the retained request history.",
+      "body": "A signup request closed because email verification timed out. Submit a new request to reapply.",
       "action": "Review request history"
     },
     "student_withdrawal_pending": {
-      "title": "Quarter Withdrawal Awaiting Review",
-      "body": "A request to withdraw for the current quarter is awaiting review. Participation continues until the withdrawal is approved.",
+      "title": "Withdrawal Request Awaiting Review",
+      "body": "A withdrawal request is awaiting review. Tutoring continues until it is approved.",
       "action": "Review withdrawal request"
     },
     "student_withdrawal_approved": {
-      "title": "Quarter Withdrawal Approved",
-      "body": "A quarter withdrawal was approved and the request closed. Review the retained history; the current quarter cannot be reactivated through this request.",
+      "title": "Withdrawal Approved",
+      "body": "Your withdrawal was approved and the request is closed.",
       "action": "Review withdrawal decision"
     },
     "student_withdrawal_declined": {
-      "title": "Quarter Withdrawal Declined",
-      "body": "A quarter withdrawal request was declined. Current participation continues; review the recorded decision.",
+      "title": "Withdrawal Declined",
+      "body": "Your withdrawal request was declined. Your tutoring continues.",
       "action": "Review withdrawal decision"
     },
     "student_schedule_review_pending": {
       "title": "Tutor Schedule Conflict Awaiting Review",
-      "body": "A tutor reported a schedule conflict for an assignment. Review the request before changing the current assignment.",
+      "body": "A tutor reported a schedule conflict for an assignment.",
       "action": "Review schedule conflict"
     },
     "student_schedule_review_approved": {
       "title": "Schedule Conflict Approved; Rematching Needed",
-      "body": "A schedule conflict request was approved and the affected assignment was removed. Review the request to arrange a new match.",
+      "body": "A schedule conflict was approved and the assignment was removed. Open the request to arrange a new match.",
       "action": "Review rematching request"
     },
     "student_schedule_review_declined": {
       "title": "Schedule Conflict Declined",
-      "body": "A schedule conflict request was declined. The current assignment continues; review the recorded decision.",
+      "body": "A schedule conflict request was declined. The current assignment stays in place.",
       "action": "Review schedule decision"
     },
     "tutor_reactivated": {
       "title": "Tutor Participation Reactivated",
-      "body": "A tutor became available for the current term. Review the current participation and assignment state in the tutor roster.",
+      "body": "A tutor became available for this term.",
       "action": "Review tutor roster"
     },
     "tutor_opted_out": {
       "title": "Tutor Opted Out for This Term",
-      "body": "A tutor opted out for the current term. Review the current participation and assignment state in the tutor roster.",
+      "body": "A tutor opted out for this term.",
       "action": "Review tutor roster"
     },
     "meeting_absence_excused": {
       "title": "Tutor Meeting Absence Excused",
-      "body": "A tutor recorded an excuse for an upcoming meeting absence. Review the meeting's attendance state; the excuse text is available only in the authorized workflow.",
+      "body": "A tutor excused themselves from an upcoming meeting. Open Meetings to view details.",
       "action": "Review meeting attendance"
     },
     "school_departure_updated": {
       "title": "School Participation Status Updated",
-      "body": "Your school departure or return status was updated. Review the recorded state and any participation steps in your account workspace.",
+      "body": "Your school participation status was updated. Check your account for details.",
       "action": "Review school participation"
     },
     "request_invalidity_appeal_pending": {
       "title": "Invalid Request Appeal Awaiting Review",
-      "body": "신청자가 적용된 신청 무효 표시에 이의를 제기했습니다. 연결된 신청을 열어 이의를 검토하세요. 이의 제출만으로 무효 표시가 해제되지는 않습니다.",
+      "body": "A submitter appealed an invalid-request flag. Review the appeal on the linked request.",
       "action": "Review invalid request appeal"
     },
     "student_signup_rejected": {
       "title": "무효 신청 종료",
-      "body": "이의 신청이 거절되었습니다. 신청이 종료되고 대기 우선순위가 제거됩니다. 새 신청을 제출할 수 있습니다.",
+      "body": "Your appeal was declined and this request is closed. You can submit a new request to rejoin the queue.",
       "action": "Review request history"
     },
     "interview_approved": {
       "title": "Interview Approved",
-      "body": "The assigned chair approved the interview and recorded panel service hours. Review the application for its outcome.",
+      "body": "The interview chair approved the interview and recorded panel hours. Open the application to view the outcome.",
       "action": "View application"
     },
     "school_calendar_changed": {
@@ -6761,22 +6761,22 @@
     },
     "student_continuation_released": {
       "title": "연속 튜터링 배정 해제",
-      "body": "가능 시간 변경으로 연속 튜터링 배정이 해제되었습니다. 신청은 재배정을 위해 보존됩니다. 자세한 내용은 신청에서 확인하세요.",
+      "body": "A continued tutoring assignment was released after availability changed. Your signup request stays open for reassignment.",
       "action": "보존된 신청 확인"
     },
     "interview_upcoming": {
       "title": "다가오는 면접",
-      "body": "예정된 면접이 곧 시작됩니다. 기록된 시간과 면접위원 역할을 확인하세요.",
+      "body": "Your interview is coming up. Check the time and details.",
       "action": "면접 보기"
     },
     "meeting_upcoming": {
       "title": "다가오는 회의",
-      "body": "예정된 회의가 곧 시작됩니다. 기록된 시간과 회의 내용을 확인하세요.",
+      "body": "Your meeting is coming up. Check the time and details.",
       "action": "회의 보기"
     },
     "tutoring_upcoming": {
       "title": "다가오는 튜터링 수업",
-      "body": "확정된 튜터링 수업이 곧 시작됩니다. 기록된 시간과 수업 내용을 확인하세요.",
+      "body": "Your tutoring session is coming up. Check the time and details.",
       "action": "튜터링 수업 보기"
     },
     "room_assignment_needed": {
@@ -6786,12 +6786,12 @@
     },
     "scheduled_refresh_completed": {
       "title": "Scheduled Program Refresh Completed",
-      "body": "The scheduled program refresh completed. Review the active period and signup settings.",
+      "body": "The scheduled program refresh completed. Check the active period and signup settings.",
       "action": "Review program settings"
     },
     "scheduled_refresh_blocked": {
       "title": "Scheduled Program Refresh Needs Review",
-      "body": "The scheduled program refresh could not proceed. Head must review the current settings and authorization before scheduling again.",
+      "body": "The scheduled program refresh could not run. Review the settings and schedule it again.",
       "action": "Review refresh schedule"
     }
   },

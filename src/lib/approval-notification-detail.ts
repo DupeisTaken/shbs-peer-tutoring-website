@@ -43,8 +43,8 @@ export function approvalNotificationDetail(
       withdrawn: { en: "Admission withdrawal proposal withdrawn", zh: "录取撤销提案已撤回" },
     }[outcome];
     return {
-      en: `${action.en}: ${applicant ?? "(applicant name not recorded)"}.${outcome === "approved" ? "" : " No admission change was applied by this proposal."}`,
-      zh: `${action.zh}：${applicant ?? "（未记录申请人姓名）"}。${outcome === "approved" ? "" : "此提案未应用任何录取变更。"}`,
+      en: `${action.en}: ${applicant ?? "(applicant name not recorded)"}.`,
+      zh: `${action.zh}：${applicant ?? "（未记录申请人姓名）"}。`,
     };
   }
   const rows = (table: string) => {

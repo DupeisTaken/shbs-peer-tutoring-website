@@ -41,9 +41,15 @@ export function notificationEmailCopy(
       language,
       translators[language],
     )!;
+  const timeLine = copy.time
+    ? emailText(language, {
+        en: `\nTime: ${copy.time}`,
+        zh: `\n时间：${copy.time}`,
+      })
+    : "";
   return {
     subject: copy.title,
-    description: `${detail?.[language] ?? copy.body}${copy.time ? `\n${copy.time}` : ""}`,
+    description: `${detail?.[language] ?? copy.body}${timeLine}`,
     action: copy.action,
   };
 }
@@ -72,18 +78,18 @@ export function notificationEmailContent(input: {
     timeZone,
   }).format(input.createdAt);
   const issued = emailText(locale, {
-    en: `Notice issued: ${time} (${timeZone})`,
-    zh: `通知发出时间：${time}（${timeZone}）`,
+    en: `Sent: ${time} (${timeZone})`,
+    zh: `发送时间：${time}（${timeZone}）`,
   });
   const footer = essential
     ? emailText(locale, {
-        en: "If you do not recognize this activity, contact the program team through private support.",
-        zh: "如非本人操作，请通过私密支持联系项目团队。",
+        en: "If you didn't make this change, contact the program team right away.",
+        zh: "如果这不是你的操作，请尽快联系项目团队。",
       })
     : requiredByProgram
       ? emailText(locale, {
-          en: "The program administrator requires this notification category. Other optional email notifications can be managed in account settings.",
-          zh: "项目管理员要求接收此类别通知。您可在账户设置中管理其他可选邮件通知。",
+          en: "This notification category is required by the program. You can manage optional emails in Account Settings.",
+          zh: "此类别邮件为项目必发通知。你可以在账号设置中管理其他可选邮件。",
         })
       : "";
   const preferenceLabel = emailText(
@@ -103,27 +109,27 @@ export function notificationEmailContent(input: {
         locale,
         essential
           ? {
-              en: "Review this notice. Contact the program team if the change is unfamiliar.",
-              zh: "请核对安全通知。如非本人操作，请联系项目团队。",
+              en: "Check this account security update and contact the program team if it wasn't you.",
+              zh: "请查看这条账号安全更新；如果不是你的操作，请联系项目团队。",
             }
           : category === "messages"
             ? {
                 en: "Open your inbox to read and reply.",
-                zh: "请打开收件箱阅读并回复。",
+                zh: "打开收件箱阅读并回复。",
               }
             : category === "review"
               ? {
-                  en: "Review the request and its details on the website.",
-                  zh: "请在网站核对申请及其详情。",
+                  en: "Open the website to review this request.",
+                  zh: "打开网站审核这项申请。",
                 }
               : category === "reminder"
                 ? {
-                    en: "Check the scheduled time and location before the event.",
-                    zh: "请在活动开始前核对时间和地点。",
+                    en: "Check the time and location before it starts.",
+                    zh: "开始前请核对时间和地点。",
                   }
                 : {
-                    en: "Open the website for the update and any next steps.",
-                    zh: "请打开网站查看通知和后续步骤。",
+                    en: "Open the website to view this update.",
+                    zh: "打开网站查看更新详情。",
                   },
       ),
       body: `${copy.description}\n\n${issued}${footer ? `\n\n${footer}` : ""}`,
@@ -133,13 +139,13 @@ export function notificationEmailContent(input: {
       eyebrow: emailText(
         locale,
         essential
-          ? { en: "ACCOUNT SECURITY", zh: "账户安全" }
+          ? { en: "ACCOUNT SECURITY", zh: "账号安全" }
           : category === "messages"
             ? { en: "PRIVATE MESSAGES", zh: "私信" }
             : category === "review"
-              ? { en: "REVIEW REQUEST", zh: "审核请求" }
+              ? { en: "REVIEW NEEDED", zh: "待审核" }
               : category === "reminder"
-                ? { en: "UPCOMING EVENT", zh: "即将开始的活动" }
+                ? { en: "REMINDER", zh: "日程提醒" }
                 : { en: "PROGRAM UPDATE", zh: "项目通知" },
       ),
       action: { label: copy.action, url: link },

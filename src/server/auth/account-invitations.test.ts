@@ -642,10 +642,10 @@ it.each(["en", "zh"] as const)("displays a %s invitation without mail, preserves
   });
   const verification = mail.send.mock.lastCall![0];
   expect(verification.presentation?.locale).toBe(locale);
-  expect(verification.subject).toContain(locale === "zh" ? "只读观察员权限" : "read-only Viewer access");
+  expect(verification.subject).toContain(locale === "zh" ? "只读观察员" : "read-only Viewer");
   expect(verification.text).toContain(emailDeadline({ at: before.emailCodeExpiresAt!, timeZone: await getProgramTimeZone(db) }, { en: "Code expires", zh: "验证码有效期至" }, locale));
-  expect(verification.text).toContain(locale === "zh" ? "新增权限仍须另行确认" : "accept any added access separately");
-  expect(verification.text).not.toContain(locale === "zh" ? "proves mailbox ownership" : "此验证码仅确认邮箱归属");
+  expect(verification.text).toContain(locale === "zh" ? "确认后才会生效" : "confirm any changes on the next screen");
+  expect(verification.text).not.toContain(locale === "zh" ? "verify your email" : "验证邮箱");
   mail.send.mockRejectedValueOnce(Error("offline"));
   await expect(
     emailDisplayedInvitation(db, {

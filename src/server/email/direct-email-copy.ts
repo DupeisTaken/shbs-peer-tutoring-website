@@ -50,12 +50,12 @@ export function codeEmailCopy(input: {
   const codeLine =
     codePurpose === "invitation"
       ? emailText(locale, {
-          en: `Your invitation code: ${input.code}.`,
-          zh: `邀请码：${input.code}。`,
+          en: `Invitation code: ${input.code}`,
+          zh: `邀请码：${input.code}`,
         })
       : emailText(locale, {
           en: `${verificationLabel.en} is ${input.code}.`,
-          zh: `${verificationLabel.zh}：${input.code}。`,
+          zh: `${verificationLabel.zh}：${input.code}`,
         });
   return {
     subject: input.subject,
@@ -70,12 +70,12 @@ export function codeEmailCopy(input: {
           locale,
           codePurpose === "invitation"
             ? {
-                en: "Review this invitation before accepting any added access.",
-                zh: "请先核对邀请，再确认新增权限。",
+                en: "Your invitation code is inside. Open the website to review it.",
+                zh: "内含你的邀请码，前往网站查看即可继续。",
               }
             : {
-                en: "Use the code on the website to continue.",
-                zh: "请在网站输入验证码以继续。",
+                en: "Enter the verification code on the website to continue.",
+                zh: "在网站输入验证码即可继续。",
               },
         ),
       code: input.code,
@@ -104,8 +104,8 @@ export function linkedEmailCopy(input: {
       preview:
         input.preview ??
         emailText(locale, {
-          en: "Open the website to review the details and next steps.",
-          zh: "请打开网站查看详情和后续步骤。",
+          en: "Open the link on the website to continue.",
+          zh: "打开网站链接以继续。",
         }),
       body: input.body,
       action: input.action,
@@ -125,19 +125,19 @@ export function invitationVerificationEmailCopy(input: {
   return codeEmailCopy({
     locale,
     preview: emailText(locale, {
-      en: "Verify your mailbox before the code expires, then review any added access.",
-      zh: "请在验证码到期前验证邮箱，再核对新增权限。",
+      en: "Enter this code to verify your email and view your invitation.",
+      zh: "输入验证码验证邮箱，即可查看你的邀请。",
     }),
     subject: emailText(locale, {
-      en: `Verify email · ${input.purpose.en} invitation`,
+      en: `Verify your email · ${input.purpose.en} invitation`,
       zh: `验证邮箱 · ${input.purpose.zh}邀请`,
     }),
     code: input.code,
     eyebrow: emailText(locale, { en: "EMAIL VERIFICATION", zh: "邮箱验证" }),
     body: [
       emailText(locale, {
-        en: `This code proves mailbox ownership so you can review your ${input.purpose.en} invitation; accept any added access separately.`,
-        zh: `此验证码仅确认邮箱归属，以便查看${input.purpose.zh}邀请；新增权限仍须另行确认。`,
+        en: `Enter this code to verify your email and view your ${input.purpose.en} invitation. You'll confirm any changes on the next screen.`,
+        zh: `输入此验证码以验证邮箱并查看你的${input.purpose.zh}邀请，所有更改都需你确认后才会生效。`,
       }),
       emailDeadline(
         input.deadline,
@@ -145,15 +145,15 @@ export function invitationVerificationEmailCopy(input: {
         locale,
       ),
       emailText(locale, {
-        en: "Existing accounts sign in without changing their password or memberships. If you did not request this, ignore this email.",
-        zh: "已有账号可登录，密码和身份不变。如非本人申请，请忽略此邮件。",
+        en: "Already have an account? You can sign in with your current password and keep your existing roles. If you didn't request this, ignore this email.",
+        zh: "已有账号可直接用原密码登录，现有身份不变。如非本人申请，忽略此邮件即可。",
       }),
     ].join("\n\n"),
     ...(input.url
       ? {
           action: {
             label: emailText(locale, {
-              en: "Review invitation",
+              en: "Open invitation",
               zh: "查看邀请",
             }),
             url: input.url,
@@ -183,30 +183,30 @@ export function invitationEmailCopy(input: {
   return codeEmailCopy({
     locale,
     preview: emailText(locale, {
-      en: "Review the invitation and its expiry before accepting access.",
-      zh: "请先核对邀请及其有效期，再确认权限。",
+      en: "Open the link or use your invitation code on the website to continue.",
+      zh: "打开链接或在网站输入邀请码即可继续。",
     }),
     subject: emailText(locale, {
-      en: `Invitation to review ${input.purpose.en}`,
-      zh: `${input.purpose.zh}邀请`,
+      en: `Your ${input.purpose.en} invitation`,
+      zh: `你的${input.purpose.zh}邀请`,
     }),
     code: input.code,
     codePurpose: "invitation",
-    eyebrow: emailText(locale, { en: "ACCOUNT INVITATION", zh: "账户邀请" }),
+    eyebrow: emailText(locale, { en: "ACCOUNT INVITATION", zh: "账号邀请" }),
     body: [
+      emailText(locale, {
+        en: `Here is your ${input.purpose.en} invitation. Open it on the website to review the details before confirming—your existing roles won't be replaced.`,
+        zh: `这是你的${input.purpose.zh}邀请。打开网站查看详情后再决定是否确认，你现有的身份不会被替换。`,
+      }),
       emailText(locale, codeGuidance),
       emailDeadline(
         input.deadline,
         { en: "Invitation expires", zh: "邀请有效期至" },
         locale,
       ),
-      emailText(locale, {
-        en: `Review your invitation for ${input.purpose.en}. Opening it does not grant access or replace existing memberships.`,
-        zh: `请审核${input.purpose.zh}邀请。打开邀请不会自动授予权限或替换已有身份。`,
-      }),
     ].join("\n\n"),
     action: {
-      label: emailText(locale, { en: "Review invitation", zh: "查看邀请" }),
+      label: emailText(locale, { en: "Open invitation", zh: "查看邀请" }),
       url: input.url,
     },
   });
@@ -229,24 +229,24 @@ export function tutoringSignupEmailCopy(input: {
       )
     : input.legacy
       ? emailText(locale, {
-          en: "Code and confirmation link expire in 24 hours.",
-          zh: "验证码和确认链接 24 小时后失效。",
+          en: "This code and link expire in 24 hours.",
+          zh: "验证码和链接 24 小时内有效。",
         })
       : "";
   const requestDeadline = input.verificationDue
-    ? `${emailDeadline(input.verificationDue, { en: "Complete verification by", zh: "完成验证截止时间" }, locale)}\n${emailText(
+    ? `${emailDeadline(input.verificationDue, { en: "Verification deadline", zh: "验证截止时间" }, locale)}\n${emailText(
         locale,
         {
-          en: "Your request will be permanently disqualified and all assignments released after this deadline. Resends do not extend it.",
-          zh: "逾期将永久取消申请资格并解除所有辅导安排，重发不会延长期限。",
+          en: "Finish before this deadline—afterward your request will be permanently closed and any assignments released. Requesting a new link does not extend it.",
+          zh: "请在此时间前完成验证；逾期将永久取消申请资格并解除已分配的辅导安排，重新发送不会延长期限。",
         },
       )}`
     : "";
   return codeEmailCopy({
     locale,
     preview: emailText(locale, {
-      en: "Verify your email, then finish and confirm your tutoring request.",
-      zh: "请验证邮箱，再完成账户确认并确认辅导申请。",
+      en: "Your request is saved—verify your email and confirm your signup to finish.",
+      zh: "你的辅导申请已保存，验证邮箱并确认即可完成报名。",
     }),
     subject: emailText(locale, {
       en: "Verify your tutoring signup",
@@ -256,26 +256,22 @@ export function tutoringSignupEmailCopy(input: {
     eyebrow: emailText(locale, { en: "TUTORING SIGNUP", zh: "辅导报名" }),
     body: [
       emailText(locale, {
-        en: "Enter this code to verify your tutoring signup email.",
-        zh: "输入此验证码以验证辅导报名邮箱。",
+        en: "Your tutoring request is saved, but your signup is not complete yet. Enter this code (or use the button below) to verify your email, then sign in or set up your account to confirm. Your original place in line is kept.",
+        zh: "你的辅导申请已保存，但报名尚未完成。输入此验证码（或点击下方按钮）验证邮箱，然后登录或设置账号并确认申请。原本的排队顺序也会保留。",
       }),
       codeExpiry,
       requestDeadline,
-      emailText(locale, {
-        en: "Your tutoring request is saved, but signup is not complete. After verification, finish account review and confirm your request. Your original submission priority is kept.",
-        zh: "辅导申请已保存，但报名尚未完成。验证邮箱后，请继续完成账户确认并确认申请；原提交优先顺序保留。",
-      }),
       ...(input.legacy
         ? [
             emailText(locale, {
-              en: "An invitation can sign in your existing account without changing its password; review and accept it to finish. Requesting another confirmation link keeps your submission time.",
-              zh: "邀请可登录已有账号且不更改密码；请审核并接受邀请以完成申请。重发确认链接保留原提交时间。",
+              en: "Already have an account? Signing in through the invitation keeps your current password, and requesting another link keeps your original submission time.",
+              zh: "已有账号通过邀请登录不会更改原密码；重新获取链接也会保留原提交时间。",
             }),
           ]
         : []),
       emailText(locale, {
-        en: "If you did not submit this request, ignore this email.",
-        zh: "如非本人提交，请忽略此邮件。",
+        en: "Didn't submit a tutoring request? You can safely ignore this email.",
+        zh: "如果你没有提交过辅导申请，忽略此邮件即可。",
       }),
     ]
       .filter(Boolean)
@@ -297,8 +293,8 @@ export function historyInvitationEmailCopy(input: {
   return linkedEmailCopy({
     locale,
     preview: emailText(locale, {
-      en: "Review and claim the listed historical records within seven days.",
-      zh: "请在七天内核对并确认关联列出的历史记录。",
+      en: "Review and link your past tutoring records within 7 days.",
+      zh: "请在 7 天内查看并关联你的往期辅导记录。",
     }),
     subject: emailText(locale, {
       en: "Link your historical tutoring records",
@@ -308,18 +304,18 @@ export function historyInvitationEmailCopy(input: {
     body: [
       emailText(locale, input.scope),
       emailText(locale, {
-        en: "Sign in with your verified account, or create a history-only account using a separate email verification code. Review and explicitly claim the listed records.",
-        zh: "请使用已验证账号登录，或通过单独的邮箱验证码创建仅供历史访问的账号，然后核对并确认关联列出的记录。",
+        en: "Sign in to your account—or create a history-only account with an email verification code—to view and claim these records.",
+        zh: "登录你的账号（或通过邮箱验证码创建仅查看历史记录的账号），即可核对并关联这些记录。",
       }),
       emailText(locale, {
-        en: `This reviewed invitation expires in seven days and can be cancelled by staff. It does not enroll you, grant current participation or observer access, or accept policies for you.${input.exact ? "" : " If your old email is unavailable, contact the program team for a reviewed replacement invitation."}`,
-        zh: `此已审核邀请七天内有效，管理人员可取消。邀请不会加入当前项目、授予当前参与或观察员权限，也不会代为接受政策。${input.exact ? "" : "如旧邮箱已无法使用，请联系项目团队核实后重新邀请。"}`,
+        en: `This link expires in 7 days and only adds your past records without changing your current participation.${input.exact ? "" : " If your old email is no longer available, contact the program team for a new link."}`,
+        zh: `此链接 7 天内有效，仅用于关联历史记录，不会改变你当前的参与状态。${input.exact ? "" : "如果旧邮箱已无法使用，请联系项目团队重新发送链接。"}`,
       }),
     ].join("\n\n"),
     action: {
       label: emailText(locale, {
-        en: "Review historical records",
-        zh: "核对历史记录",
+        en: "View historical records",
+        zh: "查看历史记录",
       }),
       url: input.url,
     },
@@ -329,6 +325,7 @@ export function historyInvitationEmailCopy(input: {
 export function signupAppealEmailCopy(input: {
   kind: "INVALID_FLAGGED" | "APPEAL_ACCEPTED" | "APPEAL_REJECTED";
   appealUrl?: string;
+  actionUrl?: string;
   locale?: EmailLocale;
 }) {
   const locale = normalizeEmailLocale(input.locale);
@@ -336,25 +333,25 @@ export function signupAppealEmailCopy(input: {
     INVALID_FLAGGED: {
       subject: {
         en: "Tutoring request paused: appeal available",
-        zh: "辅导申请暂停：可提出申诉",
+        zh: "辅导申请已暂停：可以申诉",
       },
       body: {
-        en: "Confirm whether your tutoring request is genuine and explain why it should be reviewed again. Processing stays paused until staff review your appeal. Appeal before the current intake period ends.",
-        zh: "请确认您的辅导申请是否真实，并填写重新审核的理由。管理人员审核申诉前，申请处理暂停。请在当前报名周期结束前申诉。",
+        en: "Your tutoring request was flagged as invalid. Processing is paused until this is resolved. Submit an appeal before the current signup period ends to confirm your request is genuine.",
+        zh: "你的辅导申请被标记为无效，申请处理暂停。请在当前报名周期结束前提交申诉，说明你的申请真实有效。",
       },
     },
     APPEAL_ACCEPTED: {
       subject: { en: "Tutoring appeal accepted", zh: "辅导申请申诉已通过" },
       body: {
-        en: "Your appeal was accepted. Your request keeps its original priority.",
-        zh: "您的申诉已通过，原申请优先顺序保持不变。",
+        en: "Your appeal was accepted. Your tutoring request is active again with its original place in line.",
+        zh: "你的申诉已通过，辅导申请已恢复正常处理，原本的排队顺序保持不变。",
       },
     },
     APPEAL_REJECTED: {
-      subject: { en: "Tutoring appeal rejected", zh: "辅导申请申诉已驳回" },
+      subject: { en: "Tutoring appeal rejected", zh: "辅导申请申诉未通过" },
       body: {
-        en: "Your appeal was rejected and this request is closed. Submit a fresh request to rejoin the queue with new priority.",
-        zh: "您的申诉已驳回，原申请已关闭。重新申请将获得新的排队顺序。",
+        en: "Your appeal was rejected and this request has been closed. You can submit a new request to rejoin the queue.",
+        zh: "你的申诉未通过，原申请已关闭。如需继续申请，可以重新提交一份新的报名。",
       },
     },
   }[input.kind];
@@ -364,16 +361,16 @@ export function signupAppealEmailCopy(input: {
   const preview = emailText(locale, {
     en:
       input.kind === "INVALID_FLAGGED"
-        ? "Review the appeal instructions before the current signup period ends."
+        ? "Submit an appeal before the current signup period ends."
         : input.kind === "APPEAL_ACCEPTED"
-          ? "Your original request priority is preserved."
-          : "Submit a fresh request if you want to rejoin the queue.",
+          ? "Your tutoring request is back in line with its original priority."
+          : "This request is closed. Submit a new request if you still need tutoring.",
     zh:
       input.kind === "INVALID_FLAGGED"
-        ? "请在当前报名周期结束前查看申诉说明。"
+        ? "请在当前报名周期结束前提交申诉。"
         : input.kind === "APPEAL_ACCEPTED"
-          ? "原申请的排队优先顺序保持不变。"
-          : "如需重新排队，请提交新的申请。",
+          ? "你的辅导申请已恢复，原排队顺序不变。"
+          : "原申请已关闭，如需辅导可重新报名。",
   });
   if (input.kind === "INVALID_FLAGGED" && input.appealUrl)
     return linkedEmailCopy({
@@ -383,8 +380,32 @@ export function signupAppealEmailCopy(input: {
       body,
       eyebrow,
       action: {
-        label: emailText(locale, { en: "Review and appeal", zh: "核对并申诉" }),
+        label: emailText(locale, { en: "Submit an appeal", zh: "提交申诉" }),
         url: input.appealUrl,
+      },
+    });
+  if (input.kind === "APPEAL_ACCEPTED" && input.actionUrl)
+    return linkedEmailCopy({
+      locale,
+      preview,
+      subject,
+      body,
+      eyebrow,
+      action: {
+        label: emailText(locale, { en: "View your request", zh: "查看你的申请" }),
+        url: input.actionUrl,
+      },
+    });
+  if (input.kind === "APPEAL_REJECTED" && input.actionUrl)
+    return linkedEmailCopy({
+      locale,
+      preview,
+      subject,
+      body,
+      eyebrow,
+      action: {
+        label: emailText(locale, { en: "Submit a new request", zh: "重新报名" }),
+        url: input.actionUrl,
       },
     });
   return {

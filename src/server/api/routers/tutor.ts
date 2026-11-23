@@ -1027,8 +1027,8 @@ export const tutorRouter = createTRPCRouter({
                     count: cardRequests.length,
                   },
                   {
-                    en: `${ctx.session.user.name ?? "Tutor"} requested ${cardRequests.length} discipline card(s) for ${primary.subject}, ${input.date.toISOString().slice(0, 10)}: ${notificationList(cardRequests.map((card) => `${cardPeople.find((person) => person.id === card.tuteeId)?.englishName ?? "Tutee"} (${notificationCard(card.color, "en")})`))}. Awaiting review.`,
-                    zh: `${ctx.session.user.name ?? "辅导伙伴"} 为 ${input.date.toISOString().slice(0, 10)} 的 ${primary.subject} 辅导申请 ${cardRequests.length} 张纪律卡：${notificationList(cardRequests.map((card) => `${cardPeople.find((person) => person.id === card.tuteeId)?.englishName ?? "学习伙伴"}（${notificationCard(card.color, "zh")}）`))}。待审核。`,
+                    en: `${ctx.session.user.name ?? "Tutor"} requested ${cardRequests.length === 1 ? "1 discipline card" : `${cardRequests.length} discipline cards`} for ${primary.subject} (${input.date.toISOString().slice(0, 10)}): ${notificationList(cardRequests.map((card) => `${cardPeople.find((person) => person.id === card.tuteeId)?.englishName ?? "Tutee"} (${notificationCard(card.color, "en")})`))}.`,
+                    zh: `${ctx.session.user.name ?? "辅导伙伴"} 为 ${input.date.toISOString().slice(0, 10)} 的 ${primary.subject} 辅导申请了 ${cardRequests.length} 张纪律卡：${notificationList(cardRequests.map((card) => `${cardPeople.find((person) => person.id === card.tuteeId)?.englishName ?? "学习伙伴"}（${notificationCard(card.color, "zh")}）`))}。`,
                   },
                 ),
                 title: "Discipline cards to review",
@@ -1103,8 +1103,8 @@ export const tutorRouter = createTRPCRouter({
                     "attendance_room_reported",
                     undefined,
                     {
-                      en: `${ctx.session.user.name ?? "A tutor"} reported ${primary.subject} attendance on ${input.date.toISOString().slice(0, 10)} in ${reportedRoom?.name ?? "an unavailable room"}, which was allocated elsewhere or blocked. Review the room conflict.`,
-                      zh: `${ctx.session.user.name ?? "一位辅导伙伴"} 在 ${input.date.toISOString().slice(0, 10)} 上报了 ${primary.subject} 在 ${reportedRoom?.name ?? "不可用教室"} 的出勤；该教室已被其他安排占用或禁用。请审核教室冲突。`,
+                      en: `${ctx.session.user.name ?? "A tutor"} logged ${primary.subject} attendance on ${input.date.toISOString().slice(0, 10)} in ${reportedRoom?.name ?? "an unavailable room"}, which is already booked or blocked.`,
+                      zh: `${ctx.session.user.name ?? "一位辅导伙伴"}记录了 ${input.date.toISOString().slice(0, 10)} 在 ${reportedRoom?.name ?? "不可用教室"} 的 ${primary.subject} 出勤，但该教室已被占用或禁用。`,
                     },
                   ),
                   title: "Attendance reported in an allocated room",
@@ -1840,6 +1840,7 @@ export const tutorRouter = createTRPCRouter({
             },
             select: { tutorId: true },
           });
+          const tz = await getProgramTimeZone(tx);
           await notifyTutors(
             panel.map((p) => p.tutorId),
             {
@@ -1847,15 +1848,15 @@ export const tutorRouter = createTRPCRouter({
                 "interview_scheduled",
                 {
                   startsAt: input.interviewAt.toISOString(),
-                  timeZone: await getProgramTimeZone(tx),
+                  timeZone: tz,
                 },
                 {
-                  en: `An interview for ${updated.name} was scheduled. Review the recorded time and panel duties.`,
-                  zh: `已为 ${updated.name} 安排面试。请查看面试时间和小组职责。`,
+                  en: `Interview scheduled for ${updated.name} on ${notificationInstant(input.interviewAt, tz, "en")}.`,
+                  zh: `已为 ${updated.name} 安排面试，时间：${notificationInstant(input.interviewAt, tz, "zh")}。`,
                 },
               ),
               title: "Interview scheduled",
-              body: `An interview was scheduled for ${new Intl.DateTimeFormat("en", { timeZone: await getProgramTimeZone(tx), dateStyle: "medium", timeStyle: "short" }).format(input.interviewAt)}.`,
+              body: `An interview was scheduled for ${new Intl.DateTimeFormat("en", { timeZone: tz, dateStyle: "medium", timeStyle: "short" }).format(input.interviewAt)}.`,
               link: "/schedule#tutor-interviews",
             },
             tx,
@@ -2161,8 +2162,8 @@ export const tutorRouter = createTRPCRouter({
                 {
                   title: "Interview approved",
                   ...notificationInAppEvent("interview_approved", undefined, {
-                    en: `${before.name}'s interview was approved and the tutor admission was applied.${awarded ? ` Granted subjects/levels: ${awarded}.` : ""}`,
-                    zh: `${before.name} 的面试已获批准，辅导伙伴录取已生效。${awarded ? `授予的科目及等级：${awarded}。` : ""}`,
+                    en: `${before.name}'s interview was approved and they were admitted as a tutor.${awarded ? ` Subjects: ${awarded}.` : ""}`,
+                    zh: `${before.name} 通过了面试，已录取为辅导伙伴。${awarded ? `获批科目：${awarded}。` : ""}`,
                   }),
                   link: `/admin/applications#application-${input.applicationId}`,
                   inAppOnly: true,
@@ -2344,8 +2345,8 @@ export const tutorRouter = createTRPCRouter({
         await notifyAdmins(
           {
             ...notificationInAppEvent("tutee_optout_requested", undefined, {
-              en: `${tutor?.englishName ?? "A tutor"} requested an opt-out for tutee ${tutee?.englishName ?? "(name not recorded)"}; automatic approval follows the ${TUTEE_OPT_OUT_COOLDOWN_DAYS}-day cooldown.`,
-              zh: `${tutor?.englishName ?? "辅导伙伴"} 为学习伙伴 ${tutee?.englishName ?? "（未记录姓名）"} 提交退出申请，将在 ${TUTEE_OPT_OUT_COOLDOWN_DAYS} 天冷静期后自动批准。`,
+              en: `${tutor?.englishName ?? "A tutor"} submitted an opt-out for ${tutee?.englishName ?? "a tutee"}. It will auto-approve after ${TUTEE_OPT_OUT_COOLDOWN_DAYS} days.`,
+              zh: `${tutor?.englishName ?? "辅导伙伴"}为${tutee?.englishName ?? "一位学习伙伴"}提交了退出申请，${TUTEE_OPT_OUT_COOLDOWN_DAYS} 天后将自动生效。`,
             }),
             title: "Tutee opt-out",
             body: `${tutor?.englishName ?? "A tutor"} relayed an opt-out for ${tutee?.englishName ?? "a tutee"} (auto-approves in ${TUTEE_OPT_OUT_COOLDOWN_DAYS} days).`,
@@ -2426,8 +2427,8 @@ export const tutorRouter = createTRPCRouter({
           input.available ? "tutor_reactivated" : "tutor_opted_out",
           undefined,
           {
-            en: `Tutor ${tutor.englishName} ${input.available ? "activated participation" : "opted out"} for the current program period.`,
-            zh: `辅导伙伴 ${tutor.englishName} 已${input.available ? "开启" : "退出"}当前项目周期的参与。`,
+            en: `${tutor.englishName} ${input.available ? "is active" : "opted out"} for this term.`,
+            zh: `${tutor.englishName} 已${input.available ? "确认本周期参与" : "退出本周期"}。`,
           },
         ),
         body: `${tutor.englishName} ${input.available ? "is available" : "opted out"} this term.`,

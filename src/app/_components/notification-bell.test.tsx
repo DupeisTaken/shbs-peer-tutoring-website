@@ -237,7 +237,13 @@ it.each(["en", "zh"] as const)(
     expect(screen.getByText("Readable original notice")).toBeTruthy();
     expect(screen.queryByText("Private body")).toBeNull();
     fireEvent.click(screen.getByText("Retained legacy notice"));
-    expect(mocks.mark).toHaveBeenCalledWith({ id: "legacy" });
+    expect(mocks.mark).not.toHaveBeenCalled();
+    fireEvent.click(
+      screen.getByText(
+        messages.notificationEvents.tutor_application_pending.title,
+      ),
+    );
+    expect(mocks.mark).toHaveBeenCalledWith({ id: "new" });
     fireEvent.click(
       screen.getByRole("button", {
         name: messages.components.notifications.markAllRead,

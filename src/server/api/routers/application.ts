@@ -213,7 +213,7 @@ export const applicationRouter = createTRPCRouter({
               };
             // Check current policy only for a new record; historical retries stay idempotent.
             await assertPrimaryName(tx, input.name);
-            await tx.tutorApplication.create({
+            const created = await tx.tutorApplication.create({
               data: {
                 firstName: input.firstName,
                 lastName: input.lastName,
@@ -262,13 +262,13 @@ export const applicationRouter = createTRPCRouter({
                   "tutor_application_pending",
                   undefined,
                   {
-                    en: `${input.name} applied to tutor. Review their application.`,
-                    zh: `${input.name} 申请成为辅导伙伴，请审核申请。`,
+                    en: `${input.name} applied to tutor.`,
+                    zh: `${input.name} 申请成为辅导伙伴。`,
                   },
                 ),
                 title: "New tutor application",
                 body: `${input.name} applied to tutor.`,
-                link: "/admin/applications",
+                link: `/admin/applications#application-${created.id}`,
               },
               undefined,
               tx,

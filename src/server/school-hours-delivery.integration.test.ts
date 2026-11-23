@@ -311,7 +311,7 @@ it.each(["primary", "verified secondary"] as const)("uses the current account la
     const message = fixture.send.mock.lastCall![0];
     expect(message.to).toBe(recipient);
     expect(message.html).toContain('lang="zh"');
-    expect(message.subject).toContain("学校时数报告");
+    expect(message.subject).toContain("学校服务时数报告");
     expect(message.text).not.toContain("View Month Report");
     expect(await delivery()).toMatchObject({ status: "SENT", userId: null });
     const after = await db.schoolHoursReport.findUniqueOrThrow({ where: { id: reportId } });

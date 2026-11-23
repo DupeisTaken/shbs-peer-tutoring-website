@@ -407,8 +407,8 @@ it.each(["en", "zh"] as const)("emails both remaining signup steps in %s with a 
   expect(message.presentation?.locale).toBe(locale);
   expect(message.subject).toBe(locale === "zh" ? "验证辅导报名邮箱" : "Verify your tutoring signup");
   expect(message.text).toContain(locale === "zh" ? "报名尚未完成" : "signup is not complete");
-  expect(message.text).toContain(locale === "zh" ? "完成账户确认并确认申请" : "finish account review and confirm your request");
-  expect(message.text).toContain(locale === "zh" ? "原提交优先顺序保留" : "original submission priority is kept");
+  expect(message.text).toContain(locale === "zh" ? "登录或设置账号并确认申请" : "sign in or set up your account to confirm");
+  expect(message.text).toContain(locale === "zh" ? "原本的排队顺序也会保留" : "original place in line is kept");
   expect(message.text).not.toContain(locale === "zh" ? "signup is not complete" : "报名尚未完成");
   expect(message.text).toContain("Asia/Shanghai");
   expect(message.text).not.toContain(accepted.intent.expiresAt.toISOString());

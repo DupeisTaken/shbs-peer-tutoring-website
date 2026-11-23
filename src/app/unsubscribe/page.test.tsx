@@ -45,7 +45,7 @@ it("provides account settings through sign-in and a public home route", async ()
     screen
       .getByRole("link", { name: en.unsubscribe.manage })
       .getAttribute("href"),
-  ).toBe("/signin?callbackUrl=%2Fmy-account");
+  ).toBe("/signin?callbackUrl=%2Fmy-account%23notification-preferences");
   expect(
     screen
       .getByRole("link", { name: en.common.backToMain })

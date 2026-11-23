@@ -38,11 +38,12 @@ it.each(["en", "zh"] as const)(
     expect(reminder.text).toContain(
       locale === "zh"
         ? "已入账的时数请勿重复登记"
-        : "Do not enter hours that are already posted",
+        : "Do not re-enter hours that are already posted",
     );
     expect(reminder.html).toContain(
       locale === "zh" ? "同一已保存版本" : "same saved edition",
     );
+    expect(reminder.html).not.toContain("color:#475569");
     expect(reminder.html).not.toContain("Remind me later");
   },
 );

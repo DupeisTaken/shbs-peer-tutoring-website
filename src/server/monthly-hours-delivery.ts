@@ -6,14 +6,7 @@ import {
   lockEntity,
   type DomainDb,
 } from "~/server/transactions";
-import {
-  monthlyHoursCategory,
-  monthlyHoursLock,
-  monthlyHoursSnapshotSchema,
-} from "./monthly-hours";
-import { monthlyHoursEmailCopy } from "./monthly-hours-email";
-import { notificationUnsubscribeUrl } from "~/server/email/unsubscribe-token";
-import { emailUrl } from "~/server/email/urls";
+import { monthlyHoursCategory, monthlyHoursLock } from "./monthly-hours";
 
 /** Period, namespace and optional-mail fences precede account, schedule and outbox
  * locks. This matches refresh, identity edits and preference updates. The claimed lease and
@@ -58,23 +51,6 @@ export async function admitMonthlyHoursDelivery(
       },
     });
     return null;
-  });
-}
-
-/** Rendering is inside the dispatcher's failure boundary after the admitted
- * attempt commits, so bad origin/configuration failures remain bounded retries. */
-export function monthlyHoursDeliveryCopy(
-  admitted: NonNullable<Awaited<ReturnType<typeof admitMonthlyHoursDelivery>>>,
-) {
-  const { row, report } = admitted;
-  return monthlyHoursEmailCopy({
-    snapshot: monthlyHoursSnapshotSchema.parse(report.snapshot),
-    revision: report.revision,
-    generatedAt: report.generatedAt,
-    timeZone: report.timeZone,
-    reason: report.reason,
-    reportUrl: emailUrl(`/admin/service-hours/reports/${report.id}`),
-    unsubscribeUrl: notificationUnsubscribeUrl(row.id),
   });
 }
 

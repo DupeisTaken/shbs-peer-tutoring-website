@@ -42,8 +42,8 @@ it.each(["en", "zh"] as const)(
     const preview = doc.querySelector(".preheader")?.textContent;
     expect(preview).toBe(
       locale === "en"
-        ? "Details and next steps inside."
-        : "请查看邮件中的详情和后续步骤。",
+        ? "Open this email for details and next steps."
+        : "打开邮件查看详情和后续步骤。",
     );
     expect(preview).not.toMatch(/PRIVATE|0012|SECRET|https:/);
     expect(doc.body.textContent?.split(subject)).toHaveLength(2);
@@ -100,13 +100,13 @@ it.each(["en", "zh"] as const)(
     );
     expect(doc.querySelector(".footer-copy")?.textContent).toBe(
       locale === "en"
-        ? "Automated message. Keep account links and codes private."
-        : "此为自动邮件，请勿分享账户链接和验证码。",
+        ? "Automated message. Keep links and codes private."
+        : "此为自动邮件，请勿转发其中的链接和代码。",
     );
     expect(doc.querySelector(".panel")?.textContent).toContain(
       locale === "en"
-        ? "Copy this link into your browser:"
-        : "复制链接到浏览器：",
+        ? "Or copy this link into your browser:"
+        : "也可以复制此链接到浏览器打开：",
     );
     expect(doc.querySelector(".code")?.textContent).toBe("0012");
     expect(doc.querySelector<HTMLElement>(".code")!.style.backgroundColor).toBe(
@@ -532,7 +532,7 @@ it("keeps all email text at readable contrast when a client strips the styleshee
     code: doc.querySelector(".code"),
     action: doc.querySelector("a"),
     fallbackInstructions: [...doc.querySelectorAll("p")].find((paragraph) =>
-      paragraph.textContent?.startsWith("Copy this link into your browser"),
+      paragraph.textContent?.startsWith("Or copy this link into your browser"),
     ),
     fallbackLink: doc.querySelector("a.ink"),
   };
@@ -561,7 +561,7 @@ it("retains branded bilingual instructions, verification code and both usable ac
     url,
   ]);
   expect(doc.body.textContent).toContain(
-    "Keep account links and codes private.",
+    "Keep links and codes private.",
   );
 });
 
@@ -591,7 +591,7 @@ it("places one accessible 48px site icon above the footer brand and privacy copy
   const footerCopy = footer.querySelector(".footer-copy")!;
   expect(footerBrand.textContent).toBe("SHBS Peer Tutoring");
   expect(footerCopy.textContent).toBe(
-    "Automated message. Keep account links and codes private.",
+    "Automated message. Keep links and codes private.",
   );
   expect(footer.contains(icon)).toBe(true);
   expect(

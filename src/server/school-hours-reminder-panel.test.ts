@@ -143,7 +143,7 @@ it.each(["en", "zh"] as const)(
       ),
     ).toEqual(statuses.map((row) => row[locale === "en" ? 1 : 2]));
     expect(doc.querySelector("h3")?.textContent).toBe(
-      locale === "en" ? "Your reminder emails" : "您的提醒邮件",
+      locale === "en" ? "Your reminder emails" : "你的提醒邮件",
     );
     const forms = [...doc.querySelectorAll("form")];
     expect(forms).toHaveLength(3);

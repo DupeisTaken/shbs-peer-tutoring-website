@@ -83,17 +83,11 @@ describe("public unsubscribe confirmation", () => {
       const category = screen.getByRole<HTMLInputElement>("radio", {
         name: (name) => name.startsWith(catalog.unsubscribe.messages),
       });
+      const all = screen.getByRole<HTMLInputElement>("radio", {
+        name: (name) => name.startsWith(catalog.unsubscribe.all),
+      });
       expect(category.disabled).toBe(true);
-      expect(
-        screen.getByRole<HTMLButtonElement>("button", {
-          name: catalog.unsubscribe.confirmCategory,
-        }).disabled,
-      ).toBe(true);
-      fireEvent.click(
-        screen.getByRole("radio", {
-          name: (name) => name.startsWith(catalog.unsubscribe.all),
-        }),
-      );
+      expect(all.checked).toBe(true);
       fireEvent.click(
         screen.getByRole("button", { name: catalog.unsubscribe.confirmAll }),
       );
@@ -342,8 +336,12 @@ describe("public unsubscribe confirmation", () => {
     request.mockResolvedValueOnce(response({ status: "unsubscribed" }));
     render(view("token"));
     await screen.findByText(en.unsubscribe.choiceTitle);
-    expect((submitButton() as HTMLButtonElement).disabled).toBe(true);
-    selectAll();
+    expect((submitButton() as HTMLButtonElement).disabled).toBe(false);
+    expect(
+      screen.getByRole<HTMLInputElement>("radio", {
+        name: /^All optional notification emails/,
+      }).checked,
+    ).toBe(true);
     fireEvent.click(submitButton());
     await screen.findByText(en.unsubscribe.successAll);
   });

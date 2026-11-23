@@ -6,7 +6,8 @@ import type {
   ScheduledProgramRefresh,
 } from "../../../generated/prisma";
 import { nextRecruitmentRefreshEvidenceSchema } from "~/lib/next-recruitment";
-import { notificationEvent } from "~/lib/notification-events";
+import { notificationInAppEvent } from "~/lib/notification-details";
+import { periodLabel } from "~/lib/period";
 import { recordAudit } from "~/server/audit/log";
 import { recordDomainAudit } from "~/server/audit/evidence";
 import { lockUsernameNamespace } from "~/server/auth/username";
@@ -321,18 +322,35 @@ export async function readPublicRefreshSchedule(
 async function terminalNotice(tx: TransactionDb, row: ScheduledProgramRefresh) {
   // This call shares the terminal state transaction. Only SCHEDULED can enter it,
   // so repeated ticks, lost responses and other instances cannot duplicate notices.
+  const label = periodLabel(
+    {
+      schoolYear: row.destinationSchoolYear,
+      quarter: row.destinationQuarter,
+    },
+    row.semesterMode,
+  );
+  const completed = row.state === "COMPLETED";
   await notifyAdmins(
     {
-      title:
-        row.state === "COMPLETED"
-          ? "Scheduled program refresh completed"
-          : "Scheduled program refresh needs review",
-      body: `${row.destinationSchoolYear} ${row.destinationQuarter}`,
+      title: completed
+        ? "Scheduled program refresh completed"
+        : "Scheduled program refresh needs review",
+      body: label,
       link: "/admin/program?panel=period",
-      ...notificationEvent(
-        row.state === "COMPLETED"
+      ...notificationInAppEvent(
+        completed
           ? "scheduled_refresh_completed"
           : "scheduled_refresh_blocked",
+        undefined,
+        completed
+          ? {
+              en: `The program refreshed to ${label}. Check the active period and signup settings.`,
+              zh: `项目已刷新至 ${label}。请核对当前周期与报名设置。`,
+            }
+          : {
+              en: `The scheduled refresh to ${label} could not run. Review the settings and schedule it again.`,
+              zh: `原定刷新至 ${label} 的计划未能执行。请核对设置后重新安排。`,
+            },
       ),
     },
     undefined,

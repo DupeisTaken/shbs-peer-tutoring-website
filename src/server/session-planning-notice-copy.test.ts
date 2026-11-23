@@ -24,10 +24,10 @@ it.each(["en", "zh"] as const)(
       locale === "en" ? "cancellation" : "取消",
     );
     expect(proposed.text).toContain(
-      locale === "en" ? "remains scheduled until" : "达成一致前",
+      locale === "en" ? "stays scheduled unless" : "所有相关成员同意前",
     );
     expect(proposed.text).toContain(
-      locale === "en" ? "24-hour clock" : "24小时计时",
+      locale === "en" ? "24-hour window" : "24 小时回复期",
     );
     expect(proposed.presentation.action.label).toBe(
       locale === "en" ? "Respond to cancellation" : "回复取消提议",
@@ -45,7 +45,7 @@ it.each(["en", "zh"] as const)(
     expect(rejected.text).toContain(
       locale === "en"
         ? "remains scheduled at its confirmed time"
-        : "仍按已确认的时间进行",
+        : "仍按原确认时间进行",
     );
     const explicit = sessionPlanningNoticeCopy(
       "proposed",
@@ -54,9 +54,9 @@ it.each(["en", "zh"] as const)(
       locale,
     );
     expect(explicit.text).toContain(
-      locale === "en" ? "Silence will not accept" : "未回复不会视为接受",
+      locale === "en" ? "no response will not accept" : "未回复不会视为接受",
     );
-    expect(explicit.text).not.toContain("24-hour clock");
+    expect(explicit.text).not.toContain("24-hour window");
   },
 );
 
@@ -73,7 +73,7 @@ it.each(["proposed", "countered"])(
     expect(english.subject).toContain("Reply to");
     expect(chinese.subject).toContain("请回复");
     expect(english.text).toContain("waiting for your reply");
-    expect(chinese.text).toContain("等待您的回复");
+    expect(chinese.text).toContain("等你回复");
   },
 );
 
@@ -87,10 +87,10 @@ it.each(["en", "zh"] as const)(
       locale,
     );
     expect(copy.text).toContain(
-      locale === "en" ? "Silence will not accept it" : "未回复不会视为接受",
+      locale === "en" ? "no response will not accept it" : "未回复不会视为接受",
     );
-    expect(copy.text).not.toContain("24-hour clock");
-    expect(copy.text).not.toContain("Silence can mean acceptance");
+    expect(copy.text).not.toContain("24-hour window");
+    expect(copy.text).not.toContain("accepted automatically");
     // The admitted terms remain explicit-only even if management removes the pause.
     expect(copy.text).not.toContain("on a paused tutoring date");
     expect(copy.text).not.toContain("暂停日期");
@@ -140,13 +140,13 @@ it.each(["en", "zh"] as const)(
       expect(copy.presentation.preview).not.toBe(copy.subject);
     }
     expect(ordinary.presentation.preview).toContain(
-      locale === "en" ? "exact response deadline" : "准确的回复期限",
+      locale === "en" ? "exact response deadline" : "准确的回复截止时间",
     );
     expect(explicit.presentation.preview).toContain(
-      locale === "en" ? "silence will not accept" : "未回复不会视为接受",
+      locale === "en" ? "no response will not accept" : "未回复不会视为接受",
     );
     expect(obsolete.presentation.preview).toContain(
-      locale === "en" ? "earlier notice" : "历史通知",
+      locale === "en" ? "out of date" : "已过期",
     );
   },
 );
@@ -159,9 +159,9 @@ it("distinguishes a missed delivered deadline from ordinary short-notice expiry"
     isActionable: false,
   });
   expect(copy.text).toContain(
-    "deadline elapsed while scheduling processing was unavailable",
+    "reply deadline passed while automatic scheduling was temporarily unavailable",
   );
-  expect(copy.text).toContain("did not move a session retroactively");
+  expect(copy.text).toContain("No session was moved");
   expect(copy.text).not.toContain("automatically accepted");
   expect(copy.subject).toBe("Tutoring response deadline needs review");
 });
@@ -181,18 +181,18 @@ it("keeps action and delivery-qualified timing explicit without copying private 
     tutees: ["PRIVATE STUDENT"],
     deadlineAt: "fabricated",
   });
-  expect(copy.text).toContain("24-hour clock starts only after");
+  expect(copy.text).toContain("24-hour window starts when the notice is sent");
   expect(copy.text).toContain("Asia/Shanghai");
-  expect(copy.text).toContain("Lesson subjects: Mathematics / Chemistry");
+  expect(copy.text).toContain("Subjects: Mathematics / Chemistry");
   expect(copy.text).toContain("Original start:");
   expect(copy.text).toContain("Room: Room 101");
   expect(copy.text).not.toMatch(/Stage|阶段/);
-  expect(copy.text).toContain("Silence can mean acceptance");
-  expect(copy.text).toContain("Email replies do not decide the offer");
+  expect(copy.text).toContain("accepted automatically");
+  expect(copy.text).toContain("Replying to this email won't be recorded");
   expect(copy.text).not.toContain("PRIVATE");
   expect(copy.text).not.toContain("fabricated");
-  expect(copy.text.indexOf("Silence can mean acceptance")).toBeLessThan(
-    copy.text.indexOf("Lesson subjects"),
+  expect(copy.text.indexOf("accepted automatically")).toBeLessThan(
+    copy.text.indexOf("Subjects:"),
   );
   expect(copy.presentation.action.label).toBe("Respond to proposal");
 });
@@ -203,10 +203,10 @@ it("makes a superseded actionable transition historical instead of inviting stal
     { isActionable: true, stage: "B" },
     true,
   );
-  expect(copy.text).toContain("no longer an actionable offer");
+  expect(copy.text).toContain("this offer is no longer open");
   expect(copy.text).not.toContain("Action required:");
-  expect(copy.text).not.toContain("Respond in the portal");
-  expect(copy.text.startsWith("This is an earlier update")).toBe(true);
+  expect(copy.text).not.toContain("waiting for your reply");
+  expect(copy.text.startsWith("This earlier notice is out of date")).toBe(true);
   expect(copy.subject).toBe("Earlier tutoring update");
   expect(copy.presentation.action.label).toBe("View current schedule");
 });
@@ -229,8 +229,8 @@ it("rejects invalid clock context and unknown events without echoing arbitrary t
 it.each([
   ["en", "tutor", "your tutee"],
   ["en", "tutee", "your tutor"],
-  ["zh", "tutor", "您的学习伙伴"],
-  ["zh", "tutee", "您的辅导伙伴"],
+  ["zh", "tutor", "学习伙伴"],
+  ["zh", "tutee", "辅导伙伴"],
 ] as const)(
   "explains a pause cancellation and extra coordination in %s for a %s",
   (locale, recipientRole, counterpart) => {
@@ -261,17 +261,17 @@ it.each([
     expect(copy.text).toContain(locale === "en" ? "(inclusive)" : "含首尾两日");
     expect(copy.text).toContain(
       locale === "en"
-        ? "Your scheduled regular session has been cancelled"
-        : "您已安排的常规辅导已取消",
+        ? "your regular session has been cancelled"
+        : "常规辅导已取消",
     );
     expect(copy.text).toContain(
       locale === "en"
-        ? "Agreed extra sessions and explicitly agreed rescheduled sessions remain scheduled"
-        : "已确认的额外辅导和已明确同意的改期辅导继续有效",
+        ? "Confirmed extra sessions and agreed rescheduled sessions still go ahead"
+        : "已确认的额外辅导和已同意改期的辅导照常进行",
     );
     expect(copy.text).not.toContain("PRIVATE");
     expect(copy.text).not.toContain(
-      locale === "en" ? "Silence can mean acceptance" : "未回复可能视为接受",
+      locale === "en" ? "accepted automatically" : "自动接受",
     );
     expect(copy.subject).toBe(
       locale === "en"
@@ -283,11 +283,11 @@ it.each([
     );
     expect(copy.text).toContain(
       locale === "en"
-        ? "check the portal for current confirmed sessions"
-        : "请在平台查看当前已确认的辅导安排",
+        ? "check the website for your current confirmed sessions"
+        : "当前已确认的辅导安排请以网站为准",
     );
     expect(copy.text).not.toContain(
-      locale === "en" ? "response deadline" : "回复期限",
+      locale === "en" ? "response deadline" : "回复截止时间",
     );
   },
 );
@@ -297,12 +297,12 @@ it.each(["en", "zh"] as const)(
   (locale) => {
     const copy = sessionPlanningNoticeCopy("cancelled", {}, false, locale);
     expect(copy.presentation.action.label).toBe(
-      locale === "en" ? "View session" : "查看课程",
+      locale === "en" ? "View session" : "查看辅导安排",
     );
     expect(copy.text).toContain(
       locale === "en"
-        ? "current schedule and response deadline"
-        : "最新安排和回复期限以平台为准",
+        ? "latest schedule and deadlines"
+        : "最新安排和回复截止时间请以网站为准",
     );
   },
 );
@@ -316,7 +316,7 @@ it("renders a single pause date without shifting it into a recipient's previous 
     recipientRole: "tutor",
   });
   expect(copy.text).toContain(
-    "Regular tutoring is paused on November 19, 2026.",
+    "Regular tutoring is paused on November 19, 2026,",
   );
   expect(copy.text).not.toContain("November 18");
   expect(copy.text).not.toContain("through");
@@ -414,10 +414,10 @@ it.each([
 
 it("preserves group agreement and ordinary-expiry consequences", () => {
   expect(sessionPlanningNoticeCopy("response_accepted", {}).text).toContain(
-    "only when everyone accepts that same offer",
+    "only when everyone accepts the same time",
   );
   expect(sessionPlanningNoticeCopy("response_autoaccepted", {}).text).toContain(
-    "does not confirm a group move",
+    "group time is not confirmed until everyone agrees",
   );
   expect(sessionPlanningNoticeCopy("expired", {}).text).toContain(
     "keeps its original time",
@@ -490,7 +490,7 @@ it.each(["accepted", "autoaccepted", "schedule_updated"])(
   },
 );
 
-it("labels superseded proposals as historical before showing their recorded time", () => {
+it("labels superseded proposals as historical without repeating an open reply prompt", () => {
   const copy = sessionPlanningNoticeCopy(
     "countered",
     { ...dated, isActionable: true },
@@ -500,9 +500,8 @@ it("labels superseded proposals as historical before showing their recorded time
   expect(
     sessionPlanningNoticeCopy("countered", dated, true, "zh").text,
   ).toContain("此前提议时间：");
-  expect(copy.text.indexOf("no longer an actionable offer")).toBeLessThan(
-    copy.text.indexOf("An alternative tutoring time"),
-  );
+  expect(copy.text).toContain("this offer is no longer open");
+  expect(copy.text).not.toContain("waiting for your reply");
 });
 
 it.each(["en", "zh"] as const)(
@@ -515,7 +514,7 @@ it.each(["en", "zh"] as const)(
       locale,
     );
     expect(ordinary.text).toContain(
-      locale === "en" ? "Silence can mean acceptance" : "未回复可能视为接受",
+      locale === "en" ? "accepted automatically" : "自动接受",
     );
     expect(ordinary.text).toContain(
       locale === "en" ? "short-notice cutoff" : "临近开课限制",
@@ -533,12 +532,12 @@ it.each(["en", "zh"] as const)(
       locale === "en" ? "View current schedule" : "查看当前安排",
     );
     expect(obsolete.text).not.toContain(
-      locale === "en" ? "Silence can mean acceptance" : "未回复可能视为接受",
+      locale === "en" ? "accepted automatically" : "自动接受",
     );
     if (locale === "en") expect(ordinary.text).not.toMatch(/\p{Script=Han}/u);
     else
       expect(ordinary.text).not.toMatch(
-        /Respond in the portal|Time zone|Calendar subscriptions/,
+        /Reply on the website|Time zone|Subscribed calendars/,
       );
   },
 );

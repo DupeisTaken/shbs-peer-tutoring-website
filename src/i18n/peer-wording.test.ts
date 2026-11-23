@@ -18,6 +18,11 @@ import {
   historyInvitationScope,
   invitationPurpose,
 } from "~/server/email/required-notice-details";
+import { sessionPlanningNoticeCopy } from "~/server/session-planning-notice-copy";
+import { accountChangeDetail } from "~/server/email/notification-policy";
+import { notificationEmailContent } from "~/server/email/notification-copy";
+import { requestNoticeEmailCopy } from "~/server/email/request-notice-copy";
+import { renderEmail } from "~/server/email/template";
 
 describe("Chinese peer roles", () => {
   it("uses the chosen glossary across the catalog and retains genuine school references", () => {
@@ -124,6 +129,138 @@ describe("Chinese peer roles", () => {
     expect(invitation.text).toContain("辅导伙伴");
     expect(history.text).toContain("辅导伙伴");
     expect(history.text).toContain("学习伙伴");
+  });
+
+  it("keeps Chinese email copy builders free of formal 您, 账户, legacy role terms, and 私密支持", () => {
+    const forbidden = /您|账户|导师|辅导员|学员|值勤|执勤|工作组|私密支持/;
+    const samples: string[] = [];
+    const deadline = {
+      at: new Date("2026-11-10T08:00:00Z"),
+      timeZone: "Asia/Shanghai",
+    };
+    const url = "https://school.example.test/action";
+    for (const kind of [
+      "HEAD",
+      "ADMIN",
+      "COORDINATOR",
+      "TUTOR",
+      "CREW",
+      "TUTEE",
+      "VIEWER",
+      "HISTORY",
+      "UNKNOWN",
+    ]) {
+      const purpose = invitationPurpose(kind);
+      const verify = invitationVerificationEmailCopy({
+        locale: "zh",
+        code: "0012",
+        purpose,
+        deadline,
+        url,
+      });
+      samples.push(verify.subject, verify.text, verify.presentation.preview ?? "");
+    }
+    const signup = tutoringSignupEmailCopy({
+      locale: "zh",
+      code: "0012",
+      url,
+      deadline,
+      legacy: true,
+      verificationDue: deadline,
+    });
+    samples.push(signup.subject, signup.text, signup.presentation.preview ?? "");
+    const sessionEvents = [
+      "suggestion",
+      "schedule_updated",
+      "proposed",
+      "countered",
+      "response_accepted",
+      "response_autoaccepted",
+      "accepted",
+      "autoaccepted",
+      "split_requested",
+      "split",
+      "cancelled",
+      "expired",
+      "deadline_missed",
+      "stale",
+    ];
+    for (const event of sessionEvents) {
+      const copy = sessionPlanningNoticeCopy(
+        event,
+        { isActionable: true, timeZone: "Asia/Shanghai" },
+        false,
+        "zh",
+      );
+      samples.push(
+        copy.subject,
+        copy.text,
+        copy.presentation.preview ?? "",
+        copy.presentation.eyebrow ?? "",
+      );
+    }
+    const secDetail = accountChangeDetail("security_changed", {
+      changedFields: ["password", "twoFactorEnabled", "twoFactorDisabled"],
+    });
+    const infoDetail = accountChangeDetail("information_changed", {
+      changedFields: [
+        "name",
+        "firstName",
+        "lastName",
+        "preferredName",
+        "username",
+        "alternativeNames",
+        "role",
+        "suspended",
+        "reinstated",
+        "tutorAccessRevoked",
+        "tutorAccessRestored",
+        "tuteeAdded",
+        "tuteeRemoved",
+        "translationEnabled",
+        "translationDisabled",
+        "crewStatus",
+      ],
+    });
+    samples.push(secDetail?.zh ?? "", infoDetail?.zh ?? "");
+    const notif = notificationEmailContent({
+      locale: "zh",
+      event: "security_changed",
+      context: { changedFields: ["password"] },
+      createdAt: new Date("2026-11-09T01:30:00Z"),
+      timeZone: "Asia/Shanghai",
+      category: "security",
+      link: url,
+    });
+    samples.push(
+      notif.subject,
+      notif.text,
+      notif.presentation.preview ?? "",
+      notif.presentation.eyebrow ?? "",
+    );
+    const reqNotice = requestNoticeEmailCopy(
+      {
+        id: "r1",
+        createdAt: new Date("2026-11-08T02:00:00Z"),
+        requestKind: "survey",
+        requestInvalid: true,
+        requestSubmittedAt: new Date("2026-11-07T16:30:00Z"),
+        requestTimeZone: "Asia/Shanghai",
+        requestReason: null,
+      },
+      false,
+      url,
+      "zh",
+    );
+    samples.push(reqNotice.subject, reqNotice.text, reqNotice.presentation.preview ?? "");
+    const rendered = renderEmail({
+      brand: "SHBS",
+      subject: "测试",
+      text: "内容",
+      presentation: { locale: "zh", action: { label: "继续", url } },
+    });
+    samples.push(rendered);
+    for (const sample of samples) expect(sample).not.toMatch(forbidden);
   });
 });
 

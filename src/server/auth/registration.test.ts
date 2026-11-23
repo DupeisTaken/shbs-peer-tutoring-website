@@ -279,6 +279,23 @@ it.each([
       kind,
       email: "new@example.test",
     });
+    expect(issued.emailed).toBe(true);
+    const inviteMail = mail.send.mock.lastCall?.[0] as {
+      category: string;
+      to: string;
+      presentation?: {
+        code?: string;
+        codePurpose?: string;
+        action?: { url?: string };
+      };
+    };
+    expect(inviteMail.category).toBe("SECURITY");
+    expect(inviteMail.to).toBe("new@example.test");
+    expect(inviteMail.presentation?.code).toBe(issued.code);
+    expect(inviteMail.presentation?.codePurpose).toBe("invitation");
+    expect(inviteMail.presentation?.action?.url).toContain(
+      `/register?code=${issued.code}`,
+    );
     expect(
       await client.registration.check({ code: issued.code }),
     ).toMatchObject({ kind, emailVerified: false });
@@ -296,7 +313,7 @@ it.each([
     expect(mail.send).toHaveBeenLastCalledWith(
       expect.objectContaining({ category: "SECURITY" }),
     );
-    const sent = mail.send.mock.calls[0]?.[0] as { text: string };
+    const sent = mail.send.mock.lastCall?.[0] as { text: string };
     const otp = / is ([0-9]{4})/.exec(sent.text)?.[1];
     if (!otp) throw Error("No email OTP captured");
     await expect(

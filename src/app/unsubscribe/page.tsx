@@ -32,7 +32,7 @@ export default async function UnsubscribePage({
       backLabel={t("common.backToMain")}
       footer={
         <PublicFormRoute
-          href="/signin?callbackUrl=%2Fmy-account"
+          href="/signin?callbackUrl=%2Fmy-account%23notification-preferences"
           label={t("unsubscribe.manage")}
         >
           {t("unsubscribe.manageHelp")}

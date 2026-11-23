@@ -185,39 +185,38 @@ export const correctionsRouter = createTRPCRouter({
           THREE: "3",
           FOUR_PLUS: "4+",
         };
-        const observationTime = (date: Date) =>
-          notificationInstant(date, timeZone, "en");
-        const observationChanges = notificationList(
-          input.observations.flatMap((row) => {
-            const old = before.observations.find(
-              (previous) => previous.id === row.id,
-            )!;
-            const changes = [
-              ...(old.roomId !== row.roomId
-                ? [
-                    `${old.room.name} → ${correctedRooms.find((room) => room.id === row.roomId)?.name ?? "—"}`,
-                  ]
-                : []),
-              ...(old.headcount !== row.headcount
-                ? [`${counts[old.headcount]} → ${counts[row.headcount]}`]
-                : []),
-              ...(old.observedAt.getTime() !== row.observedAt.getTime()
-                ? [
-                    `${observationTime(old.observedAt)} → ${observationTime(row.observedAt)}`,
-                  ]
-                : []),
-            ];
-            return changes.length
-              ? [`${old.room.name}: ${changes.join("; ")}`]
-              : [];
-          }),
-        );
+        const observationChanges = (locale: "en" | "zh") =>
+          notificationList(
+            input.observations.flatMap((row) => {
+              const old = before.observations.find(
+                (previous) => previous.id === row.id,
+              )!;
+              const changes = [
+                ...(old.roomId !== row.roomId
+                  ? [
+                      `${old.room.name} → ${correctedRooms.find((room) => room.id === row.roomId)?.name ?? "—"}`,
+                    ]
+                  : []),
+                ...(old.headcount !== row.headcount
+                  ? [`${counts[old.headcount]} → ${counts[row.headcount]}`]
+                  : []),
+                ...(old.observedAt.getTime() !== row.observedAt.getTime()
+                  ? [
+                      `${notificationInstant(old.observedAt, timeZone, locale)} → ${notificationInstant(row.observedAt, timeZone, locale)}`,
+                    ]
+                  : []),
+              ];
+              return changes.length
+                ? [`${old.room.name}: ${changes.join("; ")}`]
+                : [];
+            }),
+          );
         await notifyUsers(
           heads.map((h) => h.id),
           {
             ...notificationInAppEvent("record_corrected", undefined, {
-              en: `Management corrected the patrol recorded on ${programDateKey(before.createdAt, timeZone)} (${timeZone}). Room / headcount / observation-time changes: ${observationChanges || "No observation changes; patrol note corrected"}.`,
-              zh: `管理人员已更正 ${programDateKey(before.createdAt, timeZone)}（${timeZone}）的巡查记录。教室／人数／观察时间变更：${observationChanges || "观察记录未变更，巡查备注已更正"}。`,
+              en: `Management corrected the patrol recorded on ${programDateKey(before.createdAt, timeZone)} (${timeZone}). Room / headcount / observation-time changes: ${observationChanges("en") || "No observation changes; patrol note corrected"}.`,
+              zh: `管理人员已更正 ${programDateKey(before.createdAt, timeZone)}（${timeZone}）的巡查记录。教室／人数／观察时间变更：${observationChanges("zh") || "观察记录未变更，巡查备注已更正"}。`,
             }),
             title: "Management corrected a record",
             body: `${ctx.session.user.name ?? "Management"}: ${input.reason}`,

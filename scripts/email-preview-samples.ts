@@ -37,147 +37,102 @@ const deadline = {
 const invitationUrl = `${previewOrigin}/register?code=A2B3C`;
 const historyUrl = `${previewOrigin}/history/claim?token=${"synthetic".repeat(10)}`;
 
-function schoolReportLegacyPreview(revision = 1): SchoolHoursPublicReport {
-  const alexMonth = revision === 1 ? 7 : revision === 2 ? 7.5 : 7.75;
-  const alexChange = revision === 1 ? 7 : revision === 2 ? 0.5 : 0.25;
-  const blairMonth = -revision / 60;
-  const blairPrevious = revision === 1 ? null : -(revision - 1) / 60;
-  const blairChange = blairMonth - (blairPrevious ?? 0);
+/** 80 min posts as 1.3 h with 2 min retained; another 4 min releases 0.1 h.
+ * Blair carries 80 min of debt, offsets 40 min, then earns 50 min: 0.1 h posts
+ * and 4 min remains. All examples use synthetic school accounts only. */
+export function schoolReportPreview(revision = 1): SchoolHoursPublicReport {
+  const rawAlex = revision === 1 ? 80 / 60 : revision === 2 ? 4 / 60 : 5 / 60;
+  const postedAlex = revision === 1 ? 1.3 : revision === 2 ? 0.1 : 0;
+  const rows: SchoolHoursPublicReport["rows"] = [
+    {
+      exportName: 'Alex "A" Chen (陈安)',
+      schoolAccountKey: "school-A",
+      tutoringChange: rawAlex,
+      crewChange: 0,
+      hoursToAdd: postedAlex,
+      monthAmount: revision === 1 ? 1.3 : 1.4,
+      previousEditionAmount: revision === 1 ? null : revision === 2 ? 1.3 : 1.4,
+      previousMonthAmount: 6,
+      monthComparison: revision === 1 ? -4.7 : -4.6,
+      unchanged: false,
+      carryInHours: revision === 2 ? "0.0333333333333333" : "0",
+      carryOutHours:
+        revision === 1
+          ? "0.0333333333333333"
+          : revision === 2
+            ? "0"
+            : "0.0833333333333333",
+      priorEditions:
+        revision > 2
+          ? [
+              { revision: 1, monthAmount: 1.3, correctionToCurrent: 0.1 },
+              { revision: 2, monthAmount: 1.4, correctionToCurrent: 0 },
+            ]
+          : [],
+    },
+    {
+      exportName: "Blair Example",
+      schoolAccountKey: "school-B",
+      tutoringChange:
+        revision === 1 ? -80 / 60 : revision === 2 ? 40 / 60 : 50 / 60,
+      crewChange: 0,
+      hoursToAdd: revision < 3 ? 0 : 0.1,
+      monthAmount: revision < 3 ? 0 : 0.1,
+      previousEditionAmount: revision === 1 ? null : 0,
+      previousMonthAmount: null,
+      monthComparison: null,
+      unchanged: revision === 2,
+      carryInHours:
+        revision === 1
+          ? "0"
+          : revision === 2
+            ? "-1.3333333333333333"
+            : "-0.6666666666666667",
+      carryOutHours:
+        revision === 1
+          ? "-1.3333333333333333"
+          : revision === 2
+            ? "-0.6666666666666667"
+            : "0.0666666666666666",
+      priorEditions:
+        revision > 2
+          ? [
+              { revision: 1, monthAmount: 0, correctionToCurrent: 0.1 },
+              { revision: 2, monthAmount: 0, correctionToCurrent: 0.1 },
+            ]
+          : [],
+    },
+    {
+      exportName: "Casey Example",
+      schoolAccountKey: "school-C",
+      tutoringChange: revision === 1 ? 2 : 0,
+      crewChange: 0,
+      hoursToAdd: revision === 1 ? 2 : 0,
+      monthAmount: 2,
+      previousEditionAmount: revision === 1 ? null : 2,
+      previousMonthAmount: null,
+      monthComparison: null,
+      unchanged: revision > 1,
+      carryInHours: "0",
+      carryOutHours: "0",
+    },
+  ];
   return {
     month: "2026-10",
     revision,
     generatedAt: "2026-10-31T04:00:00.000Z",
     timeZone: "Asia/Shanghai",
     includeStatistics: true,
-    rows: [
-      {
-        exportName: 'Alex "A" Chen (陈安)',
-        schoolAccountKey: "school-A",
-        tutoringChange: alexChange - (revision === 1 ? 1 : 0),
-        crewChange: revision === 1 ? 1 : 0,
-        hoursToAdd: alexChange,
-        monthAmount: alexMonth,
-        previousEditionAmount: revision === 1 ? null : revision === 2 ? 7 : 7.5,
-        previousMonthAmount: 6,
-        monthComparison: alexMonth - 6,
-        unchanged: false,
-        priorEditions:
-          revision > 2
-            ? [
-                { revision: 1, monthAmount: 7, correctionToCurrent: 0.75 },
-                { revision: 2, monthAmount: 7.5, correctionToCurrent: 0.25 },
-              ]
-            : [],
-      },
-      {
-        exportName: "Blair Example",
-        schoolAccountKey: "school-B",
-        tutoringChange: blairChange,
-        crewChange: 0,
-        hoursToAdd: blairChange,
-        monthAmount: blairMonth,
-        previousEditionAmount: blairPrevious,
-        previousMonthAmount: null,
-        monthComparison: null,
-        unchanged: false,
-      },
-      {
-        exportName: "Casey Example",
-        schoolAccountKey: "school-C",
-        tutoringChange: revision === 1 ? 2 : 0,
-        crewChange: 0,
-        hoursToAdd: revision === 1 ? 2 : 0,
-        monthAmount: 2,
-        previousEditionAmount: revision === 1 ? null : 2,
-        previousMonthAmount: null,
-        monthComparison: null,
-        unchanged: revision > 1,
-      },
-    ],
+    postingPolicy: "TENTH_HOUR_CARRY_NONNEGATIVE",
+    rows,
     totals: {
-      people: 3,
-      tutoringChange:
-        alexChange -
-        (revision === 1 ? 1 : 0) +
-        blairChange +
-        (revision === 1 ? 2 : 0),
-      crewChange: revision === 1 ? 1 : 0,
-      hoursToAdd: alexChange + blairChange + (revision === 1 ? 2 : 0),
-      monthAmount: alexMonth + blairMonth + 2,
+      people: rows.length,
+      tutoringChange: rows.reduce((total, row) => total + row.tutoringChange, 0),
+      crewChange: 0,
+      hoursToAdd: rows.reduce((total, row) => total + row.hoursToAdd, 0),
+      monthAmount: rows.reduce((total, row) => total + row.monthAmount, 0),
     },
   };
-}
-
-/** 80 min posts as 1.3 h with 2 min retained; another 4 min releases 0.1 h.
- * Blair carries 80 min of debt, offsets 40 min, then earns 50 min: 0.1 h posts
- * and 4 min remains. All examples use synthetic school accounts only. */
-export function schoolReportPreview(revision = 1): SchoolHoursPublicReport {
-  const report = schoolReportLegacyPreview(revision);
-  const rawAlex = revision === 1 ? 80 / 60 : revision === 2 ? 4 / 60 : 5 / 60;
-  const postedAlex = revision === 1 ? 1.3 : revision === 2 ? 0.1 : 0;
-  const alex = report.rows[0]!;
-  Object.assign(alex, {
-    tutoringChange: rawAlex,
-    crewChange: 0,
-    hoursToAdd: postedAlex,
-    monthAmount: revision === 1 ? 1.3 : 1.4,
-    previousEditionAmount: revision === 1 ? null : revision === 2 ? 1.3 : 1.4,
-    monthComparison: revision === 1 ? -4.7 : -4.6,
-    carryInHours: revision === 2 ? "0.0333333333333333" : "0",
-    carryOutHours:
-      revision === 1
-        ? "0.0333333333333333"
-        : revision === 2
-          ? "0"
-          : "0.0833333333333333",
-    priorEditions:
-      revision > 2
-        ? [
-            { revision: 1, monthAmount: 1.3, correctionToCurrent: 0.1 },
-            { revision: 2, monthAmount: 1.4, correctionToCurrent: 0 },
-          ]
-        : [],
-  });
-  Object.assign(report.rows[1]!, {
-    tutoringChange:
-      revision === 1 ? -80 / 60 : revision === 2 ? 40 / 60 : 50 / 60,
-    hoursToAdd: revision < 3 ? 0 : 0.1,
-    monthAmount: revision < 3 ? 0 : 0.1,
-    previousEditionAmount: revision === 1 ? null : 0,
-    carryInHours:
-      revision === 1
-        ? "0"
-        : revision === 2
-          ? "-1.3333333333333333"
-          : "-0.6666666666666667",
-    carryOutHours:
-      revision === 1
-        ? "-1.3333333333333333"
-        : revision === 2
-          ? "-0.6666666666666667"
-          : "0.0666666666666666",
-    unchanged: revision === 2,
-    priorEditions:
-      revision > 2
-        ? [
-            { revision: 1, monthAmount: 0, correctionToCurrent: 0.1 },
-            { revision: 2, monthAmount: 0, correctionToCurrent: 0.1 },
-          ]
-        : [],
-  });
-  Object.assign(report.rows[2]!, { carryInHours: "0", carryOutHours: "0" });
-  report.postingPolicy = "TENTH_HOUR_CARRY_NONNEGATIVE";
-  report.totals = {
-    people: 3,
-    tutoringChange: report.rows.reduce(
-      (total, row) => total + row.tutoringChange,
-      0,
-    ),
-    crewChange: 0,
-    hoursToAdd: report.rows.reduce((total, row) => total + row.hoursToAdd, 0),
-    monthAmount: report.rows.reduce((total, row) => total + row.monthAmount, 0),
-  };
-  return report;
 }
 
 export function emailPreviewSamples(
@@ -190,15 +145,19 @@ export function emailPreviewSamples(
       name: "code",
       ...codeEmailCopy({
         locale,
+        preview: emailText(locale, {
+          en: "Enter this 4-digit code within 10 minutes to finish signing in.",
+          zh: "请在 10 分钟内输入 4 位验证码以完成登录。",
+        }),
         subject: emailText(locale, {
           en: "Your sign-in code",
-          zh: "登录验证码",
+          zh: "你的登录验证码",
         }),
         code: "0012",
-        eyebrow: emailText(locale, { en: "SIGN IN", zh: "登录" }),
+        eyebrow: emailText(locale, { en: "SIGN IN", zh: "登录验证" }),
         body: emailText(locale, {
-          en: "Enter this code to sign in. It expires in 10 minutes.\n\nIf you did not try to sign in, change your password or contact the program team.",
-          zh: "输入此验证码以登录，10 分钟内有效。\n\n如非本人尝试登录，请更改密码或联系项目团队。",
+          en: "Enter this 4-digit code on the website to finish signing in. It expires in 10 minutes.\n\nDidn't just try to sign in? Change your password right away or contact the program team.",
+          zh: "请在网站输入此 4 位验证码以完成登录，10 分钟内有效。\n\n如果刚才不是你在尝试登录，请立即修改密码或联系项目团队。",
         }),
       }),
     },
@@ -212,35 +171,32 @@ export function emailPreviewSamples(
         url: invitationUrl,
       }),
     },
-    ...["A2B3C", "012345ABCDEF"].map((code) => ({
-      name: code.length === 5 ? "invitation" : "legacy-invitation",
+    {
+      name: "invitation",
       ...invitationEmailCopy({
         locale,
-        code,
+        code: "A2B3C",
         purpose: invitationPurpose("TUTOR"),
         deadline,
-        url: `${previewOrigin}/register?code=${code}`,
+        url: `${previewOrigin}/register?code=A2B3C`,
       }),
-    })),
+    },
+    {
+      name: "admin-invitation",
+      ...invitationEmailCopy({
+        locale,
+        code: "K7M2P",
+        purpose: invitationPurpose("ADMIN"),
+        deadline,
+        url: `${previewOrigin}/register?code=K7M2P`,
+      }),
+    },
     {
       name: "signup",
       ...tutoringSignupEmailCopy({
         locale,
         code: "0012",
         deadline,
-        url: `${previewOrigin}/tutee/account?token=${"synthetic".repeat(12)}`,
-      }),
-    },
-    {
-      name: "legacy-signup",
-      ...tutoringSignupEmailCopy({
-        locale,
-        code: "0012",
-        legacy: true,
-        verificationDue: {
-          ...deadline,
-          at: new Date("2026-11-12T16:30:00.000Z"),
-        },
         url: `${previewOrigin}/tutee/account?token=${"synthetic".repeat(12)}`,
       }),
     },
@@ -330,12 +286,49 @@ export function emailPreviewSamples(
       }),
     });
   samples.push({
-    name: "school-legacy-precision",
+    name: "school-reminder",
     ...schoolHoursEmailCopy({
       locale,
       iconUrl: `${previewOrigin}/icon.png`,
-      report: schoolReportLegacyPreview(3),
-      reportUrl: `${previewOrigin}/school-report/synthetic-legacy`,
+      reminder: true,
+      report: schoolReportPreview(1),
+      reportUrl: `${previewOrigin}/school-report/synthetic`,
+    }),
+  });
+  samples.push({
+    name: "announcement",
+    ...notificationEmailContent({
+      locale,
+      event: "announcement_published",
+      context: {
+        emailDetail: {
+          en: "Announcement “Midterm Room Changes” was published. Open it to read the announcement.",
+          zh: "公告《期中考试教室调整》已发布。请打开查看。",
+        },
+      },
+      createdAt: new Date("2026-11-09T08:30:00Z"),
+      timeZone: "Asia/Shanghai",
+      category: "info",
+      link: `${previewOrigin}/signin?callbackUrl=%2Fdashboard`,
+      unsubscribeUrl,
+    }),
+  });
+  samples.push({
+    name: "admin-review",
+    ...notificationEmailContent({
+      locale,
+      event: "tutor_application_pending",
+      context: {
+        emailDetail: {
+          en: "Jordan Li submitted a tutor application.",
+          zh: "Jordan Li 提交了辅导伙伴申请。",
+        },
+      },
+      createdAt: new Date("2026-11-09T08:30:00Z"),
+      timeZone: "Asia/Shanghai",
+      category: "review",
+      link: `${previewOrigin}/signin?callbackUrl=%2Fadmin%2Fapplications`,
+      unsubscribeUrl,
     }),
   });
   for (const verified of [false, true])

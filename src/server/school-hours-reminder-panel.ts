@@ -20,7 +20,7 @@ const messages: Record<SchoolHoursRecipientFaultCode, [string, string]> = {
   ],
   recipientRemoved: [
     "Reminders are no longer available for this mailbox. You can still view the report.",
-    "此邮箱已无法接收提醒，您仍可查看报告。",
+    "此邮箱已无法接收提醒，你仍可查看报告。",
   ],
   writeFailed: [
     "We could not confirm the request. Your selected time is retained; retry the same request.",
@@ -111,7 +111,7 @@ export function schoolHoursReminderPanel(
             ? `<p>${e(t(...messages.retired))}</p>`
             : ""
       }
-       ${state.reminders.length ? `<h3>${e(t("Your reminder emails", "您的提醒邮件"))}</h3><ul class="reminder-history">${state.reminders.map((row) => `<li><p><strong>${e(date(row.scheduledFor))}</strong><br><span class="reminder-status" data-status="${e(row.status)}">${e(statusLabel(row.status))}</span></p>${canCancel(row.status) ? `<form method="post" action="${e(action)}">${hidden("operation", "cancel")}${hidden("reminderId", row.id)}<button type="submit" class="button button-danger">${e(t("Cancel this reminder email", "取消此提醒邮件"))}</button></form>` : ""}</li>`).join("")}</ul>` : ""}`;
+       ${state.reminders.length ? `<h3>${e(t("Your reminder emails", "你的提醒邮件"))}</h3><ul class="reminder-history">${state.reminders.map((row) => `<li><p><strong>${e(date(row.scheduledFor))}</strong><br><span class="reminder-status" data-status="${e(row.status)}">${e(statusLabel(row.status))}</span></p>${canCancel(row.status) ? `<form method="post" action="${e(action)}">${hidden("operation", "cancel")}${hidden("reminderId", row.id)}<button type="submit" class="button button-danger">${e(t("Cancel this reminder email", "取消此提醒邮件"))}</button></form>` : ""}</li>`).join("")}</ul>` : ""}`;
   return `<section id="reminder" class="report-card reminder-panel"><details${options.review || options.error || active ? " open" : ""}>
     <summary class="reminder-heading"><h2>${e(t("Email me a reminder", "发送邮件提醒"))}</h2></summary><div class="reminder-content">
     ${options.error ? `<p role="alert" class="reminder-error">${e(t(...messages[options.error]))}</p>` : ""}${form}
