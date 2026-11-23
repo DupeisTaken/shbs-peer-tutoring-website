@@ -978,14 +978,24 @@
       "reviewNow": "Review Now →",
       "emailQuota": {
         "title": "Email Quota",
+        "loading": "Loading email quota…",
+        "dailyLabel": "Daily Free Quota",
         "dailyCount": "{remaining, number} / {limit, number}",
-        "dailyFree": "free emails left today",
+        "dailyFree": "emails left today",
         "dailyUnavailable": "Daily free quota unavailable.",
-        "balance": "Free balance has {count, plural, one {# email} other {# emails}} remaining.",
+        "balanceLabel": "Total Free Balance",
+        "balanceUnit": "{count, plural, one {email remaining} other {emails remaining}}",
+        "balanceHint": "One-time free allowance; does not reset daily.",
+        "balanceExhaustedHint": "Free balance is depleted; daily resets will not add free emails.",
         "balanceUnavailable": "Free balance unavailable.",
         "resetsAt": "Daily quota resets at {time}.",
-        "resetUnknown": "Quota resets daily. Reset time unavailable.",
-        "unavailable": "Email quota is currently unavailable."
+        "resetUnknown": "Daily quota resets once a day; reset time is not configured.",
+        "unavailable": "Email quota is currently unavailable.",
+        "unavailableHelp": "Could not read the Direct Mail free allowance. Email delivery is not affected.",
+        "statusUnavailable": "Unavailable",
+        "statusLow": "Low Quota",
+        "statusDailyExhausted": "Daily Limit Reached",
+        "statusBalanceExhausted": "Free Balance Exhausted"
       },
       "recentSubmissions": {
         "title": "Recent Submissions",

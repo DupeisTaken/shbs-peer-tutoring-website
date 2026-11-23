@@ -978,14 +978,24 @@
       "reviewNow": "Jetzt prüfen →",
       "emailQuota": {
         "title": "E-Mail-Kontingent",
+        "loading": "E-Mail-Kontingent wird geladen…",
+        "dailyLabel": "Tägliches Gratiskontingent",
         "dailyCount": "{remaining, number} / {limit, number}",
-        "dailyFree": "kostenlose E-Mails heute verfügbar",
+        "dailyFree": "E-Mails heute verfügbar",
         "dailyUnavailable": "Das tägliche Gratiskontingent ist nicht verfügbar.",
-        "balance": "Das kostenlose Guthaben reicht noch für {count, plural, one {# E-Mail} other {# E-Mails}}.",
+        "balanceLabel": "Gesamtes Gratisguthaben",
+        "balanceUnit": "{count, plural, one {E-Mail verbleibend} other {E-Mails verbleibend}}",
+        "balanceHint": "Einmaliges Gratiskontingent; wird nicht täglich zurückgesetzt.",
+        "balanceExhaustedHint": "Das Gratisguthaben ist aufgebraucht; tägliche Zurücksetzungen fügen keine kostenlosen E-Mails hinzu.",
         "balanceUnavailable": "Das kostenlose Guthaben ist nicht verfügbar.",
         "resetsAt": "Das tägliche Kontingent wird um {time} zurückgesetzt.",
-        "resetUnknown": "Das Kontingent wird täglich zurückgesetzt. Die Uhrzeit ist unbekannt.",
-        "unavailable": "Das E-Mail-Kontingent ist derzeit nicht verfügbar."
+        "resetUnknown": "Das tägliche Kontingent wird einmal pro Tag zurückgesetzt; die Uhrzeit ist nicht konfiguriert.",
+        "unavailable": "Das E-Mail-Kontingent ist derzeit nicht verfügbar.",
+        "unavailableHelp": "Das kostenlose Direct-Mail-Kontingent konnte nicht gelesen werden. Der E-Mail-Versand ist davon nicht betroffen.",
+        "statusUnavailable": "Nicht verfügbar",
+        "statusLow": "Niedriges Kontingent",
+        "statusDailyExhausted": "Tageslimit erreicht",
+        "statusBalanceExhausted": "Gratisguthaben aufgebraucht"
       },
       "recentSubmissions": {
         "title": "Zuletzt eingereicht",
