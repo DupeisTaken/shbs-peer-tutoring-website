@@ -3,6 +3,7 @@ import {
   act,
   cleanup,
   fireEvent,
+  isInaccessible,
   render,
   screen,
   waitFor,
@@ -10,6 +11,7 @@ import {
 } from "@testing-library/react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { NextIntlClientProvider } from "next-intl";
+import { compile } from "tailwindcss";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import en from "../../../messages/en.json";
 import zh from "../../../messages/zh.json";
@@ -24,6 +26,12 @@ const state = vi.hoisted(() => ({
   hours: 1,
   requestKind: "OPT_OUT",
   empty: [],
+  issuedCodes: [] as {
+    id: string;
+    name: string;
+    code: string | null;
+    expiresAt: Date;
+  }[],
   commit: vi.fn(),
   refresh: vi.fn<(name: string) => Promise<void>>(),
   error: null as Error | null,
@@ -107,7 +115,9 @@ vi.mock("~/trpc/react", () => ({
                               "Full request evidence. ".repeat(30),
                           },
                         ]
-                      : state.empty,
+                      : name === "crewIssuedCodes"
+                        ? state.issuedCodes
+                        : state.empty,
           }),
           useMutation: (options?: {
             onSuccess?: (data: unknown, input: unknown) => unknown;
@@ -132,6 +142,7 @@ beforeEach(() => {
     defaultOptions: { queries: { retry: false } },
   });
   state.status = "ACTIVE";
+  state.issuedCodes = [];
   state.patrols = 2;
   state.hours = 1;
   state.requestKind = "OPT_OUT";
@@ -194,6 +205,79 @@ const show = (readOnly = false, locale = "en") =>
     ),
   });
 
+it.each(["en", "zh"])(
+  "contains the accessible issued-code label locally in %s",
+  async (locale) => {
+    const messages = locale === "zh" ? zh : en;
+    // This inert fixture has no persisted invitation or redemption authority.
+    const code = "SYNTHETIC-NOT-A-CODE";
+    state.issuedCodes = [
+      {
+        id: "synthetic-issued-code",
+        name: "Synthetic accepted applicant",
+        code,
+        expiresAt: new Date("2030-01-01T00:00:00Z"),
+      },
+      {
+        id: "synthetic-masked-code",
+        name: "Synthetic masked applicant",
+        code: null,
+        expiresAt: new Date("2030-01-01T00:00:00Z"),
+      },
+    ];
+    const { container } = show(false, locale);
+    expect(
+      screen.getByRole("heading", { name: messages.admin.crew.issuedHeading }),
+    ).toBeTruthy();
+    expect(screen.getByText("Synthetic masked applicant")).toBeTruthy();
+    const surfaces = container.querySelectorAll<HTMLElement>(
+      '[data-code-purpose="invitation"]',
+    );
+    expect(surfaces).toHaveLength(1);
+    const surface = surfaces[0]!;
+    const label = within(surface).getByText(
+      messages.admin.crew.codeIssued.replace("{code}", code),
+    );
+    const visible = within(surface).getByText(code, { exact: true });
+    expect(label.parentElement).toBe(surface);
+    expect(visible.getAttribute("aria-hidden")).toBe("true");
+
+    // Exercise the real owner and installed utilities; JSDOM does not prove
+    // document scroll geometry. Native short-window checks establish that.
+    const compiler = await compile("@tailwind utilities;");
+    const stylesheet = document.createElement("style");
+    stylesheet.textContent = compiler.build([
+      ...surface.classList,
+      ...label.classList,
+    ]);
+    document.head.append(stylesheet);
+    try {
+      expect(getComputedStyle(surface).position).toBe("relative");
+      const style = getComputedStyle(label);
+      expect(style.position).toBe("absolute");
+      expect(style.width).toBe("1px");
+      expect(style.height).toBe("1px");
+      expect(style.overflow).toBe("hidden");
+      expect(style.clipPath).toBe("inset(50%)");
+      let owner = label.parentElement;
+      while (
+        owner &&
+        !/^(relative|absolute|fixed|sticky)$/.test(
+          getComputedStyle(owner).position,
+        )
+      )
+        owner = owner.parentElement;
+      expect(owner).toBe(surface);
+      expect(isInaccessible(label)).toBe(false);
+      expect(isInaccessible(visible)).toBe(true);
+      expect(getComputedStyle(visible).display).not.toBe("none");
+      expect(getComputedStyle(visible).visibility).not.toBe("hidden");
+    } finally {
+      stylesheet.remove();
+    }
+    expect(state.commit).not.toHaveBeenCalled();
+  },
+);
 it.each(["en", "zh"])(
   "shows known zero crew totals in the %s roster",
   (locale) => {

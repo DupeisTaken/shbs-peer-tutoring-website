@@ -56,6 +56,7 @@ export default async function PatrolLayout({
         title={t("crew.brand", { team: TEAM_TITLE })}
         skipLabel={t("common.skipToContent")}
         items={[
+          { href: "/help", label: t("helpNav.title") },
           ...(session.role !== "VIEWER"
             ? [{ href: "/student", label: t("components.userMenu.enterTutee") }]
             : []),

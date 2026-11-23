@@ -5,6 +5,7 @@ import type { Prisma } from "../../../../generated/prisma";
 import { isInterviewChairRole } from "~/lib/interview-chair";
 import { isOpenInterview } from "~/lib/interview-order";
 import {
+  MEETING_EXCUSE_CUTOFF_MS,
   canExcusePersonalMeeting,
   personalScheduleWindow,
   personalScheduleReadInput,
@@ -355,7 +356,7 @@ export const personalScheduleRouter = createTRPCRouter({
           ? ctx.db.tutorMeeting.findMany({
               where: {
                 date: {
-                  gte: new Date(now.getTime() + 60 * 60_000),
+                  gte: new Date(now.getTime() + MEETING_EXCUSE_CUTOFF_MS),
                   lt: endsBefore,
                 },
                 attendances: { none: { tutorId: ctx.session.tutorId } },

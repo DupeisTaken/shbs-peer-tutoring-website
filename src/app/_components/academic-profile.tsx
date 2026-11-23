@@ -147,7 +147,8 @@ export function AcademicForm({
         if (valid && !busy) onSave(draft);
       }}
     >
-      <fieldset disabled={busy} aria-busy={busy} className="space-y-4">
+      {/* Keep the clipped absolute legend inside this form's scroll boundary. */}
+      <fieldset disabled={busy} aria-busy={busy} className="relative space-y-4">
         <legend className="sr-only">{t("edit")}</legend>
         <label className="block">
           <span className="label">{t("status")}</span>
@@ -340,7 +341,10 @@ export function AcademicPanel({
       </button>
     ) : null;
   return (
-    <section className="card space-y-4 p-5 sm:p-6">
+    <section
+      id="academic-details"
+      className="card scroll-mt-24 space-y-4 p-5 sm:p-6"
+    >
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h2 className="section-title">{t("title")}</h2>

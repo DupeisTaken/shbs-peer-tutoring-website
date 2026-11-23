@@ -62,7 +62,14 @@ export default async function LocalizationLayout({
         title={TEAM_TITLE}
         skipLabel={t("common.skipToContent")}
         skipToId={elevated ? "admin-content" : "main-content"}
-        items={elevated ? [] : [{ href: home, label: t("localization.back") }]}
+        items={
+          elevated
+            ? []
+            : [
+                { href: home, label: t("localization.back") },
+                { href: "/help", label: t("helpNav.title") },
+              ]
+        }
         navigation={
           elevated ? <NavMobileRow role={me.role} embedded /> : undefined
         }

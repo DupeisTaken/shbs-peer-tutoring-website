@@ -504,7 +504,10 @@ export function AccountSettings({ embedded = false }: { embedded?: boolean }) {
       <AcademicPanel actions={<SchoolDepartureAction />} />
 
       {/* Password — two-step: verify current password to email a code, then submit code + new pw. */}
-      <section className="card space-y-4 p-5 sm:p-6">
+      <section
+        id="account-password"
+        className="card scroll-mt-24 space-y-4 p-5 sm:p-6"
+      >
         <div>
           <h2 className="section-title">
             {t("tutor.settings.passwordHeading")}

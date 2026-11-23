@@ -28,6 +28,7 @@ import {
   SchoolHolidayEditor,
   type SchoolCalendarRecord,
 } from "./school-calendar";
+import { useProgramWriteAdmission } from "./program-write-admission";
 
 type ProgramDay = {
   date: string;
@@ -120,6 +121,9 @@ export function ProgramCalendarSettings() {
   const query = api.program.calendarSettings.useQuery();
   const identity = api.account.me.useQuery();
   const calendar = api.student.calendar.useQuery();
+  const admission = useProgramWriteAdmission(
+    !!query.data?.canEdit && !query.error,
+  );
   const utils = api.useUtils();
   const review = useActionReview();
   const revokeReview = review.revoke;
@@ -127,6 +131,13 @@ export function ProgramCalendarSettings() {
   const resetHoliday = api.student.resetCalendarHoliday.useMutation();
   const programDenied = useSessionAccessDenied(query);
   const schoolDenied = useSessionAccessDenied(identity, calendar);
+  const holidayAdmission = useProgramWriteAdmission(
+    !schoolDenied &&
+      ["HEAD", "ADMIN", "COORDINATOR"].includes(identity.data?.role ?? "") &&
+      !!calendar.data &&
+      !identity.error &&
+      !calendar.error,
+  );
   const [removePreviewing, setRemovePreviewing] = useState<string | null>(null);
   const [removeError, setRemoveError] = useState<string | null>(null);
   const [removeRefreshing, setRemoveRefreshing] = useState(false);
@@ -215,11 +226,11 @@ export function ProgramCalendarSettings() {
   const canApplyProgram = !programDenied && !!data?.canApply;
   const canEditHoliday =
     !schoolDenied &&
-    !identity.error &&
     ["HEAD", "ADMIN", "COORDINATOR"].includes(identity.data?.role ?? "");
   const canApplyHoliday =
     !schoolDenied && ["HEAD", "ADMIN"].includes(identity.data?.role ?? "");
   const holidayBlocked =
+    !holidayAdmission.allowed ||
     !!calendar.error ||
     !!identity.error ||
     holidayRecoveryNeeded ||
@@ -277,9 +288,9 @@ export function ProgramCalendarSettings() {
                 {school("addHoliday")}
               </Button>
             )}
-            {canEditProgram && (
+            {canEditProgram && data && (
               <Button
-                disabled={!!query.error || !!removePreviewing || !!editor}
+                disabled={!admission.allowed || !!removePreviewing || !!editor}
                 onClick={() => setEditor({ day: null, snapshot: data.days })}
               >
                 {t("add")}
@@ -379,8 +390,15 @@ export function ProgramCalendarSettings() {
         <SummaryTable sortable label={t("combinedTitle")}>
           <thead>
             <tr>
-              <th className="whitespace-nowrap">{t("date")}</th>
-              <th className="whitespace-nowrap">{t("schedulingEffect")}</th>
+              <th className="whitespace-nowrap [&_.table-sort-button]:whitespace-nowrap">
+                {t("date")}
+              </th>
+              <th className="whitespace-nowrap [&_.table-sort-button]:whitespace-nowrap">
+                {t("schedulingEffect")}
+              </th>
+              <th className="whitespace-nowrap [&_.table-sort-button]:whitespace-nowrap">
+                {t("reasonOrNote")}
+              </th>
               <th className="table-actions-heading">{t("actions")}</th>
             </tr>
           </thead>
@@ -391,6 +409,10 @@ export function ProgramCalendarSettings() {
                 const rowKey = `holiday:${group.from}:${group.to}`;
                 const resetKey = `holiday-reset:${group.from}:${group.to}`;
                 const dayCount = group.days.length;
+                const previewNote =
+                  group.note.length > 80
+                    ? `${group.note.slice(0, 80)}…`
+                    : group.note;
                 return (
                   <tr key={rowKey}>
                     <td
@@ -407,6 +429,18 @@ export function ProgramCalendarSettings() {
                       data-sort-value={t("holidayEffect")}
                     >
                       {t("holidayEffect")}
+                    </td>
+                    <td
+                      data-sort-value={group.note}
+                      className="max-w-[16rem] xl:max-w-[18rem]"
+                    >
+                      {previewNote ? (
+                        <p className="truncate">{previewNote}</p>
+                      ) : (
+                        <span className="muted text-sm">
+                          {school("noStaffNote")}
+                        </span>
+                      )}
                     </td>
                     <TableActions>
                       <TableDetails
@@ -469,6 +503,7 @@ export function ProgramCalendarSettings() {
                             {school("edit")}
                           </TableAction>
                           <TableAction
+                            className="lg:whitespace-nowrap"
                             disabled={
                               holidayBlocked ||
                               !!holidayEditor ||
@@ -509,8 +544,10 @@ export function ProgramCalendarSettings() {
                                     )}
                                   </div>
                                 ),
-                                commit: () =>
-                                  resetHoliday.mutateAsync({
+                                commit: () => {
+                                  if (!holidayAdmission.isAllowed())
+                                    throw new Error(school("loadFailed"));
+                                  return resetHoliday.mutateAsync({
                                     from: group.from,
                                     to: group.to,
                                     expectedVersions: group.days.map(
@@ -519,7 +556,8 @@ export function ProgramCalendarSettings() {
                                         version: day.version,
                                       }),
                                     ),
-                                  }),
+                                  });
+                                },
                                 refresh: refreshSchoolCalendar,
                                 approvalId: queuedApprovalId,
                                 repeatAfterRefresh: true,
@@ -554,6 +592,17 @@ export function ProgramCalendarSettings() {
                   >
                     {effectLabel}
                   </td>
+                  <td
+                    data-sort-value={day.reason}
+                    className="max-w-[16rem] xl:max-w-[18rem]"
+                  >
+                    {/* Single-line preview keeps rows unwrapped; full text stays in View details / Edit. */}
+                    <p className="truncate">
+                      {day.reason.length > 80
+                        ? `${day.reason.slice(0, 80)}…`
+                        : day.reason}
+                    </p>
+                  </td>
                   <TableActions>
                     <TableDetails
                       title={`${t("title")} · ${day.date}${day.endDate !== day.date ? ` ${t("through")} ${day.endDate}` : ""}`}
@@ -575,21 +624,21 @@ export function ProgramCalendarSettings() {
                     {canEditProgram && (
                       <>
                         <TableAction
-                          disabled={!!query.error || !!removePreviewing}
+                          disabled={!admission.allowed || !!removePreviewing}
                           onClick={() =>
-                            setEditor({ day, snapshot: data.days })
+                            data && setEditor({ day, snapshot: data.days })
                           }
                         >
                           {t("edit")}
                         </TableAction>
                         <TableAction
                           disabled={
-                            !!query.error ||
+                            !admission.allowed ||
                             !!removePreviewing ||
                             review.blocked(day.date)
                           }
                           onClick={async () => {
-                            if (removeGuard.current) return;
+                            if (!admission.isAllowed() || removeGuard.current) return;
                             removeGuard.current = true;
                             setRemovePreviewing(day.date);
                             setRemoveError(null);
@@ -607,6 +656,8 @@ export function ProgramCalendarSettings() {
                                     { staleTime: 0 },
                                   )
                                 : null;
+                              // Preview completion cannot reuse authority lost while the read was pending.
+                              if (!admission.isAllowed()) return;
                               review.open({
                                 key: day.date,
                                 title: t("removeTitle"),
@@ -639,11 +690,14 @@ export function ProgramCalendarSettings() {
                                     )}
                                   </div>
                                 ),
-                                commit: () =>
-                                  remove.mutateAsync({
+                                commit: () => {
+                                  if (!admission.isAllowed())
+                                    throw new Error(t("loadFailed"));
+                                  return remove.mutateAsync({
                                     date: day.date,
                                     expectedVersion: day.version,
-                                  }),
+                                  });
+                                },
                                 refresh: () =>
                                   settleRefreshes([
                                     () =>
@@ -702,7 +756,7 @@ export function ProgramCalendarSettings() {
             initial={editor.day}
             snapshot={editor.snapshot}
             canApply={canApplyProgram}
-            disabled={!!query.error || !canEditProgram}
+            disabled={!admission.allowed}
             onReload={async () => {
               const result = await query.refetch();
               if (!result.isSuccess)
@@ -784,6 +838,7 @@ function CalendarEditor({
 }) {
   const t = useTranslations("programCalendar");
   const approvals = useTranslations("approvals");
+  const admission = useProgramWriteAdmission(!disabled);
   const utils = api.useUtils();
   const [date, setDate] = useState(initial?.date ?? "");
   const [endDate, setEndDate] = useState(
@@ -845,7 +900,7 @@ function CalendarEditor({
       onSubmit={async (event) => {
         event.preventDefault();
         if (
-          disabled ||
+          !admission.isAllowed() ||
           pending ||
           admitted.current ||
           committed.current ||
@@ -901,7 +956,7 @@ function CalendarEditor({
       }}
     >
       <fieldset
-        disabled={disabled || pending || accepted}
+        disabled={!admission.allowed || pending || accepted}
         className="min-w-0 space-y-4"
       >
         <p className="muted text-sm">{t("rangeHelp")}</p>

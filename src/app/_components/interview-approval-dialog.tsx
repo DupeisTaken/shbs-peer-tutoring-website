@@ -114,6 +114,9 @@ export function InterviewApprovalDialog({
     }
   };
   const recorded = !!draft.evidence.interviewCompletedAt;
+  // Recorded qualification approval grants eligibility without a service write;
+  // its instructions and receipt must describe that same retained-service mode.
+  const retainRecordedService = recorded && draft.evidence.type !== "INITIAL";
   const retryOnly = !canApprove && canRetrySubmitted && !!submittedSnapshot;
   const canSubmit = canApprove || retryOnly;
   // A delayed ACCEPTED read may arrive after the user edited a failed draft.
@@ -202,11 +205,15 @@ export function InterviewApprovalDialog({
         key: evidence.id,
         title: t("title", { name: draft.evidence.name }),
         description: t(
-          draft.evidence.type === "INITIAL"
-            ? "effectsInitial"
-            : "effectsQualification",
+          retainRecordedService
+            ? "effectsRetained"
+            : draft.evidence.type === "INITIAL"
+              ? "effectsInitial"
+              : "effectsQualification",
         ),
-        confirmLabel: t("confirm"),
+        confirmLabel: t(
+          retainRecordedService ? "confirmRetained" : "confirm",
+        ),
         confirmVariant: "primary",
         details: (
           <div className="space-y-3 text-sm">
@@ -280,7 +287,9 @@ export function InterviewApprovalDialog({
             writing.current = false;
           }
         },
-        renderResult: () => <p>{t("saved")}</p>,
+        renderResult: () => (
+          <p>{t(retainRecordedService ? "savedRetained" : "saved")}</p>
+        ),
         // This refusal belongs to promotion, not the review framework. Keep the
         // failed evidence editable while explaining the independent Head action.
         renderError: (message) =>
@@ -307,7 +316,7 @@ export function InterviewApprovalDialog({
         <Modal
           wide
           title={t("title", { name: draft.evidence.name })}
-          description={t("help")}
+          description={t(retainRecordedService ? "helpRetained" : "help")}
           busy={review.busy || reloading}
           onClose={closeEditor}
           footer={
@@ -319,7 +328,7 @@ export function InterviewApprovalDialog({
                 form={formId}
                 disabled={!canSubmit || !visibleDraft.comment.trim()}
               >
-                {t("review")}
+                {t(retainRecordedService ? "reviewRetained" : "review")}
               </Button>
             </>
           }

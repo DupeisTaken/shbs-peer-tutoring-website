@@ -42,7 +42,12 @@ export async function readOverlappingCohorts(
     FROM "SessionPlanCohort" c
     JOIN "SessionPlan" p ON p.id=c."planId"
     LEFT JOIN "SessionPlanExecution" executor ON executor."planId"=p.id
-    WHERE c.status='SCHEDULED'
+    WHERE c.status='SCHEDULED' AND NOT c."refreshSuppressed"
+      AND NOT EXISTS (
+        SELECT 1 FROM "ScheduledProgramRefresh" refresh
+        WHERE refresh."sourceTermId"=p."termId" AND refresh.state='SCHEDULED'
+          AND c."endsAt">refresh."executeAt"
+          AND (c."startsAt">${new Date()} OR c."startsAt">refresh."updatedAt"))
       AND c."startsAt"<${endsAt} AND c."endsAt">${startsAt}
   `;
   return rows.map(({ tutorId, participantIds, ...cohort }) => ({
@@ -104,6 +109,15 @@ export async function readOverlappingHolds(
     LEFT JOIN "SessionPlanExecution" executor ON executor."planId"=p.id
     JOIN "SessionPlanningOffer" o ON o.id=r."currentOfferId" AND o."requestId"=r.id
     WHERE r.status='PENDING' AND r.kind<>'CANCEL'
+      AND NOT EXISTS (SELECT 1 FROM "ScheduledProgramRefresh" refresh
+        WHERE refresh."sourceTermId"=p."termId" AND refresh.state='SCHEDULED'
+          AND o."endsAt">refresh."executeAt")
+      AND NOT EXISTS (SELECT 1 FROM "SessionPlanCohort" source
+        WHERE source.id=r."cohortId" AND (source."refreshSuppressed" OR EXISTS (
+          SELECT 1 FROM "ScheduledProgramRefresh" refresh
+          WHERE refresh."sourceTermId"=p."termId" AND refresh.state='SCHEDULED'
+            AND source."endsAt">refresh."executeAt"
+            AND (source."startsAt">${new Date()} OR source."startsAt">refresh."updatedAt"))))
       AND o."startsAt"<${endsAt} AND o."endsAt">${startsAt}
       AND (${excluded}::text IS NULL OR r.id<>${excluded})
   `;

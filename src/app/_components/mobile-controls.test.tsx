@@ -16,7 +16,7 @@ import { SortHeader, useSort } from "./sortable";
 import { NavSidebarClient } from "./nav-sidebar-client";
 import { AvailabilityEditor } from "../(tutor)/_components/availability-editor";
 import PatrolPage from "../patrol/page";
-import ProgramPage from "../(admin)/admin/program/page";
+import ProgramPage from "../(admin)/admin/program/program-settings";
 import RegistrationCodesPage from "../(admin)/admin/registration-codes/page";
 
 const state = vi.hoisted(() => ({
@@ -102,9 +102,21 @@ vi.mock("~/trpc/react", () => ({
   api: {
     account: {
       me: {
-        useQuery: () => ({
-          data: { role: state.readOnly ? "VIEWER" : "HEAD" },
-        }),
+        useQuery: () => {
+          const data = {
+            id: "synthetic-mobile-controls-account",
+            role: state.readOnly ? "VIEWER" : "HEAD",
+          };
+          return {
+            data,
+            error: null,
+            isSuccess: true,
+            status: "success",
+            isLoading: false,
+            isFetching: false,
+            refetch: async () => ({ data, isSuccess: true }),
+          };
+        },
       },
     },
     useUtils: () => ({

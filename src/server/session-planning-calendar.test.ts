@@ -25,16 +25,19 @@ function fixture(tutor = false) {
   type Token = { id: string; userId: string; tokenHash: string; revokedAt: Date | null; createdAt: Date };
   const tokens: Token[] = [{ id: "token-1", userId: user.id, tokenHash: digest(token), revokedAt: null, createdAt: now }];
   const cohort = {
-    planId: "plan-1", plan: { id: "plan-1", tutorId: "owned-tutor" },
+    planId: "plan-1", plan: { id: "plan-1", tutorId: "owned-tutor", termId: "term-1" },
+    refreshSuppressed: false, sessions: [] as { id: string }[],
     id: "cohort-1", roomId: "room-1", online: false, status: "SCHEDULED", version: 1,
     startsAt: new Date("2026-11-02T04:00:00Z"), endsAt: new Date("2026-11-02T04:45:00Z"), updatedAt: now,
   };
   const participant = { id: "participant-1", tuteeId: "owned-student", status: "SCHEDULED", version: 1, updatedAt: now, cohort };
   const planExecutions: { planId: string; tutorId: string }[] = [];
   const participantExecutions: { participantId: string; tuteeId: string }[] = [];
+  const refreshSchedules: { sourceTermId: string; state: string; executeAt: Date; version: number; updatedAt: Date }[] = [];
   const database = {
     $executeRaw: vi.fn(async () => 1),
     user: { findUnique: vi.fn(async () => user) },
+    scheduledProgramRefresh: { findMany: vi.fn(async () => refreshSchedules) },
     tutee: { findMany: vi.fn(async () => [{ id: "owned-student" }]) },
     auditLog: { create: vi.fn(async () => ({})) },
     sessionCalendarToken: {
@@ -61,7 +64,7 @@ function fixture(tutor = false) {
       where.OR[0].tuteeId.in.includes(participant.tuteeId) || where.OR[1].id.in.includes(participant.id) ? [participant] : []) },
     room: { findMany: vi.fn(async () => [{ id: "room-1", name: "Room 101" }]) },
   };
-  return { user, tokens, cohort, participant, planExecutions, participantExecutions, raw: database, database: database as unknown as DomainDb };
+  return { user, tokens, cohort, participant, refreshSchedules, planExecutions, participantExecutions, raw: database, database: database as unknown as DomainDb };
 }
 
 it("stores only a token digest, rotates the previous URL and exposes no recoverable secret in status/audit", async () => {
@@ -124,6 +127,42 @@ it("exports separate stable tutor cohort identities and no peer roster data", as
   expect(f.raw.sessionPlanParticipant.findMany).not.toHaveBeenCalled();
   expect(calendar).toContain("LOCATION:Room 101");
   expect(calendar).not.toContain("owned-tutor");
+});
+
+it.each([false, true])("projects refresh cancellation and increasing revisions before maintenance without writes (tutor: %s)", async (tutor) => {
+  const f = fixture(tutor);
+  const before = await sessionCalendarFeed(f.database, token, now);
+  expect(before).toContain("SEQUENCE:1");
+  f.refreshSchedules.push({ sourceTermId: "term-1", state: "SCHEDULED", executeAt: f.cohort.startsAt, version: 1, updatedAt: now });
+  const cancelled = await sessionCalendarFeed(f.database, token, now);
+  expect(cancelled).toContain("SEQUENCE:2");
+  expect(cancelled).toContain("STATUS:CANCELLED");
+  f.refreshSchedules[0]!.state = "CANCELLED";
+  f.refreshSchedules[0]!.version = 2;
+  const restored = await sessionCalendarFeed(f.database, token, now);
+  expect(restored).toContain("SEQUENCE:3");
+  expect(restored).toContain("STATUS:CONFIRMED");
+  expect(f.cohort.status).toBe("SCHEDULED");
+  expect(f.participant.status).toBe("SCHEDULED");
+  expect(f.raw.$executeRaw.mock.calls.every((call) => String(call).includes("pg_advisory_xact_lock"))).toBe(true);
+});
+
+it.each([false, true])("retains exact-end, started and recorded calendar commitments across a refresh cutoff (tutor: %s)", async (tutor) => {
+  const f = fixture(tutor);
+  const refresh = { sourceTermId: "term-1", state: "SCHEDULED", executeAt: f.cohort.endsAt, version: 1, updatedAt: now };
+  f.refreshSchedules.push(refresh);
+  expect(await sessionCalendarFeed(f.database, token, now)).toContain("STATUS:CONFIRMED");
+  refresh.executeAt = new Date(f.cohort.endsAt.getTime() - 1);
+  expect(await sessionCalendarFeed(f.database, token, now)).toContain("STATUS:CANCELLED");
+  expect(await sessionCalendarFeed(f.database, token, f.cohort.endsAt)).toContain("STATUS:CANCELLED");
+  refresh.updatedAt = f.cohort.startsAt;
+  expect(await sessionCalendarFeed(f.database, token, f.cohort.startsAt)).toContain("STATUS:CONFIRMED");
+  f.cohort.sessions.push({ id: "recorded-evidence" });
+  expect(await sessionCalendarFeed(f.database, token, now)).toContain("STATUS:CONFIRMED");
+  f.cohort.refreshSuppressed = true;
+  f.cohort.sessions.length = 0;
+  refresh.state = "CANCELLED";
+  expect(await sessionCalendarFeed(f.database, token, now)).toContain("STATUS:CANCELLED");
 });
 
 it.each([false, true])("retains transferred event UIDs only for the exact execution owner (tutor: %s)", async (tutor) => {

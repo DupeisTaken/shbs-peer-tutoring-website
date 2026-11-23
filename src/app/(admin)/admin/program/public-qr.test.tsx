@@ -11,7 +11,7 @@ import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import en from "../../../../../messages/en.json";
 import zh from "../../../../../messages/zh.json";
 import type { NextRecruitmentSettingsData } from "~/app/_components/next-recruitment-settings";
-import ProgramPage from "./page";
+import ProgramPage from "./program-settings";
 
 const state = vi.hoisted(() => ({
   role: "HEAD",
@@ -76,7 +76,9 @@ vi.mock("~/trpc/react", () => ({
     account: {
       me: {
         useQuery: () => ({
-          data: { role: state.role },
+          data: { id: "synthetic-account", role: state.role },
+          isSuccess: !state.denied,
+          status: state.denied ? "error" : "success",
           error: state.denied ? { data: { code: "FORBIDDEN" } } : null,
         }),
       },
@@ -101,6 +103,8 @@ vi.mock("~/trpc/react", () => ({
       cancelRefresh: { useMutation: () => ({ mutateAsync: state.cancelRefresh }) },
       currentPeriod: {
         useQuery: () => ({
+          isSuccess: true,
+          status: "success",
           data: state.hasPeriod
             ? {
                 name: "Current",

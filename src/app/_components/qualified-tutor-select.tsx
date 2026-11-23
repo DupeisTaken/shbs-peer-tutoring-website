@@ -149,9 +149,11 @@ export function QualifiedTutorSelect({
                   ? t("noneQualified")
                   : t("groupHelp")}
       </p>
+      {/* Contain the clipped absolute helper locally so its static position cannot
+          enlarge the document beyond a bounded management pane. */}
       <div
         id={workloadId}
-        className={`min-w-0 space-y-2 ${leading ? "lg:col-span-2 lg:col-start-2" : "lg:col-span-full lg:col-start-1"}`}
+        className={`relative min-w-0 space-y-2 ${leading ? "lg:col-span-2 lg:col-start-2" : "lg:col-span-full lg:col-start-1"}`}
       >
         <p className="sr-only">{workloadText("compactHelp")}</p>
         <AssignmentWorkloadFeedback />

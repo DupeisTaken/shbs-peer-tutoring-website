@@ -10,6 +10,7 @@ import { db } from "./db";
 import { createCaller } from "./api/root";
 import { ApprovalQueued } from "./approvals";
 import { declineLegacySignup } from "./legacy-signup-decline";
+import { assertNoPublishedTuteeDeletion } from "./session-planning/deletion-guards";
 import { assertStudentRequestAssignable } from "./student-request-state";
 import { assertIsolatedTestDatabase } from "~/test/database-guard";
 import { classifyApproval } from "~/lib/approval-policy";
@@ -487,7 +488,7 @@ it.each(["source", "target"] as const)(
   },
 );
 
-it("preserves attendance and published-plan deletion guards", async () => {
+it("preserves the separate attendance refusal and retained source", async () => {
   const { source, input } = await fixture({ assigned: true });
   await db.session.create({
     data: {
@@ -508,30 +509,125 @@ it("preserves attendance and published-plan deletion guards", async () => {
   });
   await expect(caller().admin.declineSignup(input)).rejects.toMatchObject({
     code: "BAD_REQUEST",
-  });
-  await db.sessionTutee.deleteMany();
-  await db.session.deleteMany();
-  await db.sessionPlan.create({
-    data: {
-      id: "decline-plan",
-      generationKey: "decline-plan",
-      tutorId: "decline-tutor",
-      termId,
-      originalDate: "2026-10-05",
-      timeZone: "Asia/Shanghai",
-      sourceFingerprint: "synthetic",
-      participants: { create: { tuteeId: input.id } },
-    },
-  });
-  await expect(caller().admin.declineSignup(input)).rejects.toMatchObject({
-    code: "BAD_REQUEST",
+    message:
+      "Cannot decline a signup with attendance history. Use its participation controls instead.",
   });
   expect(await db.legacySignupDecline.count()).toBe(0);
   expect(await db.tutee.findUniqueOrThrow({ where: { id: input.id } })).toEqual(
     source,
   );
   expect(await db.pairingTutee.count({ where: { tuteeId: input.id } })).toBe(2);
+  expect(await db.sessionTutee.count({ where: { tuteeId: input.id } })).toBe(1);
 });
+
+it.each([
+  { status: "SCHEDULED", originalDate: "2000-01-01" },
+  { status: "SCHEDULED", originalDate: "2099-01-01" },
+  { status: "CANCELLED", originalDate: "2000-01-01" },
+  { status: "CANCELLED", originalDate: "2099-01-01" },
+])(
+  "uses caller-specific publication refusals for $status evidence on $originalDate without changing protected records",
+  async ({ status, originalDate }) => {
+    const { input } = await fixture({ assigned: true });
+    await db.subject.create({
+      data: { id: "decline-science", name: "Synthetic Science" },
+    });
+    const source = await db.tutee.update({
+      where: { id: input.id },
+      data: { secondChoiceId: "decline-science" },
+    });
+    const declineInput = { ...input, expectedUpdatedAt: source.updatedAt };
+    await expect(
+      assertNoPublishedTuteeDeletion(db, input.id),
+    ).resolves.toBeUndefined();
+    await expect(
+      assertNoPublishedTuteeDeletion(db, input.id, "declineSignup"),
+    ).resolves.toBeUndefined();
+    // Stage retained guard evidence, not a normal publication workflow.
+    await db.sessionPlan.create({
+      data: {
+        id: "decline-plan",
+        generationKey: "decline-plan",
+        tutorId: "decline-tutor",
+        termId,
+        originalDate,
+        timeZone: "Asia/Shanghai",
+        sourceFingerprint: "synthetic",
+        participants: { create: { tuteeId: input.id, status } },
+      },
+    });
+    const protectedRecords = async () => ({
+      source: await db.tutee.findUniqueOrThrow({ where: { id: input.id } }),
+      pairings: await db.pairingTutee.findMany({
+        where: { tuteeId: input.id },
+        orderBy: { pairingId: "asc" },
+      }),
+      ownership: await db.studentProfileOwnership.findUniqueOrThrow({
+        where: { tuteeId: input.id },
+      }),
+      account: await db.user.findUniqueOrThrow({
+        where: { id: "decline-STUDENT" },
+      }),
+      availability: await db.tuteeAvailability.findMany({
+        where: { tuteeId: input.id },
+        orderBy: { slotId: "asc" },
+      }),
+      publication: await db.sessionPlan.findUniqueOrThrow({
+        where: { id: "decline-plan" },
+        include: { participants: true },
+      }),
+      declines: await db.legacySignupDecline.findMany({
+        where: { tuteeId: input.id },
+      }),
+      attendance: await db.sessionTutee.findMany({
+        where: { tuteeId: input.id },
+      }),
+    });
+    const before = await protectedRecords();
+    for (const action of [
+      {
+        operation: "admin.declineSignup",
+        invoke: () => caller("HEAD").admin.declineSignup(declineInput),
+        message:
+          "Cannot decline a signup with published dated-session records. Review its participation controls instead.",
+      },
+      {
+        operation: "admin.deleteTutee",
+        invoke: () => caller("HEAD").admin.deleteTutee({ id: input.id }),
+        message:
+          "Cannot delete a tutee with published dated-session records. Set them inactive and preserve the session history instead.",
+      },
+    ]) {
+      const priorAudits = await db.auditLog.findMany({
+        orderBy: { id: "asc" },
+      });
+      await expect(action.invoke()).rejects.toMatchObject({
+        code: "BAD_REQUEST",
+        message: action.message,
+      });
+      expect(await protectedRecords()).toEqual(before);
+      const afterAudits = await db.auditLog.findMany({
+        orderBy: { id: "asc" },
+      });
+      const priorIds = new Set(priorAudits.map(({ id }) => id));
+      expect(afterAudits.filter(({ id }) => priorIds.has(id))).toEqual(
+        priorAudits,
+      );
+      const attempts = afterAudits.filter(({ id }) => !priorIds.has(id));
+      expect(attempts).toHaveLength(1);
+      expect(attempts[0]).toMatchObject({
+        operation: action.operation,
+        kind: "ATTEMPT",
+        userId: "decline-HEAD",
+        details: {
+          outcome: "FAILED",
+          errorCode: "BAD_REQUEST",
+          applied: false,
+        },
+      });
+    }
+  },
+);
 
 it("rejects stale, historical, invalid and survey-backed inputs without creating decision evidence", async () => {
   const { input } = await fixture();

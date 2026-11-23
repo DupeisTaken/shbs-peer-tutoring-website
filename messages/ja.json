@@ -1,10 +1,15 @@
 {
+  "helpNav": {
+    "title": "ヘルプと操作ガイド",
+    "downloads": "PDF マニュアル"
+  },
   "recoveryWorkflow": {
     "adoptionPending": "Your request was saved. Its recovery-draft link could not be confirmed; continue mailbox verification and ask management to review the draft status.",
     "review": "Management prepared these saved answers for your review. Check the current courses and times, enter your verified account email, and agree to the current policy. Your new request still needs mailbox verification.",
     "consumed": "This recovery draft has already been submitted. Continue with the verification email for your new request, or open your account to view its status."
   },
   "sessionPlanning": {
+    "refreshBoundary": "セッションは予定された期間更新の時刻までに終了する必要があります。最新の予定を再読み込みしてください。",
     "deadlineMissedTitle": "対応が必要です：期限切れの日程申請を確認してください",
     "deadlineMissedHelp": "通知の返答期限が、日程処理を利用できない間に過ぎました。過去にさかのぼる日時変更は行っていません。チューターと元の予定と提案された時間を確認してください。出席・欠席は自動判断していません。",
     "scheduleUnavailable": "予定の確認が必要",
@@ -982,6 +987,27 @@
       },
       "pendingBanner": "生徒の申請が {count} 件、審査待ちです。",
       "reviewNow": "今すぐ確認 →",
+      "emailQuota": {
+        "title": "メール送信枠",
+        "loading": "メール送信枠を読み込み中…",
+        "dailyLabel": "本日の無料送信枠",
+        "dailyCount": "{remaining, number} / {limit, number}",
+        "dailyFree": "通（本日残り）",
+        "dailyUnavailable": "本日の無料送信枠を取得できません。",
+        "balanceLabel": "累計無料残高",
+        "balanceUnit": "{count, plural, other {通残り}}",
+        "balanceHint": "初回付与の無料枠であり、毎日リセットされません。",
+        "balanceExhaustedHint": "無料残高を使い切りました。日次リセットでも無料送信枠は回復しません。",
+        "balanceUnavailable": "無料残高を取得できません。",
+        "resetsAt": "毎日の送信枠は {time} にリセットされます。",
+        "resetUnknown": "毎日の送信枠は1日1回リセットされます（リセット時刻は未設定）。",
+        "unavailable": "現在、メール送信枠を取得できません。",
+        "unavailableHelp": "Direct Mail の無料送信枠を読み取れませんでした。メール送信自体には影響ありません。",
+        "statusUnavailable": "取得不可",
+        "statusLow": "残数わずか",
+        "statusDailyExhausted": "本日の上限に達しました",
+        "statusBalanceExhausted": "無料残高なし"
+      },
       "recentSubmissions": {
         "title": "最近の提出",
         "viewAll": "すべて表示 →",
@@ -2343,7 +2369,7 @@
     },
     "meetings": {
       "title": "今後の会議",
-      "help": "会議に出られませんか？開始 60 分前まで欠席を申告できます。",
+      "help": "会議に出られませんか？開始 45 分前まで欠席を申告できます。",
       "excuseBtn": "欠席を申告",
       "submitExcuse": "欠席理由を送信",
       "cancelExcuse": "申告を取り消す",
@@ -2474,6 +2500,9 @@
       "saving": "保存中…",
       "saved": "保存しました。",
       "voteCommentPlaceholder": "投票へのコメント（任意）",
+      "voteSyncing": "Your vote was saved. Refreshing interview details and Schedule…",
+      "voteRefreshFailed": "Your vote was saved, but some interview details or Schedule items could not refresh. Retry refresh without voting again.",
+      "voteRefresh": "Retry refresh",
       "votingClosed": "この応募の投票は終了しています。",
       "accept": "合格",
       "reject": "不合格",
@@ -2981,7 +3010,8 @@
     "empty": "巡回記録はありません。",
     "newer": "新しい記録",
     "older": "古い記録",
-    "details": "変更の詳細"
+    "details": "変更の詳細",
+    "patrolChanged": "Patrol changed. Reload before correcting it."
   },
   "emailChange": {
     "title": "アカウントのメールを変更",
@@ -3260,6 +3290,11 @@
     "incompleteHelp": "メール確認または最終的なアカウント確認が必要です。"
   },
   "workflow": {
+    "actionFailed": "This action could not be confirmed. Your draft is retained.",
+    "currentRequests": "Current Requests",
+    "retryRefresh": "Retry refresh",
+    "recallAccepted": "This request was recalled. Refresh its status; your recall will not be repeated.",
+    "abortAccepted": "Your withdrawal application was submitted. Refresh its status; your application will not be repeated.",
     "pleaseReview": "Please review before continuing",
     "cancel": "Cancel",
     "confirm": "Yes, confirm",
@@ -4864,6 +4899,9 @@
     "noTutor": "No linked tutor",
     "count": "Showing {count} of {total} users"
   },
+  "saveErrors": {
+    "staleRecord": "This changed since you loaded it — refresh and try again."
+  },
   "saveNotifications": {
     "saved": "Changes saved",
     "failed": "Could not save changes",
@@ -6185,12 +6223,13 @@
     "impactRestore": "復元候補：{count}",
     "impactRule": "保存時に現在の合意と競合を再確認し、対象の参加者にキャンセルをメールで通知します。開始済みのセッションと記録済みの出席は変更されません。",
     "combinedTitle": "学校休暇・チュータリング休止",
-    "combinedHelp": "学校休暇（休校）とチュータリング休止・お知らせ（登校日）を管理します。学校休暇は通常セッションと異議申立の登校日数カウントを停止します。チュータリング休止は登校日ルールを変更しません。",
+    "combinedHelp": "学校休暇とチュータリング休止・お知らせを管理します。学校休暇は通常セッションと異議申立の登校日数カウントを停止します。チュータリング休止は登校日ルールを変更しません。",
     "combinedEmpty": "学校休暇やチュータリングのお知らせはありません。",
     "denied": "チュータリングのお知らせと休止設定は利用できません。",
-    "holidayEffect": "学校休暇（休校）",
-    "pauseEffectTable": "通常チュータリング休止（登校日）",
-    "noticeEffectTable": "お知らせのみ（登校日）"
+    "holidayEffect": "学校休暇",
+    "pauseEffectTable": "通常チュータリング休止",
+    "noticeEffectTable": "お知らせのみ",
+    "reasonOrNote": "理由 / メモ"
   },
   "roomOrder": {
     "title": "教室の表示順",
@@ -6258,6 +6297,8 @@
     "unnamed": "氏名未入力"
   },
   "signupEditing": {
+    "originalEmailLabel": "Original verified request email",
+    "emailReadOnly": "Read-only",
     "title": "申込内容を編集",
     "edit": "申込内容を編集",
     "requestLocal": "この内容は今回の指導申込に属します。編集しても最初の申込順位は維持され、アカウントのプロフィールや認証情報は変わりません。",
@@ -7073,14 +7114,19 @@
     "tutoringAccessRevoked": "指導権限が取り消されています。この申請を承認する前に、Adminに権限の復元を依頼してください。面接の証拠は保持されます。",
     "title": "Approve Interview · {name}",
     "help": "Record the actual interview attendance and duration before approval.",
+    "helpRetained": "Review the recorded interview evidence before approving the qualification.",
     "attendanceHelp": "Select only panelists who attended. Voting does not confirm attendance.",
     "hours": "{minutes} minutes = {hours} hours per attendee.",
     "recorded": "Recorded completion and attendance will be reused without duplicate hours. Ask management to correct this evidence before approval if needed.",
     "review": "Review approval & hours",
+    "reviewRetained": "Review qualification approval",
     "confirm": "Approve & award hours",
+    "confirmRetained": "Approve qualification",
     "effectsInitial": "Approval immediately accepts this application, records interview hours, prepares registration using a code or an existing linked account, and notifies Admin and Head. No further approval is required.",
     "effectsQualification": "Approval immediately grants the requested qualification, records interview hours, and notifies Admin and Head. It does not issue a registration code.",
+    "effectsRetained": "Approval immediately grants the requested qualification and notifies Admin and Head. Recorded interview completion, attendance and service-hour credits remain unchanged. It does not issue a registration code.",
     "saved": "Interview approved and service hours recorded.",
+    "savedRetained": "Qualification approved. Recorded interview completion, attendance and service-hour credits remain unchanged.",
     "reload": "Reload interview (replace draft)",
     "unavailable": "This interview is no longer available for your approval.",
     "waitingVotes": "Every panelist must vote before approval.",
@@ -8406,6 +8452,16 @@
     "title": "{name} の申込みを却下しますか？",
     "consequence": "却下すると、この申込みは完全に終了し、現在の割当てが解除されます。元の情報、アカウントの関連付け、履歴は保持されます。新たな申込みには通常の参加条件が適用されます。",
     "confirm": "申込みを却下",
+    "requestTitle": "Request Signup Decline for {name}?",
+    "requestConsequence": "Submit a decline request for Admin or Head review. This signup and its current assignments stay unchanged until approval. If approved, the signup permanently closes and its current assignments are released. The source details, account links and history are retained. A fresh signup follows normal eligibility rules.",
+    "requestConfirm": "Submit decline request",
+    "actorLoading": "Loading your account for signup decline…",
+    "actorLoadFailed": "Could not verify your account for this signup decline.",
+    "actorRetry": "Retry account details",
+    "actorUnavailable": "Wait for your account details to finish loading, or retry the account read, before submitting.",
+    "actorChanged": "Your account or management role changed. Cancel and review this signup again before submitting.",
+    "actorDenied": "This account cannot review signup declines.",
+    "publishedSessionRecords": "Cannot decline a signup with published dated-session records. Review its participation controls instead.",
     "declined": "却下済み",
     "decision": "{when} に {name} が却下",
     "staff": "担当者",

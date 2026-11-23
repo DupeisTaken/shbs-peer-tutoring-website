@@ -36,6 +36,40 @@ export function useDialogBusy(): boolean {
   return useContext(DialogWork)?.busy ?? false;
 }
 
+/** A return target may be offscreen: normal focus scrolling reveals it. */
+function isVisibleAndEnabled(element: HTMLElement): boolean {
+  if (
+    element.matches(':disabled, input[type="hidden"]') ||
+    element.closest("[hidden], [inert], dialog:not([open])")
+  )
+    return false;
+  for (
+    let node: HTMLElement | null = element;
+    node;
+    node = node.parentElement
+  ) {
+    const style = getComputedStyle(node);
+    if (style.display === "none" || style.visibility === "hidden") return false;
+  }
+  const closedDetails = element.closest("details:not([open])");
+  return (
+    !closedDetails ||
+    !!closedDetails.querySelector("summary")?.contains(element)
+  );
+}
+
+function canReceiveReturnFocus(
+  element: HTMLElement | null | undefined,
+): element is HTMLElement {
+  return (
+    !!element?.isConnected &&
+    (element.tabIndex >= 0 ||
+      element.hasAttribute("tabindex") ||
+      element.isContentEditable) &&
+    isVisibleAndEnabled(element)
+  );
+}
+
 /** Wrap Tab within visible enabled controls, respecting native radio-group tab stops. */
 function containFocus(event: KeyboardEvent<HTMLDialogElement>) {
   if (event.key !== "Tab") return;
@@ -55,25 +89,7 @@ function containFocus(event: KeyboardEvent<HTMLDialogElement>) {
     (el) =>
       el.tabIndex >= 0 &&
       el.closest("dialog") === dialog &&
-      !el.matches(":disabled") &&
-      !el.matches('input[type="hidden"]') &&
-      !el.closest("[hidden], [inert]") &&
-      // An element can look visible in its own computed style while an ancestor hides it.
-      (() => {
-        for (
-          let node: HTMLElement | null = el;
-          node && node !== dialog;
-          node = node.parentElement
-        ) {
-          const style = getComputedStyle(node);
-          if (style.display === "none" || style.visibility === "hidden")
-            return false;
-        }
-        const closedDetails = el.closest("details:not([open])");
-        return (
-          !closedDetails || closedDetails.querySelector("summary")?.contains(el)
-        );
-      })(),
+      isVisibleAndEnabled(el),
   );
   const stops = candidates.filter((el) => {
     if (!(el instanceof HTMLInputElement) || el.type !== "radio" || !el.name)
@@ -115,6 +131,7 @@ export function NativeDialog({
   describedBy,
   className,
   closeOnBackdrop = false,
+  returnFocusFallback,
 }: {
   children: ReactNode | ((busy: boolean) => ReactNode);
   onClose: () => void;
@@ -123,8 +140,15 @@ export function NativeDialog({
   describedBy?: string;
   className: string;
   closeOnBackdrop?: boolean;
+  /** The owner supplies a current logical target after opener/parent recovery. */
+  returnFocusFallback?: () => HTMLElement | null;
 }) {
   const ref = useRef<HTMLDialogElement>(null);
+  const returnFocusFallbackNow = useRef(returnFocusFallback);
+  // Commit the latest target getter without restarting the native dialog lifetime.
+  useLayoutEffect(() => {
+    returnFocusFallbackNow.current = returnFocusFallback;
+  }, [returnFocusFallback]);
   const [writes, setWrites] = useState<ReadonlySet<string>>(() => new Set());
   const register = useCallback((id: string) => {
     setWrites((current) => new Set(current).add(id));
@@ -152,13 +176,24 @@ export function NativeDialog({
     );
     (autofocus ?? dialog)?.focus();
     return () => {
+      const active = document.activeElement;
+      // A replacement surface may already own focus. The last resort below
+      // must not take it back from another connected control or dialog.
+      const ownsFocus =
+        active === document.body ||
+        !active?.isConnected ||
+        active === dialog ||
+        (active instanceof Element && active.closest("dialog") === dialog);
       dialog?.close();
       // A successful child write can disable or remove its opener while the
       // parent remains open. Return focus there instead of leaving it on body.
-      if (trigger?.isConnected && !trigger.matches(":disabled"))
-        trigger.focus();
+      if (canReceiveReturnFocus(trigger)) trigger.focus();
       else if (parentDialog?.isConnected && parentDialog.open)
         parentDialog.focus();
+      else if (ownsFocus) {
+        const fallback = returnFocusFallbackNow.current?.();
+        if (canReceiveReturnFocus(fallback)) fallback.focus();
+      }
     };
   }, []);
   useEffect(() => {
@@ -231,6 +266,7 @@ export function Modal({
   onClose,
   busy = false,
   wide = false,
+  returnFocusFallback,
 }: {
   title: string;
   description?: string;
@@ -239,6 +275,7 @@ export function Modal({
   onClose: () => void;
   busy?: boolean;
   wide?: boolean;
+  returnFocusFallback?: () => HTMLElement | null;
 }) {
   const titleId = useId();
   const descriptionId = useId();
@@ -248,6 +285,7 @@ export function Modal({
       describedBy={description ? descriptionId : undefined}
       busy={busy}
       onClose={onClose}
+      returnFocusFallback={returnFocusFallback}
       className={`card fixed inset-0 m-auto max-h-[90dvh] w-[calc(100%_-_2rem)] overflow-y-auto p-5 shadow-xl backdrop:bg-slate-900/50 ${wide ? "max-w-2xl" : "max-w-md"}`}
     >
       {(effectiveBusy) => (

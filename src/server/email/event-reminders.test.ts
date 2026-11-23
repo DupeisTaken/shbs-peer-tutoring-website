@@ -1,6 +1,11 @@
 import { describe, expect, it, vi } from "vitest";
 import type { DomainDb } from "~/server/transactions";
 import {
+  MEETING_EXCUSE_CUTOFF_MS,
+  canExcusePersonalMeeting,
+} from "~/lib/personal-schedule";
+import {
+  REMINDER_LATE_MS,
   queueEventReminders,
   reminderIsDue,
   reminderKey,
@@ -559,5 +564,21 @@ describe("upcoming event reminders", () => {
     );
     await queueEventReminders(f.db, hourBefore);
     expect(f.rows.size).toBe(101);
+  });
+
+  it("leaves an excuse window after the 1-hour meeting reminder delivery window", () => {
+    const endOfReminderWindow = new Date(
+      hourBefore.getTime() + REMINDER_LATE_MS,
+    );
+    const cutoff = new Date(start.getTime() - MEETING_EXCUSE_CUTOFF_MS);
+    expect(reminderIsDue(start, 60, hourBefore)).toBe(true);
+    expect(reminderIsDue(start, 60, endOfReminderWindow)).toBe(true);
+    expect(canExcusePersonalMeeting(start, hourBefore)).toBe(true);
+    expect(canExcusePersonalMeeting(start, endOfReminderWindow)).toBe(true);
+    expect(cutoff.getTime()).toBeGreaterThan(endOfReminderWindow.getTime());
+    expect(canExcusePersonalMeeting(start, cutoff)).toBe(true);
+    expect(
+      canExcusePersonalMeeting(start, new Date(cutoff.getTime() + 1)),
+    ).toBe(false);
   });
 });

@@ -22,7 +22,7 @@ import { assertRoomBlackoutAvailable } from "~/server/room-bookings";
 import { changeSchoolDeparture } from "~/server/school-departure";
 import * as transactionHelpers from "~/server/transactions";
 import * as sessionNoticeWrites from "./notice-inserts";
-import { plannedWindow, type PlanningTime } from "~/lib/session-planning";
+import { plannedWindow, SESSION_REFRESH_BOUNDARY_ERROR, type PlanningTime } from "~/lib/session-planning";
 import { schoolCalendarRangeDates } from "~/lib/school-calendar";
 import { assertNoPublishedTuteeDeletion } from "./deletion-guards";
 import { sessionCalendarFeed } from "~/server/session-planning-calendar";
@@ -42,6 +42,7 @@ import {
   previewSessionLocation,
   previewProgramCalendarImpact,
   readCurrentSessionReminderCohort,
+  assertSessionPlanningWeeklyAvailable,
 } from ".";
 
 assertIsolatedTestDatabase(process.env.DATABASE_URL);
@@ -239,6 +240,223 @@ beforeEach(async () => {
 afterEach(() => vi.useRealTimers());
 afterAll(async () => {
   await db.$disconnect();
+});
+
+describe("scheduled program refresh boundary", () => {
+  async function cutoff(executeAt: Date, state: "SCHEDULED" | "CANCELLED" | "BLOCKED" | "FAILED" | "COMPLETED" = "SCHEDULED") {
+    return db.scheduledProgramRefresh.upsert({
+      where: { sourceTermId: "planning-term" },
+      create: {
+        sourceTermId: "planning-term", sourceSchoolYear: "26-27", sourceQuarter: "Q1",
+        destinationSchoolYear: "26-27", destinationQuarter: "Q2", semesterMode: false,
+        executeAt, timeZone: "Asia/Shanghai", state, expectedPreparation: {}, updatedAt: new Date(),
+        authorizedById: tutor.id, authorityRevision: 0,
+      },
+      update: { executeAt, state, updatedAt: new Date(), version: { increment: 1 } },
+    });
+  }
+  const stored = (id: string) => db.sessionPlanCohort.findUniqueOrThrow({ where: { id } });
+
+  it("does not generate old-quarter dates beyond the exact cutoff or report expected suppression as a failure", async () => {
+    await db.$executeRawUnsafe('TRUNCATE "SessionPlan" CASCADE');
+    await cutoff(new Date("2026-11-02T07:44:59.999Z"));
+    expect((await ensureSessionPlanningWindow(db, now)).unavailable).toBe(0);
+    expect(await db.sessionPlan.count({ where: { originalDate: "2026-11-02" } })).toBe(0);
+    await cutoff(new Date("2026-11-02T07:45:00Z"));
+    await ensureSessionPlanningWindow(db, now);
+    expect(await db.sessionPlan.count({ where: { originalDate: "2026-11-02" } })).toBe(1);
+  });
+
+  it("suppresses already-published live sources, preserving status, consent and calendar identity on restoration", async () => {
+    const original = await source();
+    await db.sessionPlanParticipant.updateMany({ where: { cohortId: original.id }, data: { scheduleOverride: true } });
+    const roster = await db.sessionPlanParticipant.findMany({ where: { cohortId: original.id }, orderBy: { id: "asc" } });
+    await cutoff(new Date("2026-11-02T07:44:59.999Z"));
+    const hidden = await readSessionAgenda(db, tutor, "tutor", now);
+    expect(hidden.cohorts.some((row) => row.id === original.id)).toBe(false);
+    expect(hidden.weeklyPublication.unavailable).toBe(0);
+    expect(await stored(original.id)).toMatchObject({ refreshSuppressed: true, status: "SCHEDULED" });
+    expect((await db.sessionPlanParticipant.findMany({ where: { cohortId: original.id }, orderBy: { id: "asc" } })).map((row) => [row.id, row.status, row.scheduleOverride])).toEqual(roster.map((row) => [row.id, row.status, row.scheduleOverride]));
+    await expect(propose()).rejects.toMatchObject({ code: "CONFLICT" });
+    await cutoff(new Date("2026-11-10T00:00:00Z"), "CANCELLED");
+    const restored = await readSessionAgenda(db, tutor, "tutor", now);
+    expect(restored.cohorts.find((row) => row.id === original.id)).toMatchObject({ status: "SCHEDULED" });
+    expect(await stored(original.id)).toMatchObject({ refreshSuppressed: false, status: "SCHEDULED", version: original.version + 2 });
+    expect(await db.session.count()).toBe(0);
+  });
+
+  it("invalidates a warm publication on schedule creation and state changes without disturbing internal metrics", async () => {
+    for (let pass = 0; pass < 4; pass++) await ensureSessionPlanningWindow(db, now);
+    const [clean] = await db.$queryRaw<{ count: bigint }[]>`SELECT count(*) FROM "SchedulingDirtyEvent" WHERE "publicationPending"`;
+    expect(Number(clean!.count)).toBe(0);
+    const original = await source();
+    await cutoff(new Date("2026-10-30T00:00:00Z"));
+    const dirty = await db.$queryRaw<{ sourceTable: string }[]>`SELECT "sourceTable" FROM "SchedulingDirtyEvent" WHERE "publicationPending"`;
+    expect(dirty.some((row) => row.sourceTable === "ScheduledProgramRefresh")).toBe(true);
+    expect(await ensureSessionPlanningWindow(db, now)).toHaveProperty("unavailable", 0);
+    expect((await stored(original.id)).refreshSuppressed).toBe(true);
+    await cutoff(new Date("2026-10-30T00:00:00Z"), "BLOCKED");
+    await ensureSessionPlanningWindow(db, now);
+    expect((await stored(original.id)).refreshSuppressed).toBe(false);
+  });
+
+  it("retains a zero-valued compatibility field for each personal agenda while unrelated global failures remain internal", async () => {
+    const unrelated = await db.tutor.create({ data: {
+      englishName: "Synthetic unrelated tutor", status: "ACTIVE",
+    } });
+    // A confirmed legacy arrangement with no current learners is a genuine
+    // publisher failure, but is unrelated to every participant in this fixture.
+    await db.pairing.create({ data: {
+      tutorId: unrelated.id, termId: "planning-term", subject: "Synthetic unrelated subject",
+      dayOfWeek: 2, startMin: 900, endMin: 945, scheduleConfirmed: true, roomMode: "NONE",
+    } });
+    expect((await ensureSessionPlanningWindow(db, now)).unavailable).toBe(1);
+    for (const [actor, role] of [[tutor, "tutor"], [one, "tutee"], [two, "tutee"]] as const) {
+      const agenda = await readSessionAgenda(db, actor, role, now);
+      expect(agenda.weeklyPublication.unavailable).toBe(0);
+    }
+    expect((await ensureSessionPlanningWindow(db, now)).unavailable).toBe(1);
+  });
+
+  it("hides a paused optional source past refresh and never admits an exception from it", async () => {
+    const original = await source();
+    await db.programCalendarDay.create({ data: { date: original.date, endDate: original.date, reason: "Synthetic pause", schedulingEffect: "PAUSE_REGULAR" } });
+    await ensureSessionPlanningWindow(db, now);
+    const before = await readSessionAgenda(db, one, "tutee", now);
+    expect(before.cohorts.find((row) => row.id === original.id)).toMatchObject({ tutoringPaused: true, canArrangeException: true });
+    await cutoff(new Date("2026-10-30T00:00:00Z"));
+    expect((await readSessionAgenda(db, one, "tutee", now)).cohorts.some((row) => row.id === original.id)).toBe(false);
+    const latest = await stored(original.id);
+    await expect(proposeSession(db, tutor, { cohortId: latest.id, expectedVersion: latest.version, clientKey: randomUUID(), kind: "EXTRA", scope: "ALL", pausedOnly: true, ...time("2026-11-04") })).rejects.toMatchObject({ code: "CONFLICT" });
+  });
+
+  it("suppresses agreed extra sessions without rewriting accepted negotiation evidence", async () => {
+    const request = await propose("ALL", "EXTRA", "2026-11-04");
+    await respond(request.id, one, "ACCEPT");
+    await respond(request.id, two, "ACCEPT");
+    const extra = await db.sessionPlanCohort.findFirstOrThrow({ where: { plan: { kind: "EXTRA" }, status: "SCHEDULED" } });
+    const accepted = await read(request.id);
+    await cutoff(new Date("2026-11-03T00:00:00Z"));
+    const agenda = await readSessionAgenda(db, tutor, "tutor", now);
+    expect(agenda.cohorts.some((row) => row.id === extra.id)).toBe(false);
+    expect(await stored(extra.id)).toMatchObject({ refreshSuppressed: true, status: "SCHEDULED" });
+    expect(await read(request.id)).toEqual(accepted);
+    await cutoff(new Date("2026-11-03T00:00:00Z"), "CANCELLED");
+    await ensureSessionPlanningWindow(db, now);
+    expect(await stored(extra.id)).toMatchObject({ refreshSuppressed: false, status: "SCHEDULED" });
+    expect(await read(request.id)).toEqual(accepted);
+  });
+
+  it.each(["CANCELLED", "BLOCKED", "FAILED", "COMPLETED"] as const)("does not treat a %s schedule as a planning cutoff", async (state) => {
+    const original = await source();
+    await cutoff(new Date("2026-10-30T00:00:00Z"), state);
+    const agenda = await readSessionAgenda(db, tutor, "tutor", now);
+    expect(agenda.cohorts.some((row) => row.id === original.id)).toBe(true);
+    expect((await stored(original.id)).refreshSuppressed).toBe(false);
+  });
+
+  it("rejects new cross-boundary targets and makes an already-pending cross-boundary proposal stale", async () => {
+    await cutoff(new Date("2026-11-03T07:44:59.999Z"));
+    await expect(propose("ONE", "EXTRA")).rejects.toMatchObject({ code: "CONFLICT", message: SESSION_REFRESH_BOUNDARY_ERROR });
+    // Admit an ordinary request before tightening the boundary, so a duplicate
+    // request guard cannot stand in for validation of the cross-boundary time.
+    await cutoff(new Date("2026-11-03T07:45:00Z"));
+    const request = await propose();
+    await cutoff(new Date("2026-11-03T07:44:59.999Z"));
+    await sweepSessionPlanning(db, now);
+    expect((await read(request.id)).status).toBe("STALE");
+    expect(await db.sessionPlan.count({ where: { kind: "EXTRA" } })).toBe(0);
+    await cutoff(new Date("2026-11-03T07:45:00Z"));
+    await expect(propose("ONE", "EXTRA")).resolves.toHaveProperty("id");
+  });
+
+  it("makes a pending offer stale when only its source exceeds the refresh cutoff", async () => {
+    const request = await propose("ALL", "RESCHEDULE", "2026-10-29");
+    await cutoff(new Date("2026-10-30T00:00:00Z"));
+    await expect(db.$transaction((tx) => assertSessionPlanningWeeklyAvailable(tx, {
+      tutorId: tutor.tutorId, termId: "planning-term", dayOfWeek: 4, startMin: 900, tuteeIds: ["planning-one"],
+    }, now))).resolves.toBeUndefined();
+    await sweepSessionPlanning(db, now);
+    expect((await read(request.id)).status).toBe("STALE");
+  });
+
+  it("keeps already-started evidence and attendance authority when a refresh is scheduled after publication", async () => {
+    const original = await source();
+    const started = new Date(original.startsAt.getTime() + 1);
+    vi.setSystemTime(started);
+    await cutoff(new Date(original.endsAt.getTime() - 1));
+    await ensureSessionPlanningWindow(db, started);
+    expect((await stored(original.id)).refreshSuppressed).toBe(false);
+    const attendance = await db.$transaction((tx) => sessionAttendanceContext(tx, tutor, original.id, undefined, new Date(original.endsAt.getTime() + 1)));
+    expect(attendance.tuteeIds.sort()).toEqual(["planning-one", "planning-two"]);
+  });
+
+  it.each([1, 46 * 60_000])("keeps a preannounced cutoff effective when maintenance first runs %s ms after the lesson starts", async (delay) => {
+    const original = await source();
+    await cutoff(new Date(original.endsAt.getTime() - 1));
+    const late = new Date(original.startsAt.getTime() + delay);
+    vi.setSystemTime(late);
+    await expect(db.$transaction((tx) => sessionAttendanceContext(tx, tutor, original.id, undefined, new Date(original.endsAt.getTime() + 1)))).rejects.toMatchObject({ code: "CONFLICT" });
+    const agenda = await readSessionAgenda(db, tutor, "tutor", late);
+    expect(agenda.cohorts.some((row) => row.id === original.id)).toBe(false);
+    expect(await stored(original.id)).toMatchObject({ refreshSuppressed: true, status: "SCHEDULED" });
+    expect(await db.session.count()).toBe(0);
+  });
+
+  it("preserves recorded attendance even when its future timestamp exceeds a newly scheduled cutoff", async () => {
+    const original = await source();
+    const recorded = await db.session.create({ data: {
+      planningCohortId: original.id, pairingId: "planning-pairing", tutorId: tutor.tutorId,
+      date: original.startsAt, startMin: original.startMin, endMin: original.endMin,
+      durationMin: 45, shFactor: 1, shCount: 0.75, month: "2026-11", schoolYear: "26-27", quarter: "Q1",
+    } });
+    await cutoff(new Date("2026-10-30T00:00:00Z"));
+    await ensureSessionPlanningWindow(db, now);
+    expect((await stored(original.id)).refreshSuppressed).toBe(false);
+    expect(await db.session.findUniqueOrThrow({ where: { id: recorded.id } })).toEqual(recorded);
+  });
+
+  it("retains calendar UIDs and increases revisions across cutoff cancellation and safe maintenance restoration", async () => {
+    const original = await source();
+    const token = createHash("sha256").update(randomUUID()).digest("base64url");
+    await db.sessionCalendarToken.create({ data: { userId: tutor.id, tokenHash: createHash("sha256").update(token).digest("hex") } });
+    const event = async () => {
+      const feed = await sessionCalendarFeed(db, token, now);
+      const record = feed!.split("BEGIN:VEVENT\r\n").find((row) => row.includes(`UID:cohort-${original.id}@shbs-session\r\n`))!;
+      return { record, revision: Number(/SEQUENCE:(\d+)/.exec(record)![1]) };
+    };
+    const first = await event();
+    await cutoff(new Date(original.endsAt.getTime() - 1));
+    const projected = await event();
+    expect(projected.record).toContain("STATUS:CANCELLED");
+    expect(projected.revision).toBeGreaterThan(first.revision);
+    expect((await stored(original.id)).refreshSuppressed).toBe(false);
+    await ensureSessionPlanningWindow(db, now);
+    const suppressed = await event();
+    expect(suppressed.record).toContain("STATUS:CANCELLED");
+    expect(suppressed.revision).toBeGreaterThan(projected.revision);
+    await cutoff(new Date(original.endsAt.getTime() - 1), "CANCELLED");
+    await ensureSessionPlanningWindow(db, now);
+    const restored = await event();
+    expect(restored.record).toContain("STATUS:CONFIRMED");
+    expect(restored.revision).toBeGreaterThan(suppressed.revision);
+  });
+
+  it("does not restore a suppressed dated commitment across a new room blackout", async () => {
+    const original = await source();
+    const room = await db.room.create({ data: { name: "Synthetic boundary room" } });
+    await db.sessionPlanCohort.update({ where: { id: original.id }, data: { roomId: room.id, rescheduled: true } });
+    await db.sessionPlanParticipant.updateMany({ where: { cohortId: original.id }, data: { scheduleOverride: true } });
+    await cutoff(new Date("2026-10-30T00:00:00Z"));
+    await ensureSessionPlanningWindow(db, now);
+    await db.roomUnavailability.create({ data: { roomId: room.id, dayOfWeek: 1, startMin: 900, endMin: 945 } });
+    await cutoff(new Date("2026-10-30T00:00:00Z"), "CANCELLED");
+    await ensureSessionPlanningWindow(db, now);
+    expect((await stored(original.id)).refreshSuppressed).toBe(true);
+    await db.roomUnavailability.deleteMany({ where: { roomId: room.id } });
+    await ensureSessionPlanningWindow(db, now);
+    expect((await stored(original.id)).refreshSuppressed).toBe(false);
+  });
 });
 
 describe("agreed extra-session cancellation", () => {

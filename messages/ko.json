@@ -1,10 +1,15 @@
 {
+  "helpNav": {
+    "title": "도움말 및 사용 안내",
+    "downloads": "PDF 설명서"
+  },
   "recoveryWorkflow": {
     "adoptionPending": "Your request was saved. Its recovery-draft link could not be confirmed; continue mailbox verification and ask management to review the draft status.",
     "review": "Management prepared these saved answers for your review. Check the current courses and times, enter your verified account email, and agree to the current policy. Your new request still needs mailbox verification.",
     "consumed": "This recovery draft has already been submitted. Continue with the verification email for your new request, or open your account to view its status."
   },
   "sessionPlanning": {
+    "refreshBoundary": "수업은 예정된 기간 갱신 시각까지 끝나야 합니다. 현재 일정을 새로고침하세요.",
     "deadlineMissedTitle": "조치 필요: 만료된 시간 요청을 확인하세요",
     "deadlineMissedHelp": "전달된 알림의 응답 기한이 일정 처리를 이용할 수 없는 동안 지났습니다. 소급하여 일정을 변경하지 않았습니다. 지도 파트너와 원래 일정 및 제안된 시간을 확인하세요. 출석이나 결석은 추정하지 않았습니다.",
     "scheduleUnavailable": "일정 검토 필요",
@@ -982,6 +987,27 @@
       },
       "pendingBanner": "학생 신청 {count}건이 검토를 기다리고 있습니다.",
       "reviewNow": "지금 검토 →",
+      "emailQuota": {
+        "title": "이메일 한도",
+        "loading": "이메일 한도를 불러오는 중…",
+        "dailyLabel": "일일 무료 한도",
+        "dailyCount": "{remaining, number} / {limit, number}",
+        "dailyFree": "통 오늘 남음",
+        "dailyUnavailable": "일일 무료 한도를 확인할 수 없습니다.",
+        "balanceLabel": "누적 무료 잔여량",
+        "balanceUnit": "{count, plural, other {통 남음}}",
+        "balanceHint": "일회성 무료 제공량이며 매일 초기화되지 않습니다.",
+        "balanceExhaustedHint": "무료 잔여량이 소진되어 매일 초기화되어도 무료 이메일이 추가되지 않습니다.",
+        "balanceUnavailable": "무료 잔여량을 확인할 수 없습니다.",
+        "resetsAt": "일일 한도는 {time}에 초기화됩니다.",
+        "resetUnknown": "일일 한도는 매일 초기화되며 초기화 시간은 설정되지 않았습니다.",
+        "unavailable": "현재 이메일 한도를 확인할 수 없습니다.",
+        "unavailableHelp": "Direct Mail 무료 한도를 읽지 못했습니다. 이메일 발송에는 영향이 없습니다.",
+        "statusUnavailable": "확인 불가",
+        "statusLow": "한도 부족",
+        "statusDailyExhausted": "일일 한도 도달",
+        "statusBalanceExhausted": "무료 잔여량 소진"
+      },
       "recentSubmissions": {
         "title": "최근 제출",
         "viewAll": "전체 보기 →",
@@ -2343,7 +2369,7 @@
     },
     "meetings": {
       "title": "예정된 회의",
-      "help": "회의에 참석할 수 없나요? 시작 30분 전까지 결석을 신청할 수 있습니다.",
+      "help": "회의에 참석할 수 없나요? 시작 45분 전까지 결석을 신청할 수 있습니다.",
       "excuseBtn": "결석 신청",
       "submitExcuse": "결석 사유 제출",
       "cancelExcuse": "신청 취소",
@@ -2474,6 +2500,9 @@
       "saving": "저장 중…",
       "saved": "저장되었습니다.",
       "voteCommentPlaceholder": "투표에 대한 선택적 의견",
+      "voteSyncing": "Your vote was saved. Refreshing interview details and Schedule…",
+      "voteRefreshFailed": "Your vote was saved, but some interview details or Schedule items could not refresh. Retry refresh without voting again.",
+      "voteRefresh": "Retry refresh",
       "votingClosed": "이 지원서의 투표가 종료되었습니다.",
       "accept": "합격",
       "reject": "불합격",
@@ -2981,7 +3010,8 @@
     "empty": "순찰 기록이 없습니다.",
     "newer": "최신 기록",
     "older": "이전 기록",
-    "details": "변경 세부 정보"
+    "details": "변경 세부 정보",
+    "patrolChanged": "Patrol changed. Reload before correcting it."
   },
   "emailChange": {
     "title": "계정 이메일 변경",
@@ -3260,6 +3290,11 @@
     "incompleteHelp": "이메일 인증 또는 최종 계정 확인이 아직 필요합니다."
   },
   "workflow": {
+    "actionFailed": "This action could not be confirmed. Your draft is retained.",
+    "currentRequests": "Current Requests",
+    "retryRefresh": "Retry refresh",
+    "recallAccepted": "This request was recalled. Refresh its status; your recall will not be repeated.",
+    "abortAccepted": "Your withdrawal application was submitted. Refresh its status; your application will not be repeated.",
     "pleaseReview": "Please review before continuing",
     "cancel": "Cancel",
     "confirm": "Yes, confirm",
@@ -4864,6 +4899,9 @@
     "noTutor": "No linked tutor",
     "count": "Showing {count} of {total} users"
   },
+  "saveErrors": {
+    "staleRecord": "This changed since you loaded it — refresh and try again."
+  },
   "saveNotifications": {
     "saved": "Changes saved",
     "failed": "Could not save changes",
@@ -6185,12 +6223,13 @@
     "impactRestore": "복원 후보: {count}",
     "impactRule": "저장 시 현재 합의와 충돌을 다시 확인하고 영향을 받는 참여자에게 취소 사실을 이메일로 알립니다. 이미 시작된 세션과 기록된 출석은 변경되지 않습니다.",
     "combinedTitle": "휴일 및 튜터링 중단",
-    "combinedHelp": "학교 휴일(휴교)과 튜터링 중단 또는 공지(등교일)를 관리합니다. 학교 휴일은 정규 튜터링과 이의신청 등교일 계산을 중단하며, 튜터링 중단은 등교일 및 이의신청 규칙을 변경하지 않습니다.",
+    "combinedHelp": "학교 휴일과 튜터링 중단 또는 공지를 관리합니다. 학교 휴일은 정규 튜터링과 이의신청 등교일 계산을 중단하며, 튜터링 중단은 등교일 및 이의신청 규칙을 변경하지 않습니다.",
     "combinedEmpty": "등록된 학교 휴일이나 튜터링 공지가 없습니다.",
     "denied": "튜터링 공지 및 중단 설정에 접근할 수 없습니다.",
-    "holidayEffect": "학교 휴일 (휴교)",
-    "pauseEffectTable": "정규 튜터링 중단 (등교일)",
-    "noticeEffectTable": "공지 전용 (등교일)"
+    "holidayEffect": "학교 휴일",
+    "pauseEffectTable": "정규 튜터링 중단",
+    "noticeEffectTable": "공지 전용",
+    "reasonOrNote": "사유 / 메모"
   },
   "roomOrder": {
     "title": "교실 표시 순서",
@@ -6258,6 +6297,8 @@
     "unnamed": "이름이 제공되지 않음"
   },
   "signupEditing": {
+    "originalEmailLabel": "Original verified request email",
+    "emailReadOnly": "Read-only",
     "title": "신청 답변 수정",
     "edit": "신청 답변 수정",
     "requestLocal": "이 답변은 이 튜터링 신청에만 적용됩니다. 수정해도 최초 신청 우선순위가 유지되며 계정 프로필이나 로그인 정보는 바뀌지 않습니다.",
@@ -7073,14 +7114,19 @@
     "tutoringAccessRevoked": "튜터링 권한이 철회되었습니다. 이 신청을 승인하기 전에 Admin에게 권한 복원을 요청하세요. 면접 증거는 유지됩니다.",
     "title": "Approve Interview · {name}",
     "help": "Record the actual interview attendance and duration before approval.",
+    "helpRetained": "Review the recorded interview evidence before approving the qualification.",
     "attendanceHelp": "Select only panelists who attended. Voting does not confirm attendance.",
     "hours": "{minutes} minutes = {hours} hours per attendee.",
     "recorded": "Recorded completion and attendance will be reused without duplicate hours. Ask management to correct this evidence before approval if needed.",
     "review": "Review approval & hours",
+    "reviewRetained": "Review qualification approval",
     "confirm": "Approve & award hours",
+    "confirmRetained": "Approve qualification",
     "effectsInitial": "Approval immediately accepts this application, records interview hours, prepares registration using a code or an existing linked account, and notifies Admin and Head. No further approval is required.",
     "effectsQualification": "Approval immediately grants the requested qualification, records interview hours, and notifies Admin and Head. It does not issue a registration code.",
+    "effectsRetained": "Approval immediately grants the requested qualification and notifies Admin and Head. Recorded interview completion, attendance and service-hour credits remain unchanged. It does not issue a registration code.",
     "saved": "Interview approved and service hours recorded.",
+    "savedRetained": "Qualification approved. Recorded interview completion, attendance and service-hour credits remain unchanged.",
     "reload": "Reload interview (replace draft)",
     "unavailable": "This interview is no longer available for your approval.",
     "waitingVotes": "Every panelist must vote before approval.",
@@ -8406,6 +8452,16 @@
     "title": "{name}님의 신청을 거절하시겠습니까?",
     "consequence": "거절하면 이 신청이 영구적으로 종료되고 현재 배정이 해제됩니다. 원본 정보, 계정 연결 및 기록은 유지됩니다. 새 신청에는 기존 자격 요건이 적용됩니다.",
     "confirm": "신청 거절",
+    "requestTitle": "Request Signup Decline for {name}?",
+    "requestConsequence": "Submit a decline request for Admin or Head review. This signup and its current assignments stay unchanged until approval. If approved, the signup permanently closes and its current assignments are released. The source details, account links and history are retained. A fresh signup follows normal eligibility rules.",
+    "requestConfirm": "Submit decline request",
+    "actorLoading": "Loading your account for signup decline…",
+    "actorLoadFailed": "Could not verify your account for this signup decline.",
+    "actorRetry": "Retry account details",
+    "actorUnavailable": "Wait for your account details to finish loading, or retry the account read, before submitting.",
+    "actorChanged": "Your account or management role changed. Cancel and review this signup again before submitting.",
+    "actorDenied": "This account cannot review signup declines.",
+    "publishedSessionRecords": "Cannot decline a signup with published dated-session records. Review its participation controls instead.",
     "declined": "거절됨",
     "decision": "{when}에 {name}님이 거절",
     "staff": "담당자",

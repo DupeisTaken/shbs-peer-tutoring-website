@@ -9,6 +9,7 @@ import { CreationRiskRecipe } from "./creation-risk-recipe";
 import { CodeRecipe } from "./code-recipe";
 import { NotificationPreferencesRecipe } from "./notification-preferences-recipe";
 import { AgendaEventRecipe } from "./agenda-event-recipe";
+import { NoticeLayoutExamples } from "./notice-layout-examples";
 import { useEffect, useState, type ReactNode } from "react";
 import { NextIntlClientProvider } from "next-intl";
 import enMessages from "../../../messages/en.json";
@@ -837,6 +838,7 @@ export function RecipeGallery({
               {t.refreshed}
             </InlineNotice>
           )}
+          <NoticeLayoutExamples locale={locale} />
         </Recipe>
         <Recipe
           title={t.publicCard}

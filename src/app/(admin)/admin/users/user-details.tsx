@@ -1,7 +1,15 @@
 "use client";
 
-import { useEffect, useState, type ReactNode } from "react";
+import {
+  createContext,
+  useContext,
+  useEffect,
+  useState,
+  type ReactNode,
+} from "react";
 import { useTranslations } from "next-intl";
+import { getQueryKey } from "@trpc/react-query";
+import type { QueryKey } from "@tanstack/react-query";
 import { api, type RouterOutputs } from "~/trpc/react";
 import {
   TableDetails,
@@ -34,51 +42,143 @@ type DirectoryRow = RouterOutputs["admin"]["accounts"]["rows"][number];
 type AccountRow = { [Key in keyof DirectoryRow]: DirectoryRow[Key] };
 type Profile = RouterOutputs["admin"]["accountDetails"]["attached"][number];
 
-export function UserDetails({
-  row,
-  onOpenChange,
-}: {
+type DetailsOpening = {
   row: AccountRow;
   onOpenChange?: (open: boolean) => void;
+};
+const DetailsHost = createContext<((opening: DetailsOpening) => void) | null>(null);
+
+/** The route owns the captured opening, independently of filtered directory rows.
+ * Keep admitted writes and their receipt/recovery mounted across read boundaries;
+ * live denial still conceals private children and prevents further admission. */
+export function UserDetailsHost({
+  children,
+  accessDenied = false,
+  unavailable = false,
+  onOpenChange,
+  returnFocusFallback,
+  onRetryAccess,
+  retryingAccess = false,
+  directoryRows,
+  directoryReady = false,
+}: {
+  children: ReactNode;
+  accessDenied?: boolean;
+  unavailable?: boolean;
+  onOpenChange?: (open: boolean) => void;
+  returnFocusFallback?: () => HTMLElement | null;
+  onRetryAccess?: () => void;
+  retryingAccess?: boolean;
+  directoryRows?: readonly AccountRow[];
+  directoryReady?: boolean;
 }) {
   const t = useTranslations();
-  const displayName = participantNameLabel(
-    row.name,
-    row.username,
-    t("participantNames.unnamed"),
-  );
   const readOnly = useReadOnly();
-  const [open, setOpen] = useState(false);
+  const [opening, setOpening] = useState<DetailsOpening | null>(null);
   // Keep denial across closing/reopening so a cached success cannot briefly
   // expose private details before the mandatory fresh read completes.
   const [detailsAccessLost, setDetailsAccessLost] = useState(false);
+  const denied = readOnly || accessDenied || detailsAccessLost;
+  const currentRow = opening?.row.userId
+    ? directoryRows?.find((row) => row.userId === opening.row.userId)
+    : undefined;
+  const [display, setDisplay] = useState<{
+    opening: DetailsOpening;
+    row: AccountRow;
+    signature: string;
+  } | null>(null);
+  // Only display data follows an authoritative same-account refresh. The query
+  // target and admitted operation continue to use the captured opening below.
+  const signature = currentRow && directoryReady && !denied
+    ? JSON.stringify(currentRow)
+    : undefined;
+  if (opening && currentRow && signature !== undefined &&
+    (display?.opening !== opening || display.signature !== signature))
+    setDisplay({ opening, row: currentRow, signature });
+  const displayRow = currentRow && display?.opening === opening
+    ? display.row
+    : opening?.row;
   // An already-open reader/editor owns focus even if browser history selects a
-  // different source behind it. Closing or access-driven unmount releases it.
+  // different source behind it. Deliberate Close releases the retained opening.
   useEffect(() => {
-    if (!open) return;
+    if (!opening) return;
     onOpenChange?.(true);
-    return () => onOpenChange?.(false);
-  }, [open, onOpenChange]);
-  if (readOnly) return null;
+    opening.onOpenChange?.(true);
+    return () => {
+      onOpenChange?.(false);
+      opening.onOpenChange?.(false);
+    };
+  }, [opening, onOpenChange]);
   return (
-    <>
-      <TableAction
-        aria-haspopup="dialog"
-        aria-label={`${t("accountProfile.showDetails")}: ${displayName}`}
-        onClick={() => setOpen(true)}
-      >
-        {t("accountProfile.showDetails")}
-      </TableAction>
-      {open && (
+    <DetailsHost.Provider
+      value={(next) => {
+        if (!readOnly && !accessDenied)
+          setOpening((current) => current ?? next);
+      }}
+    >
+      {children}
+      {opening && (
         <ProfileDialog
-          title={t("accountProfile.detailsTitle", { name: displayName })}
-          onClose={() => setOpen(false)}
+          title={
+            denied
+              ? t("admin.users.title")
+              : t("accountProfile.detailsTitle", {
+                  name: participantNameLabel(
+                    displayRow?.name,
+                    displayRow?.username,
+                    t("participantNames.unnamed"),
+                  ),
+                })
+          }
+          onClose={() => {
+            setOpening(null);
+            setDisplay(null);
+          }}
           size="wide"
+          returnFocusFallback={returnFocusFallback}
         >
-          <UserDetailContent row={row} accessLost={detailsAccessLost} onAccessLostChange={setDetailsAccessLost} />
+          <UserDetailContent
+            row={opening.row}
+            displayRow={displayRow ?? opening.row}
+            accessLost={detailsAccessLost}
+            onAccessLostChange={setDetailsAccessLost}
+            accessDenied={readOnly || accessDenied}
+            unavailable={unavailable}
+            onRetryAccess={onRetryAccess}
+            retryingAccess={retryingAccess}
+            directoryReady={directoryReady}
+          />
         </ProfileDialog>
       )}
-    </>
+    </DetailsHost.Provider>
+  );
+}
+
+/** Rows only launch the route-owned reader; removing an opener cannot cancel it. */
+export function UserDetails(props: DetailsOpening) {
+  const t = useTranslations();
+  const open = useContext(DetailsHost);
+  const readOnly = useReadOnly();
+  if (readOnly) return null;
+  if (!open)
+    return (
+      <UserDetailsHost>
+        <UserDetails {...props} />
+      </UserDetailsHost>
+    );
+  const displayName = participantNameLabel(
+    props.row.name,
+    props.row.username,
+    t("participantNames.unnamed"),
+  );
+  return (
+    <TableAction
+      aria-haspopup="dialog"
+      aria-label={`${t("accountProfile.showDetails")}: ${displayName}`}
+      onClick={() => open(props)}
+    >
+      {t("accountProfile.showDetails")}
+    </TableAction>
   );
 }
 
@@ -103,22 +203,39 @@ function DetailSection({
 /** Mount only after staff open the row. Every opening rechecks the server because
  * membership, moderation and historical-link editors have independent save scopes.
  * Keep the last successful read during refresh/recovery; never replay a write. */
-function UserDetailContent({ row, accessLost, onAccessLostChange }: {
+function UserDetailContent({
+  row,
+  displayRow,
+  accessLost,
+  onAccessLostChange,
+  accessDenied,
+  unavailable,
+  onRetryAccess,
+  retryingAccess,
+  directoryReady,
+}: {
   row: AccountRow;
+  displayRow: AccountRow;
   accessLost: boolean;
   onAccessLostChange: (lost: boolean) => void;
+  accessDenied: boolean;
+  unavailable: boolean;
+  onRetryAccess?: () => void;
+  retryingAccess: boolean;
+  directoryReady: boolean;
 }) {
   const t = useTranslations();
   const busy = useDialogBusy();
-  const query = api.admin.accountDetails.useQuery(
-    row.userId
-      ? { userId: row.userId }
-      : row.tutorId
-        ? { tutorId: row.tutorId }
-        : { tuteeId: row.tuteeId! },
-    { refetchOnMount: "always" },
-  );
+  const target = row.userId
+    ? { userId: row.userId }
+    : row.tutorId ? { tutorId: row.tutorId } : { tuteeId: row.tuteeId! };
+  const query = api.admin.accountDetails.useQuery(target, { refetchOnMount: "always" });
   const data = query.data;
+  // A refresh may remove or regroup the original source. Keep the opening's
+  // controller identity until deliberate Close; only matching fresh groups update it.
+  const [openingGroup, setOpeningGroup] = useState(data?.group ?? null);
+  if (!openingGroup && data?.group) setOpeningGroup(data.group);
+  const group = data?.group?.id === openingGroup?.id ? data?.group : openingGroup;
   const readDenied =
     query.error?.data?.code === "FORBIDDEN" ||
     query.error?.data?.code === "UNAUTHORIZED";
@@ -126,9 +243,36 @@ function UserDetailContent({ row, accessLost, onAccessLostChange }: {
     if (readDenied) onAccessLostChange(true);
     else if (query.isSuccess && !query.isFetching && !query.error) onAccessLostChange(false);
   }, [readDenied, query.isSuccess, query.isFetching, query.error, onAccessLostChange]);
-  const denied = readDenied || accessLost;
+  const denied = accessDenied || readDenied || accessLost;
+  const readUnavailable = unavailable || !!query.error || query.isFetching;
+  const groupMismatch = !!group && data?.group?.id !== group.id;
+  const exactRetryScope = groupMismatch && directoryReady && query.isSuccess &&
+    !readUnavailable && !denied
+    ? {
+        reads: [
+          getQueryKey(api.admin.accounts, undefined, "query"),
+          getQueryKey(api.admin.accountDetails, target, "query"),
+        ],
+      }
+    : undefined;
   return (
     <div className="space-y-5">
+      {accessDenied && (
+        // This denial-only read cannot replace the captured operation. Keep it
+        // reachable during unknown-outcome recovery so restored authority can
+        // be verified without dismissal, a page reload or mutation replay.
+        <StatePanel
+          kind="denied"
+          title={t("managementRecovery.denied", {
+            section: t("admin.users.title"),
+          })}
+          action={onRetryAccess && (
+            <Button disabled={retryingAccess} onClick={onRetryAccess}>
+              {t("managementRecovery.retry", { section: t("admin.users.title") })}
+            </Button>
+          )}
+        />
+      )}
       {query.error && (
         <StatePanel
           kind="error"
@@ -152,13 +296,20 @@ function UserDetailContent({ row, accessLost, onAccessLostChange }: {
           {t("common.loading")}
         </p>
       )}
-      {data?.group && <CombinedPersonDetails group={data.group}
-        unavailable={!!query.error || query.isFetching}
-        accessDenied={denied} />}
+      {group && (
+        <CombinedPersonDetails
+          group={group}
+          unavailable={
+            readUnavailable || groupMismatch
+          }
+          accessDenied={denied}
+          exactRetryScope={exactRetryScope}
+        />
+      )}
       {!denied && data && (
         <>
           <DetailSection title={t("usersDirectory.login")}>
-            <LoginSetup account={row.account} suspended={!!data.suspendedAt} />
+            <LoginSetup account={displayRow.account} suspended={!!data.suspendedAt} />
             <p className="muted">
               {t(
                 row.userId
@@ -175,27 +326,27 @@ function UserDetailContent({ row, accessLost, onAccessLostChange }: {
                 {data.suspendedReason ? ` ${data.suspendedReason}` : ""}
               </p>
             )}
-            {row.affiliation && (
+            {displayRow.affiliation && (
               <p>
-                {t("usersDirectory.affiliation")}: {row.affiliation}
+                {t("usersDirectory.affiliation")}: {displayRow.affiliation}
               </p>
             )}
-            {row.alternativeNames && (
+            {displayRow.alternativeNames && (
               <p>
-                {t("accountProfile.alternativeNames")}: {row.alternativeNames}
+                {t("accountProfile.alternativeNames")}: {displayRow.alternativeNames}
               </p>
             )}
-            {row.email ? (
+            {displayRow.email ? (
               <EmailContent
-                email={row.email}
+                email={displayRow.email}
                 name={participantNameLabel(
-                  row.name,
-                  row.username,
+                  displayRow.name,
+                  displayRow.username,
                   t("participantNames.unnamed"),
                 )}
                 userId={row.userId}
                 tutorId={row.tutorId}
-                verifiedAt={row.emailVerifiedAt}
+                verifiedAt={displayRow.emailVerifiedAt}
                 linked={!!row.userId}
                 canSendSetup={!!row.userId}
               />
@@ -255,7 +406,7 @@ function UserDetailContent({ row, accessLost, onAccessLostChange }: {
                 <p className="mb-2 font-medium">
                   {t("usersDirectory.currentAcademics")}
                 </p>
-                <AcademicDetails academic={row.academic} />
+                <AcademicDetails academic={displayRow.academic} />
               </div>
             )}
             <ProfileRecords profiles={data.attached} />
@@ -276,10 +427,12 @@ function CombinedPersonDetails({
   group,
   unavailable = false,
   accessDenied = false,
+  exactRetryScope,
 }: {
   group: NonNullable<RouterOutputs["admin"]["accountDetails"]["group"]>;
   unavailable?: boolean;
   accessDenied?: boolean;
+  exactRetryScope?: { reads: readonly QueryKey[] };
 }) {
   const t = useTranslations();
   const busy = useDialogBusy();
@@ -346,7 +499,8 @@ function CombinedPersonDetails({
         <PersonHistoryCorrection personId={group.id} unavailable={controlsUnavailable} accessDenied={editorDenied} />
       </DisclosureSection>}
       {(canEdit || wasEditable) && <DisclosureSection title={t("personParticipationTransfer.title")} lifetime="retained">
-        <PersonParticipationTransfer personId={group.id} unavailable={controlsUnavailable} accessDenied={editorDenied} />
+        <PersonParticipationTransfer personId={group.id} unavailable={controlsUnavailable} accessDenied={editorDenied}
+          exactRetryScope={exactRetryScope && directory.isSuccess && !directory.error && !directory.isFetching && !editorDenied ? exactRetryScope : undefined} />
       </DisclosureSection>}
       {(canEdit || wasEditable) && (invitationEligible || hadInvitation) && (
         <DisclosureSection title={t("combineRecords.historySetup")} lifetime="retained">

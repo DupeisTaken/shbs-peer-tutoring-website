@@ -6,8 +6,10 @@ import {
   fireEvent,
   render,
   screen,
+  within,
 } from "@testing-library/react";
 import { NextIntlClientProvider } from "next-intl";
+import { compile } from "tailwindcss";
 import en from "../../../messages/en.json";
 import zh from "../../../messages/zh.json";
 import {
@@ -20,10 +22,14 @@ import { ProfilePolicyHint, ProfilePolicyError } from "./profile-policy";
 vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: vi.fn() }) }));
 const mock = vi.hoisted(() => ({
   mutate: vi.fn(),
+  pending: false,
   invalidate: vi.fn(),
   requireLatinNames: false,
   requireLatinLegalNames: false,
-  error: null as null | { message: string; data: { code?: string; approvalId?: string } },
+  error: null as null | {
+    message: string;
+    data: { code?: string; approvalId?: string };
+  },
   settings: undefined as undefined | (ProfilePolicy & { canEdit: boolean }),
   queryError: null as Error | null,
   refetch: vi.fn(),
@@ -58,7 +64,7 @@ vi.mock("~/trpc/react", () => ({
       setProfilePolicy: {
         useMutation: () => ({
           mutate: mock.mutate,
-          isPending: false,
+          isPending: mock.pending,
           error: mock.error,
         }),
       },
@@ -84,6 +90,7 @@ const wrap = (child: React.ReactNode, chinese = false) => (
 beforeEach(() => {
   vi.clearAllMocks();
   mock.error = null;
+  mock.pending = false;
   mock.requireLatinNames = false;
   mock.requireLatinLegalNames = false;
   mock.settings = { ...policy, canEdit: true };
@@ -92,25 +99,33 @@ beforeEach(() => {
 });
 afterEach(cleanup);
 
-it.each([en, zh])("previews preferred names from the default policy in each language", (messages) => {
-  mock.settings = {
-    ...profilePolicySchema.parse({
-      requireLatinNames: true,
-      requireLatinLegalNames: false,
-      offeredGrades: [9, 10, 11, 12],
-    }),
-    canEdit: true,
-  };
-  render(
-    <NextIntlClientProvider locale={messages === en ? "en" : "zh"} messages={messages}>
-      <ProgramProfileSettings />
-    </NextIntlClientProvider>,
-  );
-  expect(screen.getByRole<HTMLInputElement>("checkbox", {
-    name: messages.profilePolicy.usePreferredNames,
-  }).checked).toBe(true);
-  expect(screen.getByText("Alex Chen")).toBeTruthy();
-});
+it.each([en, zh])(
+  "previews preferred names from the default policy in each language",
+  (messages) => {
+    mock.settings = {
+      ...profilePolicySchema.parse({
+        requireLatinNames: true,
+        requireLatinLegalNames: false,
+        offeredGrades: [9, 10, 11, 12],
+      }),
+      canEdit: true,
+    };
+    render(
+      <NextIntlClientProvider
+        locale={messages === en ? "en" : "zh"}
+        messages={messages}
+      >
+        <ProgramProfileSettings />
+      </NextIntlClientProvider>,
+    );
+    expect(
+      screen.getByRole<HTMLInputElement>("checkbox", {
+        name: messages.profilePolicy.usePreferredNames,
+      }).checked,
+    ).toBe(true);
+    expect(screen.getByText("Alex Chen")).toBeTruthy();
+  },
+);
 
 it("replaces initial loading with an actionable error before any settings exist", () => {
   mock.settings = undefined;
@@ -353,14 +368,133 @@ it.each([false, true])(
   },
 );
 
-it.each([false, true])("keeps a queued Coordinator policy draft in language %s", (chinese) => {
-  mock.error = { message: "Queued", data: { approvalId: "request-1" } };
-  render(wrap(<ProfilePolicyEditor policy={policy} canEdit canApply={false} onReload={vi.fn()} />, chinese));
-  const messages = chinese ? zh : en;
-  fireEvent.click(screen.getByRole("checkbox", { name: messages.profilePolicy.usePreferredNames }));
-  expect(screen.getByRole("status").textContent).toBe(messages.approvals.queuedBody);
-  expect(screen.getByRole("button", { name: messages.approvals.requestAdmin })).toBeTruthy();
-  expect(screen.queryByText(messages.profilePolicy.saved)).toBeNull();
-  expect(screen.queryByRole("alert")).toBeNull();
-  expect(mock.invalidate).not.toHaveBeenCalled();
-});
+it.each([false, true])(
+  "keeps a queued Coordinator policy draft in language %s",
+  (chinese) => {
+    mock.error = { message: "Queued", data: { approvalId: "request-1" } };
+    render(
+      wrap(
+        <ProfilePolicyEditor
+          policy={policy}
+          canEdit
+          canApply={false}
+          onReload={vi.fn()}
+        />,
+        chinese,
+      ),
+    );
+    const messages = chinese ? zh : en;
+    fireEvent.click(
+      screen.getByRole("checkbox", {
+        name: messages.profilePolicy.usePreferredNames,
+      }),
+    );
+    expect(screen.getByRole("status").textContent).toBe(
+      messages.approvals.queuedBody,
+    );
+    expect(
+      screen.getByRole("button", { name: messages.approvals.requestAdmin }),
+    ).toBeTruthy();
+    expect(screen.queryByText(messages.profilePolicy.saved)).toBeNull();
+    expect(screen.queryByRole("alert")).toBeNull();
+    expect(mock.invalidate).not.toHaveBeenCalled();
+  },
+);
+
+it.each(
+  [false, true].flatMap((chinese) =>
+    [
+      { mode: "direct", canEdit: true, canApply: true, pending: false },
+      { mode: "proposal", canEdit: true, canApply: false, pending: false },
+      { mode: "read-only", canEdit: false, canApply: false, pending: false },
+      { mode: "saving", canEdit: true, canApply: true, pending: true },
+    ].map((mode) => ({ ...mode, chinese, locale: chinese ? "zh" : "en" })),
+  ),
+)(
+  "contains the Names and Grades legend locally in $locale/$mode",
+  async ({ chinese, canEdit, canApply, pending }) => {
+    mock.pending = pending;
+    const messages = chinese ? zh : en;
+    render(
+      wrap(
+        <ProfilePolicyEditor
+          policy={policy}
+          canEdit={canEdit}
+          canApply={canApply}
+          onReload={mock.refetch}
+        />,
+        chinese,
+      ),
+    );
+    const fieldset = screen.getByRole("group", {
+      name: messages.profilePolicy.title,
+    });
+    const legend = within(fieldset).getByText(messages.profilePolicy.title, {
+      selector: "legend",
+    });
+    const grades = within(fieldset).getByRole("group", {
+      name: messages.profilePolicy.offeredGrades,
+    });
+    const gradeLegend = within(grades).getByText(
+      messages.profilePolicy.offeredGrades,
+      { selector: "legend" },
+    );
+    expect(legend.parentElement).toBe(fieldset);
+    expect(legend.closest("[hidden], [aria-hidden='true']")).toBeNull();
+    expect(fieldset.matches(":disabled")).toBe(!canEdit || pending);
+    expect(
+      within(fieldset).getByRole("checkbox", {
+        name: messages.profilePolicy.usePreferredNames,
+      }),
+    ).toBeTruthy();
+    expect(
+      within(fieldset).getByRole("checkbox", {
+        name: messages.profilePolicy.showAlternateNames,
+      }),
+    ).toBeTruthy();
+    for (const checkbox of within(fieldset).getAllByRole("checkbox"))
+      expect(checkbox.matches(":disabled")).toBe(!canEdit || pending);
+
+    // Compile the real utilities and find the closest positioned ancestor.
+    // JSDOM proves this local contract; native checks own document/header geometry.
+    const compiler = await compile("@tailwind utilities;");
+    const stylesheet = document.createElement("style");
+    stylesheet.textContent = compiler.build(
+      [fieldset, legend, gradeLegend].flatMap((node) => [...node.classList]),
+    );
+    document.head.append(stylesheet);
+    try {
+      const style = getComputedStyle(legend);
+      expect(style.position).toBe("absolute");
+      expect(style.width).toBe("1px");
+      expect(style.height).toBe("1px");
+      expect(style.overflow).toBe("hidden");
+      expect(style.display).not.toBe("none");
+      expect(style.visibility).not.toBe("hidden");
+      let owner = legend.parentElement;
+      while (
+        owner &&
+        !/^(relative|absolute|fixed|sticky)$/.test(
+          getComputedStyle(owner).position,
+        )
+      )
+        owner = owner.parentElement;
+      expect(owner).toBe(fieldset);
+      const gradeStyle = getComputedStyle(gradeLegend);
+      expect(gradeStyle.position).not.toBe("absolute");
+      expect(gradeStyle.display).not.toBe("none");
+      expect(gradeStyle.visibility).not.toBe("hidden");
+      expect(
+        screen.getByRole("group", { name: messages.profilePolicy.title }),
+      ).toBe(fieldset);
+      expect(
+        within(fieldset).getByRole("group", {
+          name: messages.profilePolicy.offeredGrades,
+        }),
+      ).toBe(grades);
+    } finally {
+      stylesheet.remove();
+    }
+    expect(mock.mutate).not.toHaveBeenCalled();
+  },
+);

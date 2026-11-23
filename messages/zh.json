@@ -1,10 +1,15 @@
 {
+  "helpNav": {
+    "title": "帮助与操作指南",
+    "downloads": "PDF 操作手册"
+  },
   "recoveryWorkflow": {
     "adoptionPending": "申请已保存。请完成邮箱验证；如需协助关联之前的草稿，请联系管理人员。",
     "review": "管理人员已整理好你之前填写的内容。请核对科目和时间、填写已验证邮箱并同意当前政策后提交。",
     "consumed": "此恢复草稿已提交。请通过新申请的验证邮件继续操作，或进入账号查看申请状态。"
   },
   "sessionPlanning": {
+    "refreshBoundary": "辅导必须不晚于已安排的季度刷新时间结束。请重新加载当前日程。",
     "deadlineMissedTitle": "需要处理：请核对已过期的时间申请",
     "deadlineMissedHelp": "此次改期请求在生效前已过期，原辅导时间不变。如仍需调整，请与对方确认。",
     "scheduleUnavailable": "需要核对安排",
@@ -974,6 +979,27 @@
       },
       "pendingBanner": "有 {count} 条学习伙伴报名等待审核。",
       "reviewNow": "立即审核 →",
+      "emailQuota": {
+        "title": "邮件额度",
+        "loading": "正在加载邮件额度…",
+        "dailyLabel": "每日免费额度",
+        "dailyCount": "{remaining, number} / {limit, number}",
+        "dailyFree": "封今日剩余",
+        "dailyUnavailable": "暂时无法获取每日免费额度。",
+        "balanceLabel": "累计免费余额",
+        "balanceUnit": "{count, plural, other {封剩余邮件}}",
+        "balanceHint": "一次性免费额度，不按日重置。",
+        "balanceExhaustedHint": "免费余额已用完，每日重置不会补充免费额度。",
+        "balanceUnavailable": "暂时无法获取免费余额。",
+        "resetsAt": "每日额度于 {time} 重置。",
+        "resetUnknown": "每日额度按天重置，暂未配置重置时间。",
+        "unavailable": "暂时无法获取邮件额度。",
+        "unavailableHelp": "无法读取邮件推送免费额度，邮件正常发送不受影响。",
+        "statusUnavailable": "暂不可用",
+        "statusLow": "额度偏低",
+        "statusDailyExhausted": "今日额度已用完",
+        "statusBalanceExhausted": "免费余额已用完"
+      },
       "recentSubmissions": {
         "title": "最近提交",
         "viewAll": "查看全部 →",
@@ -2343,7 +2369,7 @@
     },
     "meetings": {
       "title": "近期会议",
-      "help": "无法参加会议？最迟可在会议开始前 60 分钟请假。",
+      "help": "无法参加会议？最迟可在会议开始前 45 分钟请假。",
       "excuseBtn": "请假",
       "submitExcuse": "提交请假说明",
       "cancelExcuse": "取消请假",
@@ -2466,6 +2492,9 @@
       "saving": "保存中…",
       "saved": "已保存。",
       "voteCommentPlaceholder": "对你投票的可选备注",
+      "voteSyncing": "投票已保存，正在刷新面试详情和日程…",
+      "voteRefreshFailed": "投票已保存，但部分面试详情或日程项目未能刷新。请重试刷新，无需再次投票。",
+      "voteRefresh": "重试刷新",
       "votingClosed": "此申请的投票已结束。",
       "accept": "通过",
       "reject": "拒绝",
@@ -2981,7 +3010,8 @@
     "empty": "暂无巡查记录。",
     "newer": "较新记录",
     "older": "较早记录",
-    "details": "变更详情"
+    "details": "变更详情",
+    "patrolChanged": "巡查记录已变更。请重新加载后再更正。"
   },
   "emailChange": {
     "title": "更改账号邮箱",
@@ -3260,6 +3290,11 @@
     "incompleteHelp": "仍需完成邮箱验证或最后的账号确认。"
   },
   "workflow": {
+    "actionFailed": "无法确认此操作是否成功。你的草稿已保留。",
+    "currentRequests": "当前申请",
+    "retryRefresh": "重试刷新",
+    "recallAccepted": "本申请已撤回。请刷新查看最新状态；系统不会重复撤回。",
+    "abortAccepted": "你的退出申请已提交。请刷新查看最新状态；系统不会重复提交申请。",
     "pleaseReview": "请阅读以下内容后再继续",
     "cancel": "取消",
     "confirm": "是，确认",
@@ -4864,6 +4899,9 @@
     "noTutor": "未关联辅导伙伴",
     "count": "显示 {count} / {total} 位用户"
   },
+  "saveErrors": {
+    "staleRecord": "此内容自加载后已发生变化。请刷新后重试。"
+  },
   "saveNotifications": {
     "saved": "更改已保存",
     "failed": "无法保存更改",
@@ -6185,12 +6223,13 @@
     "impactRestore": "可能恢复的安排：{count}",
     "impactRule": "保存时会重新核对当前协议及冲突，并通过邮件通知受影响参与者有关取消的安排。已开始的辅导和已记录的出勤保持不变。",
     "combinedTitle": "假期与辅导暂停",
-    "combinedHelp": "管理学校假期（不上课）与辅导暂停或通知（正常上课）。学校假期会暂停常规辅导并跳过申诉期限的上课日计数；辅导暂停不改变上课日及申诉规则。",
+    "combinedHelp": "管理学校假期与辅导暂停或通知。学校假期会暂停常规辅导并跳过申诉期限的上课日计数；辅导暂停不改变上课日及申诉规则。",
     "combinedEmpty": "暂无学校假期或辅导通知。",
     "denied": "无法访问辅导通知与暂停安排。",
-    "holidayEffect": "学校假期（不上课）",
-    "pauseEffectTable": "暂停常规辅导（正常上课）",
-    "noticeEffectTable": "仅作通知（正常上课）"
+    "holidayEffect": "学校假期",
+    "pauseEffectTable": "暂停常规辅导",
+    "noticeEffectTable": "仅作通知",
+    "reasonOrNote": "原因 / 备注"
   },
   "roomOrder": {
     "title": "教室显示顺序",
@@ -6258,6 +6297,8 @@
     "unnamed": "未提供姓名"
   },
   "signupEditing": {
+    "originalEmailLabel": "申请最初验证的邮箱",
+    "emailReadOnly": "只读",
     "title": "编辑报名回答",
     "edit": "编辑报名回答",
     "requestLocal": "此处修改仅适用于本次申请；如需更改账号姓名，请前往账号设置。",
@@ -7073,14 +7114,19 @@
     "tutoringAccessRevoked": "辅导伙伴权限已被撤销。批准此申请前，请管理员恢复辅导伙伴权限。面试证据予以保留。",
     "title": "批准面试 · {name}",
     "help": "批准前请记录实际面试出席情况和时长。",
+    "helpRetained": "批准资格前，请核对已记录的面试证据。",
     "attendanceHelp": "仅选择实际出席的评审。投票不代表出席。",
     "hours": "{minutes} 分钟 = 每名出席评审 {hours} 小时。",
     "recorded": "将沿用已记录的完成时间和出席情况，不重复计入时长。如需更正，请先联系管理人员。",
     "review": "核对批准与时长",
+    "reviewRetained": "核对资格批准",
     "confirm": "批准并计入时长",
+    "confirmRetained": "批准资格",
     "effectsInitial": "批准后立即录取此申请、记录面试时长、准备账号注册，并通知管理员和负责人。",
     "effectsQualification": "批准后立即授予所申请的科目资格、记录面试时长，并通知管理员和负责人。",
+    "effectsRetained": "批准后立即授予所申请的资格，并通知管理员和负责人。已记录的面试完成、出席和服务时长信息保持不变，不发放注册码。",
     "saved": "面试已批准，服务时长已记录。",
+    "savedRetained": "资格已批准。已记录的面试完成、出席和服务时数信息保持不变。",
     "reload": "重新加载面试（替换草稿）",
     "unavailable": "你已无法批准此面试。",
     "waitingVotes": "所有评审均须投票后才能批准。",
@@ -8406,6 +8452,16 @@
     "title": "确认拒绝 {name} 的报名？",
     "consequence": "拒绝后，此次报名将永久关闭，并解除当前分配。报名资料、账号关联和历史记录将保留。重新报名仍须符合现有资格规则。",
     "confirm": "拒绝报名",
+    "requestTitle": "申请拒绝 {name} 的报名？",
+    "requestConsequence": "提交拒绝报名申请，由管理员或总负责人审核。获批前，此次报名和当前分配均保持不变。获批后，此次报名将永久关闭，并解除当前分配。报名资料、账号关联和历史记录将保留。重新报名仍须符合现有资格规则。",
+    "requestConfirm": "提交拒绝报名申请",
+    "actorLoading": "正在加载账号信息以确认报名拒绝操作…",
+    "actorLoadFailed": "无法确认当前账号是否可执行此次报名拒绝操作。",
+    "actorRetry": "重试加载账号信息",
+    "actorUnavailable": "请等待账号信息加载完成，或重试读取账号信息后再提交。",
+    "actorChanged": "你的账号或管理角色已更改。请取消并重新查看此次报名的确认内容后再提交。",
+    "actorDenied": "此账号无法审核报名拒绝操作。",
+    "publishedSessionRecords": "此报名已有已发布的具体日期场次记录，无法拒绝。请改为查看其参与管理选项。",
     "declined": "已拒绝",
     "decision": "{name} 于 {when} 拒绝",
     "staff": "工作人员",

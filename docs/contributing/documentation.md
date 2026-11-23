@@ -28,6 +28,21 @@ Run `npm run docs:check` for links, headings, guide discoverability, ownership
 regressions, user roles and issue forms. It does not fetch external links or establish
 application behavior. Follow [required checks](verification.md#required-checks) too.
 
+The [Help catalogue](../guides/help/README.md) is generated from bilingual
+application records so website, Markdown and PDF editions stay aligned.
+Only the generated Markdown editions and lightweight JSON manifests
+(`captures.json`, `coverage.json`, `source-fingerprints.json`) are committed in
+`docs/guides/help/`, verified by `help:check`. Screenshot JPEGs
+(`docs/guides/help/assets/`), derived annotated WebPs (`assets/annotated/`), and
+`annotations.json` are gitignored and baked on demand by the GitHub Actions
+runner workflow [`.github/workflows/help-assets.yml`](../../.github/workflows/help-assets.yml)
+so Git stays free of large binary blobs.
+These JSON manifests are the specific exception to the Markdown-only maintained
+documentation policy; arbitrary images, PDFs and reports remain local evidence.
+Follow the [capture procedure](help-catalogue.md) when updating guides or baking
+screenshots; additional review screenshots and reports still belong in ignored
+local evidence.
+
 ## Historical evidence and continuation notes
 
 Keep current instructions free of old test totals, rollout logs and completed handoffs.

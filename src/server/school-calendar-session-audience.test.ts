@@ -26,13 +26,15 @@ const account = (id: string, fields: Partial<Account>): Account => ({
 
 function fixture() {
   const plan = {
-    id: "original-plan", tutorId: "original-tutor", originalDate: "2026-11-04", kind: "RECURRING",
+    id: "original-plan", termId: "original-term", tutorId: "original-tutor", originalDate: "2026-11-04", kind: "RECURRING",
     tutor: { status: "ACTIVE" },
   };
-  const cohorts = [{ id: "moved-cohort", planId: plan.id, plan, date, status: "SCHEDULED", rescheduled: true }];
+  const cohorts = [{ id: "moved-cohort", planId: plan.id, plan, date, status: "SCHEDULED", rescheduled: true,
+    refreshSuppressed: false, startsAt: new Date("2026-11-01T07:00:00Z"), endsAt: new Date("2026-11-01T07:45:00Z") }];
   const people = [{ id: "original-participant", planId: plan.id, cohortId: "moved-cohort" as string | null, tuteeId: "original-learner", status: "SCHEDULED" }];
-  const requests: { id: string; planId: string; plan: typeof plan; status: string; currentOfferId: string | null; participantIds: unknown; kind: string }[] = [];
-  const offers: { id: string; requestId: string; date: string; cutoffAt: Date }[] = [];
+  const requests: { id: string; planId: string; cohortId?: string; plan: typeof plan; status: string; currentOfferId: string | null; participantIds: unknown; kind: string }[] = [];
+  const offers: { id: string; requestId: string; date: string; cutoffAt: Date; endsAt?: Date }[] = [];
+  const refreshSchedules: { sourceTermId: string; state: string; executeAt: Date; version: number; updatedAt: Date }[] = [];
   const planExecutions = [{ planId: plan.id, tutorId: "current-tutor" }];
   const participantExecutions = [{ participantId: people[0]!.id, tuteeId: "current-learner" }];
   const tutors: Profile[] = [{ id: "original-tutor", status: "ACTIVE" }, { id: "current-tutor", status: "ACTIVE" }];
@@ -49,14 +51,17 @@ function fixture() {
   const profiles = (rows: Profile[], args: { where: { id: { in: string[] }; status: string } }) =>
     rows.filter((row) => args.where.id.in.includes(row.id) && row.status === args.where.status);
   const raw = {
-    sessionPlanCohort: { findMany: vi.fn(async (args: { where: { date: string; status: string }; take: number }) =>
-      cohorts.filter((row) => row.date === args.where.date && row.status === args.where.status &&
-        people.some((person) => person.cohortId === row.id && person.status === "SCHEDULED")).slice(0, args.take)) },
+    scheduledProgramRefresh: { findMany: vi.fn(async () => refreshSchedules) },
+    sessionPlanCohort: { findMany: vi.fn(async (args: { where: { date?: string; status?: string; id?: { in: string[] } }; take?: number }) =>
+      cohorts.filter((row) => (!args.where.date || row.date === args.where.date) && (!args.where.id || args.where.id.in.includes(row.id)) &&
+        (!args.where.status || row.status === args.where.status && people.some((person) => person.cohortId === row.id && person.status === "SCHEDULED"))).slice(0, args.take)) },
     sessionPlanningRequest: { findMany: vi.fn(async (args: { where: { status: { in: string[] }; offers: { some: { date: string; cutoffAt: { gt: Date } } } }; take: number }) =>
       requests.filter((row) => args.where.status.in.includes(row.status) && offers.some((offer) =>
-        offer.requestId === row.id && offer.date === args.where.offers.some.date && offer.cutoffAt > args.where.offers.some.cutoffAt.gt)).slice(0, args.take)) },
+        offer.requestId === row.id && offer.date === args.where.offers.some.date && offer.cutoffAt > args.where.offers.some.cutoffAt.gt)).slice(0, args.take)
+        .map((row) => ({ ...row, cohortId: row.cohortId ?? "moved-cohort" }))) },
     sessionPlanningOffer: { findMany: vi.fn(async (args: { where: { id: { in: string[] }; date: string; cutoffAt: { gt: Date } } }) =>
-      offers.filter((row) => args.where.id.in.includes(row.id) && row.date === args.where.date && row.cutoffAt > args.where.cutoffAt.gt)) },
+      offers.filter((row) => args.where.id.in.includes(row.id) && row.date === args.where.date && row.cutoffAt > args.where.cutoffAt.gt)
+        .map((row) => ({ ...row, endsAt: row.endsAt ?? new Date("2026-11-01T07:45:00Z") }))) },
     sessionPlanParticipant: { findMany: vi.fn(async (args: { where: { cohortId?: { in: string[] }; status?: string; planId?: { in: string[] }; tuteeId?: { in: string[] } }; take: number }) =>
       people.filter((row) =>
         (!args.where.cohortId || !!row.cohortId && args.where.cohortId.in.includes(row.cohortId)) &&
@@ -74,7 +79,7 @@ function fixture() {
     // Return even unrelated users so the final capability filter is exercised.
     user: { findMany: vi.fn(async () => users) },
   };
-  return { plan, cohorts, people, requests, offers, planExecutions, participantExecutions,
+  return { plan, cohorts, people, requests, offers, refreshSchedules, planExecutions, participantExecutions,
     tutors, learners, owners, users, raw, tx: raw as unknown as TransactionDb };
 }
 
@@ -115,6 +120,64 @@ it("keeps unaffected peers and an independent original-profile plan instead of a
   ]);
 });
 
+it("excludes marked and not-yet-reconciled post-refresh cohorts without reading private response evidence", async () => {
+  const f = fixture();
+  const cohort = f.cohorts[0]!;
+  cohort.refreshSuppressed = true;
+  expect(await getSchoolCalendarDatedSessionUserIds(f.tx, date, now)).toEqual([]);
+  expect(f.raw.sessionPlanParticipant.findMany).not.toHaveBeenCalled();
+  cohort.refreshSuppressed = false;
+  const refresh = { sourceTermId: f.plan.termId, state: "SCHEDULED", executeAt: new Date(cohort.endsAt.getTime() - 1), version: 1, updatedAt: now };
+  f.refreshSchedules.push(refresh);
+  expect(await getSchoolCalendarDatedSessionUserIds(f.tx, date, now)).toEqual([]);
+  expect(f.raw.user.findMany).not.toHaveBeenCalled();
+  refresh.executeAt = cohort.endsAt;
+  expect((await getSchoolCalendarDatedSessionUserIds(f.tx, date, now)).sort()).toEqual(["new-learner", "new-tutor"]);
+  refresh.executeAt = new Date(cohort.endsAt.getTime() - 1);
+  expect(await getSchoolCalendarDatedSessionUserIds(f.tx, date, cohort.endsAt)).toEqual([]);
+  refresh.updatedAt = cohort.startsAt;
+  expect((await getSchoolCalendarDatedSessionUserIds(f.tx, date, cohort.startsAt)).sort()).toEqual(["new-learner", "new-tutor"]);
+});
+
+it.each(["CANCELLED", "BLOCKED", "FAILED", "COMPLETED"])("keeps current dated recipients when the refresh schedule is %s", async (state) => {
+  const f = fixture();
+  f.refreshSchedules.push({ sourceTermId: f.plan.termId, state, executeAt: now, version: 2, updatedAt: now });
+  expect((await getSchoolCalendarDatedSessionUserIds(f.tx, date, now)).sort()).toEqual(["new-learner", "new-tutor"]);
+});
+
+it("does not let a pending cross-boundary offer expand the audience before maintenance", async () => {
+  const f = fixture();
+  f.cohorts.length = 0;
+  f.requests.push({ id: "request", planId: f.plan.id, plan: f.plan, participantIds: ["original-learner"], currentOfferId: "live", status: "PENDING", kind: "EXTRA" });
+  const end = new Date("2026-11-01T07:45:00Z");
+  f.offers.push({ id: "old", requestId: "request", date, cutoffAt: new Date("2026-11-01T07:00:00Z"), endsAt: new Date("2026-11-01T06:45:00Z") },
+    { id: "live", requestId: "request", date, cutoffAt: new Date("2026-11-01T07:00:00Z"), endsAt: end });
+  const refresh = { sourceTermId: f.plan.termId, state: "SCHEDULED", executeAt: new Date(end.getTime() - 1), version: 1, updatedAt: now };
+  f.refreshSchedules.push(refresh);
+  expect(await getSchoolCalendarDatedSessionUserIds(f.tx, date, now)).toEqual([]);
+  expect(f.raw.sessionPlanParticipant.findMany).not.toHaveBeenCalled();
+  refresh.executeAt = end;
+  expect((await getSchoolCalendarDatedSessionUserIds(f.tx, date, now)).sort()).toEqual(["new-learner", "new-tutor"]);
+});
+
+it("does not expand offer recipients when only its source is beyond the cutoff before maintenance", async () => {
+  const f = fixture();
+  const source = f.cohorts[0]!;
+  source.date = "2026-11-04"; // Source is read by its exact ID, independently of notice date.
+  source.startsAt = new Date("2026-11-04T07:00:00Z");
+  source.endsAt = new Date("2026-11-04T07:45:00Z");
+  f.requests.push({ id: "request", planId: f.plan.id, plan: f.plan, participantIds: ["original-learner"], currentOfferId: "live", status: "PENDING", kind: "RESCHEDULE" });
+  f.offers.push({ id: "live", requestId: "request", date, cutoffAt: new Date("2026-11-01T07:00:00Z"), endsAt: new Date("2026-11-01T07:45:00Z") });
+  const refresh = { sourceTermId: f.plan.termId, state: "SCHEDULED", executeAt: new Date("2026-11-02T00:00:00Z"), version: 1, updatedAt: now };
+  f.refreshSchedules.push(refresh);
+  expect(await getSchoolCalendarDatedSessionUserIds(f.tx, date, now)).toEqual([]);
+  expect(f.raw.user.findMany).not.toHaveBeenCalled();
+  refresh.state = "CANCELLED";
+  expect((await getSchoolCalendarDatedSessionUserIds(f.tx, date, now)).sort()).toEqual(["new-learner", "new-tutor"]);
+  source.refreshSuppressed = true;
+  expect(await getSchoolCalendarDatedSessionUserIds(f.tx, date, now)).toEqual([]);
+});
+
 it.each(["EXTRA", "RESCHEDULE"])("uses only the current live %s offer and its exact plan participant provenance, without response rows", async (kind) => {
   const f = fixture();
   f.cohorts[0]!.date = "2026-11-04";
@@ -131,7 +194,7 @@ it.each(["EXTRA", "RESCHEDULE"])("uses only the current live %s offer and its ex
   request.status = "SPLIT_REQUESTED";
   expect((await audience()).sort()).toEqual(["new-learner", "new-tutor"]);
   expect(f.raw.sessionPlanningOffer.findMany).toHaveBeenLastCalledWith({
-    where: { id: { in: ["live"] }, date, cutoffAt: { gt: now } }, select: { id: true, requestId: true },
+    where: { id: { in: ["live"] }, date, cutoffAt: { gt: now } }, select: { id: true, requestId: true, endsAt: true },
   });
   f.offers[1]!.date = "2026-11-02";
   expect(await audience()).toEqual([]); // Historical Sunday alternative cannot add an audience.
@@ -206,7 +269,7 @@ it.each(["cohorts", "requests", "participants"])("refuses oversized %s rather th
   if (scope === "cohorts") {
     f.raw.sessionPlanCohort.findMany.mockResolvedValue(Array.from({ length: 5001 }, (_, index) => ({ ...f.cohorts[0]!, id: `cohort-${index}` })));
   } else if (scope === "requests") {
-    f.raw.sessionPlanningRequest.findMany.mockResolvedValue(Array.from({ length: 5001 }, (_, index) => ({ id: `request-${index}`, planId: f.plan.id, plan: f.plan, participantIds: [], currentOfferId: null, status: "PENDING", kind: "EXTRA" })));
+    f.raw.sessionPlanningRequest.findMany.mockResolvedValue(Array.from({ length: 5001 }, (_, index) => ({ id: `request-${index}`, planId: f.plan.id, cohortId: "moved-cohort", plan: f.plan, participantIds: [], currentOfferId: null, status: "PENDING", kind: "EXTRA" })));
   } else {
     f.people.push(...Array.from({ length: 5000 }, (_, index) => ({ ...f.people[0]!, id: `participant-${index}` })));
   }

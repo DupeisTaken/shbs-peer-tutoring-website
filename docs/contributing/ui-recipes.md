@@ -30,6 +30,15 @@ opt-in three-second review pause. Check immediate Cancel, a fresh pause after
 reopening, and explicit confirmation after zero. The pause is presentation only;
 features keep their server tickets, membership approval and seven-day cooldown.
 
+The inline-feedback recipe includes [narrow notice examples](../../src/app/ui-gallery/notice-layout-examples.tsx)
+with long shared/native buttons, a navigation link, a wrapping action group and
+no action. Check every tone, explicit alert/status or no announcement, and pending
+controls in English and Chinese. Its bounded card checks a narrow container at
+desktop breakpoints; resize the real viewport separately for mobile targets and
+enlarged text. Recovery changes only a local counter. Verify the actual Patrol
+History and Corrections recovery as well; the example establishes no feature read,
+draft, version or write behavior.
+
 The management summary recipe also uses the production `RoomAllocationStatus`
 reader. Check fixed and automatic room names followed by their status, long
 translated names wrapping at narrow widths, and distinct shortage, intentional
@@ -72,6 +81,12 @@ the captured optional reason, pending protection and accepted-write read recover
 The receipt acknowledges submission; membership remains active until the separate
 staff decision. Follow the [consequential action inventory](implementation.md#consequential-action-inventory)
 for the activation/request distinction and stronger domain safeguards.
+
+Its access-revocation example also supplies the existing Restore control as a
+feature-owned `returnFocusFallback`. When revocation disables the original opener
+and removes the review, focus reaches Restore. A usable opener or remaining parent
+dialog still takes priority. Check that fallback recovery alongside the real
+Signup Requests account-read failure; the gallery grants no management authority.
 
 The participant form's **Name requirement example → Application correction: retain
 legacy names** case demonstrates the scoped `preserveLegacyRequiredFields` option.

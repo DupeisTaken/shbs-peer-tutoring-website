@@ -12,6 +12,7 @@ import {
 } from "next-intl";
 import { api, type RouterOutputs } from "~/trpc/react";
 import { useReadOnly } from "./read-only";
+import { localizedPatrolCorrectionError } from "~/lib/patrol-correction-error";
 
 import { programDateTimeInput, parseProgramDateTime } from "~/lib/program-time";
 import {
@@ -89,7 +90,11 @@ function PatrolEditor({ row }: { row: Patrol }) {
           }}
         >
           <p className="muted">{t("patrolHelp", { zone: timeZone })}</p>
-          {inputError && <p role="alert">{inputError}</p>}
+          {inputError && (
+            <p role="alert">
+              {localizedPatrolCorrectionError(inputError, t) ?? inputError}
+            </p>
+          )}
           {row.observations.map((o) => (
             <fieldset
               className="grid gap-2 rounded-lg border border-slate-200 p-3 sm:grid-cols-3"
@@ -181,7 +186,8 @@ function PatrolEditor({ row }: { row: Patrol }) {
           )}
           {save.error && !save.error.data?.approvalId && (
             <p role="alert" className="text-sm text-red-600">
-              {save.error.message}
+              {localizedPatrolCorrectionError(save.error.message, t) ??
+                save.error.message}
             </p>
           )}
         </form>

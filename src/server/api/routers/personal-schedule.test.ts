@@ -323,8 +323,8 @@ it("keeps meeting eligibility identical to personal source history and never pro
         date: new Date("2026-10-26T08:00:00Z"),
         termId: "current",
       },
-      { id: "cutoff", title: "Cutoff", date: new Date("2026-10-28T09:00:00Z") },
-      { id: "late", title: "Late", date: new Date("2026-10-28T08:59:59Z") },
+      { id: "cutoff", title: "Cutoff", date: new Date("2026-10-28T08:45:00Z") },
+      { id: "late", title: "Late", date: new Date("2026-10-28T08:44:59Z") },
       {
         id: "outside",
         title: "Outside",
@@ -727,7 +727,7 @@ it("pages all personal meeting records while future review tasks exclude recorde
       {
         id: "too-late",
         title: "Cutoff passed",
-        date: new Date("2026-10-28T08:59:59Z"),
+        date: new Date("2026-10-28T08:44:59Z"),
       },
       {
         id: "own-past",

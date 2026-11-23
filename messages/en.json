@@ -1,10 +1,15 @@
 {
+  "helpNav": {
+    "title": "Help & How-to",
+    "downloads": "PDF handbooks"
+  },
   "recoveryWorkflow": {
     "adoptionPending": "Your request is saved. Finish confirming your email, and let staff know if you need help linking your earlier draft.",
     "review": "Staff prepared your saved answers for review. Check your subjects and times, enter your verified email, and agree to the current policy to submit.",
     "consumed": "This recovery draft has already been submitted. Continue with the verification email for your new request, or open your account to view its status."
   },
   "sessionPlanning": {
+    "refreshBoundary": "Sessions must finish by the scheduled program refresh. Reload the current schedule.",
     "deadlineMissedTitle": "Action Required: Review the Expired Time Request",
     "deadlineMissedHelp": "This reschedule request expired before it could be processed, so your original session time is unchanged. Check with your partner if you still need to move it.",
     "scheduleUnavailable": "Needs schedule review",
@@ -982,6 +987,27 @@
       },
       "pendingBanner": "{count} tutee {count, plural, one {signup} other {signups}} awaiting review.",
       "reviewNow": "Review Now →",
+      "emailQuota": {
+        "title": "Email Quota",
+        "loading": "Loading email quota…",
+        "dailyLabel": "Daily Free Quota",
+        "dailyCount": "{remaining, number} / {limit, number}",
+        "dailyFree": "emails left today",
+        "dailyUnavailable": "Daily free quota unavailable.",
+        "balanceLabel": "Total Free Balance",
+        "balanceUnit": "{count, plural, one {email remaining} other {emails remaining}}",
+        "balanceHint": "One-time free allowance; does not reset daily.",
+        "balanceExhaustedHint": "Free balance is depleted; daily resets will not add free emails.",
+        "balanceUnavailable": "Free balance unavailable.",
+        "resetsAt": "Daily quota resets at {time}.",
+        "resetUnknown": "Daily quota resets once a day; reset time is not configured.",
+        "unavailable": "Email quota is currently unavailable.",
+        "unavailableHelp": "Could not read the Direct Mail free allowance. Email delivery is not affected.",
+        "statusUnavailable": "Unavailable",
+        "statusLow": "Low Quota",
+        "statusDailyExhausted": "Daily Limit Reached",
+        "statusBalanceExhausted": "Free Balance Exhausted"
+      },
       "recentSubmissions": {
         "title": "Recent Submissions",
         "viewAll": "View All →",
@@ -2343,7 +2369,7 @@
     },
     "meetings": {
       "title": "Upcoming Meetings",
-      "help": "Can't make a meeting? Excuse your absence up to 60 minutes before it starts.",
+      "help": "Can't make a meeting? Excuse your absence up to 45 minutes before it starts.",
       "excuseBtn": "Excuse Absence",
       "submitExcuse": "Submit absence excuse",
       "cancelExcuse": "Cancel Excuse",
@@ -2474,6 +2500,9 @@
       "saving": "Saving…",
       "saved": "Saved.",
       "voteCommentPlaceholder": "Optional comment on your vote",
+      "voteSyncing": "Your vote was saved. Refreshing interview details and Schedule…",
+      "voteRefreshFailed": "Your vote was saved, but some interview details or Schedule items could not refresh. Retry refresh without voting again.",
+      "voteRefresh": "Retry refresh",
       "votingClosed": "Voting is closed for this application.",
       "accept": "Accept",
       "reject": "Reject",
@@ -2981,7 +3010,8 @@
     "empty": "No patrols recorded.",
     "newer": "Newer",
     "older": "Older",
-    "details": "Change Details"
+    "details": "Change Details",
+    "patrolChanged": "Patrol changed. Reload before correcting it."
   },
   "emailChange": {
     "title": "Change Account Email",
@@ -3260,6 +3290,11 @@
     "incompleteHelp": "Email verification or final account review is still needed."
   },
   "workflow": {
+    "actionFailed": "This action could not be confirmed. Your draft is retained.",
+    "currentRequests": "Current Requests",
+    "retryRefresh": "Retry refresh",
+    "recallAccepted": "This request was recalled. Refresh its status; your recall will not be repeated.",
+    "abortAccepted": "Your withdrawal application was submitted. Refresh its status; your application will not be repeated.",
     "pleaseReview": "Please review before continuing",
     "cancel": "Cancel",
     "confirm": "Yes, confirm",
@@ -4864,6 +4899,9 @@
     "noTutor": "No linked tutor",
     "count": "Showing {count} of {total} users"
   },
+  "saveErrors": {
+    "staleRecord": "This changed since you loaded it — refresh and try again."
+  },
   "saveNotifications": {
     "saved": "Changes saved",
     "failed": "Could not save changes",
@@ -6185,12 +6223,13 @@
     "impactRestore": "Restoration candidates: {count}",
     "impactRule": "Save rechecks current agreements and conflicts. Affected participants are emailed about cancellations. Started sessions and recorded attendance stay unchanged.",
     "combinedTitle": "Holidays & Tutoring Pauses",
-    "combinedHelp": "Manage school holidays (no school) and tutoring pauses or notices (school open). School holidays pause regular tutoring and appeal-day counting; tutoring pauses keep school-day and appeal rules unchanged.",
+    "combinedHelp": "Manage school holidays and tutoring pauses or notices. School holidays pause regular tutoring and appeal-day counting; tutoring pauses keep school-day and appeal rules unchanged.",
     "combinedEmpty": "No school holidays or tutoring notices.",
     "denied": "Tutoring notices and pauses are unavailable.",
-    "holidayEffect": "School holiday (No school)",
-    "pauseEffectTable": "Tutoring pause (School day)",
-    "noticeEffectTable": "Notice only (School day)"
+    "holidayEffect": "School holiday",
+    "pauseEffectTable": "Tutoring pause",
+    "noticeEffectTable": "Notice only",
+    "reasonOrNote": "Reason / Note"
   },
   "roomOrder": {
     "title": "Room Display Order",
@@ -6258,6 +6297,8 @@
     "unnamed": "Name not provided"
   },
   "signupEditing": {
+    "originalEmailLabel": "Original verified request email",
+    "emailReadOnly": "Read-only",
     "title": "Edit Signup Answers",
     "edit": "Edit signup answers",
     "requestLocal": "Edits here update this request only. Update your account name in Account Settings.",
@@ -7073,14 +7114,19 @@
     "tutoringAccessRevoked": "Tutoring access was revoked. Ask an Admin to restore tutoring access before approving this application. Your interview evidence is retained.",
     "title": "Approve Interview · {name}",
     "help": "Record the actual interview attendance and duration before approval.",
+    "helpRetained": "Review the recorded interview evidence before approving the qualification.",
     "attendanceHelp": "Select only panelists who attended. Voting does not confirm attendance.",
     "hours": "{minutes} minutes = {hours} hours per attendee.",
     "recorded": "Recorded completion and attendance will be reused without duplicate hours. Ask management to correct this evidence before approval if needed.",
     "review": "Review approval & hours",
+    "reviewRetained": "Review qualification approval",
     "confirm": "Approve & award hours",
+    "confirmRetained": "Approve qualification",
     "effectsInitial": "Approves this application immediately, logs interview hours, prepares account registration, and notifies admins and Head.",
     "effectsQualification": "Grants the requested subject qualification immediately, logs interview hours, and notifies admins and Head.",
+    "effectsRetained": "Grants the requested qualification immediately and notifies admins and Head. Recorded interview completion, attendance and service-hour credits remain unchanged.",
     "saved": "Interview approved and service hours recorded.",
+    "savedRetained": "Qualification approved. Recorded interview completion, attendance and service-hour credits remain unchanged.",
     "reload": "Reload interview (replace draft)",
     "unavailable": "This interview is no longer available for your approval.",
     "waitingVotes": "Every panelist must vote before approval.",
@@ -8406,6 +8452,16 @@
     "title": "Decline Signup for {name}?",
     "consequence": "Declining permanently closes this signup and releases its current assignments. The source details, account links and history are retained. A fresh signup follows normal eligibility rules.",
     "confirm": "Decline signup",
+    "requestTitle": "Request Signup Decline for {name}?",
+    "requestConsequence": "Submit a decline request for Admin or Head review. This signup and its current assignments stay unchanged until approval. If approved, the signup permanently closes and its current assignments are released. The source details, account links and history are retained. A fresh signup follows normal eligibility rules.",
+    "requestConfirm": "Submit decline request",
+    "actorLoading": "Loading your account for signup decline…",
+    "actorLoadFailed": "Could not verify your account for this signup decline.",
+    "actorRetry": "Retry account details",
+    "actorUnavailable": "Wait for your account details to finish loading, or retry the account read, before submitting.",
+    "actorChanged": "Your account or management role changed. Cancel and review this signup again before submitting.",
+    "actorDenied": "This account cannot review signup declines.",
+    "publishedSessionRecords": "Cannot decline a signup with published dated-session records. Review its participation controls instead.",
     "declined": "Declined",
     "decision": "Declined {when} by {name}",
     "staff": "a staff member",

@@ -334,6 +334,11 @@ export async function transferPersonParticipation(db: DomainDb, actorId: string,
       if (targetId) await tx.participantConsolidation.updateMany({ where: { kind, sourceId: targetId, active: true }, data: { active: false, revision: { increment: 1 }, receiptId: input.operationId, effectiveAt: now } });
       for (const sourceId of kind === "TUTOR" ? sourceTutors : sourceTutees) await tx.participantConsolidation.upsert({ where: { kind_sourceId: { kind, sourceId } }, create: { kind, sourceId, targetId: targetId!, receiptId: input.operationId, effectiveAt: now }, update: { targetId: targetId!, active: true, revision: { increment: 1 }, receiptId: input.operationId, effectiveAt: now } });
     }
+    // History-owner writes revoke reader sessions through a User update, whose
+    // guard validates both direct pointers. Detach every selected kind before
+    // the first overlay changes, including a canonical-only login handover.
+    if (input.activeTutorId) await tx.user.updateMany({ where: { tutorId: { in: input.tutorIds } }, data: { tutorId: null } });
+    if (input.activeTuteeId) await tx.user.updateMany({ where: { studentId: { in: input.tuteeIds } }, data: { studentId: null } });
     for (const source of current.sourceRestrictions) {
       const entity = source.kind === "TUTOR" ? "Tutor" as const : "Tutee" as const;
       const existing = current.historyAccess.find((row) => row.entity === entity && row.recordId === source.sourceId);
@@ -343,14 +348,12 @@ export async function transferPersonParticipation(db: DomainDb, actorId: string,
       await tx.historyRowOwnership.upsert({ where: { entity_recordId: { entity, recordId: source.sourceId } }, create: { entity, recordId: source.sourceId, readerUserId: retained.id, sourceUserIds, quarantineUserIds: [], receiptId: input.operationId }, update: { readerUserId: retained.id, sourceUserIds, revision: { increment: 1 }, receiptId: input.operationId } });
     }
     if (input.activeTutorId) {
-      await tx.user.updateMany({ where: { tutorId: { in: input.tutorIds } }, data: { tutorId: null } });
       for (const tutorId of input.tutorIds) await tx.tutorProfileOwnership.upsert({ where: { tutorId }, create: { tutorId, userId: retained.id }, update: { userId: retained.id, revision: { increment: 1 } } });
       await tx.user.update({ where: { id: retained.id }, data: { tutorId: input.activeTutorId } });
       await tx.tutor.update({ where: { id: input.activeTutorId }, data: { status: "ACTIVE" } });
       await tx.tutor.updateMany({ where: { id: { in: sourceTutors } }, data: { status: "ARCHIVED", preferredAssignedBlocks: 0 } });
     }
     if (input.activeTuteeId) {
-      await tx.user.updateMany({ where: { studentId: { in: input.tuteeIds } }, data: { studentId: null } });
       for (const tuteeId of input.tuteeIds) await tx.studentProfileOwnership.upsert({ where: { tuteeId }, create: { tuteeId, userId: retained.id }, update: { userId: retained.id, revision: { increment: 1 } } });
       await tx.user.update({ where: { id: retained.id }, data: { studentId: input.activeTuteeId } });
       await tx.tutee.update({ where: { id: input.activeTuteeId }, data: { status: "ACTIVE" } });

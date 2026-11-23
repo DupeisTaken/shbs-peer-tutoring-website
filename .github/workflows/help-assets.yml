@@ -1,0 +1,175 @@
+name: Bake Help Screenshots & PDF Handbooks
+
+# On-demand runner job (zero automatic PR slots, zero binary blobs in Git).
+# Boots a production Next.js server against a fresh seeded Postgres 16 database,
+# captures clean cropped EN & ZH screenshots with a controllable per-image KB
+# budget, exports illustrated Markdown/WebPs, and renders all Geist PDF handbooks.
+on:
+  workflow_dispatch:
+    inputs:
+      locales:
+        description: "Comma-separated locales to render (en,zh)"
+        required: false
+        default: "en,zh"
+        type: string
+      crop_mode:
+        description: "Screenshot framing mode"
+        required: false
+        default: "focused"
+        type: choice
+        options:
+          - focused
+          - full-viewport
+      max_image_kb:
+        description: "Soft per-image KB ceiling (controllable blob budget)"
+        required: false
+        default: "110"
+        type: string
+      quality:
+        description: "Primary JPEG quality (50-98)"
+        required: false
+        default: "85"
+        type: string
+      render_pdfs:
+        description: "Render all Geist-styled PDF handbooks into an artifact"
+        required: false
+        default: true
+        type: boolean
+      export_markdown:
+        description: "Also generate illustrated Markdown + annotated WebPs"
+        required: false
+        default: false
+        type: boolean
+      publish_release:
+        description: "Publish baked bundle and PDFs to rolling release help-assets-latest (main only)"
+        required: false
+        default: true
+        type: boolean
+
+permissions:
+  contents: read
+
+concurrency:
+  group: help-assets-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  bake:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: write
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres_ci_password
+          POSTGRES_DB: shbs_help_capture_demo
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      DATABASE_URL: postgresql://postgres:postgres_ci_password@127.0.0.1:5432/shbs_help_capture_demo
+      AUTH_SECRET: ci-help-capture-synthetic-secret-do-not-use-in-prod
+      HELP_IMAGE_MAX_KB: ${{ inputs.max_image_kb }}
+      HELP_IMAGE_QUALITY: ${{ inputs.quality }}
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Install locked dependencies
+        run: npm ci
+      - name: Apply migrations and seed synthetic demo database
+        env:
+          SHBS_DEMO_SEED: "1"
+        run: |
+          npm run db:migrate
+          npm run db:seed
+          npm run db:seed
+      - name: Build production server (no Next.js DevTools overlay)
+        env:
+          SHBS_BUILD_CPUS: "2"
+        run: npm run build
+      - name: Install Playwright Chromium runtime
+        run: npx --yes playwright@1.52.0 install chromium --with-deps
+      - name: Bake cropped screenshots, manifest and Geist PDF handbooks
+        run: |
+          npx next start --hostname 127.0.0.1 --port 3027 > /tmp/next-help.log 2>&1 &
+          SERVER_PID=$!
+          trap "kill $SERVER_PID 2>/dev/null || true" EXIT
+          for i in $(seq 1 30); do
+            if curl -sf http://127.0.0.1:3027/help > /dev/null; then break; fi
+            sleep 1
+          done
+          PDF_FLAG=""
+          if [ "${{ inputs.render_pdfs }}" = "true" ]; then PDF_FLAG="--render-pdfs"; fi
+          npx --yes -p playwright@1.52.0 tsx --conditions=react-server scripts/capture-help-screenshots.ts \
+            --base-url=http://127.0.0.1:3027 \
+            --locales="${{ inputs.locales }}" \
+            --crop-mode="${{ inputs.crop_mode }}" \
+            --write-manifest \
+            --pdf-out=.validation/help-handbooks-pdf \
+            $PDF_FLAG
+      - name: Export illustrated Markdown and annotated WebPs (optional)
+        if: ${{ inputs.export_markdown }}
+        run: npm run help:export
+      - name: Package baked runtime screenshot bundle for container builds
+        run: |
+          mkdir -p .validation/help-assets-bundle
+          tar -czf .validation/help-assets-bundle/help-assets-baked.tar.gz \
+            docs/guides/help/captures.json \
+            docs/guides/help/assets
+          (cd .validation/help-assets-bundle && sha256sum help-assets-baked.tar.gz > help-assets-baked.tar.gz.sha256)
+          cp docs/guides/help/captures.json .validation/help-assets-bundle/captures.json
+      - name: Upload Geist PDF handbooks
+        if: ${{ inputs.render_pdfs }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: help-handbooks-pdf-${{ github.run_number }}
+          retention-days: 30
+          path: .validation/help-handbooks-pdf
+          if-no-files-found: error
+      - name: Upload baked screenshot bundle
+        uses: actions/upload-artifact@v4
+        with:
+          name: help-assets-bundle-${{ github.run_number }}
+          retention-days: 30
+          path: .validation/help-assets-bundle
+          if-no-files-found: error
+      - name: Publish rolling help-assets-latest release (main only)
+        if: github.ref == 'refs/heads/main' && inputs.publish_release == true
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TAG="help-assets-latest"
+          NOTES="Automatically baked Help screenshots and Geist PDF handbooks from \`${GITHUB_SHA:0:12}\` (crop_mode=${{ inputs.crop_mode }}, max_image_kb=${{ inputs.max_image_kb }}, quality=${{ inputs.quality }})."
+          FILES=(
+            .validation/help-assets-bundle/help-assets-baked.tar.gz
+            .validation/help-assets-bundle/help-assets-baked.tar.gz.sha256
+            .validation/help-assets-bundle/captures.json
+          )
+          if [ -d .validation/help-handbooks-pdf ]; then
+            shopt -s nullglob
+            FILES+=(.validation/help-handbooks-pdf/*.pdf)
+            shopt -u nullglob
+          fi
+          if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            gh release upload "$TAG" "${FILES[@]}" --clobber --repo "$GITHUB_REPOSITORY"
+            gh release edit "$TAG" --target "$GITHUB_SHA" --notes "$NOTES" --repo "$GITHUB_REPOSITORY"
+          else
+            gh release create "$TAG" "${FILES[@]}" \
+              --target "$GITHUB_SHA" \
+              --title "Help Assets (Latest)" \
+              --prerelease \
+              --notes "$NOTES" \
+              --repo "$GITHUB_REPOSITORY"
+          fi

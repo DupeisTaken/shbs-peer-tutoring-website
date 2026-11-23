@@ -4,6 +4,7 @@ import { LanguageSwitcher } from "./language-switcher";
 import { NotificationBell } from "./notification-bell";
 import { ThemeSwitcher } from "./theme-switcher";
 import { WorkspaceLinks, type WorkspaceLink } from "./workspace-links";
+import { WorkspaceHeaderFrame } from "./workspace-header-frame";
 
 /** One responsive header for all workspaces. Mobile rows keep language with the
  * brand, menu opposite global controls, and workspace switches together below.
@@ -29,10 +30,7 @@ export function WorkspaceHeader({
   skipToId?: string;
 }) {
   return (
-    <header
-      data-sticky-header
-      className="sticky top-0 z-20 shrink-0 border-b border-slate-200 bg-white"
-    >
+    <WorkspaceHeaderFrame>
       {skipLabel ? (
         <a href={`#${skipToId}`} className="skip-link">
           {skipLabel}
@@ -73,6 +71,6 @@ export function WorkspaceHeader({
           <div className="shrink-0 lg:order-7">{account}</div>
         </div>
       </div>
-    </header>
+    </WorkspaceHeaderFrame>
   );
 }

@@ -3,6 +3,7 @@ import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, expect, it, vi } from "vitest";
 import { NextIntlClientProvider } from "next-intl";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { compile } from "tailwindcss";
 import en from "../../../messages/en.json";
 import zh from "../../../messages/zh.json";
 import { QualifiedTutorSelect } from "./qualified-tutor-select";
@@ -212,5 +213,98 @@ it.each(["loading", "failed"] as const)(
       ),
     ).toBeTruthy();
     if (readState === "failed") expect(screen.getByRole("alert")).toBeTruthy();
+  },
+);
+
+it.each(["en", "zh"] as const)(
+  "contains every %s workload description inside its own assignment field",
+  async (locale) => {
+    const messages = locale === "zh" ? zh : en;
+    render(
+      <QueryClientProvider client={new QueryClient()}>
+        <NextIntlClientProvider locale={locale} messages={messages}>
+          {(["pairing", "legacy-request", "self-service-request"] as const).map(
+            (layout) => (
+              <QualifiedTutorSelect
+                key={layout}
+                tutors={[{ id: "tutor", englishName: "Synthetic Tutor" }]}
+                subjectId="math"
+                value="tutor"
+                onChange={() => undefined}
+                label={layout}
+                leading={
+                  layout === "legacy-request" ? <span>Subject</span> : undefined
+                }
+                actions={
+                  layout !== "pairing" ? <button>Assign</button> : undefined
+                }
+                className={
+                  layout === "self-service-request"
+                    ? "lg:col-start-2 lg:row-span-4 lg:row-start-1 lg:grid-rows-subgrid"
+                    : undefined
+                }
+              />
+            ),
+          )}
+        </NextIntlClientProvider>
+      </QueryClientProvider>,
+    );
+    const controls = screen.getAllByRole<HTMLSelectElement>("combobox");
+    expect(controls).toHaveLength(3);
+    const descriptions = controls.map((control) => {
+      const ids = control.getAttribute("aria-describedby")!.split(" ");
+      expect(ids).toHaveLength(2);
+      expect(document.getElementById(ids[0]!)?.textContent).toBeTruthy();
+      const description = document.getElementById(ids[1]!)!;
+      const field = control.closest("label")!.parentElement!;
+      expect(field.contains(description)).toBe(true);
+      expect(
+        screen.getByRole("combobox", {
+          name: control.getAttribute("aria-label")!,
+          description: (text) =>
+            text.includes(messages.tutorWorkload.compactHelp),
+        }),
+      ).toBe(control);
+      return description;
+    });
+    const descriptionIds = descriptions.map((description) => description.id);
+    expect(new Set(descriptionIds).size).toBe(3);
+    const helpers = descriptions.map((description) => {
+      const helper = description.querySelector<HTMLElement>(".sr-only")!;
+      expect(helper.textContent).toBe(messages.tutorWorkload.compactHelp);
+      expect(description.closest("[hidden], [aria-hidden='true']")).toBeNull();
+      return helper;
+    });
+
+    // Exercise the installed utilities and real description nodes. JSDOM can
+    // prove local containing blocks; native checks own scroll geometry.
+    const compiler = await compile("@tailwind utilities;");
+    const stylesheet = document.createElement("style");
+    const utilities = [...descriptions, ...helpers].flatMap((element) => [
+      ...element.classList,
+    ]);
+    stylesheet.textContent = compiler.build(utilities);
+    document.head.append(stylesheet);
+    try {
+      for (const [index, helper] of helpers.entries()) {
+        const style = getComputedStyle(helper);
+        expect(style.position).toBe("absolute");
+        expect(style.width).toBe("1px");
+        expect(style.height).toBe("1px");
+        expect(style.display).not.toBe("none");
+        expect(style.visibility).not.toBe("hidden");
+        let owner = helper.parentElement;
+        while (
+          owner &&
+          !/^(relative|absolute|fixed|sticky)$/.test(
+            getComputedStyle(owner).position,
+          )
+        )
+          owner = owner.parentElement;
+        expect(owner).toBe(descriptions[index]);
+      }
+    } finally {
+      stylesheet.remove();
+    }
   },
 );

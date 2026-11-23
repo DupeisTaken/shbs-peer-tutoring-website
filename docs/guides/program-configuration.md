@@ -491,6 +491,9 @@ A lower exact headcount creates a pending flag. Management reviews the evidence 
 Loading or failed reads do not mean there are no flags. Use **Try again** after a
 read failure; existing review notes and penalty amounts stay visible, with editing
 paused until recovery. Those fields also pause while a decision is being sent.
+If access is denied, flags are concealed, the filter returns to **Pending** and
+the filter choices are disabled. The recovery status offers **Try again**; failed
+recovery keeps the flags concealed until a fresh successful read restores access.
 A failed decision keeps the draft for retry; a queued proposal is labelled as
 awaiting approval and has not applied a penalty or another decision.
 
@@ -620,7 +623,7 @@ Head or Admin selects a supported IANA region in **Program Settings → Recruitm
 
 Options show the readable region, a localized zone name, an abbreviation where available, and a GMT offset. Use **Preview date** to compare seasonal offsets at 12:00 UTC on that date; this preview does not save a setting. New York shows EST (GMT-05:00) in winter and EDT (GMT-04:00) in summer. UTC and fractional offsets such as India's GMT+05:30 are supported. The selected label also appears below the dropdown so its full text remains readable on narrow screens.
 
-Signup opening notices, opening-time inputs and patrol correction inputs resolve their labels at the event's date. Audit date-range labels show each endpoint's offset when they differ. An empty, skipped or repeated local time shows only the region until it resolves to one instant. The server permits Head to apply timezone changes and Admin to request review; Coordinators can inspect date previews.
+Signup opening notices, opening-time inputs and patrol correction inputs resolve their labels at the event's date. Audit date-range labels show each endpoint's offset when they differ. An empty, skipped or repeated local time shows only the region until it resolves to one instant. Admin and Head apply timezone changes directly; Coordinators can inspect date previews and submit timezone changes for Admin/Head review.
 
 - Weekly slots keep their wall-clock values: 15:30 stays 15:30.
 - Saved appointments and deadlines keep their instants and display in the selected zone.
@@ -720,8 +723,7 @@ Coordinators submit them for Admin/Head review. Pending proposals do not change
 schedules or send operational calendar notices.
 
 In **Holidays & Tutoring Pauses**, each row clearly indicates whether school is
-closed (**School holiday (No school)**) or open (**Tutoring pause (School day)**
-or **Notice only (School day)**):
+closed (**School holiday**) or open (**Tutoring pause** or **Notice only**):
 
 - Use **Add holiday** for one or more consecutive school closure days, such as
   Thanksgiving. Enter the start and end dates and an optional internal staff note.

@@ -75,6 +75,12 @@ approval rules, immutable evidence, query access or profile/policy version owner
 - Preserve drafts on failed saves and background refreshes. Keep cached content
   mounted beside recovery. A conflict Retry must not silently adopt a new expected
   version; explicit Reload replaces a draft only after a successful fetch.
+- Separate a retained owner's lifetime from current write admission. An ordinary
+  shared-account read failure may retain an already-authorized identity's settings
+  drafts, including hidden panels, while blocking dependent writes. Enforce that
+  boundary in submit handlers and captured review callbacks as well as disabled
+  controls. Identity/rank replacement, read-only access and authoritative denial
+  must still remove private owners; recovery never transfers their old drafts.
 - A successful write followed by failed synchronization is distinct from a failed
   write. Use the feature's read-only refresh recovery instead of resubmitting it;
   tutor availability is the existing example.
@@ -89,8 +95,13 @@ approval rules, immutable evidence, query access or profile/policy version owner
   affected reads and their prerequisites; drive cache eviction from the retained
   denial episode, including prerequisites newly denied during recovery.
 - Nested review owns Escape and keyboard focus. Restore the exact opener when it
-  remains usable; otherwise focus the remaining parent dialog. Pending writes block
-  parent dismissal until they settle. Keep long editors' Close header reachable.
+  remains usable; otherwise focus the remaining parent dialog. A top-level owner
+  whose opener may become unavailable can supply `returnFocusFallback` through
+  `ReviewedAction` or `Modal`, returning its current logical recovery control.
+  Resolve it at dismissal, skip unavailable targets, and do not take focus from a
+  connected control outside the closing dialog. Do not guess a page-wide target.
+  Pending writes block parent dismissal until they settle. Keep long editors'
+  Close header reachable.
 - Choose disclosure lifetime deliberately: `lazy` for disposable read details,
   `retained` for drafts mounted on first open, `mounted` for forms that must exist
   from the start. Preserve four-part and legacy names through `PersonNameFields`;
