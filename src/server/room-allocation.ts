@@ -460,10 +460,10 @@ export async function notifyRoomShortage(
         {
           title: "Pairing needs a room",
           ...notificationInAppEvent("room_assignment_needed", undefined, {
-            en: `${pairing?.tutor.englishName ?? "Tutor"}${pairing ? ` (${pairing.subject}, ${notificationSchedule(pairing, "en")})` : ""}: no room available. Assign a room.`,
-            zh: `${pairing?.tutor.englishName ?? "辅导伙伴"}${pairing ? `（${pairing.subject}，${notificationSchedule(pairing, "zh")}）` : ""}：暂无可用教室，请分配教室。`,
+            en: `${pairing?.tutor.englishName ?? "Tutor"}${pairing ? ` — ${pairing.subject}, ${notificationSchedule(pairing, "en")}` : ""}: no room is available for this confirmed schedule. Review the pairing to allocate a room.`,
+            zh: `${pairing?.tutor.englishName ?? "辅导伙伴"}${pairing ? ` — ${pairing.subject}，${notificationSchedule(pairing, "zh")}` : ""}：已确认的辅导安排暂无可用教室，请审核并分配教室。`,
           }),
-          body: "No room is available for this confirmed schedule. Open Pairings to assign one.",
+          body: "A confirmed tutoring schedule has no available room. Review the pairing to retry allocation or select a room.",
           link: `/admin/pairings#${encodeURIComponent(pairingId)}`,
           inAppOnly: true,
         },
