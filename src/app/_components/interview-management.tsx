@@ -1,6 +1,13 @@
 "use client";
 import { participantNameLabel } from "./participant-name";
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
 import Link from "next/link";
 import { navigateNotificationFragment } from "~/lib/notification-navigation";
 import { useTranslations, useFormatter } from "next-intl";
@@ -22,6 +29,25 @@ import {
   useSessionViewState,
 } from "./session-view-state";
 import { viewEnum, viewPage, viewSearch } from "~/lib/session-view-state";
+
+/** Opaque IDs stay in an encoded fragment and a parameterized API read. Reject
+ * malformed/unbounded links before mounting a private completion reader. */
+function completionArrivalId(hash: string) {
+  const match = /^#interview-completion-([A-Za-z0-9_.!~*'()%-]{1,2048})$/.exec(
+    hash,
+  );
+  if (!match) return null;
+  try {
+    const id = decodeURIComponent(match[1]!);
+    const printable = [...id].every(
+      (character) =>
+        character.charCodeAt(0) >= 32 && character.charCodeAt(0) !== 127,
+    );
+    return id.trim() && id.length <= 200 && printable ? id : null;
+  } catch {
+    return null;
+  }
+}
 
 /** Explicit disclosure state survives filtering; form state stays mounted while collapsed. */
 function InterviewDisclosure({
@@ -73,11 +99,39 @@ export function InterviewManagement({
   const allT = useTranslations();
   const format = useFormatter();
   const [review, setReview] = useState<InterviewRecord | null>(null);
+  const [arrival, setArrival] = useState<{
+    id: string;
+    sequence: number;
+  } | null>(null);
+  const [arrivalError, setArrivalError] = useState<string | null>(null);
+  const arrivalSequence = useRef(0);
+  const attemptedArrival = useRef(0);
+  const [opening, setOpening] = useState<string | null>(null);
+  const openingRef = useRef<string | null>(null);
+  const evidenceGeneration = useRef(0);
+  const readAvailableRef = useRef(false);
+  const [evidenceError, setEvidenceError] = useState<{
+    id: string;
+    message: string;
+  } | null>(null);
   const [drafts, setDrafts] = useState<
     Record<string, CompletionDraft | undefined>
   >({});
   const utils = api.useUtils();
   const [accessDenied, setAccessDenied] = useState(false);
+  const concealAccess = useCallback(() => {
+    // A delayed evidence response from before denial must never reopen a reader.
+    evidenceGeneration.current += 1;
+    arrivalSequence.current += 1;
+    setArrival(null);
+    setArrivalError(null);
+    openingRef.current = null;
+    setOpening(null);
+    setEvidenceError(null);
+    setReview(null);
+    setDrafts({});
+    setAccessDenied(true);
+  }, []);
   const [recovering, setRecovering] = useState(false);
   const recoveringRef = useRef(false);
   const [page, setPage] = useSessionViewState({
@@ -156,9 +210,30 @@ export function InterviewManagement({
   // a new denial transition latches again, so a successful manual read can clear it.
   if (denied !== observedDenied) {
     setObservedDenied(denied);
-    if (denied) setAccessDenied(true);
+    if (denied) {
+      setArrival(null);
+      setArrivalError(null);
+      setOpening(null);
+      setEvidenceError(null);
+      setReview(null);
+      setDrafts({});
+      setAccessDenied(true);
+    }
   }
   const viewReady = !!data.data && !accessDenied && !denied;
+  const readAvailable = viewReady && !data.error && !data.isFetching;
+  // Conceal in render; fence asynchronous readers at commit before callbacks can
+  // publish stale private evidence. Speculative renders must not mutate refs.
+  useLayoutEffect(() => {
+    if (accessDenied) {
+      evidenceGeneration.current += 1;
+      arrivalSequence.current += 1;
+      openingRef.current = null;
+    }
+  }, [accessDenied]);
+  useLayoutEffect(() => {
+    readAvailableRef.current = readAvailable;
+  }, [readAvailable]);
   // The parent Applications page owns viewport position; nested history owns only its read controls.
   useEffect(() => {
     onViewReadyChange?.(
@@ -180,10 +255,131 @@ export function InterviewManagement({
   const refresh = () =>
     settleRefreshes([
       () => invalidateAndReport(utils.interviewManagement.options),
+      () => invalidateAndReport(utils.interviewManagement.completionEvidence),
       () => invalidateAndReport(utils.admin.tutorApplications),
       () => invalidateAndReport(utils.tutor.myInterviews),
       () => invalidateAndReport(utils.admin.registrationCodes),
     ]);
+  const openReview = useCallback(
+    async (
+      application: InterviewRecord | { id: string },
+      arrivalRequest?: number,
+    ) => {
+      const retained = drafts[application.id];
+      if (retained?.outcome && retained.evidence) {
+        setReview(retained.evidence);
+        return true;
+      }
+      if (openingRef.current || !readAvailableRef.current) return false;
+      const generation = ++evidenceGeneration.current;
+      const currentRequest = () =>
+        generation === evidenceGeneration.current &&
+        (arrivalRequest === undefined ||
+          arrivalRequest === arrivalSequence.current);
+      openingRef.current = application.id;
+      setOpening(application.id);
+      setEvidenceError(null);
+      if (arrivalRequest !== undefined) setArrivalError(null);
+      try {
+        let record = application as InterviewRecord;
+        if (arrivalRequest !== undefined) {
+          // Exact source arrivals use an independent read. Saved list filters,
+          // page, expanded records and retained drafts remain the user's own view.
+          const exact = await utils.interviewManagement.options.fetch(
+            {
+              applicationId: application.id,
+              page: 0,
+              search: "",
+              completion: "ALL",
+              status: "",
+              sort: "CREATED_DESC",
+            },
+            { staleTime: 0 },
+          );
+          if (!currentRequest()) return false;
+          const row = exact.applications.rows.find(
+            (candidate) => candidate.id === application.id,
+          );
+          if (!row) throw new Error(allT("uiPatterns.loadFailed"));
+          record = row;
+        }
+        const current =
+          await utils.interviewManagement.completionEvidence.fetch(
+            { applicationId: application.id },
+            { staleTime: 0 },
+          );
+        if (!currentRequest()) return false;
+        if (current.id !== application.id)
+          throw new Error(allT("uiPatterns.loadFailed"));
+        if (current.isInvalid || current.status === "RECALLED")
+          throw new Error(allT("uiPatterns.loadFailed"));
+        if (!readAvailableRef.current)
+          throw new Error(
+            allT("interviewReview.correctionEvidence.readUnavailable"),
+          );
+        // Source participants, ledger and version come from this one fresh reader;
+        // a background list version must not be merged into its captured evidence.
+        setReview({ ...record, ...current });
+        return true;
+      } catch (caught) {
+        if (!currentRequest()) return false;
+        const code = (caught as { data?: { code?: string } }).data?.code;
+        if (code === "FORBIDDEN" || code === "UNAUTHORIZED") concealAccess();
+        else if (arrivalRequest !== undefined)
+          setArrivalError(
+            caught instanceof Error
+              ? caught.message
+              : allT("uiPatterns.loadFailed"),
+          );
+        else
+          setEvidenceError({
+            id: application.id,
+            message:
+              caught instanceof Error
+                ? caught.message
+                : allT("uiPatterns.loadFailed"),
+          });
+        return false;
+      } finally {
+        if (generation === evidenceGeneration.current) {
+          openingRef.current = null;
+          setOpening(null);
+        }
+      }
+    },
+    [drafts, utils, allT, concealAccess],
+  );
+  useEffect(() => {
+    const reveal = () => {
+      const id = completionArrivalId(window.location.hash);
+      const sequence = ++arrivalSequence.current;
+      setArrivalError(null);
+      setArrival(id ? { id, sequence } : null);
+    };
+    reveal();
+    window.addEventListener("hashchange", reveal);
+    return () => window.removeEventListener("hashchange", reveal);
+  }, []);
+  useEffect(() => {
+    if (
+      !arrival ||
+      attemptedArrival.current === arrival.sequence ||
+      !readAvailable ||
+      review ||
+      opening !== null
+    )
+      return;
+    attemptedArrival.current = arrival.sequence;
+    const heading = document.getElementById("interview-heading");
+    heading?.focus({ preventScroll: true });
+    heading?.scrollIntoView?.({ block: "center" });
+    void openReview({ id: arrival.id }, arrival.sequence).then((opened) => {
+      if (opened && arrivalSequence.current === arrival.sequence) {
+        setArrival(null);
+        setArrivalError(null);
+      }
+    });
+  }, [arrival, readAvailable, review, opening, openReview]);
   const recoverAccess = async () => {
     if (recoveringRef.current) return;
     recoveringRef.current = true;
@@ -248,6 +444,33 @@ export function InterviewManagement({
         </InlineNotice>
       )}
       <section className="space-y-3" aria-labelledby="interview-heading">
+        {opening === arrival?.id && !review && (
+          <InlineNotice announcement="status">
+            {allT("interviewReview.correctionEvidence.loading")}
+          </InlineNotice>
+        )}
+        {arrivalError && arrival && (
+          <InlineNotice
+            tone="error"
+            announcement="alert"
+            action={
+              <Button
+                disabled={!readAvailable || opening !== null || !!review}
+                onClick={() => {
+                  setArrivalError(null);
+                  setArrival({
+                    id: arrival.id,
+                    sequence: ++arrivalSequence.current,
+                  });
+                }}
+              >
+                {allT("interviewReview.correctionEvidence.retryArrival")}
+              </Button>
+            }
+          >
+            {arrivalError}
+          </InlineNotice>
+        )}
         <h2 id="interview-heading" tabIndex={-1} className="section-title">
           {t("interviewRecords")}
         </h2>
@@ -493,24 +716,47 @@ export function InterviewManagement({
                 <div className="mt-3">
                   <InvalidityNotice />
                 </div>
-              ) : a.interviewers.length === 0 ? (
+              ) : !a.interviewCompletedAt && a.interviewers.length === 0 ? (
                 <p className="muted mt-3 text-sm">{t("panelRequired")}</p>
               ) : enabled && a.status !== "RECALLED" ? (
                 <Button
                   variant="primary"
                   className="mt-4"
-                  disabled={!hoursEnabled || a.pendingCompletion}
-                  onClick={() => setReview(a)}
+                  disabled={
+                    !hoursEnabled ||
+                    a.pendingCompletion ||
+                    (!drafts[a.id]?.outcome &&
+                      (!readAvailable || opening !== null))
+                  }
+                  onClick={() => void openReview(a)}
                 >
-                  {allT(
-                    drafts[a.id]?.outcome
-                      ? "interviewReview.refreshOnly"
-                      : a.interviewCompletedAt
-                        ? "interviewReview.correct"
-                        : "interviewReview.record",
-                  )}
+                  {opening === a.id
+                    ? allT("interviewReview.correctionEvidence.loading")
+                    : allT(
+                        drafts[a.id]?.outcome
+                          ? "interviewReview.refreshOnly"
+                          : a.interviewCompletedAt
+                            ? "interviewReview.correct"
+                            : "interviewReview.record",
+                      )}
                 </Button>
               ) : null}
+              {evidenceError?.id === a.id && (
+                <InlineNotice
+                  tone="error"
+                  announcement="alert"
+                  action={
+                    <Button
+                      disabled={!readAvailable || opening !== null}
+                      onClick={() => void openReview(a)}
+                    >
+                      {allT("interviewReview.refreshOnly")}
+                    </Button>
+                  }
+                >
+                  {evidenceError.message}
+                </InlineNotice>
+              )}
             </InterviewDisclosure>
           );
         })}
@@ -558,28 +804,22 @@ export function InterviewManagement({
       {review && (
         <InterviewCompletionReview
           key={review.id}
-          application={
-            applications.rows.find((row) => row.id === review.id) ?? review
-          }
+          application={review}
+          readAvailable={readAvailable && enabled && hoursEnabled}
           initialDraft={drafts[review.id]}
           onAccessDenied={() => {
-            setReview(null);
-            setDrafts({});
-            setAccessDenied(true);
+            concealAccess();
           }}
           refresh={refresh}
           reload={async () => {
-            const current = await utils.interviewManagement.options.fetch({
-              page: 0,
-              search: "",
-              completion: "ALL",
-              applicationId: review.id,
-            });
-            const row = current.applications.rows.find(
-              (candidate) => candidate.id === review.id,
-            );
-            if (!row) throw new Error(allT("uiPatterns.loadFailed"));
-            return row;
+            const current =
+              await utils.interviewManagement.completionEvidence.fetch(
+                { applicationId: review.id },
+                { staleTime: 0 },
+              );
+            if (current.id !== review.id)
+              throw new Error(allT("uiPatterns.loadFailed"));
+            return { ...review, ...current };
           }}
           onClose={(draft) => {
             setDrafts((current) => ({ ...current, [review.id]: draft }));

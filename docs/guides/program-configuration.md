@@ -221,9 +221,16 @@ Notifications**:
 - **Interview completion & hours:** In **Tutor Applications → Interview Records**,
   **Record completion & award hours** captures actual datetime, 1–480 minutes
   (`minutes ÷ 60` per attendee) and reason (**Correct completion & hours**
-  replaces automatic credits while keeping unrelated adjustments; requires both
-  `INTERVIEWS` and `SERVICE_HOURS`). Only applied initial acceptance authorizes
-  registration codes (additional qualifications issue no code).
+  uses the original evidenced physical-panel candidates separately from the
+  current voting panel, previews per-recipient and total credit changes,
+  replaces source-owned automatic credits while keeping unrelated adjustments
+  and original period ownership, and requires the reviewed application version
+  for changes while keeping exact full-ledger matches no-ops; requires both
+  `INTERVIEWS` and `SERVICE_HOURS`). Open additional/higher panel repairs retain
+  recorded completion and earned service while requiring new votes, and later
+  qualification approval reuses that service without awarding it again. Only
+  applied initial acceptance authorizes registration codes (additional
+  qualifications issue no code).
 
 ## Refresh the program
 
@@ -317,8 +324,15 @@ a lower bound).
 **Tutors → Hour Adjustments** (`/admin/hour-adjustments`) adds extra hours or
 deductions for a tutor and `YYYY-MM` month (requires `SERVICE_HOURS` enabled).
 Fractional hours display without rounding (e.g., `0.75`). Admin/Head apply
-additions and deletions directly; Coordinators propose both; Viewers receive
-read-only records with private reasons masked.
+additions and supported deletions directly; Coordinators propose both; Viewers
+receive read-only records with private reasons masked and coarse source labels.
+Automatic credits with a proved current interview source are labelled
+**Interview source**, cannot be deleted independently, and offer **Correct
+interview hours** to open that exact interview's completion review without
+changing hours. Conflicting source claims also block generic deletion;
+**Interview record unavailable** and **Unresolved interview source** rows retain
+generic **Delete** under normal Admin/Head or Coordinator-review authority with
+no invented correction link.
 
 ## Reports and exports
 

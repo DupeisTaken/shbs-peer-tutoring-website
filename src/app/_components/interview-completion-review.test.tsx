@@ -30,8 +30,8 @@ vi.mock("~/trpc/react", () => ({
     },
   },
 }));
-const record = (patch = {}) =>
-  ({
+const record = (patch: Partial<InterviewRecord> = {}) => {
+  const application = {
     id: "interview",
     name: "Synthetic Applicant",
     status: "INTERVIEW",
@@ -49,7 +49,22 @@ const record = (patch = {}) =>
       isHead: name === "Alice",
     })),
     ...patch,
-  }) as InterviewRecord;
+  };
+  return {
+    ...application,
+    completionParticipants:
+      patch.completionParticipants ??
+      application.interviewers.map((person) => ({
+        ...person,
+        tutor: { ...person.tutor, status: "ACTIVE" },
+        creditHours:
+          application.interviewCompletedAt && person.attended
+            ? (application.interviewDurationMin ?? 0) / 60
+            : 0,
+        currentPanel: true,
+      })),
+  } as InterviewRecord;
+};
 const close = vi.fn();
 const refresh = vi.fn();
 const reload = vi.fn();
@@ -58,6 +73,7 @@ const element = (
   application = record(),
   locale = "en",
   initialDraft?: CompletionDraft,
+  readAvailable = true,
 ) => (
   <NextIntlClientProvider
     locale={locale}
@@ -71,6 +87,7 @@ const element = (
       refresh={refresh}
       reload={reload}
       onAccessDenied={accessDenied}
+      readAvailable={readAvailable}
     />
   </NextIntlClientProvider>
 );
@@ -425,3 +442,200 @@ it.each(["FORBIDDEN", "UNAUTHORIZED"])(
     await waitFor(() => expect(accessDenied).toHaveBeenCalledTimes(1));
   },
 );
+
+const historicalRecord = () =>
+  record({
+    type: "ADDITIONAL_SUBJECT",
+    interviewCompletedAt: new Date("2026-10-01T08:00:37.456Z"),
+    interviewDurationMin: 30,
+    interviewers: ["New Chair", "New Voter", "New Panelist"].map((name) => ({
+      tutorId: name,
+      tutor: { englishName: name },
+      attended: false,
+      isHead: name === "New Chair",
+    })),
+    completionParticipants: [
+      {
+        tutorId: "former-a",
+        tutor: { englishName: "Former Alice", status: "GRADUATED" },
+        attended: true,
+        creditHours: 0.5,
+        currentPanel: false,
+      },
+      {
+        tutorId: "former-b",
+        tutor: { englishName: "Former Bob", status: "OPTED_OUT" },
+        attended: true,
+        creditHours: 0.25,
+        currentPanel: false,
+      },
+      {
+        tutorId: "former-c",
+        tutor: { englishName: "Former Carol", status: "ARCHIVED" },
+        attended: false,
+        creditHours: 0,
+        currentPanel: false,
+      },
+    ],
+  });
+
+it.each(["en", "zh"] as const)(
+  "reviews real ledger deltas for inactive former participants while every current voter differs (%s)",
+  async (locale) => {
+    const messages = locale === "en" ? en : zh;
+    render(element(historicalRecord(), locale));
+    expect(screen.getByText(messages.admin.tutorStatus.GRADUATED)).toBeTruthy();
+    expect(screen.getByText(messages.admin.tutorStatus.OPTED_OUT)).toBeTruthy();
+    expect(screen.getByText(messages.admin.tutorStatus.ARCHIVED)).toBeTruthy();
+    expect(screen.queryByLabelText("New Chair")).toBeNull();
+    expect(screen.getByText(/New Chair, New Voter, New Panelist/)).toBeTruthy();
+    fireEvent.change(screen.getByLabelText(messages.workflows.duration), {
+      target: { value: "60" },
+    });
+    fireEvent.change(screen.getByLabelText(messages.interviewReview.reason), {
+      target: { value: "Reviewed original attendance evidence" },
+    });
+    fireEvent.click(screen.getByLabelText("Former Alice"));
+    fireEvent.click(screen.getByLabelText("Former Carol"));
+    fireEvent.click(
+      screen.getByRole("button", { name: messages.interviewReview.review }),
+    );
+    const changes = messages.interviewReview.change;
+    const expected = (before: string, after: string, delta: string) =>
+      changes
+        .replace("{before}", before)
+        .replace("{after}", after)
+        .replace("{delta}", delta);
+    expect(screen.getByText(expected("0.5", "0", "-0.5"))).toBeTruthy();
+    expect(screen.getByText(expected("0.25", "1", "0.75"))).toBeTruthy();
+    expect(screen.getByText(expected("0", "1", "1"))).toBeTruthy();
+    // Source credit hours, rather than old duration × attendance flags, own the
+    // before values and total even when the supplied source amounts differ.
+    const total = messages.interviewReview.correctionEvidence.totalChange
+      .replace("{before}", "0.75")
+      .replace("{after}", "2")
+      .replace("{delta}", "1.25");
+    expect(screen.getByText(total)).toBeTruthy();
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: messages.interviewReview.confirmCorrection,
+      }),
+    );
+    await waitFor(() => expect(state.save).toHaveBeenCalledOnce());
+    expect(state.save).toHaveBeenCalledWith({
+      applicationId: "interview",
+      durationMin: 60,
+      completedAt: new Date("2026-10-01T08:00:37.456Z"),
+      attendedTutorIds: ["former-b", "former-c"],
+      reason: "Reviewed original attendance evidence",
+      expectedUpdatedAt: new Date("2026-10-01"),
+    });
+  },
+);
+
+it("never reconstructs missing completed-service evidence from the current voting panel", () => {
+  const application = historicalRecord();
+  delete application.completionParticipants;
+  render(element(application));
+  expect(
+    screen.getByText(en.interviewReview.correctionEvidence.missingEvidence),
+  ).toBeTruthy();
+  expect(screen.queryByLabelText("New Chair")).toBeNull();
+  expect(
+    screen.getByRole<HTMLButtonElement>("button", {
+      name: en.interviewReview.review,
+    }).disabled,
+  ).toBe(true);
+  fireEvent.submit(document.getElementById("interview-completion-editor")!);
+  expect(
+    screen.queryByRole("button", {
+      name: en.interviewReview.confirmCorrection,
+    }),
+  ).toBeNull();
+  expect(state.save).not.toHaveBeenCalled();
+});
+
+it("blocks review and a retained confirmation while the owning read fails, then retries reads without losing edits", async () => {
+  const application = historicalRecord();
+  const view = render(element(application, "en", undefined, false));
+  fireEvent.change(screen.getByLabelText(en.interviewReview.reason), {
+    target: { value: "Retained historical correction" },
+  });
+  expect(
+    screen.getByRole<HTMLButtonElement>("button", {
+      name: en.interviewReview.review,
+    }).disabled,
+  ).toBe(true);
+  fireEvent.submit(document.getElementById("interview-completion-editor")!);
+  expect(state.save).not.toHaveBeenCalled();
+  fireEvent.click(
+    screen.getByRole("button", { name: en.interviewReview.refreshOnly }),
+  );
+  await waitFor(() => expect(refresh).toHaveBeenCalledOnce());
+  view.rerender(element(application, "en", undefined, true));
+  expect(
+    screen.getByDisplayValue("Retained historical correction"),
+  ).toBeTruthy();
+  fireEvent.click(
+    screen.getByRole("button", { name: en.interviewReview.review }),
+  );
+  view.rerender(element(application, "en", undefined, false));
+  const confirm = screen.getByRole<HTMLButtonElement>("button", {
+    name: en.interviewReview.confirmCorrection,
+  });
+  expect(confirm.disabled).toBe(true);
+  fireEvent.click(confirm);
+  expect(state.save).not.toHaveBeenCalled();
+  view.rerender(element(application, "en", undefined, true));
+  fireEvent.click(confirm);
+  await waitFor(() => expect(state.save).toHaveBeenCalledOnce());
+});
+
+it("retains former-participant evidence and version after a rejected correction and a background replacement", async () => {
+  state.save.mockRejectedValueOnce(new Error("Historical evidence changed"));
+  const application = historicalRecord();
+  const view = render(element(application));
+  fireEvent.change(screen.getByLabelText(en.interviewReview.reason), {
+    target: { value: "Retain historical review draft" },
+  });
+  fireEvent.click(screen.getByLabelText("Former Alice"));
+  fireEvent.click(screen.getByLabelText("Former Carol"));
+  fireEvent.click(
+    screen.getByRole("button", { name: en.interviewReview.review }),
+  );
+  fireEvent.click(
+    screen.getByRole("button", { name: en.interviewReview.confirmCorrection }),
+  );
+  await waitFor(() =>
+    expect(screen.getByRole("alert").textContent).toContain(
+      "Historical evidence changed",
+    ),
+  );
+  view.rerender(element(record({ updatedAt: new Date("2026-10-05") })));
+  fireEvent.click(
+    screen.getByRole("button", { name: en.interviewReview.back }),
+  );
+  expect(
+    screen.getByDisplayValue("Retain historical review draft"),
+  ).toBeTruthy();
+  expect(screen.getByLabelText<HTMLInputElement>("Former Bob").checked).toBe(
+    true,
+  );
+  expect(screen.getByLabelText<HTMLInputElement>("Former Carol").checked).toBe(
+    true,
+  );
+  expect(screen.queryByLabelText("Alice")).toBeNull();
+  fireEvent.click(
+    screen.getByRole("button", { name: en.interviewReview.review }),
+  );
+  fireEvent.click(
+    screen.getByRole("button", { name: en.interviewReview.confirmCorrection }),
+  );
+  await waitFor(() => expect(state.save).toHaveBeenCalledTimes(2));
+  expect(state.save).toHaveBeenLastCalledWith(
+    expect.objectContaining({
+      expectedUpdatedAt: new Date("2026-10-01"),
+      attendedTutorIds: ["former-b", "former-c"],
+    }),
+  );
+});
