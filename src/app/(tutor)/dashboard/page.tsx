@@ -26,6 +26,7 @@ import { TutorRoomSchedule } from "~/app/(tutor)/_components/tutor-room-schedule
 import { ProgramCalendarNotice } from "~/app/_components/program-calendar";
 import { SchoolCalendarNotice } from "~/app/_components/school-calendar-notice";
 import { PersonalTutorHistory } from "~/app/history/personal-tutor-history";
+import { isInterviewChairRole } from "~/lib/interview-chair";
 import { pageMetadata } from "~/server/branding-metadata";
 
 export async function generateMetadata() {
@@ -55,6 +56,15 @@ export default async function TutorDashboard() {
     getFeatures(db),
     api.tutor.schedule(),
   ]);
+  // Show the separate Interview chair tab for Admin/Head chairs and any active tutor
+  // retaining a historical chair assignment; regular panelists vote in Schedule.
+  const showChairWorkspace =
+    !inactive &&
+    features.INTERVIEWS &&
+    (isInterviewChairRole(session.role) ||
+      (await db.interviewAssignment.count({
+        where: { tutorId: session.tutorId, isHead: true },
+      })) > 0);
 
   return (
     <main
@@ -183,11 +193,6 @@ export default async function TutorDashboard() {
               now={new Date()}
               compact
             />
-            {!inactive && features.INTERVIEWS && (
-              <div id="chair-interviews" tabIndex={-1}>
-                <MyInterviews audience="chair" />
-              </div>
-            )}
             <section
               id="room-schedule"
               tabIndex={-1}
@@ -203,6 +208,13 @@ export default async function TutorDashboard() {
               </DisclosureSection>
             </section>
           </div>
+        }
+        chair={
+          showChairWorkspace ? (
+            <div id="chair-interviews" tabIndex={-1} className="scroll-mt-6">
+              <MyInterviews audience="chair" />
+            </div>
+          ) : undefined
         }
         pairings={
           <div className="space-y-4">

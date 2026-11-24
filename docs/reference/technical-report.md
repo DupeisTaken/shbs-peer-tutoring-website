@@ -2067,7 +2067,8 @@ before self-scoped reads. Active membership controls attendance and pairing writ
 pending/inactive membership keeps read-only records and unresolved requirements.
 Legacy dashboard `#sessions`, `#attendance` and `#tutor-meetings` arrivals focus an
 explicit Schedule continuation instead of automatically unmounting a live editor;
-`#tutor-interviews` remains the chair workspace. Fragment targets grant no access.
+`#chair-interviews` (and legacy `/dashboard#tutor-interviews`) selects the separate
+**Interview chair** workspace tab when eligible. Fragment targets grant no access.
 Attendance freezes its submitted fields and distinguishes a saved entry from a
 failed totals refresh. Pending qualification records stay outside history filters;
 completed interview evidence and optional editor disclosures retain mounted drafts.
@@ -2108,20 +2109,23 @@ than Completed. Meetings do not create tutor attendance duties. Excused for Abse
 uses EXCUSED_ABSENT status, including staff-recorded excuses without excusedAt;
 excusedAt continues to govern the separate self-excuse cancellation workflow.
 
-Panelist detail opens lazily into one retained controller and reuses the existing
-vote operation. Each deliberately opened interview keeps its draft across Close and
-selection changes; access or assignment loss hides private evidence.
+Interview member detail opens lazily into one retained controller in Schedule and
+reuses the existing vote operation for every assigned panelist, including the chair.
+Each deliberately opened interview keeps its draft across Close and selection changes;
+access or assignment loss hides private evidence.
 Accepted local votes refresh `tutor.myInterviews` and every active normal/infinite
 `personalSchedule.interviews` variant before releasing the pending owner. These
 reads use `invalidateAndReport` and `settleRefreshes` so one failure cannot release
 another pending reader. An accepted vote remains saved after a read failure;
 read-only refresh recovery blocks further voting until synchronization succeeds.
 After recovery, deliberate vote revisions remain available while voting is open.
-The thirty-second polling still discovers changes from other writers. Chair entries
-link to the retained dashboard workspace, where current `canChair` authority still
-governs decisions and time changes. Historical `isHead` selects the chair workspace
-without granting live chair authority. Staff assignment, completion correction and
-registration follow-up remain in Applications; initial admission stays in chair approval.
+The thirty-second polling still discovers changes from other writers. Chair duties
+(scheduling times, reviewing panel votes and recording final decisions) live in the
+separate **Interview chair** dashboard tab (`#chair-interviews`) without duplicating
+the member vote form; current `canChair` authority still governs decisions and time
+changes. Historical `isHead` retains access to the chair tab without granting live
+chair authority. Staff assignment, completion correction and registration follow-up
+remain in Applications; initial admission stays in chair approval.
 
 Meeting details and the period/history browser share one retained excuse controller.
 Drafts are keyed by meeting, pending writes block dismissal, and accepted-write refresh

@@ -202,12 +202,14 @@ Account authentication, signup confirmation and request-invalidity service mail 
 separate direct/essential flows and are not silently reclassified as optional events.
 
 New panel-assignment and interview-time notices open the tutor's personal interview
-work in `/schedule#tutor-interviews`. A chair can follow its appointment back to
-the retained dashboard chair workspace. Essential dated-tutoring notices use
-`/schedule#sessions` for tutors; the tutee destination remains
-`/student?view=schedule#sessions`. Existing in-app records retain their recorded
-destinations, including older dashboard links; those legacy schedule fragments
-offer an explicit Schedule continuation without unmounting a live dashboard editor.
+work in `/schedule#tutor-interviews`, where every panelist (including the chair)
+can cast their own vote. A chair can follow the chair-workspace link (`#chair-interviews`)
+to the separate **Interview chair** dashboard tab for scheduling and final decisions.
+Essential dated-tutoring notices use `/schedule#sessions` for tutors; the tutee
+destination remains `/student?view=schedule#sessions`. Existing in-app records retain
+their recorded destinations, including older dashboard links; those legacy schedule
+fragments offer an explicit Schedule continuation without unmounting a live dashboard
+editor.
 
 **School-calendar audience** means eligible active tutors and tutees with confirmed,
 populated active-period pairings on the union of the actual date's civil weekday,

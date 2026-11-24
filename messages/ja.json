@@ -2542,7 +2542,10 @@
       "panel": "パネル：{members}",
       "headSuffix": "（代表）",
       "scheduled": "予定日時：{time}",
-      "awaitingSchedule": "代表が日程を設定するのを待っています。"
+      "awaitingSchedule": "代表が日程を設定するのを待っています。",
+      "chairHelp": "あなたが代表を務める面接です。日程設定、パネルの投票確認、最終決定の記録をここで行います。ご自身の投票は「予定」の面接イベントから行ってください。",
+      "voteInSchedule": "予定から投票する",
+      "updateVoteInSchedule": "予定で投票を変更する"
     },
     "announcements": {
       "label": "お知らせ",
@@ -2647,7 +2650,8 @@
       "schedule": "予定",
       "pairings": "担当ペア",
       "preferences": "設定",
-      "history": "履歴と時間"
+      "history": "履歴と時間",
+      "chair": "面接代表"
     }
   },
   "public": {
@@ -7141,7 +7145,10 @@
     "reloadEvidence": "最新の根拠を再読み込み（下書きを置換）",
     "historyFollowups": "{count, plural, one {終了した面接#件で} other {終了した面接#件で}}、管理担当者による完了記録と奉仕時間の付与がまだ必要です。",
     "accessDenied": "面接へのアクセスは現在利用できません。再読み込みして現在の権限を確認してください。",
-    "chairNeedsUpdate": "This panel needs an Admin or Head chair. Ask management to update the panel."
+    "chairNeedsUpdate": "This panel needs an Admin or Head chair. Ask management to update the panel.",
+    "noChairInterviews": "代表として担当する面接はありません。",
+    "refresh": "更新",
+    "refreshing": "更新中…"
   },
   "applicationAccountSetup": {
     "title": "Account Setup · {name}",
@@ -7852,7 +7859,7 @@
     "denied": "Access to this planning source is no longer available.",
     "retry": "Retry",
     "interviewAttention": "These interviews still need attention, even when they have no upcoming date.",
-    "interviewHelp": "Assigned interview dates appear in your agenda. Your chair workspace remains on the dashboard.",
+    "interviewHelp": "担当する面接の日時は予定に表示されます。投票は各面接イベントから行い、代表業務は「面接代表」タブで行います。",
     "meetingHelp": "今後の日程は予定表に表示されます。欠席理由の提出や個人の履歴の確認はミーティングを開いて行ってください。",
     "calendarScope": "Calendar subscriptions currently include tutoring sessions only. Interviews and meetings appear here in the portal.",
     "task": {

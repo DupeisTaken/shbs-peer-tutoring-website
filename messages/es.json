@@ -2534,7 +2534,10 @@
       "panel": "Panel: {members}",
       "headSuffix": "(responsable)",
       "scheduled": "Programada: {time}",
-      "awaitingSchedule": "A la espera de que el responsable fije una hora."
+      "awaitingSchedule": "A la espera de que el responsable fije una hora.",
+      "chairHelp": "Entrevistas que presides. Programa horarios, revisa los votos del panel y registra las decisiones finales aquí. Emite tu propio voto desde el evento de entrevista en Horario.",
+      "voteInSchedule": "Votar en Horario",
+      "updateVoteInSchedule": "Actualizar voto en Horario"
     },
     "announcements": {
       "label": "Anuncios",
@@ -2647,7 +2650,8 @@
       "schedule": "Horario",
       "pairings": "Asignaciones",
       "preferences": "Preferencias",
-      "history": "Historial y horas"
+      "history": "Historial y horas",
+      "chair": "Responsable de entrevista"
     }
   },
   "public": {
@@ -7141,7 +7145,10 @@
     "reloadEvidence": "Volver a cargar los justificantes actuales (sustituir borrador)",
     "historyFollowups": "{count, plural, one {# entrevista finalizada aún requiere} other {# entrevistas finalizadas aún requieren}} que el equipo de gestión registre la finalización y las horas.",
     "accessDenied": "El acceso a las entrevistas ya no está disponible. Vuelva a cargar para comprobar sus permisos actuales.",
-    "chairNeedsUpdate": "This panel needs an Admin or Head chair. Ask management to update the panel."
+    "chairNeedsUpdate": "This panel needs an Admin or Head chair. Ask management to update the panel.",
+    "noChairInterviews": "No tienes entrevistas asignadas como responsable.",
+    "refresh": "Actualizar",
+    "refreshing": "Actualizando…"
   },
   "applicationAccountSetup": {
     "title": "Account Setup · {name}",
@@ -7852,7 +7859,7 @@
     "denied": "Access to this planning source is no longer available.",
     "retry": "Retry",
     "interviewAttention": "These interviews still need attention, even when they have no upcoming date.",
-    "interviewHelp": "Assigned interview dates appear in your agenda. Your chair workspace remains on the dashboard.",
+    "interviewHelp": "Las fechas de entrevista asignadas aparecen en tu agenda. Abre cualquier entrevista para votar; las tareas de responsable están en la pestaña Responsable de entrevista.",
     "meetingHelp": "Las próximas fechas aparecen en tu agenda. Abre las reuniones para justificar ausencias y consultar tu historial personal.",
     "calendarScope": "Calendar subscriptions currently include tutoring sessions only. Interviews and meetings appear here in the portal.",
     "task": {

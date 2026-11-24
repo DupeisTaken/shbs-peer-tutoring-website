@@ -17,9 +17,11 @@ const state = vi.hoisted(() => ({
   error: "",
   mutationError: "",
   loading: false,
+  fetching: false,
   vote: vi.fn(),
   schedule: vi.fn(),
   refetch: vi.fn(),
+  invalidateSchedule: vi.fn(),
   close: vi.fn(),
   voteObserver: vi.fn(),
 }));
@@ -36,7 +38,12 @@ vi.mock("next-intl", () => ({
 }));
 vi.mock("~/trpc/react", () => ({
   api: {
-    useUtils: () => ({ tutor: { myInterviews: { invalidate: vi.fn() } } }),
+    useUtils: () => ({
+      tutor: { myInterviews: { invalidate: vi.fn() } },
+      personalSchedule: {
+        interviews: { invalidate: state.invalidateSchedule },
+      },
+    }),
     tutor: {
       myInterviews: {
         useQuery: (_input?: undefined, options?: { enabled?: boolean }) => {
@@ -50,7 +57,7 @@ vi.mock("~/trpc/react", () => ({
               : null,
             isLoading: state.loading,
             isSuccess: !state.error && !state.loading,
-            isFetching: false,
+            isFetching: state.fetching,
             refetch: state.refetch,
           };
         },
@@ -133,6 +140,7 @@ afterEach(() => {
   state.error = "";
   state.mutationError = "";
   state.loading = false;
+  state.fetching = false;
   vi.clearAllMocks();
 });
 
@@ -333,24 +341,40 @@ it("conceals cached private evidence on access denial and removed panel membersh
   ).toBeNull();
 });
 
-it("routes assigned chairs to the retained Dashboard workspace without chair or vote editors", () => {
+it("opens member voting for an assigned chair without chair controls and links to the chair workspace tab", () => {
   state.rows = [interview("chair", { isHead: true, canChair: true })];
   render(
-    <ScheduleInterviewDetails applicationId="chair" onClose={state.close} />,
+    <ScheduleInterviewDetails
+      applicationId="chair"
+      compact
+      onClose={state.close}
+    />,
   );
+  expect(state.voteObserver).toHaveBeenCalled();
+  expect(
+    screen.getByLabelText("tutor.interviews.voteCommentPlaceholder"),
+  ).toBeTruthy();
+  fireEvent.click(
+    screen.getByRole("button", { name: /tutor.interviews.accept/ }),
+  );
+  expect(state.vote).toHaveBeenCalledWith({
+    applicationId: "chair",
+    accept: true,
+    comment: undefined,
+  });
   expect(
     screen
       .getByRole("link", { name: "unifiedScheduleInterview.chairWorkspace" })
       .getAttribute("href"),
-  ).toBe("/dashboard#tutor-interviews");
-  expect(state.voteObserver).not.toHaveBeenCalled();
+  ).toBe("#chair-interviews");
   expect(screen.queryByLabelText("tutor.interviews.setTime")).toBeNull();
   expect(
     screen.queryByLabelText("tutor.interviews.decisionCommentPlaceholder"),
   ).toBeNull();
+  expect(screen.queryByText("interviewReview.chairNeedsUpdate")).toBeNull();
 });
 
-it("keeps unscheduled, completed, invalid and recalled panel assignments reachable from work and history", () => {
+it("keeps unscheduled, chaired, completed, invalid and recalled panel assignments reachable from work and history", () => {
   state.rows = [
     interview("unscheduled", { status: "PENDING" }),
     interview("invalid", { isInvalid: true }),
@@ -366,12 +390,18 @@ it("keeps unscheduled, completed, invalid and recalled panel assignments reachab
     />,
   );
   expect(
-    screen.getByRole("heading", { name: "interviewReview.active (2)" }),
+    screen.getByRole("heading", { name: "interviewReview.active (3)" }),
   ).toBeTruthy();
   expect(
     screen.getByRole("heading", { name: "interviewReview.completed (2)" }),
   ).toBeTruthy();
-  expect(screen.queryByText("Applicant chair")).toBeNull();
+  expect(screen.getByText("Applicant chair")).toBeTruthy();
+  expect(screen.getByText("unifiedSchedule.chair")).toBeTruthy();
+  expect(
+    screen
+      .getByRole("link", { name: "unifiedScheduleInterview.chairWorkspace" })
+      .getAttribute("href"),
+  ).toBe("/dashboard#chair-interviews");
   expect(state.voteObserver).not.toHaveBeenCalled();
   fireEvent.click(
     screen.getByRole("button", {
@@ -401,19 +431,79 @@ it("keeps unscheduled, completed, invalid and recalled panel assignments reachab
   ).toBe(true);
 });
 
-it("keeps legacy chair assignments in the chair workspace while live authority still gates chair controls", () => {
+it("separates chair duties from member voting in the chair workspace and links to Schedule for voting", () => {
   state.rows = [
-    interview("chair", { isHead: true, canChair: false }),
+    interview("chair-dated", {
+      isHead: true,
+      canChair: true,
+      interviewAt: new Date("2026-10-28T07:00:00Z"),
+    }),
+    interview("chair-legacy", {
+      isHead: true,
+      canChair: false,
+      myVote: { accept: true, comment: "Solid demo" },
+    }),
     interview("panelist"),
   ];
   render(<MyInterviews audience="chair" />);
-  expect(screen.getByText("Applicant chair")).toBeTruthy();
+  expect(screen.getByText("Applicant chair-dated")).toBeTruthy();
+  expect(screen.getByText("Applicant chair-legacy")).toBeTruthy();
   expect(screen.queryByText("Applicant panelist")).toBeNull();
   expect(screen.getByText("interviewReview.chairNeedsUpdate")).toBeTruthy();
-  expect(screen.queryByLabelText("tutor.interviews.setTime")).toBeNull();
+  // Strict split: no member vote form in the chair workspace.
+  expect(
+    screen.queryByLabelText("tutor.interviews.voteCommentPlaceholder"),
+  ).toBeNull();
+  expect(
+    screen.queryByRole("button", { name: /tutor.interviews.accept/ }),
+  ).toBeNull();
+  // Dated chair interview links to its calendar event; unscheduled links to Schedule's interview dialog.
+  expect(
+    screen
+      .getByRole("link", { name: "tutor.interviews.voteInSchedule" })
+      .getAttribute("href"),
+  ).toBe("#interview-chair-dated");
+  expect(
+    screen
+      .getByRole("link", { name: "tutor.interviews.updateVoteInSchedule" })
+      .getAttribute("href"),
+  ).toBe("#tutor-appointments");
+  // Live chair authority still gates scheduling/decision controls.
+  expect(screen.getAllByLabelText("tutor.interviews.setTime")).toHaveLength(1);
+});
+
+it("renders an explicit empty state in the chair workspace tab with manual refresh when no chair interviews exist", () => {
+  state.rows = [interview("panelist")];
+  render(<MyInterviews audience="chair" />);
+  expect(screen.getByText("dashboard.interviews.title")).toBeTruthy();
+  expect(screen.getByText("interviewReview.noChairInterviews")).toBeTruthy();
+  expect(screen.queryByText("Applicant panelist")).toBeNull();
+  fireEvent.click(
+    screen.getByRole("button", { name: "interviewReview.refresh" }),
+  );
+  expect(state.refetch).toHaveBeenCalledOnce();
+  expect(state.invalidateSchedule).toHaveBeenCalledOnce();
+});
+
+it("refreshes votes in the chair workspace without discarding decision drafts and disables while fetching", () => {
+  state.rows = [interview("chair", { isHead: true, canChair: true })];
+  const view = render(<MyInterviews audience="chair" />);
+  const decision = screen.getByLabelText<HTMLInputElement>(
+    "tutor.interviews.decisionCommentPlaceholder",
+  );
+  fireEvent.change(decision, { target: { value: "Keep chair draft" } });
+  fireEvent.click(
+    screen.getByRole("button", { name: "interviewReview.refresh" }),
+  );
+  expect(state.refetch).toHaveBeenCalledOnce();
+  expect(state.invalidateSchedule).toHaveBeenCalledOnce();
+  expect(decision.value).toBe("Keep chair draft");
+
+  state.fetching = true;
+  view.rerender(<MyInterviews audience="chair" />);
   expect(
     screen.getByRole<HTMLButtonElement>("button", {
-      name: /tutor.interviews.accept/,
+      name: "interviewReview.refreshing",
     }).disabled,
-  ).toBe(false);
+  ).toBe(true);
 });

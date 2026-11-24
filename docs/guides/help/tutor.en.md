@@ -303,13 +303,13 @@ Open: `/dashboard#sessions`
 
 ### Walkthrough
 
-1. **Open Interview work** In Schedule open your assigned interview and inspect the requested subjects and qualification explanation. Chairs can also open Interviews to Conduct; completed records are in its collapsed history section.
+1. **Open Interview work** In Schedule open your assigned interview event (or Interviews & history) to inspect the requested subjects, qualification explanation and panel votes. Chairs handle scheduling and final decisions in the separate Interview chair tab; completed records are in its collapsed history section.
 
    Look for: Interview card, vote status and action
 
-2. **Submit your own vote** Read the application evidence and record your vote through its existing control. Check Vote recorded / Awaiting decision. Every panelist must vote before the final decision; opening or scheduling earns no hours.
+2. **Submit your own vote** Every assigned panelist, including the chair, submits their own vote from the interview event in Schedule. Check Vote recorded / Awaiting decision. Every panelist must vote before the final decision; opening or scheduling earns no hours.
 
-3. **Chair: schedule and decide** An authorized chair schedules the interview and records the outcome after all votes, following the majority and resolving a tie. On approval enter actual completion time, minutes and attending panelists, then review Approve & award hours.
+3. **Chair: schedule and decide** In the Interview chair tab, an authorized chair schedules the interview and records the outcome after all votes, following the majority and resolving a tie. On approval enter actual completion time, minutes and attending panelists, then review Approve & award hours.
 
 4. **Check completion follow-up** Read the saved decision and completion separately. Acceptance, interview credit and initial invitation setup can apply together; additional qualifications grant subjects without a new registration code. Ask management to correct completion/hours through Interview Records.
 

@@ -487,19 +487,23 @@ those permissions or submission rules. Pairings, availability preferences and th
 shared room schedule remain on the dashboard, linked from Schedule. The tutee
 workspace's **My Tutors & Schedule** remains separate.
 
-The dashboard retains the chair's **Interviews to Conduct** workspace; ordinary
-panelists use **Interview work** in Schedule. Chairs also find their own
-appointments there. The chair workspace starts expanded, with a count and **Collapse interviews** /
-**Expand interviews** controls. Scheduled open work appears earliest first (including
-overdue interviews), then unscheduled and paused work. One initially closed
-**Completed interviews** menu holds terminal history, newest decision first.
-Completion/hours and application outcomes are separate: pending votes, chair decisions
-and approvals remain active even when hours are recorded; finalized decisions still
-show any missing completion follow-up. Recalled or invalid entries retain their actual
-status. Collapsing either section and background refresh/reordering retain scheduling,
-vote and decision drafts, errors and pending state. Read failures offer Retry without
-replacing loaded records. Optional editors also retain drafts when collapsed. Pending qualification requests remain visible
-even when completed history is collapsed or filtered.
+Every assigned panelist—including the chair—casts and updates their own vote from
+the interview event in **Schedule** (or via **Interviews & history** for unscheduled
+or past interviews). Chair duties (scheduling times, reviewing panel votes, and
+recording final decisions) live in the separate **Interview chair** tab on the tutor
+dashboard rather than under the calendar. The chair workspace starts expanded, with a
+count and **Collapse interviews** / **Expand interviews** controls. Scheduled open
+work appears earliest first (including overdue interviews), then unscheduled and
+paused work. One initially closed **Completed interviews** menu holds terminal
+history, newest decision first. Completion/hours and application outcomes are
+separate: pending votes, chair decisions and approvals remain active even when hours
+are recorded; finalized decisions still show any missing completion follow-up.
+Recalled or invalid entries retain their actual status. Collapsing either section,
+switching workspace tabs, and background refresh/reordering retain scheduling, vote
+and decision drafts, errors and pending state. Read failures offer Retry without
+replacing loaded records. Optional editors also retain drafts when collapsed. Pending
+qualification requests remain visible even when completed history is collapsed or
+filtered.
 
 In the chair's scheduling editor, **Set Time** saves the displayed time.
 **Saved.** confirms that submission. Editing again clears the previous

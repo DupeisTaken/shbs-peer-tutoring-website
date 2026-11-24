@@ -25,6 +25,36 @@ import {
   AgendaEventCard,
 } from "~/app/_components/agenda-event-card";
 
+const chairLinkClass =
+  "btn control-compact border border-accent-200 bg-accent-50 text-accent-800 hover:border-accent-300 hover:bg-accent-100 active:bg-accent-200/70 gap-1.5";
+
+function ChairWorkspaceLink({
+  href,
+  label,
+}: {
+  href: string;
+  label: string;
+}) {
+  return (
+    <a className={chairLinkClass} href={href}>
+      <span>{label}</span>
+      <svg
+        aria-hidden="true"
+        viewBox="0 0 16 16"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.75"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        className="h-3.5 w-3.5 shrink-0"
+      >
+        <path d="M3.5 8h9" />
+        <path d="M8.75 4.25 12.5 8l-3.75 3.75" />
+      </svg>
+    </a>
+  );
+}
+
 /** The agenda shares dates, not write authority. Each private detail keeps its own
  * retained controller and opens only after a deliberate participant action.
  * Native chair links match the detail reader and restart dashboard fragment arrival. */
@@ -269,16 +299,7 @@ export function TutorSchedule({
             </>
           }
           actions={
-            row.isHead ? (
-              <a
-                className="link inline-flex min-h-11 items-center lg:min-h-8"
-                href={
-                  compact ? "#chair-interviews" : "/dashboard#tutor-interviews"
-                }
-              >
-                {t("openChair")}
-              </a>
-            ) : (
+            <>
               <Button
                 size="compact"
                 onClick={() => {
@@ -288,7 +309,15 @@ export function TutorSchedule({
               >
                 {t("openInterview")}
               </Button>
-            )
+              {row.isHead && (
+                <ChairWorkspaceLink
+                  href={
+                    compact ? "#chair-interviews" : "/dashboard#chair-interviews"
+                  }
+                  label={t("openChair")}
+                />
+              )}
+            </>
           }
         >
           {row.status === "INTERVIEW" && !row.ownVoteRecorded && (
@@ -358,23 +387,26 @@ export function TutorSchedule({
         needsAction: false,
         title: row.name,
         detail: t("interview"),
-        action: row.isHead ? (
-          <a
-            className="link inline-flex min-h-11 items-center lg:min-h-8"
-            href={compact ? "#chair-interviews" : "/dashboard#tutor-interviews"}
-          >
-            {t("openChair")}
-          </a>
-        ) : (
-          <Button
-            size="compact"
-            onClick={() => {
-              setAllInterviews(false);
-              setInterviewId(row.id);
-            }}
-          >
-            {t("openInterview")}
-          </Button>
+        action: (
+          <div className="flex flex-wrap items-center gap-2">
+            <Button
+              size="compact"
+              onClick={() => {
+                setAllInterviews(false);
+                setInterviewId(row.id);
+              }}
+            >
+              {t("openInterview")}
+            </Button>
+            {row.isHead && (
+              <ChairWorkspaceLink
+                href={
+                  compact ? "#chair-interviews" : "/dashboard#chair-interviews"
+                }
+                label={t("openChair")}
+              />
+            )}
+          </div>
         ),
       })),
       ...(interviewRows?.actionableTasks ?? []).map((row) => ({
@@ -392,15 +424,23 @@ export function TutorSchedule({
             >
               {t("viewEvent")}
             </a>
-          ) : row.isHead ? (
-            <a
-              href={
-                compact ? "#chair-interviews" : "/dashboard#tutor-interviews"
-              }
-              className="link inline-flex min-h-11 items-center lg:min-h-8"
+          ) : row.action === "vote" ? (
+            <Button
+              size="compact"
+              onClick={() => {
+                setAllInterviews(false);
+                setInterviewId(row.id);
+              }}
             >
-              {t("openChair")}
-            </a>
+              {t("openInterview")}
+            </Button>
+          ) : row.isHead ? (
+            <ChairWorkspaceLink
+              href={
+                compact ? "#chair-interviews" : "/dashboard#chair-interviews"
+              }
+              label={t("openChair")}
+            />
           ) : (
             <Button
               size="compact"
@@ -571,18 +611,7 @@ export function TutorSchedule({
                     <p className="muted text-sm">{timeText(row.interviewAt)}</p>
                   )}
                 </div>
-                {row.isHead ? (
-                  <a
-                    className="link inline-flex min-h-11 items-center lg:min-h-8"
-                    href={
-                      compact
-                        ? "#tutor-interviews"
-                        : "/dashboard#tutor-interviews"
-                    }
-                  >
-                    {t("openChair")}
-                  </a>
-                ) : (
+                <div className="flex flex-wrap items-center gap-2">
                   <Button
                     size="compact"
                     onClick={() => {
@@ -592,7 +621,17 @@ export function TutorSchedule({
                   >
                     {t("openInterview")}
                   </Button>
-                )}
+                  {row.isHead && (
+                    <ChairWorkspaceLink
+                      href={
+                        compact
+                          ? "#chair-interviews"
+                          : "/dashboard#chair-interviews"
+                      }
+                      label={t("openChair")}
+                    />
+                  )}
+                </div>
               </div>
             ))}
           </section>
@@ -755,6 +794,7 @@ export function TutorSchedule({
       {mountedOwners.interviews && (
         <ScheduleInterviewDetails
           enabled={active && interviewsEnabled && !interviewsDenied}
+          compact={compact}
           applicationId={interviewId}
           showAll={allInterviews}
           onClose={() => {
