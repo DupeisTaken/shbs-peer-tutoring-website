@@ -218,6 +218,13 @@ function GroupActionDraft({
               { throwOnError: true },
             )
           : Promise.resolve(),
+        utils.sessionPlanning?.agenda
+          ? utils.sessionPlanning.agenda.invalidate(
+              undefined,
+              { refetchType: "all" },
+              { throwOnError: true },
+            )
+          : Promise.resolve(),
         query.refetch({ throwOnError: true }),
         // Combining and splitting change counted sessions without an assignment
         // write. Refresh both workload readers inside the accepted-save boundary,
