@@ -25,6 +25,8 @@ const actor = (id: string, role: Session["role"] = "COORDINATOR") =>
       user: { id, name: "Cookie name", email: `${id}@example.test` },
       role,
       tutorId: null,
+      sessionVersion: 0,
+      historyAccessRevision: 0,
       expires: "2099-01-01T00:00:00Z",
     },
   });

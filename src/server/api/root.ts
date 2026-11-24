@@ -48,6 +48,7 @@ import { messagingRouter } from "./routers/messaging";
 
 import { interviewManagementRouter } from "./routers/interview-management";
 import { subjectAvailabilityRouter } from "./routers/subject-availability";
+import { translationIntentRouter } from "./routers/translation-intent";
 import { translationReviewRouter } from "./routers/translation-review";
 import { personalScheduleRouter } from "./routers/personal-schedule";
 
@@ -69,6 +70,7 @@ export const appRouter = createTRPCRouter({
   /** Lightweight liveness check. */
   interviewManagement: interviewManagementRouter,
   subjectAvailability: subjectAvailabilityRouter,
+  translationIntent: translationIntentRouter,
   translationReview: translationReviewRouter,
   student: studentRouter,
   messaging: messagingRouter,

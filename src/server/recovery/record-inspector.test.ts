@@ -285,6 +285,7 @@ describe("read-only database inspector", () => {
     "MonthlyHoursReport",
     "SchoolHoursSchedule",
     "SchoolHoursReport",
+    "TranslationIntentReceipt",
   ])("refuses row reads for %s even with operator authority", async (table) => {
     const { client } = fixture();
     await expect(

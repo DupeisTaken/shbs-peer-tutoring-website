@@ -365,6 +365,13 @@ const REVIEWED_IDENTITY_DECLINE_COLUMNS = [
 // This additive preference policy grants no bearer or identity authority. Retain
 // every reviewed older backup shape while requiring its exact PostgreSQL type.
 const NOTIFICATION_LOCK_COLUMN = "ProgramSettings|notificationLocks|jsonb";
+// Terminal translation replay/stop evidence is additive and permanent. Old backups
+// remain inspectable; a partial or changed receipt table is never a reviewed schema.
+const TRANSLATION_INTENT_COLUMNS =
+  "actorId:text,cleared:bool,createdAt:timestamp,draftId:text,inputHash:text,intentId:text,mode:text,operation:text,protocolVersion:int4,status:text"
+    .split(",")
+    .map((field) => `TranslationIntentReceipt|${field.replace(":", "|")}`)
+    .sort();
 const PRISMA_METADATA = [
   "applied_steps_count|int4",
   "checksum|varchar",
@@ -426,6 +433,10 @@ const SCHOOL_RECIPIENT_REMINDER_COLUMNS = [
   .sort();
 
 export const reviewedRecoverySchemaMetadata = {
+  translationIntentReceiptColumns: TRANSLATION_INTENT_COLUMNS.map((line) => {
+    const [table_name, column_name, udt_name] = line.split("|");
+    return { table_name, column_name, udt_name };
+  }),
   schoolRecipientReminderColumns: SCHOOL_RECIPIENT_REMINDER_COLUMNS.map(
     (line) => {
       const [table_name, column_name, udt_name] = line.split("|");
@@ -490,6 +501,7 @@ const IMPORT_PROVENANCE_COLUMNS_SET = new Set(IMPORT_PROVENANCE_COLUMNS);
 const ARCHIVE_PROVENANCE_RECEIPT_COLUMNS_SET = new Set(
   ARCHIVE_PROVENANCE_RECEIPT_COLUMNS,
 );
+const TRANSLATION_INTENT_COLUMNS_SET = new Set(TRANSLATION_INTENT_COLUMNS);
 const REVIEWED_ENUMS_SET = new Set(REVIEWED_ENUMS);
 const HISTORY_COLUMNS = REVIEWED_COLUMNS.filter((column) =>
   column.startsWith("ProgramCalendarPolicyRevision|"),
@@ -522,6 +534,7 @@ export function assertReviewedRecoverySchema(
   const migrationCounts = new Map<string, number>();
   const provenanceCounts = new Map<string, number>();
   const provenanceReceiptCounts = new Map<string, number>();
+  const translationIntentCounts = new Map<string, number>();
   let legacySignupDecline = false;
   let hasHistory = false;
   for (const row of columns) {
@@ -532,6 +545,10 @@ export function assertReviewedRecoverySchema(
       continue;
     }
     const entry = `${table}|${col}`;
+    if (table === "TranslationIntentReceipt") {
+      addCount(translationIntentCounts, entry);
+      continue;
+    }
     addCount(counts, entry);
     if (table === "ImportedRecordProvenance") addCount(provenanceCounts, entry);
     else if (table === "ArchiveProvenanceReceipt")
@@ -539,6 +556,14 @@ export function assertReviewedRecoverySchema(
     else if (table === "LegacySignupDecline") legacySignupDecline = true;
     else if (table === "ProgramCalendarPolicyRevision") hasHistory = true;
   }
+  operatorAssert(
+    translationIntentCounts.size === 0 ||
+      exactSingletonSet(
+        translationIntentCounts,
+        TRANSLATION_INTENT_COLUMNS_SET,
+      ),
+    "UNREVIEWED_PUBLIC_RECOVERY_SCHEMA",
+  );
   // Unknown, partial, duplicated or mistyped reminder metadata must still fail
   // the exact catalog check, even when both databases contain the same shape.
   if (

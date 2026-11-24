@@ -10,6 +10,7 @@ import {
 import { isHomeFieldKey, storageLocale } from "./home/content";
 import { isLocale } from "~/i18n/config";
 import { TRANSLATION_PAGE_MISSING } from "~/lib/translation-review-errors";
+import { validateInterfaceMessage } from "./i18n/interface-message-validation";
 
 export const TRANSLATION_BASELINE = "_destinationBaseline";
 const baselineSchema = z.object({
@@ -170,8 +171,23 @@ export async function assertTranslationReviewTarget(
   await withTranslationWrite(db, async (tx) => {
     await lockEntity(tx, `translation:${id}`);
     const draft = await tx.translationDraft.findUnique({ where: { id } });
-    if (draft?.state === "PENDING")
+    if (draft?.state === "PENDING") {
       await assertPageTitleTranslationTarget(tx, draft.operation, draft.payload);
+      if (draft.operation === "localization.setString") {
+        const payload = z
+          .object({ locale: z.string(), key: z.string(), value: z.string() })
+          .safeParse(draft.payload);
+        if (!payload.success)
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message:
+              "This stored translation is invalid. Reject it and submit a corrected draft.",
+            cause: payload.error,
+          });
+        const locale = await requireTranslationLocale(tx, payload.data.locale);
+        validateInterfaceMessage(locale, payload.data.key, payload.data.value);
+      }
+    }
   });
 }
 

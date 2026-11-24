@@ -14,6 +14,7 @@ import { DEFAULT_THEME, THEME_COOKIE, isTheme } from "~/lib/theme";
 import { StudentPolicyGate } from "~/app/_components/student-policy-gate";
 import { auth } from "~/server/auth";
 import { sessionIdentity } from "~/lib/session-identity";
+import { TranslationIntentRecoveryLink } from "~/app/_components/translation-intent-recovery-link";
 
 export async function generateMetadata() {
   return brandingMetadata();
@@ -35,6 +36,9 @@ export default async function RootLayout({
         <IntlProvider locale={locale} messages={messages} timeZone={timeZone}>
           <BrandingProvider branding={BRANDING}>
             <TRPCReactProvider identity={identity}>
+              {session?.user?.id && (
+                <TranslationIntentRecoveryLink actorId={session.user.id} />
+              )}
               <Suspense fallback={null}>
                 <StudentPolicyGate />
               </Suspense>
