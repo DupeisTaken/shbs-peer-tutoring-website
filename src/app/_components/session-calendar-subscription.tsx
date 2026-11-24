@@ -20,7 +20,9 @@ export function SessionCalendarSubscription() {
   const rotate = api.sessionPlanning.rotateCalendar.useMutation();
   const revoke = api.sessionPlanning.revokeCalendar.useMutation();
   const [url, setUrl] = useState<string | null>(null);
-  const [review, setReview] = useState<"rotate" | "revoke" | null>(null);
+  const [review, setReview] = useState<"create" | "rotate" | "revoke" | null>(
+    null,
+  );
   const [working, setWorking] = useState(false);
   const [saved, setSaved] = useState(false);
   const [refreshFailed, setRefreshFailed] = useState(false);
@@ -40,7 +42,7 @@ export function SessionCalendarSubscription() {
     setWorking(true);
     setError(null);
     try {
-      if (review === "rotate") {
+      if (review === "create" || review === "rotate") {
         const result = await rotate.mutateAsync();
         setUrl(result.url);
       } else {
@@ -131,7 +133,9 @@ export function SessionCalendarSubscription() {
               <div className="flex flex-wrap gap-2">
                 <Button
                   disabled={working || refreshFailed || !status.data.available}
-                  onClick={() => setReview("rotate")}
+                  onClick={() =>
+                    setReview(status.data.active ? "rotate" : "create")
+                  }
                 >
                   {t(status.data.active ? "calendarRotate" : "calendarCreate")}
                 </Button>
@@ -152,7 +156,11 @@ export function SessionCalendarSubscription() {
           {review && (
             <Modal
               title={t(
-                review === "rotate" ? "calendarRotate" : "calendarRevoke",
+                review === "create"
+                  ? "calendarCreate"
+                  : review === "rotate"
+                    ? "calendarRotate"
+                    : "calendarRevoke",
               )}
               busy={working}
               onClose={() => {
@@ -169,7 +177,7 @@ export function SessionCalendarSubscription() {
                     onClick={() => void commit()}
                   >
                     {t(
-                      review === "rotate" ? "calendarCreate" : "calendarRevoke",
+                      review === "revoke" ? "calendarRevoke" : "calendarCreate",
                     )}
                   </Button>
                 </>
@@ -177,9 +185,11 @@ export function SessionCalendarSubscription() {
             >
               <p>
                 {t(
-                  review === "rotate"
-                    ? "calendarRotateHelp"
-                    : "calendarRevokeHelp",
+                  review === "create"
+                    ? "calendarCreateHelp"
+                    : review === "rotate"
+                      ? "calendarRotateHelp"
+                      : "calendarRevokeHelp",
                 )}
               </p>
               {error && (

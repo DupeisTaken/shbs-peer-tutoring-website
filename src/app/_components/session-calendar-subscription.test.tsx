@@ -11,8 +11,10 @@ import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { NextIntlClientProvider } from "next-intl";
 import type { ReactNode } from "react";
 import en from "../../../messages/en.json";
+import zh from "../../../messages/zh.json";
 import { SessionCalendarSubscription } from "./session-calendar-subscription";
 const state = vi.hoisted(() => ({
+  active: true,
   refetch: vi.fn(),
   rotate: vi.fn(),
   revoke: vi.fn(),
@@ -22,7 +24,7 @@ vi.mock("~/trpc/react", () => ({
     sessionPlanning: {
       calendarStatus: {
         useQuery: () => ({
-          data: { active: true, available: true },
+          data: { active: state.active, available: true },
           error: null,
           isFetching: false,
           refetch: state.refetch,
@@ -68,6 +70,7 @@ vi.mock("./ui/modal", () => ({
   ),
 }));
 beforeEach(() => {
+  state.active = true;
   state.refetch.mockReset().mockResolvedValue({});
   state.rotate
     .mockReset()
@@ -91,6 +94,8 @@ it("requires review, displays a new private URL once and does not replay rotatio
   expect(state.rotate).not.toHaveBeenCalled();
   state.refetch.mockRejectedValueOnce(new Error("Synthetic offline status"));
   const review = screen.getByRole("dialog", { name: text.calendarRotate });
+  expect(within(review).getByText(text.calendarRotateHelp)).toBeTruthy();
+  expect(within(review).queryByText(text.calendarCreateHelp)).toBeNull();
   await act(async () =>
     fireEvent.click(
       within(review).getByRole("button", { name: text.calendarCreate }),
@@ -110,3 +115,41 @@ it("requires review, displays a new private URL once and does not replay rotatio
   );
   expect(screen.queryByLabelText(text.calendarUrl)).toBeNull();
 });
+
+it.each([
+  ["en", en],
+  ["zh", zh],
+] as const)(
+  "uses create heading and guidance for a first-time calendar subscription (%s)",
+  async (locale, messages) => {
+    state.active = false;
+    const text = messages.sessionPlanning;
+    render(
+      <NextIntlClientProvider locale={locale} messages={messages}>
+        <SessionCalendarSubscription />
+      </NextIntlClientProvider>,
+    );
+    fireEvent.click(
+      screen.getByRole("button", { name: text.calendarSubscription }),
+    );
+    expect(
+      screen.queryByRole("button", { name: text.calendarRevoke }),
+    ).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: text.calendarCreate }));
+    expect(state.rotate).not.toHaveBeenCalled();
+
+    const review = screen.getByRole("dialog", { name: text.calendarCreate });
+    expect(within(review).getByText(text.calendarCreateHelp)).toBeTruthy();
+    expect(within(review).queryByText(text.calendarRotateHelp)).toBeNull();
+
+    await act(async () =>
+      fireEvent.click(
+        within(review).getByRole("button", { name: text.calendarCreate }),
+      ),
+    );
+    expect(state.rotate).toHaveBeenCalledOnce();
+    expect(
+      screen.getByLabelText<HTMLInputElement>(text.calendarUrl).value,
+    ).toContain("synthetic-capability");
+  },
+);

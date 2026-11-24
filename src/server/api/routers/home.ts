@@ -22,6 +22,28 @@ import {
   layoutSchema,
 } from "~/server/home/blocks";
 import { pageOwnerKey } from "~/server/home/pages";
+import { programDayStart } from "~/lib/program-time";
+import { getProgramTimeZone } from "~/server/program/time-zone";
+
+/** Parse a Program News publication date in the configured program timezone so date-only
+ * picker strings round-trip identically across positive, negative, and UTC offsets. */
+export function parseNewsPublishedAt(value: string, timeZone: string): Date {
+  try {
+    if (/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+      return programDayStart(value, timeZone);
+    }
+    const parsed = new Date(value);
+    if (Number.isNaN(parsed.getTime())) {
+      throw new Error("Invalid publish date.");
+    }
+    return parsed;
+  } catch {
+    throw new TRPCError({
+      code: "BAD_REQUEST",
+      message: "Invalid publish date.",
+    });
+  }
+}
 
 const NEWS_STATUS = z.enum(["DRAFT", "PUBLISHED", "ARCHIVED"]);
 
@@ -178,9 +200,12 @@ export const homeRouter = createTRPCRouter({
       if (input.status) data.status = input.status;
       if (input.pinned !== undefined) data.pinned = input.pinned;
       if (input.publishedAt !== undefined) {
-        data.publishedAt = input.publishedAt
-          ? new Date(input.publishedAt)
-          : null;
+        if (input.publishedAt) {
+          const timeZone = await getProgramTimeZone(ctx.db);
+          data.publishedAt = parseNewsPublishedAt(input.publishedAt, timeZone);
+        } else {
+          data.publishedAt = null;
+        }
       }
       // Stamp a publish date the first time it goes live and none was given.
       if (
