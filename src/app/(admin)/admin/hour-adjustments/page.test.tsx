@@ -44,18 +44,28 @@ function layoutFor(element: Element) {
   return declarations;
 }
 
-const state = vi.hoisted(() => ({
-  create: vi.fn(),
-  completeCreate: undefined as undefined | (() => Promise<unknown>),
-  failCreate: undefined as undefined | ((error: Error) => Promise<unknown>),
-  createError: null as Error | null,
-  invalidate: vi.fn(),
-  remove: vi.fn(),
-  pending: false,
-  loading: false,
-  error: null as Error | null,
-  deleteError: null as Error | null,
-  rows: [
+type AdjustmentFixture = {
+  id: string;
+  tutor: { englishName: string };
+  month: string;
+  type: "EXTRA" | "PUNISHMENT";
+  amount: number;
+  reason: string | null;
+  source: {
+    kind:
+      | "INDEPENDENT"
+      | "INTERVIEW"
+      | "LIVE_INTERVIEW"
+      | "ORPHANED_INTERVIEW"
+      | "UNRESOLVED_INTERVIEW"
+      | "CONFLICTING_INTERVIEW";
+    canDelete: boolean;
+    correctionHref: string | null;
+  };
+};
+
+const state = vi.hoisted(() => {
+  const rows: AdjustmentFixture[] = [
     {
       id: "synthetic-adjustment",
       tutor: { englishName: "Alexandra Montgomery-Wellington Synthetic Tutor" },
@@ -65,9 +75,27 @@ const state = vi.hoisted(() => ({
       reason:
         "Synthetic explanation with full detail. " +
         "LongUnbrokenReason".repeat(12),
+      source: {
+        kind: "INDEPENDENT",
+        canDelete: true,
+        correctionHref: null,
+      },
     },
-  ],
-}));
+  ];
+  return {
+    create: vi.fn(),
+    completeCreate: undefined as undefined | (() => Promise<unknown>),
+    failCreate: undefined as undefined | ((error: Error) => Promise<unknown>),
+    createError: null as Error | null,
+    invalidate: vi.fn(),
+    remove: vi.fn(),
+    pending: false,
+    loading: false,
+    error: null as Error | null,
+    deleteError: null as Error | null,
+    rows,
+  };
+});
 
 vi.mock("~/trpc/react", () => ({
   api: {
@@ -143,6 +171,7 @@ vi.mock("~/trpc/react", () => ({
 }));
 
 import AdjustmentsPage from "./page";
+const originalAdjustment = state.rows[0]!;
 
 it.each(["en", "zh"])(
   "keeps persistent visible %s labels on all five creation fields",
@@ -184,8 +213,13 @@ function renderPage(locale = "en", readOnly = false) {
 }
 
 beforeEach(() => {
-  state.rows[0]!.amount = 1.5;
-  state.rows[0]!.type = "EXTRA";
+  state.rows = [
+    {
+      ...originalAdjustment,
+      tutor: { ...originalAdjustment.tutor },
+      source: { ...originalAdjustment.source },
+    },
+  ];
   state.completeCreate = undefined;
   state.failCreate = undefined;
   state.createError = null;
@@ -401,7 +435,12 @@ it.each(["en", "zh"])(
     expect(within(table).getAllByRole("columnheader")).toHaveLength(5);
     const row = within(table).getAllByRole("row")[1]!;
     expect(row.textContent).toContain(state.rows[0]!.tutor.englishName);
-    expect(row.textContent).not.toContain(state.rows[0]!.reason);
+    const reason = state.rows[0]!.reason;
+    if (typeof reason !== "string")
+      throw new Error(
+        "The complete-reason fixture must contain its explanation",
+      );
+    expect(row.textContent).not.toContain(reason);
     expect(within(row).getByText("1.5")).toBeTruthy();
     const month = within(row).getByText("2026-09", { selector: "time" });
     expect(month.getAttribute("datetime")).toBe("2026-09");
@@ -414,9 +453,7 @@ it.each(["en", "zh"])(
     });
     expect(detail.className).toContain("table-action-link");
     fireEvent.click(detail);
-    expect(
-      within(screen.getByRole("dialog")).getByText(state.rows[0]!.reason),
-    ).toBeTruthy();
+    expect(within(screen.getByRole("dialog")).getByText(reason)).toBeTruthy();
   },
 );
 
@@ -463,7 +500,7 @@ it.each(
     );
     let dialog = within(screen.getByRole("dialog"));
     expect(dialog.getByText(`${typeLabel} · ${displayed}`)).toBeTruthy();
-    expect(dialog.getByText(adjustment.reason)).toBeTruthy();
+    expect(dialog.getByText(adjustment.reason!)).toBeTruthy();
     fireEvent.click(
       dialog.getByRole("button", { name: messages.tablePatterns.close }),
     );
@@ -640,3 +677,134 @@ it.each([
     expect(state.remove).not.toHaveBeenCalled();
   },
 );
+
+it.each(["en", "zh"] as const)(
+  "uses server source metadata for protected credit actions and preserves independent deletion (%s)",
+  (locale) => {
+    const messages = locale === "en" ? en : zh;
+    const href = "/admin/applications#interview-completion-source_application";
+    state.rows = [
+      {
+        ...originalAdjustment,
+        id: "interview_source_manual_note",
+        tutor: { englishName: "Independent Prefix Neighbor" },
+        reason: "Completed interview service",
+        source: { kind: "INDEPENDENT", canDelete: true, correctionHref: null },
+      },
+      {
+        ...originalAdjustment,
+        id: "live-source",
+        tutor: { englishName: "Live Interview Recipient" },
+        source: {
+          kind: "LIVE_INTERVIEW",
+          canDelete: false,
+          correctionHref: href,
+        },
+      },
+      {
+        ...originalAdjustment,
+        id: "conflicting-source",
+        tutor: { englishName: "Conflicting Source Recipient" },
+        source: {
+          kind: "CONFLICTING_INTERVIEW",
+          canDelete: false,
+          correctionHref: null,
+        },
+      },
+    ];
+    renderPage(locale);
+    const manual = screen.getByRole("row", {
+      name: /Independent Prefix Neighbor/,
+    });
+    const live = screen.getByRole("row", { name: /Live Interview Recipient/ });
+    const conflict = screen.getByRole("row", {
+      name: /Conflicting Source Recipient/,
+    });
+    expect(
+      within(manual).getByRole("button", {
+        name: new RegExp(`^${messages.admin.adjustments.table.delete}:`),
+      }),
+    ).toBeTruthy();
+    expect(
+      within(manual).queryByText(messages.admin.adjustments.source.interview),
+    ).toBeNull();
+    expect(
+      within(live).queryByRole("button", {
+        name: new RegExp(`^${messages.admin.adjustments.table.delete}:`),
+      }),
+    ).toBeNull();
+    expect(
+      within(live).getByText(messages.admin.adjustments.source.interview),
+    ).toBeTruthy();
+    expect(
+      within(live)
+        .getByRole("link", {
+          name: new RegExp(`^${messages.admin.adjustments.source.correct}:`),
+        })
+        .getAttribute("href"),
+    ).toBe(href);
+    expect(
+      within(conflict).getByText(messages.admin.adjustments.source.conflicting),
+    ).toBeTruthy();
+    expect(within(conflict).queryByRole("link")).toBeNull();
+    expect(
+      within(conflict).queryByRole("button", {
+        name: new RegExp(`^${messages.admin.adjustments.table.delete}:`),
+      }),
+    ).toBeNull();
+    expect(state.remove).not.toHaveBeenCalled();
+    expect(state.create).not.toHaveBeenCalled();
+  },
+);
+
+it.each(["ORPHANED_INTERVIEW", "UNRESOLVED_INTERVIEW"] as const)(
+  "labels %s without inventing a correction link or overriding its server action support",
+  (kind) => {
+    state.rows = [
+      {
+        ...originalAdjustment,
+        source: { kind, canDelete: true, correctionHref: null },
+      },
+    ];
+    renderPage();
+    expect(
+      screen.getByText(
+        kind === "ORPHANED_INTERVIEW"
+          ? en.admin.adjustments.source.orphaned
+          : en.admin.adjustments.source.unresolved,
+      ),
+    ).toBeTruthy();
+    expect(
+      screen.queryByRole("link", {
+        name: new RegExp(`^${en.admin.adjustments.source.correct}:`),
+      }),
+    ).toBeNull();
+    expect(screen.getByRole("button", { name: /^Delete:/ })).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: /^View details:/ }));
+    expect(
+      screen.getByText(en.admin.adjustments.source.unavailable),
+    ).toBeTruthy();
+    expect(state.remove).not.toHaveBeenCalled();
+  },
+);
+
+it("shows a coarse interview source for observers without private correction navigation or deletion", () => {
+  state.rows = [
+    {
+      ...originalAdjustment,
+      reason: null,
+      source: { kind: "INTERVIEW", canDelete: false, correctionHref: null },
+    },
+  ];
+  renderPage("en", true);
+  expect(screen.getByText(en.admin.adjustments.source.interview)).toBeTruthy();
+  expect(
+    screen.queryByRole("link", {
+      name: new RegExp(`^${en.admin.adjustments.source.correct}:`),
+    }),
+  ).toBeNull();
+  expect(screen.queryByRole("button", { name: /^Delete:/ })).toBeNull();
+  fireEvent.click(screen.getByRole("button", { name: /^View details:/ }));
+  expect(screen.queryByText(originalAdjustment.reason!)).toBeNull();
+  expect(state.remove).not.toHaveBeenCalled();
+});

@@ -1408,7 +1408,7 @@ describe("archive provenance reconciliation integration", () => {
             completedAt: new Date("2023-10-12T10:00:00.000Z"),
             attendedTutorIds: [pastTutor.id],
           },
-          [{ id: interviewCredit.id }],
+          [{ id: interviewCredit.id, tutorId: pastTutor.id }],
         ),
       ).rejects.toThrow("imported historical evidence");
       await expect(

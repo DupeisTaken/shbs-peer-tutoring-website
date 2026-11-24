@@ -38,6 +38,8 @@ const mocks = vi.hoisted(() => {
     invalidate: vi.fn(),
     additional: false,
     interview: false,
+    appStatus: null as string | null,
+    actorTutorId: "chair",
     interviewPanel: ["chair", "second", "third"],
     interviewVotes: [true, true, true],
     role: "HEAD",
@@ -100,7 +102,9 @@ vi.mock("~/trpc/react", () => ({
     }),
     account: {
       me: {
-        useQuery: () => ({ data: { role: mocks.role, tutorId: "chair" } }),
+        useQuery: () => ({
+          data: { role: mocks.role, tutorId: mocks.actorTutorId },
+        }),
       },
     },
     qualificationApplication: {
@@ -175,11 +179,13 @@ vi.mock("~/trpc/react", () => ({
                   name: mocks.name,
                   email: "candidate@example.test",
                   preferredContact: null,
-                  status: mocks.interview
-                    ? "INTERVIEW"
-                    : mocks.additional
-                      ? "PENDING"
-                      : "ACCEPTED",
+                  status:
+                    mocks.appStatus ??
+                    (mocks.interview
+                      ? "INTERVIEW"
+                      : mocks.additional
+                        ? "PENDING"
+                        : "ACCEPTED"),
                   updatedAt: new Date("2026-09-01"),
                   interviewAt: null,
                   interviewCompletedAt: null,
@@ -279,6 +285,8 @@ beforeEach(() => {
   mocks.enabled = true;
   mocks.additional = false;
   mocks.interview = false;
+  mocks.appStatus = null;
+  mocks.actorTutorId = "chair";
   mocks.interviewPanel = ["chair", "second", "third"];
   mocks.interviewVotes = [true, true, true];
   mocks.role = "HEAD";
@@ -827,6 +835,50 @@ it("does not expose additional request decisions or panel setup to Coordinators"
   expect(
     screen.getByText("Another Admin or Head must review this request."),
   ).toBeTruthy();
+});
+
+it.each(["ADMIN", "HEAD"])(
+  "offers an explicit reasoned repair for an open qualification panel to another %s",
+  (role) => {
+    mocks.additional = true;
+    mocks.interview = true;
+    mocks.role = role;
+    show();
+    fireEvent.click(screen.getByRole("button", { name: /Candidate One/ }));
+    expect(
+      screen.getByRole("textbox", { name: "Reason for panel repair" }),
+    ).toBeTruthy();
+    expect(
+      screen.getByRole<HTMLButtonElement>("button", { name: "Repair panel" })
+        .disabled,
+    ).toBe(true);
+    expect(
+      screen.getByText(/Every replacement panelist must vote again/),
+    ).toBeTruthy();
+  },
+);
+
+it.each(["ACCEPTED", "REJECTED", "RECALLED"])(
+  "conceals qualification panel repair after the final %s outcome",
+  (status) => {
+    mocks.additional = true;
+    mocks.interview = true;
+    mocks.appStatus = status;
+    show();
+    fireEvent.click(screen.getByRole("button", { name: /Candidate One/ }));
+    expect(screen.queryByRole("button", { name: "Repair panel" })).toBeNull();
+    expect(screen.queryByRole("combobox", { name: /Panelist/ })).toBeNull();
+  },
+);
+
+it("conceals the applicant's own open qualification panel repair, including Head", () => {
+  mocks.additional = true;
+  mocks.interview = true;
+  mocks.actorTutorId = "candidate-tutor";
+  show();
+  fireEvent.click(screen.getByRole("button", { name: /Candidate One/ }));
+  expect(screen.queryByRole("button", { name: "Repair panel" })).toBeNull();
+  expect(screen.queryByRole("combobox", { name: /Panelist/ })).toBeNull();
 });
 
 it("keeps an open interview approval draft mounted when its application leaves the current filter", () => {
