@@ -8,7 +8,9 @@ import {
   screen,
   waitFor,
 } from "@testing-library/react";
+import { QueryClientProvider } from "@tanstack/react-query";
 import { NextIntlClientProvider } from "next-intl";
+import { createQueryClient } from "~/trpc/query-client";
 import en from "../../../messages/en.json";
 import zh from "../../../messages/zh.json";
 
@@ -38,14 +40,14 @@ const mocks = vi.hoisted(() => {
     >;
     meData: { twoFactorEnabled: boolean } | undefined;
     featuresData:
-      | { EMAIL_2FA: boolean; EMAIL_DELIVERY_AVAILABLE: boolean }
-      | undefined;
+      { EMAIL_2FA: boolean; EMAIL_DELIVERY_AVAILABLE: boolean } | undefined;
     meError: QueryError;
     featuresError: QueryError;
     meFetching: boolean;
     featuresFetching: boolean;
     pending: boolean;
     recover: boolean;
+    realQueries: boolean;
     error: QueryError;
     onSuccess: null | (() => Promise<void>);
     onSettled: null | (() => void);
@@ -62,6 +64,7 @@ const mocks = vi.hoisted(() => {
     featuresFetching: false,
     pending: false,
     recover: false,
+    realQueries: false,
     error: null,
     onSuccess: null,
     onSettled: null,
@@ -69,66 +72,106 @@ const mocks = vi.hoisted(() => {
   return state;
 });
 
-vi.mock("~/trpc/react", () => ({
-  api: {
-    program: {
-      features: {
-        useQuery: () => ({
-          data: mocks.featuresData,
-          error: mocks.featuresError,
-          isFetching: mocks.featuresFetching,
-          isSuccess: Boolean(mocks.featuresData) && !mocks.featuresError,
-          refetch: mocks.featuresRefetch,
-        }),
+vi.mock("~/trpc/react", async () => {
+  const { useQuery } = await import("@tanstack/react-query");
+  return {
+    api: {
+      program: {
+        features: {
+          useQuery: () => {
+            const live = useQuery({
+              queryKey: [["program", "features"], { type: "query" }],
+              queryFn: async () => {
+                if (mocks.featuresError)
+                  throw Object.assign(
+                    new Error(mocks.featuresError.message),
+                    mocks.featuresError,
+                  );
+                return mocks.featuresData;
+              },
+              enabled: mocks.realQueries,
+            });
+            if (mocks.realQueries) return live;
+            return {
+              data: mocks.featuresData,
+              error: mocks.featuresError,
+              isFetching: mocks.featuresFetching,
+              isSuccess: Boolean(mocks.featuresData) && !mocks.featuresError,
+              refetch: mocks.featuresRefetch,
+            };
+          },
+        },
       },
-    },
-    account: {
-      me: {
-        useQuery: () => ({
-          data: mocks.meData,
-          error: mocks.meError,
-          isFetching: mocks.meFetching,
-          isSuccess: Boolean(mocks.meData) && !mocks.meError,
-          refetch: mocks.meRefetch,
-        }),
-      },
-      setTwoFactorEnabled: {
-        useMutation: (options: {
-          onSuccess?: () => Promise<void>;
-          onSettled?: () => void;
-        }) => {
-          mocks.onSuccess = options.onSuccess ?? null;
-          mocks.onSettled = options.onSettled ?? null;
-          return {
-            mutate: (input: unknown) => {
-              mocks.mutate(input);
-              if (mocks.recover) {
-                void options.onSuccess?.().finally(() => options.onSettled?.());
-              }
-            },
-            reset: mocks.reset,
-            isPending: mocks.pending,
-            error: mocks.error,
-          };
+      account: {
+        me: {
+          useQuery: () => {
+            const live = useQuery({
+              queryKey: [["account", "me"], { type: "query" }],
+              queryFn: async () => {
+                if (mocks.meError)
+                  throw Object.assign(
+                    new Error(mocks.meError.message),
+                    mocks.meError,
+                  );
+                return mocks.meData;
+              },
+              enabled: mocks.realQueries,
+            });
+            if (mocks.realQueries) return live;
+            return {
+              data: mocks.meData,
+              error: mocks.meError,
+              isFetching: mocks.meFetching,
+              isSuccess: Boolean(mocks.meData) && !mocks.meError,
+              refetch: mocks.meRefetch,
+            };
+          },
+        },
+        setTwoFactorEnabled: {
+          useMutation: (options: {
+            onSuccess?: () => Promise<void>;
+            onSettled?: () => void;
+          }) => {
+            mocks.onSuccess = options.onSuccess ?? null;
+            mocks.onSettled = options.onSettled ?? null;
+            return {
+              mutate: (input: unknown) => {
+                mocks.mutate(input);
+                if (mocks.recover) {
+                  void options
+                    .onSuccess?.()
+                    .finally(() => options.onSettled?.());
+                }
+              },
+              reset: mocks.reset,
+              isPending: mocks.pending,
+              error: mocks.error,
+            };
+          },
         },
       },
     },
-  },
-}));
+  };
+});
 
 import { TwoFactorSettings } from "./two-factor-settings";
 
+let queryClient: ReturnType<typeof createQueryClient>;
 const wrap = (locale: "en" | "zh" = "en") => (
-  <NextIntlClientProvider
-    locale={locale}
-    messages={locale === "zh" ? zh : en}
-  >
-    <TwoFactorSettings />
-  </NextIntlClientProvider>
+  <QueryClientProvider client={queryClient}>
+    <NextIntlClientProvider
+      locale={locale}
+      messages={locale === "zh" ? zh : en}
+    >
+      <TwoFactorSettings />
+    </NextIntlClientProvider>
+  </QueryClientProvider>
 );
 
 beforeEach(() => {
   vi.clearAllMocks();
+  queryClient = createQueryClient();
+  queryClient.setDefaultOptions({ queries: { retry: false } });
   Object.assign(mocks, {
     meData: { twoFactorEnabled: true },
     featuresData: { EMAIL_2FA: true, EMAIL_DELIVERY_AVAILABLE: true },
@@ -138,6 +181,7 @@ beforeEach(() => {
     featuresFetching: false,
     pending: false,
     recover: false,
+    realQueries: false,
     error: null,
   });
   mocks.meRefetch.mockImplementation(async () => ({
@@ -266,26 +310,35 @@ it("retains password draft during cached refresh failure while blocking writes",
   expect(mocks.mutate).not.toHaveBeenCalled();
 });
 
-it("conceals cached settings on authoritative denial until fresh reads succeed", () => {
+it("conceals cached settings on authoritative denial until fresh reads succeed", async () => {
+  mocks.realQueries = true;
   const labels = en.auth.twoFactor.settings;
-  const view = render(wrap("en"));
-  expect(screen.getByText(labels.enabled)).toBeTruthy();
+  render(wrap("en"));
+  expect(await screen.findByText(labels.enabled)).toBeTruthy();
 
   mocks.meError = { message: "Forbidden", data: { code: "FORBIDDEN" } };
-  view.rerender(wrap("en"));
-  expect(screen.getByText(labels.accessDenied)).toBeTruthy();
+  await act(async () => {
+    await queryClient.refetchQueries({
+      queryKey: [["account", "me"], { type: "query" }],
+    });
+  });
+  expect(await screen.findByText(labels.accessDenied)).toBeTruthy();
   expect(screen.queryByText(labels.enabled)).toBeNull();
   expect(screen.queryByLabelText(labels.currentPassword)).toBeNull();
 
   // Transport failure after denial keeps settings concealed.
   mocks.meError = { message: "Network error" };
-  view.rerender(wrap("en"));
+  await act(async () => {
+    fireEvent.click(screen.getByRole("button", { name: en.uiPatterns.retry }));
+  });
   expect(screen.getByText(labels.accessDenied)).toBeTruthy();
 
   // Fresh authorized reads restore controls.
   mocks.meError = null;
-  view.rerender(wrap("en"));
-  expect(screen.getByText(labels.enabled)).toBeTruthy();
+  await act(async () => {
+    fireEvent.click(screen.getByRole("button", { name: en.uiPatterns.retry }));
+  });
+  expect(await screen.findByText(labels.enabled)).toBeTruthy();
 });
 
 it("still allows disabling when enabled even if program flag or delivery is off", () => {

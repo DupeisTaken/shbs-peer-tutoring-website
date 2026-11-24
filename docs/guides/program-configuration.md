@@ -117,10 +117,10 @@ and mutations without erasing historical records. See
 
 | Control | Scope & authority |
 | --- | --- |
-| Program timezone | Admin/Head apply supported IANA zone; Coordinator proposes ([details](#program-time-zone)) |
+| Program timezone | Admin/Head apply supported IANA zone; Coordinator proposes; initial/cached read failures keep the section heading with read-only Retry without overwriting drafts ([details](#program-time-zone)) |
 | Recruitment windows | Independent active-period Tutor and Tutee windows ([details](#tutor-and-tutee-recruitment-windows)) |
 | Names and grades | Offered grades, **Use preferred names**, **Show names in another language**, and per-account-type Required/Optional/Hidden name rules ([name fields](user-guide.md#names-and-academic-details), [reference](../reference/name-fields.md)) |
-| Catalogues | **Subjects & Levels**, **Time Slots**, **Rooms** |
+| Catalogues | **Subjects & Levels** (distinguishes loading/empty/failed reads with read-only Retry and locks edits during cached or post-save refresh recovery), **Time Slots**, **Rooms** |
 | Policy versions | Published database revisions in **Policy Documents**; repo drafts never auto-publish |
 | Holidays, pauses & weekday overrides | Unified **Holidays & Tutoring Pauses** and **Weekday Overrides** ([details](#school-calendar-and-timetable-dates)) |
 | Feedback visibility | Management-only by default; enabling sharing to the session's tutor also exposes earlier feedback |

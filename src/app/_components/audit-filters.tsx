@@ -1,10 +1,11 @@
 "use client";
 import { useState } from "react";
 import { useLocale, useTranslations, useTimeZone } from "next-intl";
-import { api, type RouterInputs } from "~/trpc/react";
+import { api, type RouterInputs, type RouterOutputs } from "~/trpc/react";
 import { humanizeOperation } from "~/lib/approval-policy";
 import { auditActorLabel } from "~/lib/audit-actors";
 import { auditEntityLabelKey } from "~/lib/review-vocabulary";
+import { QueryFeedback } from "./ui/query-feedback";
 
 import { programDayStart, programDayEnd } from "~/lib/program-time";
 import {
@@ -12,6 +13,17 @@ import {
   programTimeZoneLabel,
 } from "~/lib/program-time-zone-label";
 export type AuditFilterInput = NonNullable<RouterInputs["admin"]["auditLog"]>;
+export type AuditFilterOptions = RouterOutputs["admin"]["auditFilterOptions"];
+export function hasAuditFilterOptions(
+  value: AuditFilterOptions | null | undefined,
+): value is AuditFilterOptions {
+  return (
+    !!value &&
+    Array.isArray(value.users) &&
+    Array.isArray(value.operations) &&
+    Array.isArray(value.entities)
+  );
+}
 export type AuditKind =
   | "ACTION"
   | "DECISION"
@@ -34,11 +46,22 @@ export type AuditView = typeof emptyAuditView;
 export function AuditFilters({
   onApply,
   appliedView,
+  catalogue,
+  unavailable = false,
+  optionsError,
+  optionsRetrying,
+  onRetryOptions,
 }: {
   onApply: (input: AuditFilterInput, view: AuditView) => void;
   appliedView?: AuditView;
+  catalogue?: AuditFilterOptions;
+  unavailable?: boolean;
+  optionsError?: { message?: string } | null;
+  optionsRetrying?: boolean;
+  onRetryOptions?: () => void;
 }) {
   const t = useTranslations("auditFilters");
+  const recovery = useTranslations("managementRecovery");
   const vocabulary = useTranslations();
   const timeZone = useTimeZone() ?? "Asia/Shanghai";
   const locale = useLocale();
@@ -53,7 +76,34 @@ export function AuditFilters({
     setPreviousAppliedKey(appliedKey);
     if (appliedView) setDraft(appliedView);
   }
-  const options = api.admin.auditFilterOptions.useQuery();
+  const controlled =
+    catalogue !== undefined ||
+    optionsError !== undefined ||
+    onRetryOptions !== undefined;
+  const options = api.admin.auditFilterOptions.useQuery(undefined, {
+    enabled: !controlled,
+  });
+  const currentOptions = hasAuditFilterOptions(options.data)
+    ? options.data
+    : undefined;
+  const currentSignature = currentOptions ? JSON.stringify(currentOptions) : "";
+  const [retainedOptions, setRetainedOptions] = useState<{
+    signature: string;
+    value: AuditFilterOptions;
+  }>();
+  if (currentOptions && retainedOptions?.signature !== currentSignature) {
+    setRetainedOptions({ signature: currentSignature, value: currentOptions });
+  }
+  const values = controlled
+    ? catalogue
+    : (currentOptions ?? retainedOptions?.value);
+  const missingOptions = !controlled && options.isSuccess && !currentOptions;
+  const activeError =
+    optionsError !== undefined ? optionsError : (options.error ?? null);
+  const readFailed = !!activeError || missingOptions;
+  const retrying = optionsRetrying ?? Boolean(options.isFetching);
+  const blocked = unavailable || readFailed || !hasAuditFilterOptions(values);
+  const retryOptions = onRetryOptions ?? (() => void options.refetch());
   const set = (key: keyof AuditView, value: string) =>
     setDraft((old) => ({ ...old, [key]: value }));
   const selects = [
@@ -63,7 +113,7 @@ export function AuditFilters({
       all: "allUsers",
       values: [
         { id: "__system__", label: t("system") },
-        ...(options.data?.users.map((u) => ({
+        ...(values?.users.map((u) => ({
           id: u.id,
           label: auditActorLabel(u, {
             unnamed: t("unnamedAccount"),
@@ -90,7 +140,7 @@ export function AuditFilters({
       label: "operation",
       all: "allOperations",
       values:
-        options.data?.operations.map((id) => ({
+        values?.operations.map((id) => ({
           id,
           label: vocabulary.has(
             `approvals.review.operations.${id.replaceAll(".", "_")}`,
@@ -104,7 +154,7 @@ export function AuditFilters({
       label: "entity",
       all: "allEntities",
       values:
-        options.data?.entities.map((id) => ({
+        values?.entities.map((id) => ({
           id,
           label: vocabulary.has(auditEntityLabelKey(id) ?? "")
             ? vocabulary(auditEntityLabelKey(id)!)
@@ -117,6 +167,7 @@ export function AuditFilters({
       className="card grid gap-4 p-5 sm:grid-cols-2 xl:grid-cols-4"
       onSubmit={(e) => {
         e.preventDefault();
+        if (blocked) return;
         try {
           setInputError("");
           onApply(
@@ -149,6 +200,23 @@ export function AuditFilters({
         }
       }}
     >
+      {(readFailed || !values) && (
+        <div className="sm:col-span-2 xl:col-span-4">
+          <QueryFeedback
+            hasData={!!values}
+            loading={!values && !readFailed}
+            error={readFailed}
+            retrying={retrying}
+            loadingTitle={recovery("loading", { section: t("filterOptions") })}
+            errorTitle={recovery(values ? "refreshFailed" : "loadFailed", {
+              section: t("filterOptions"),
+            })}
+            errorDetail={activeError?.message}
+            retryLabel={recovery("retry", { section: t("filterOptions") })}
+            onRetry={retryOptions}
+          />
+        </div>
+      )}
       {inputError && <p role="alert">{inputError}</p>}
       {selects.map((select) => (
         <label key={select.key}>
@@ -161,6 +229,7 @@ export function AuditFilters({
               )?.label
             }
             value={draft[select.key as keyof AuditView]}
+            disabled={blocked}
             onChange={(e) => set(select.key as keyof AuditView, e.target.value)}
           >
             <option value="">{t(select.all)}</option>
@@ -178,6 +247,7 @@ export function AuditFilters({
           className="input mt-1 w-full"
           type="date"
           value={draft.from}
+          disabled={blocked}
           onChange={(e) => set("from", e.target.value)}
         />
       </label>
@@ -188,6 +258,7 @@ export function AuditFilters({
           type="date"
           min={draft.from || undefined}
           value={draft.until}
+          disabled={blocked}
           onChange={(e) => set("until", e.target.value)}
         />
       </label>
@@ -196,17 +267,22 @@ export function AuditFilters({
         <input
           className="input mt-1 w-full"
           value={draft.search}
+          disabled={blocked}
           maxLength={200}
           placeholder={t("searchHint")}
           onChange={(e) => set("search", e.target.value)}
         />
       </label>
       <div className="flex flex-wrap items-center gap-3 sm:col-span-2 xl:col-span-4">
-        <button className="btn-primary">{t("apply")}</button>
+        <button className="btn-primary" disabled={blocked}>
+          {t("apply")}
+        </button>
         <button
           className="btn-secondary"
           type="button"
+          disabled={blocked}
           onClick={() => {
+            if (blocked) return;
             setDraft(emptyAuditView);
             onApply({}, emptyAuditView);
           }}
@@ -241,11 +317,6 @@ export function AuditFilters({
           })}
         </p>
       </div>
-      {options.error && (
-        <p role="alert" className="text-red-700 sm:col-span-2">
-          {options.error.message}
-        </p>
-      )}
     </form>
   );
 }

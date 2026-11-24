@@ -17,6 +17,7 @@ import {
   allocationData,
   notifyRoomShortage,
 } from "~/server/room-allocation";
+import { ensureSessionPlanningWindow } from "~/server/session-planning";
 import { assertIsolatedTestDatabase } from "~/test/database-guard";
 
 // These fixtures reset a dedicated, local integration database before each case.
@@ -2038,6 +2039,170 @@ it("validates reactivated retained group coverage but allows unrelated edits to 
   expect(await db.tutee.findUniqueOrThrow({ where: { id: inactiveId } })).toMatchObject({
     status: "INACTIVE", notes: "Unrelated profile correction",
   });
+});
+
+it("allows moving automatic pairings and editing catalog slots after session planning publishes cohorts, including back-to-back moves and historical terms", async () => {
+  const tuesdaySlot = await db.timeSlot.create({
+    data: { label: "Tuesday morning", dayOfWeek: 2, startMin: 600, endMin: 660 },
+  });
+  const wednesdaySlot = await db.timeSlot.create({
+    data: { label: "Wednesday morning", dayOfWeek: 3, startMin: 600, endMin: 660 },
+  });
+  // Tutor 1 (AUTO) on Tuesday gets rooms[0]; Tutor 2 (FIXED rooms[0]) on Monday also uses rooms[0].
+  const moving = await create({
+    tutorId,
+    timeSlotId: tuesdaySlot.id,
+    tuteeIds: [learners[0]!],
+    roomMode: "AUTO",
+  });
+  const mondayFixed = await create({
+    tutorId: otherTutorId,
+    timeSlotId: otherSlotId,
+    tuteeIds: [learners[1]!],
+    roomMode: "FIXED",
+    roomId: rooms[0],
+  });
+  expect(moving.roomId).toBe(rooms[0]);
+  expect(mondayFixed.roomId).toBe(rooms[0]);
+
+  // Opening an agenda publishes future ordinary REGULAR SessionPlanCohorts for both pairings.
+  await ensureSessionPlanningWindow(db);
+  expect(await db.sessionPlanCohort.count({ where: { status: "SCHEDULED" } })).toBeGreaterThan(0);
+
+  // 1. Moving an AUTO pairing into Monday (where another pairing holds its OLD room rooms[0]
+  //    in published dated sessions) must reallocate to another free room instead of conflicting.
+  const moved = await actor("TUTOR").tutor.setPairingSlot({
+    pairingId: moving.id,
+    slotId: otherSlotId,
+    expectedRoomVersion: moving.roomVersion,
+  });
+  expect(moved.timeSlotId).toBe(otherSlotId);
+  expect(moved.roomId).toBeTruthy();
+  expect(moved.roomId).not.toBe(rooms[0]);
+
+  // 2. Immediately moving another pairing into Tuesday (without running session maintenance first)
+  //    must not be blocked by moving's stale ordinary Tuesday SessionPlanCohorts.
+  const swapped = await actor("HEAD").admin.updatePairing({
+    id: mondayFixed.id,
+    tutorId: otherTutorId,
+    subject,
+    subjectId,
+    timeSlotId: tuesdaySlot.id,
+    roomMode: "FIXED",
+    roomId: rooms[0],
+    tuteeIds: [learners[1]!],
+    expectedRoomVersion: mondayFixed.roomVersion,
+  });
+  expect(swapped.timeSlotId).toBe(tuesdaySlot.id);
+  expect(swapped.roomId).toBe(rooms[0]);
+
+  // 3. Give another pairing moving's current room on Wednesday, publish its cohorts,
+  //    then edit moving's Monday catalog slot to Wednesday:
+  //    moving (AUTO) must reallocate away from its old room instead of conflicting.
+  await create({
+    tutorId: thirdTutorId,
+    timeSlotId: wednesdaySlot.id,
+    tuteeIds: [learners[1]!],
+    roomMode: "FIXED",
+    roomId: moved.roomId!,
+  });
+  await ensureSessionPlanningWindow(db);
+  await actor("HEAD").admin.updateTimeSlot({
+    id: otherSlotId,
+    label: "Moved Monday to Wednesday",
+    dayOfWeek: 3,
+    startMin: 600,
+    endMin: 660,
+    active: true,
+  });
+  const afterCatalogEdit = await db.pairing.findUniqueOrThrow({
+    where: { id: moving.id },
+  });
+  expect(afterCatalogEdit.dayOfWeek).toBe(3);
+  expect(afterCatalogEdit.roomId).toBeTruthy();
+  expect(afterCatalogEdit.roomId).not.toBe(moved.roomId);
+
+  // 4. An inactive historical term pairing linked to a slot must not conflict with
+  //    active-term published future cohorts when editing that catalog slot.
+  const thursdaySlot = await db.timeSlot.create({
+    data: { label: "Thursday morning", dayOfWeek: 4, startMin: 600, endMin: 660 },
+  });
+  const pastTerm = await db.term.create({
+    data: { name: "Past quarter", schoolYear: "25-26", quarter: "Q4", active: false },
+  });
+  await db.pairing.create({
+    data: {
+      tutorId: otherTutorId,
+      termId: pastTerm.id,
+      subject,
+      timeSlotId: thursdaySlot.id,
+      scheduleConfirmed: true,
+      dayOfWeek: 4,
+      startMin: 600,
+      endMin: 660,
+      roomMode: "FIXED",
+      roomId: rooms[0],
+    },
+  });
+  await actor("HEAD").admin.updateTimeSlot({
+    id: thursdaySlot.id,
+    label: "Historical slot edited to Tuesday",
+    dayOfWeek: 2,
+    startMin: 600,
+    endMin: 660,
+    active: true,
+  });
+  expect(
+    await db.timeSlot.findUniqueOrThrow({ where: { id: thursdaySlot.id } }),
+  ).toMatchObject({ dayOfWeek: 2, startMin: 600, endMin: 660 });
+});
+
+it("allows re-slotting a member immediately after splitting a combined group with published cohorts", async () => {
+  const tuesdaySlot = await db.timeSlot.create({
+    data: { label: "Split test Tuesday", dayOfWeek: 2, startMin: 600, endMin: 660 },
+  });
+  const physics = await db.subject.create({ data: { name: "Split Cohort Physics" } });
+  await db.tutorQualification.create({
+    data: {
+      tutorId,
+      subjectId: physics.id,
+      approvedById: "allocation-ADMIN",
+      grants: { create: { subjectId: physics.id } },
+    },
+  });
+  const first = await create({
+    tutorId,
+    timeSlotId: otherSlotId,
+    tuteeIds: [learners[0]!],
+    roomMode: "AUTO",
+  });
+  const second = await create({
+    tutorId,
+    subject: physics.name,
+    subjectId: physics.id,
+    timeSlotId: tuesdaySlot.id,
+    tuteeIds: [learners[0]!],
+    roomMode: "AUTO",
+  });
+  await combineRoomUnit([first.id, second.id], otherSlotId);
+  await ensureSessionPlanningWindow(db);
+  expect(
+    await db.sessionPlanCohort.count({ where: { status: "SCHEDULED" } }),
+  ).toBeGreaterThan(0);
+
+  // Split the combined group so both members return to Awaiting schedule, then
+  // immediately assign `first` back onto `otherSlotId` without running maintenance.
+  const state = await actor("TUTOR").pairingGroups.mine();
+  await actor("TUTOR").pairingGroups.save({
+    snapshot: state.snapshot,
+    groups: [],
+  });
+  const rescheduled = await actor("TUTOR").tutor.setPairingSlot({
+    pairingId: first.id,
+    slotId: otherSlotId,
+  });
+  expect(rescheduled.timeSlotId).toBe(otherSlotId);
+  expect(rescheduled.scheduleConfirmed).toBe(true);
 });
 
 it(

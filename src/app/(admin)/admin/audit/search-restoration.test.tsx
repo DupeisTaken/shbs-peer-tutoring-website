@@ -81,10 +81,12 @@ it.each([161, 200])(
     fireEvent.change(input, { target: { value: search } });
     expect(mocks.log).toHaveBeenLastCalledWith(
       expect.objectContaining({ search: "old short" }),
+      { enabled: true },
     );
     fireEvent.click(screen.getByRole("button", { name: "Apply Filters" }));
     expect(mocks.log).toHaveBeenLastCalledWith(
       expect.objectContaining({ search }),
+      { enabled: true },
     );
     expect(input.value).toBe(search);
     expect(sessionStorage.getItem(key)).toBeNull();
@@ -96,6 +98,7 @@ it.each([161, 200])(
     ).toBe("");
     expect(mocks.log).toHaveBeenLastCalledWith(
       expect.objectContaining({ search: undefined }),
+      { enabled: true },
     );
   },
 );

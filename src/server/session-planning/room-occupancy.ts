@@ -4,9 +4,190 @@ import { isRegularTutoringPaused } from "~/lib/tutoring-policy";
 import { programDateKey } from "~/lib/program-time";
 import { getProgramTimeZone } from "~/server/program/time-zone-reader";
 import { lockEntity, type TransactionDb } from "~/server/transactions";
-import { pairingEvidenceIds } from "~/server/participant-execution";
+import {
+  executionAssignments,
+  pairingEvidenceIds,
+  supersededPairingIds,
+} from "~/server/participant-execution";
 import { plannedWindow } from "~/lib/session-planning";
 import { readSessionRefreshSchedules, readSessionRequestSources, sessionExceedsRefresh, sessionRefreshSuppressed, sessionRequestSourceSuppressed } from "./refresh-boundary";
+
+export type OrdinaryCohortCandidate = {
+  id: string;
+  planId: string;
+  date: string;
+  startMin: number;
+  roomId: string | null;
+  rescheduled?: boolean;
+  plan: {
+    kind?: string;
+    termId: string;
+    tutorId?: string;
+    originalDate: string;
+    assignments: readonly { pairingId: string }[];
+  };
+  participants: readonly { scheduleOverride?: boolean }[];
+};
+
+export type OrdinaryCohortStatus = {
+  /** True iff the source pairings are still active, confirmed, unsplit,
+   * populated, on this exact timetable weekday + startMin, and belong to
+   * this tutor/term. */
+  scheduleLive: boolean;
+  /** True iff scheduleLive AND every source pairing still holds cohort.roomId. */
+  roomLive: boolean;
+  /** Active tutee IDs (in executing-ID space) still rostered on non-excluded
+   * source pairings when scheduleLive is true. */
+  liveOrdinaryTuteeIds: Set<string>;
+};
+
+type PlanExecutionRow = {
+  planId: string;
+  tutorId: string;
+  assignments: unknown;
+};
+
+/** Only an unmoved REGULAR publication with captured source assignments can be
+ * a lazily reconciled ordinary weekly projection. Extras, moved dates and
+ * explicitly rescheduled cohorts are always treated as dated commitments. */
+export function isOrdinaryRegularCohort(
+  cohort: OrdinaryCohortCandidate,
+): boolean {
+  return (
+    cohort.plan.kind === "REGULAR" &&
+    !cohort.rescheduled &&
+    cohort.date === cohort.plan.originalDate &&
+    cohort.plan.assignments.length > 0
+  );
+}
+
+/** Check whether ordinary unmoved REGULAR cohorts still match their live
+ * source pairings. Weekly schedule edits mark dirty events rather than
+ * rewriting SessionPlanCohort rows synchronously, so stale ordinary projections
+ * from moved, split, unscheduled, room-changed or deleted pairings must not
+ * falsely block subsequent weekly slot or room changes. */
+export async function evaluateOrdinaryCohorts(
+  tx: TransactionDb,
+  cohorts: readonly OrdinaryCohortCandidate[],
+  calendar: ReturnType<typeof createSchoolCalendarSnapshot>,
+  excluded: ReadonlySet<string>,
+  preloadedExecutions?: readonly PlanExecutionRow[],
+): Promise<Map<string, OrdinaryCohortStatus>> {
+  const result = new Map<string, OrdinaryCohortStatus>();
+  const candidates = cohorts.filter(isOrdinaryRegularCohort);
+  if (!candidates.length) return result;
+
+  const planIds = [...new Set(candidates.map((cohort) => cohort.planId))];
+  const executions =
+    preloadedExecutions ??
+    (await tx.sessionPlanExecution.findMany({
+      where: { planId: { in: planIds } },
+      select: { planId: true, tutorId: true, assignments: true },
+    }));
+  const executionByPlanId = new Map(
+    executions.map((row) => [row.planId, row]),
+  );
+
+  const assignmentMaps = new Map<
+    string,
+    { sourcePairingId: string; livePairingId: string }[]
+  >();
+  const livePairingIds = new Set<string>();
+  for (const cohort of candidates) {
+    const execution = executionByPlanId.get(cohort.planId);
+    const remapped = execution
+      ? new Map(
+          executionAssignments
+            .parse(execution.assignments)
+            .map((row) => [row.sourcePairingId, row.targetPairingId]),
+        )
+      : null;
+    const mapped = cohort.plan.assignments.map((row) => {
+      const livePairingId = remapped?.get(row.pairingId) ?? row.pairingId;
+      livePairingIds.add(livePairingId);
+      return { sourcePairingId: row.pairingId, livePairingId };
+    });
+    assignmentMaps.set(cohort.id, mapped);
+  }
+
+  const [superseded, pairings] = await Promise.all([
+    supersededPairingIds(tx),
+    tx.pairing.findMany({
+      where: { id: { in: [...livePairingIds] } },
+      select: {
+        id: true,
+        tutorId: true,
+        termId: true,
+        groupId: true,
+        scheduleConfirmed: true,
+        dayOfWeek: true,
+        startMin: true,
+        roomId: true,
+        term: { select: { active: true } },
+        tutor: { select: { status: true } },
+        tutees: {
+          where: { tutee: { status: { not: "INACTIVE" } } },
+          select: { tuteeId: true },
+        },
+      },
+    }),
+  ]);
+  const supersededSet = new Set(superseded);
+  const pairingById = new Map(pairings.map((row) => [row.id, row]));
+
+  for (const cohort of candidates) {
+    const mapped = assignmentMaps.get(cohort.id)!;
+    const rows = mapped
+      .map((item) => pairingById.get(item.livePairingId))
+      .filter((row): row is NonNullable<typeof row> => Boolean(row));
+    const day = calendar.resolve(cohort.date);
+    const execution = executionByPlanId.get(cohort.planId);
+    const expectedTutorId = execution?.tutorId ?? cohort.plan.tutorId;
+    const sharedGroupId = rows.length > 1 ? rows[0]?.groupId : null;
+    const scheduleLive =
+      day.isSchoolDay &&
+      rows.length === mapped.length &&
+      rows.every(
+        (row) =>
+          !supersededSet.has(row.id) &&
+          row.scheduleConfirmed &&
+          row.term.active &&
+          row.tutor.status === "ACTIVE" &&
+          row.termId === cohort.plan.termId &&
+          (expectedTutorId === undefined || row.tutorId === expectedTutorId) &&
+          row.dayOfWeek === day.effectiveTimetableWeekday &&
+          row.startMin === cohort.startMin &&
+          (rows.length <= 1 ||
+            (sharedGroupId !== null && row.groupId === sharedGroupId)),
+      ) &&
+      rows.some((row) => row.tutees.length > 0);
+
+    const liveOrdinaryTuteeIds = new Set<string>();
+    if (scheduleLive) {
+      for (const item of mapped) {
+        if (
+          excluded.has(item.sourcePairingId) ||
+          excluded.has(item.livePairingId)
+        )
+          continue;
+        const row = pairingById.get(item.livePairingId);
+        if (!row) continue;
+        for (const tutee of row.tutees) liveOrdinaryTuteeIds.add(tutee.tuteeId);
+      }
+    }
+
+    const roomLive =
+      scheduleLive && rows.every((row) => row.roomId === cohort.roomId);
+
+    result.set(cohort.id, {
+      scheduleLive,
+      roomLive,
+      liveOrdinaryTuteeIds,
+    });
+  }
+
+  return result;
+}
 
 type RoomSchedule = {
   preservedPlanIds?: readonly string[];
@@ -40,7 +221,10 @@ export async function datedUnavailableRooms(
       },
       include: {
         plan: { include: { assignments: true } },
-        participants: { where: { status: "SCHEDULED" }, select: { id: true } },
+        participants: {
+          where: { status: "SCHEDULED" },
+          select: { id: true, scheduleOverride: true },
+        },
       },
       take: 5001,
     }),
@@ -61,6 +245,9 @@ export async function datedUnavailableRooms(
       code: "CONFLICT",
       message: "Too many dated room bookings to safely review this change.",
     });
+  // Inactive historical periods never publish future weekly sessions and must
+  // not collide with live dated bookings from a newer active period.
+  if (term.active === false) return new Set<string>();
   const excluded = new Set(await pairingEvidenceIds(tx, [
     ...(schedule.excludePairingIds ?? []),
     ...(schedule.excludePairingId ? [schedule.excludePairingId] : []),
@@ -88,6 +275,7 @@ export async function datedUnavailableRooms(
     );
   };
   const blocked = new Set<string>();
+  const ordinaryCandidates: (typeof cohorts)[number][] = [];
   for (const cohort of cohorts) {
     if (schedule.preservedPlanIds?.includes(cohort.planId)) continue;
     if (
@@ -102,9 +290,27 @@ export async function datedUnavailableRooms(
       cohort.plan.assignments.length > 0 &&
       (cohort.plan.assignments.every((row) => excluded.has(row.pairingId)) ||
         (cohort.startMin === schedule.startMin &&
-          cohort.endMin === schedule.endMin &&
+          (cohort.endMin === schedule.endMin ||
+            cohort.endMin === schedule.startMin + 45) &&
           cohort.plan.assignments.some((row) => excluded.has(row.pairingId))));
-    if (!own) blocked.add(cohort.roomId);
+    if (own) continue;
+    if (
+      isOrdinaryRegularCohort(cohort) &&
+      cohort.participants.every((person) => !person.scheduleOverride)
+    )
+      ordinaryCandidates.push(cohort);
+    else blocked.add(cohort.roomId);
+  }
+  if (ordinaryCandidates.length) {
+    const ordinaryStatus = await evaluateOrdinaryCohorts(
+      tx,
+      ordinaryCandidates,
+      calendarSnapshot,
+      excluded,
+    );
+    for (const cohort of ordinaryCandidates)
+      if (cohort.roomId && ordinaryStatus.get(cohort.id)?.roomLive)
+        blocked.add(cohort.roomId);
   }
   for (const request of requests) {
     if (schedule.preservedPlanIds?.includes(request.planId)) continue;

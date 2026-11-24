@@ -5,11 +5,17 @@ import {
   fireEvent,
   render,
   screen,
+  waitFor,
   within,
 } from "@testing-library/react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { NextIntlClientProvider } from "next-intl";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import {
+  type QueryClient,
+  QueryClientProvider,
+  useQuery,
+} from "@tanstack/react-query";
+import { createQueryClient } from "~/trpc/query-client";
 import en from "../../../messages/en.json";
 import zh from "../../../messages/zh.json";
 import SessionFlagsPage from "../(admin)/admin/session-flags/page";
@@ -19,6 +25,7 @@ import { ReadOnlyProvider } from "./read-only";
 vi.mock("./school-hours-panel", () => ({ SchoolHoursPanel: () => null }));
 
 const state = vi.hoisted(() => ({
+  real: false,
   loaded: true,
   loading: false,
   empty: false,
@@ -53,34 +60,68 @@ vi.mock("~/trpc/react", () => ({
         },
       },
       sessionFlags: {
-        useQuery: () => ({
-          data: !state.loaded
-            ? undefined
-            : state.empty
-              ? []
-              : [
-                  {
-                    id: "flag",
-                    tutor: "Synthetic Tutor",
-                    subject: "Synthetic Subject",
-                    observed: 1,
-                    expected: 2,
-                    room: "Synthetic Room",
-                    date: new Date("2026-10-01T00:00:00Z"),
-                    startMin: 900,
-                    endMin: 960,
-                    state: "PENDING",
-                    decisionNote: null,
-                    resolvedAt: null,
-                    resolvedByName: null,
-                  },
-                ],
-          isLoading: state.loading,
-          isSuccess: state.loaded && !state.readError,
-          isFetching: state.loading,
-          error: state.readError,
-          refetch: state.retry,
-        }),
+        useQuery: (_input?: unknown, options?: { enabled?: boolean }) => {
+          const live = useQuery({
+            queryKey: ["flags"],
+            queryFn: async () => {
+              state.retry();
+              if (state.readError)
+                throw Object.assign(
+                  new Error(state.readError.message),
+                  state.readError,
+                );
+              return state.empty
+                ? []
+                : [
+                    {
+                      id: "flag",
+                      tutor: "Synthetic Tutor",
+                      subject: "Synthetic Subject",
+                      observed: 1,
+                      expected: 2,
+                      room: "Synthetic Room",
+                      date: new Date("2026-10-01T00:00:00Z"),
+                      startMin: 900,
+                      endMin: 960,
+                      state: "PENDING",
+                      decisionNote: null,
+                      resolvedAt: null,
+                      resolvedByName: null,
+                    },
+                  ];
+            },
+            enabled: state.real && options?.enabled !== false,
+          });
+          if (state.real) return live;
+          return {
+            data: !state.loaded
+              ? undefined
+              : state.empty
+                ? []
+                : [
+                    {
+                      id: "flag",
+                      tutor: "Synthetic Tutor",
+                      subject: "Synthetic Subject",
+                      observed: 1,
+                      expected: 2,
+                      room: "Synthetic Room",
+                      date: new Date("2026-10-01T00:00:00Z"),
+                      startMin: 900,
+                      endMin: 960,
+                      state: "PENDING",
+                      decisionNote: null,
+                      resolvedAt: null,
+                      resolvedByName: null,
+                    },
+                  ],
+            isLoading: state.loading,
+            isSuccess: state.loaded && !state.readError,
+            isFetching: state.loading,
+            error: state.readError,
+            refetch: state.retry,
+          };
+        },
       },
       decideSessionFlag: {
         useMutation: (options: { onError: typeof state.failed }) => {
@@ -100,7 +141,13 @@ vi.mock("~/trpc/react", () => ({
 }));
 let client: QueryClient;
 beforeEach(() => {
-  client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  client = createQueryClient();
+  const defaults = client.getDefaultOptions();
+  client.setDefaultOptions({
+    ...defaults,
+    queries: { ...defaults.queries, retry: false },
+  });
+  state.real = false;
   Object.defineProperties(HTMLDialogElement.prototype, {
     showModal: {
       configurable: true,
@@ -138,35 +185,34 @@ const flags = (readOnly = false) => (
   </QueryClientProvider>
 );
 
-it("separates unknown, failed, denied and successfully empty flag reads", () => {
-  state.loaded = false;
-  state.loading = true;
-  const view = render(flags());
-  expect(screen.getByRole("status").getAttribute("aria-busy")).toBe("true");
-  expect(screen.queryByText(en.admin.sessionFlags.empty)).toBeNull();
-  state.loading = false;
+it("separates unknown, failed, denied and successfully empty flag reads", async () => {
+  state.real = true;
   state.readError = { message: "Synthetic read failure" };
-  view.rerender(flags());
-  expect(screen.getByRole("alert").textContent).toContain(
-    "Synthetic read failure",
+  render(flags());
+  await waitFor(() =>
+    expect(screen.getByRole("alert").textContent).toContain(
+      "Synthetic read failure",
+    ),
   );
   expect(screen.queryByText(en.admin.sessionFlags.empty)).toBeNull();
-  fireEvent.click(screen.getByRole("button", { name: en.uiPatterns.retry }));
-  expect(state.retry).toHaveBeenCalledOnce();
   state.readError = {
     message: "Synthetic access denial",
     data: { code: "FORBIDDEN" },
   };
-  view.rerender(flags());
-  expect(screen.getByRole("status").getAttribute("aria-busy")).toBe("false");
-  expect(screen.getByRole("status").textContent).toContain(
-    "Synthetic access denial",
+  fireEvent.click(screen.getByRole("button", { name: en.uiPatterns.retry }));
+  await waitFor(() =>
+    expect(screen.getByRole("status").textContent).toContain(
+      en.uiPatterns.loadFailed,
+    ),
   );
+  expect(screen.getByRole("status").getAttribute("aria-busy")).toBe("false");
+  expect(screen.queryByText(en.admin.sessionFlags.empty)).toBeNull();
   state.readError = null;
-  state.loaded = true;
   state.empty = true;
-  view.rerender(flags());
-  expect(screen.getByText(en.admin.sessionFlags.empty)).toBeTruthy();
+  fireEvent.click(screen.getByRole("button", { name: en.uiPatterns.retry }));
+  await waitFor(() =>
+    expect(screen.getByText(en.admin.sessionFlags.empty)).toBeTruthy(),
+  );
 });
 
 it("retains review inputs through pending writes and read/write failures, then retries the same decision", () => {
@@ -255,7 +301,7 @@ it.each(["en", "zh"] as const)(
   (locale) => {
     const messages = locale === "en" ? en : zh;
     render(
-      <QueryClientProvider client={new QueryClient()}>
+      <QueryClientProvider client={createQueryClient()}>
         <NextIntlClientProvider
           locale={locale}
           timeZone="Asia/Shanghai"

@@ -155,9 +155,11 @@ export function CourseCatalogueTable({
           {t("clearFilters")}
         </button>
       </div>
-      <p role="status" className="text-sm text-slate-600">
-        {t("count", { count: visible.length, total: subjects.length })}
-      </p>
+      {viewReady && (
+        <p role="status" className="text-sm text-slate-600">
+          {t("count", { count: visible.length, total: subjects.length })}
+        </p>
+      )}
       {!readOnly && (
         <div className="space-y-3 rounded-lg border border-slate-200 bg-slate-50 p-3">
           <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
@@ -353,7 +355,7 @@ export function CourseCatalogueTable({
           ))}
         </tbody>
       </SummaryTable>
-      {!visible.length && (
+      {viewReady && !visible.length && (
         <div className="py-6 text-center">
           <p className="font-medium">
             {t(subjects.length ? "noMatches" : "empty")}

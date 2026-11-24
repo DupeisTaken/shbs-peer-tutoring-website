@@ -3100,7 +3100,17 @@
     "newer": "Νεότερα",
     "older": "Παλαιότερα",
     "details": "Λεπτομέρειες αλλαγής",
-    "patrolChanged": "Patrol changed. Reload before correcting it."
+    "patrolChanged": "Patrol changed. Reload before correcting it.",
+    "patrolRooms": "τις επιλογές αιθουσών περιπολίας",
+    "reloadPatrol": "Επαναφόρτωση προσχεδίου περιπολίας",
+    "patrolReloadFailed": "Δεν ήταν δυνατή η φόρτωση της πιο πρόσφατης περιπολίας και των αιθουσών. Το προσχέδιό σου διατηρείται.",
+    "patrolUnavailable": "Αυτή η περιπολία δεν βρίσκεται πλέον σε αυτή τη σελίδα ιστορικού. Το προσχέδιό σου διατηρείται.",
+    "patrolSaved": "Η διόρθωση αποθηκεύτηκε. Ανανέωση ιστορικού περιπολιών…",
+    "patrolSavedRefreshFailed": "Η διόρθωση αποθηκεύτηκε, αλλά δεν ήταν δυνατή η ανανέωση του ιστορικού περιπολιών. Δοκίμασε ανανέωση.",
+    "patrolQueuedRefreshFailed": "Η διόρθωση υποβλήθηκε για έγκριση, αλλά δεν ήταν δυνατή η ανανέωση του ιστορικού περιπολιών. Δοκίμασε ανανέωση.",
+    "invalidPatrolTime": "Καταχώρισε έγκυρη ώρα παρατήρησης.",
+    "patrolRoomUnavailable": "{room} (μη διαθέσιμη)",
+    "patrolRoomRequired": "Επίλεξε μια διαθέσιμη αίθουσα για κάθε παρατήρηση πριν από την αποθήκευση."
   },
   "emailChange": {
     "title": "Αλλαγή email λογαριασμού",
@@ -4995,7 +5005,13 @@
       "ATTEMPT": "Απόπειρα που δεν εφαρμόστηκε"
     },
     "unnamedAccount": "Unnamed account",
-    "formerAccount": "Former account"
+    "formerAccount": "Former account",
+    "filterOptions": "τις επιλογές φίλτρων",
+    "retryReads": "Επανάληψη φόρτωσης ελέγχου",
+    "loadingReads": "Φόρτωση ιστορικού ελέγχου και επιλογών φίλτρων…",
+    "loadFailed": "Δεν ήταν δυνατή η φόρτωση του ιστορικού ελέγχου ή των επιλογών φίλτρων.",
+    "refreshFailed": "Δεν ήταν δυνατή η ανανέωση του ιστορικού ελέγχου ή των επιλογών φίλτρων. Τα φίλτρα που δεν εφαρμόστηκαν διατηρούνται.",
+    "accessDenied": "Δεν έχεις πλέον πρόσβαση στο ιστορικό ελέγχου."
   },
   "userMultiFilters": {
     "all": "All",
@@ -5404,7 +5420,13 @@
     "importTooLarge": "Choose a file smaller than 1 MB.",
     "importEmpty": "The file contains no subjects.",
     "importFileType": "Choose a .json or .csv file.",
-    "importInvalid": "Could not import file: {detail}"
+    "importInvalid": "Could not import file: {detail}",
+    "retry": "Επανάληψη φόρτωσης καταλόγου",
+    "loadFailed": "Δεν ήταν δυνατή η φόρτωση του καταλόγου μαθημάτων.",
+    "refreshFailed": "Δεν ήταν δυνατή η ανανέωση του καταλόγου μαθημάτων. Τα προσχέδιά σου διατηρούνται· δοκίμασε ξανά πριν κάνεις αλλαγές.",
+    "accessDenied": "Δεν έχεις πλέον πρόσβαση στον κατάλογο μαθημάτων.",
+    "savedRefreshing": "Οι αλλαγές αποθηκεύτηκαν. Ανανέωση καταλόγου…",
+    "savedRefreshFailed": "Οι αλλαγές αποθηκεύτηκαν, αλλά δεν ήταν δυνατή η ανανέωση του καταλόγου μαθημάτων. Δοκίμασε ανανέωση."
   },
   "recruitment": {
     "preview": "Προεπισκόπηση φόρμας μόνο για ανάγνωση",

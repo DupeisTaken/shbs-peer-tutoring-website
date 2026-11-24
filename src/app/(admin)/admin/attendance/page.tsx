@@ -2,6 +2,7 @@
 import {
   useSessionViewState,
   useSessionPageScroll,
+  useSessionAccessDenied,
 } from "~/app/_components/session-view-state";
 import {
   attendanceViewParser,
@@ -16,7 +17,7 @@ import {
 import { useEffect, useId, useState } from "react";
 import { useFormatter, useTranslations } from "next-intl";
 import { useQueryClient } from "@tanstack/react-query";
-import { getQueryKey } from "@trpc/react-query";
+import { trpcProcedureKey, trpcQueryKey } from "~/lib/trpc-query-key";
 import { FilterToolbar, StatePanel } from "~/app/_components/ui/patterns";
 import { QueryFeedback } from "~/app/_components/ui/query-feedback";
 import { Button } from "~/app/_components/ui/button";
@@ -42,8 +43,6 @@ export default function SubmissionsPage() {
   const queryClient = useQueryClient();
   const [deniedTutors, setDeniedTutors] = useState(false);
   const [deniedSessions, setDeniedSessions] = useState(false);
-  // Resetting a denied filter can select an older cached month before eviction.
-  const [sessionDeniedAt, setSessionDeniedAt] = useState(0);
   const tutors = api.admin.tutors.useQuery(undefined, {
     enabled: !deniedTutors,
   });
@@ -73,11 +72,15 @@ export default function SubmissionsPage() {
   const tutorAccessDenied =
     tutors.error?.data?.code === "FORBIDDEN" ||
     tutors.error?.data?.code === "UNAUTHORIZED";
-  const sessionAccessDenied =
-    sessions.error?.data?.code === "FORBIDDEN" ||
-    sessions.error?.data?.code === "UNAUTHORIZED";
-  const tutorsHidden = tutorAccessDenied || deniedTutors;
-  const sessionsHidden = sessionAccessDenied || deniedSessions;
+  const tutorsHidden = useSessionAccessDenied({
+    ...tutors,
+    queryKey: trpcQueryKey(api.admin.tutors, ["admin", "tutors"]),
+  });
+  const sessionsHidden = useSessionAccessDenied({
+    ...sessions,
+    queryKey: trpcQueryKey(api.admin.sessions, ["admin", "sessions"], input),
+    denialKey: "attendance-sessions",
+  });
   useSessionPageScroll({
     id: "attendance-v1",
     scope: JSON.stringify(view),
@@ -88,42 +91,25 @@ export default function SubmissionsPage() {
       !sessionsHidden,
     enabled: !tutorsHidden && !sessionsHidden,
   });
-  // These keys and their authorization belong to the attendance feature. The
-  // feedback component only presents the resulting read/retry state.
-  if (tutorAccessDenied && !deniedTutors) setDeniedTutors(true);
-  else if (
-    deniedTutors &&
-    !tutorAccessDenied &&
-    tutors.isSuccess &&
-    !tutors.isFetching
-  )
-    setDeniedTutors(false);
+  // Bridge denial into the earlier query/view hooks before commit. The feature
+  // keeps ownership of its exact-tutor and all-session cache eviction below.
+  if (deniedTutors !== tutorsHidden) setDeniedTutors(tutorsHidden);
+  if (deniedSessions !== sessionsHidden) setDeniedSessions(sessionsHidden);
   useEffect(() => {
     if (tutorAccessDenied) {
       queryClient.removeQueries({
-        queryKey: getQueryKey(api.admin.tutors, undefined, "query"),
+        queryKey: trpcQueryKey(api.admin.tutors, ["admin", "tutors"]),
         exact: true,
       });
     }
   }, [tutorAccessDenied, queryClient]);
-  if (sessionAccessDenied && !deniedSessions) {
-    setDeniedSessions(true);
-    setSessionDeniedAt(sessions.errorUpdatedAt ?? 0);
-  } else if (
-    deniedSessions &&
-    !sessionAccessDenied &&
-    sessions.isSuccess &&
-    !sessions.isFetching &&
-    (sessions.dataUpdatedAt === undefined ||
-      sessions.dataUpdatedAt > sessionDeniedAt)
-  )
-    setDeniedSessions(false);
   useEffect(() => {
     if (deniedSessions) {
       queryClient.removeQueries({
         // Clearing saved filters changes the query key; conceal and evict all
         // attendance scopes so another cached month cannot release the denial.
-        queryKey: getQueryKey(api.admin.sessions, undefined, "query"),
+        queryKey: trpcProcedureKey(api.admin.sessions, ["admin", "sessions"]),
+        exact: false,
       });
     }
   }, [deniedSessions, queryClient]);

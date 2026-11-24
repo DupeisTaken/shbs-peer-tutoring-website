@@ -77,8 +77,8 @@ function fixture({
     scheduledProgramRefresh: { findMany: vi.fn().mockResolvedValue(refreshSchedules) },
     sessionPlanCohort: { findMany: vi.fn().mockResolvedValue(cohorts) },
     sessionPlanningRequest: { findMany: vi.fn().mockResolvedValue(requests.map((row) => ({ ...row, cohortId: "source-cohort", plan: { termId: "term" } }))) },
-    pairingExecutionSuccessor: { findMany: vi.fn(async ({ where }: { where: { targetPairingId: { in: string[] } } }) =>
-      successors.filter(row => where.targetPairingId.in.includes(row.targetPairingId))) },
+    pairingExecutionSuccessor: { findMany: vi.fn(async ({ where }: { where?: { targetPairingId: { in: string[] } } }) =>
+      successors.filter(row => !where || where.targetPairingId.in.includes(row.targetPairingId))) },
   };
   return { raw, db: raw as unknown as TransactionDb };
 }
@@ -237,6 +237,150 @@ describe("dated recurring room availability", () => {
     await expect(
       datedUnavailableRooms(db, schedule, ["room"], now),
     ).rejects.toThrow(RangeError);
+  });
+
+  it("matches 60-minute weekly schedules against their own 45-minute planned cohorts", async () => {
+    const own = booking("own");
+    own.plan.assignments = [{ pairingId: "selected" }, { pairingId: "sibling" }];
+    const { db } = fixture({ cohorts: [own] });
+    expect(
+      await datedUnavailableRooms(
+        db,
+        { ...schedule, endMin: 960, excludePairingId: "selected" },
+        ["own"],
+        now,
+      ),
+    ).toEqual(new Set());
+  });
+
+  it("ignores stale ordinary REGULAR room cohorts while preserving live and agreed dated room holds", async () => {
+    const staleMoved = {
+      ...booking("stale-moved"),
+      id: "cohort-stale-moved",
+      planId: "plan-stale-moved",
+      rescheduled: false,
+      participants: [{ id: "p1", scheduleOverride: false }],
+      plan: {
+        kind: "REGULAR",
+        termId: "term",
+        tutorId: "tutor-a",
+        originalDate: "2026-11-02",
+        assignments: [{ pairingId: "moved-pairing" }],
+      },
+    };
+    const staleRoomChanged = {
+      ...booking("stale-room"),
+      id: "cohort-stale-room",
+      planId: "plan-stale-room",
+      rescheduled: false,
+      participants: [{ id: "p2", scheduleOverride: false }],
+      plan: {
+        kind: "REGULAR",
+        termId: "term",
+        tutorId: "tutor-b",
+        originalDate: "2026-11-02",
+        assignments: [{ pairingId: "room-changed-pairing" }],
+      },
+    };
+    const liveOrdinary = {
+      ...booking("live-ordinary"),
+      id: "cohort-live-ordinary",
+      planId: "plan-live-ordinary",
+      rescheduled: false,
+      participants: [{ id: "p3", scheduleOverride: false }],
+      plan: {
+        kind: "REGULAR",
+        termId: "term",
+        tutorId: "tutor-c",
+        originalDate: "2026-11-02",
+        assignments: [{ pairingId: "live-pairing" }],
+      },
+    };
+    const explicitOverride = {
+      ...booking("explicit-override"),
+      id: "cohort-explicit-override",
+      planId: "plan-explicit-override",
+      rescheduled: false,
+      participants: [{ id: "p4", scheduleOverride: true }],
+      plan: {
+        kind: "REGULAR",
+        termId: "term",
+        tutorId: "tutor-a",
+        originalDate: "2026-11-02",
+        assignments: [{ pairingId: "moved-pairing" }],
+      },
+    };
+    const { raw, db } = fixture({
+      cohorts: [staleMoved, staleRoomChanged, liveOrdinary, explicitOverride],
+    });
+    const extended = Object.assign(raw, {
+      sessionPlanExecution: { findMany: vi.fn().mockResolvedValue([]) },
+      pairing: {
+        findMany: vi.fn().mockResolvedValue([
+          {
+            id: "moved-pairing",
+            tutorId: "tutor-a",
+            termId: "term",
+            groupId: null,
+            scheduleConfirmed: true,
+            dayOfWeek: 2,
+            startMin: 900,
+            roomId: "stale-moved",
+            term: { active: true },
+            tutor: { status: "ACTIVE" },
+            tutees: [{ tuteeId: "t1" }],
+          },
+          {
+            id: "room-changed-pairing",
+            tutorId: "tutor-b",
+            termId: "term",
+            groupId: null,
+            scheduleConfirmed: true,
+            dayOfWeek: 1,
+            startMin: 900,
+            roomId: "different-room",
+            term: { active: true },
+            tutor: { status: "ACTIVE" },
+            tutees: [{ tuteeId: "t2" }],
+          },
+          {
+            id: "live-pairing",
+            tutorId: "tutor-c",
+            termId: "term",
+            groupId: null,
+            scheduleConfirmed: true,
+            dayOfWeek: 1,
+            startMin: 900,
+            roomId: "live-ordinary",
+            term: { active: true },
+            tutor: { status: "ACTIVE" },
+            tutees: [{ tuteeId: "t3" }],
+          },
+        ]),
+      },
+    });
+    expect(
+      await datedUnavailableRooms(
+        extended as unknown as TransactionDb,
+        schedule,
+        ["stale-moved", "stale-room", "live-ordinary", "explicit-override"],
+        now,
+      ),
+    ).toEqual(new Set(["live-ordinary", "explicit-override"]));
+    expect(db).toBeDefined();
+  });
+
+  it("ignores active-period dated room bookings when validating an inactive historical period", async () => {
+    const { db } = fixture({
+      term: { active: false, startDate: null, endDate: null } as unknown as {
+        startDate: Date | null;
+        endDate: Date | null;
+      },
+      cohorts: [booking("room")],
+    });
+    expect(await datedUnavailableRooms(db, schedule, ["room"], now)).toEqual(
+      new Set(),
+    );
   });
 
   it.each(["cohorts", "requests"] as const)(

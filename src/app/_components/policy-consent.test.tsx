@@ -216,5 +216,8 @@ it("falls back to English for a blank translation and handles missing publicatio
 it("requests the relevant tutee policy when used without gated children", () => {
   render(subject("en", en, "tutee-policy"));
   open();
-  expect(mocks.policy).toHaveBeenCalledWith({ slug: "tutee-policy" });
+  expect(mocks.policy).toHaveBeenCalledWith(
+    { slug: "tutee-policy" },
+    { enabled: true },
+  );
 });

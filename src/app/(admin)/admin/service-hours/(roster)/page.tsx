@@ -2,6 +2,7 @@
 import {
   useSessionViewState,
   useSessionPageScroll,
+  useSessionAccessDenied,
 } from "~/app/_components/session-view-state";
 import { viewMonth } from "~/lib/management-view-state";
 import {
@@ -18,7 +19,7 @@ import {
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { getQueryKey } from "@trpc/react-query";
+import { trpcProcedureKey, trpcQueryKey } from "~/lib/trpc-query-key";
 import { useLocale, useTranslations } from "next-intl";
 
 import { api } from "~/trpc/react";
@@ -37,41 +38,40 @@ export default function SummaryPage() {
   // Empty selects the active period's semester; a month ("YYYY-MM") narrows it.
   const queryClient = useQueryClient();
   const [denied, setDenied] = useState(false);
-  const [deniedAt, setDeniedAt] = useState(0);
   const [month, setMonth] = useSessionViewState({
     id: "service-hours-month-v1",
     initialState: "",
     parse: viewMonth,
     enabled: !denied,
   });
-  const summary = api.admin.periodSummary.useQuery(
-    month ? { month } : undefined,
-    { enabled: !denied },
-  );
-  const accessDenied =
-    summary.error?.data?.code === "FORBIDDEN" ||
-    summary.error?.data?.code === "UNAUTHORIZED";
-  // Latch denial before committing any cached private content. Effects only evict.
-  if (accessDenied && !denied) {
-    setDenied(true);
-    setDeniedAt(summary.errorUpdatedAt ?? 0);
-  } else if (
-    denied &&
-    !accessDenied &&
-    summary.isSuccess &&
-    !summary.isFetching &&
-    (summary.dataUpdatedAt === undefined || summary.dataUpdatedAt > deniedAt)
-  )
-    setDenied(false);
+  const summaryInput = month ? { month } : undefined;
+  const summary = api.admin.periodSummary.useQuery(summaryInput, {
+    enabled: !denied,
+  });
+  const hidden = useSessionAccessDenied({
+    ...summary,
+    queryKey: trpcQueryKey(
+      api.admin.periodSummary,
+      ["admin", "periodSummary"],
+      summaryInput,
+    ),
+    denialKey: "service-hours-summary",
+  });
+  // The helper owns read recovery; bridge denial into the earlier month/query
+  // hooks before committing content. Effects retain their eviction ownership.
+  if (denied !== hidden) setDenied(hidden);
   useEffect(() => {
     if (denied) {
       // Period totals are private in every cached month, not just the selected filter.
       queryClient.removeQueries({
-        queryKey: getQueryKey(api.admin.periodSummary, undefined, "query"),
+        queryKey: trpcProcedureKey(api.admin.periodSummary, [
+          "admin",
+          "periodSummary",
+        ]),
+        exact: false,
       });
     }
   }, [denied, queryClient]);
-  const hidden = denied || accessDenied;
   const [view, setView] = useSessionViewState({
     id: "service-hours-roster-v1",
     initialState: initialServiceHoursView,

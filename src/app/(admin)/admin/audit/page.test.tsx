@@ -1,5 +1,11 @@
 /** @vitest-environment jsdom */
-import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
+import {
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  within,
+} from "@testing-library/react";
 import { afterEach, expect, it, vi } from "vitest";
 import { NextIntlClientProvider } from "next-intl";
 import messages from "../../../../../messages/en.json";
@@ -23,7 +29,21 @@ vi.mock("next/navigation", () => ({
 }));
 vi.mock("~/app/_components/audit-filters", () => ({
   AuditFilters: () => null,
-  emptyAuditView: { userId: "", kind: "", operation: "", entity: "", search: "", from: "", until: "" },
+  emptyAuditView: {
+    userId: "",
+    kind: "",
+    operation: "",
+    entity: "",
+    search: "",
+    from: "",
+    until: "",
+  },
+  hasAuditFilterOptions: (value: unknown) =>
+    !!value &&
+    typeof value === "object" &&
+    Array.isArray((value as { users?: unknown }).users) &&
+    Array.isArray((value as { operations?: unknown }).operations) &&
+    Array.isArray((value as { entities?: unknown }).entities),
 }));
 vi.mock("~/app/_components/audit-event-details", () => ({
   AuditEventDetails: ({ id }: { id: string }) => (
@@ -34,8 +54,12 @@ vi.mock("~/trpc/react", () => ({
   api: {
     useUtils: () => ({ admin: { auditLog: { invalidate: vi.fn() } } }),
     admin: {
-      auditFilterOptions: { useQuery: () => ({ data: { users: [], operations: [], entities: [] } }) },
-      undoAudit: { useMutation: () => ({ mutate: state.undo, isPending: false }) },
+      auditFilterOptions: {
+        useQuery: () => ({ data: { users: [], operations: [], entities: [] } }),
+      },
+      undoAudit: {
+        useMutation: () => ({ mutate: state.undo, isPending: false }),
+      },
       auditLog: {
         useQuery: () => ({
           data: [

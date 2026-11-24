@@ -41,6 +41,7 @@ import { QueryFeedback } from "~/app/_components/ui/query-feedback";
 import { useReadOnly } from "~/app/_components/read-only";
 import { invalidateAndReport } from "~/lib/invalidate-refresh";
 import { settleRefreshes } from "~/lib/settle-refreshes";
+import { trpcQueryKey } from "~/lib/trpc-query-key";
 import { UserDetails, UserDetailsHost } from "./user-details";
 import { LoginSetup, MembershipBadges } from "./presentation";
 import { DisclosureSection } from "~/app/_components/ui/disclosure-section";
@@ -247,8 +248,16 @@ export default function UsersPage() {
     decideAppeal.error?.data?.code,
   ].some((code) => code === "FORBIDDEN" || code === "UNAUTHORIZED");
   const appealDenied = useSessionAccessDenied(
-    { ...appeals, denialKey: "account-appeal-reviews" },
-    { ...accounts, denialKey: "account-appeal-directory" },
+    {
+      ...appeals,
+      denialKey: "account-appeal-reviews",
+      queryKey: trpcQueryKey(api.admin.appeals, ["admin", "appeals"]),
+    },
+    {
+      ...accounts,
+      denialKey: "account-appeal-directory",
+      queryKey: trpcQueryKey(api.admin.accounts, ["admin", "accounts"]),
+    },
     {
       error: decideAppeal.error,
       isSuccess: !decideAppeal.error,
@@ -346,9 +355,15 @@ export default function UsersPage() {
 
   const callerRole = accounts.data?.caller.role;
   const isHead = !readOnly && !directoryDenied && callerRole === "HEAD";
-  const isAdminTier = !readOnly && !directoryDenied && ["HEAD", "ADMIN"].includes(callerRole ?? "");
+  const isAdminTier =
+    !readOnly &&
+    !directoryDenied &&
+    ["HEAD", "ADMIN"].includes(callerRole ?? "");
   // Profile proposals are permitted to Coordinators; direct security and role grants remain Admin/Head.
-  const canEditProfiles = !readOnly && !directoryDenied && ["HEAD", "ADMIN", "COORDINATOR"].includes(callerRole ?? "");
+  const canEditProfiles =
+    !readOnly &&
+    !directoryDenied &&
+    ["HEAD", "ADMIN", "COORDINATOR"].includes(callerRole ?? "");
   const sort = useRosterSort(
     "users-sort-v1",
     ["name", "account", "role"],
@@ -615,7 +630,10 @@ export default function UsersPage() {
         // Keep an in-flight review owner alive when a new hash focuses a source.
         // Hidden browsing controls return with their existing recovery state.
         <div hidden={!!linkedTutorId}>
-          <CombineRecords canApply={isAdminTier} onPendingChange={setCombinePending} />
+          <CombineRecords
+            canApply={isAdminTier}
+            onPendingChange={setCombinePending}
+          />
         </div>
       )}
       <fieldset
@@ -792,7 +810,9 @@ export default function UsersPage() {
           <QueryFeedback
             hasData={appeals.data !== undefined}
             loading={appeals.data === undefined}
-            error={(!!appeals.error || appealReloadFailed) && !appealRefreshFailed}
+            error={
+              (!!appeals.error || appealReloadFailed) && !appealRefreshFailed
+            }
             retrying={appealReadBlocked}
             loadingTitle={t("managementRecovery.loading", {
               section: t("admin.users.appeals.heading"),
@@ -1206,11 +1226,13 @@ export default function UsersPage() {
                         {t("admin.tutors.account.sendSetup")}
                       </TableAction>
                     )}
-                  {!readOnly && linkedTutor.account === "none" && !isAdminTier && (
-                    <span className="muted max-w-56 text-xs">
-                      {t("usersDirectory.setupHeadRequired")}
-                    </span>
-                  )}
+                  {!readOnly &&
+                    linkedTutor.account === "none" &&
+                    !isAdminTier && (
+                      <span className="muted max-w-56 text-xs">
+                        {t("usersDirectory.setupHeadRequired")}
+                      </span>
+                    )}
                 </TableActions>
               </tr>
             )}
@@ -1375,11 +1397,16 @@ export default function UsersPage() {
                         {t("accountProfile.editProfile")}
                       </TableAction>
                     )}
-                    {canEditProfiles && !u.userId && !u.tutorId && u.tuteeId && (
-                      <TableAction onClick={() => setEditingTuteeId(u.tuteeId)}>
-                        {t("accountProfile.editProfile")}
-                      </TableAction>
-                    )}
+                    {canEditProfiles &&
+                      !u.userId &&
+                      !u.tutorId &&
+                      u.tuteeId && (
+                        <TableAction
+                          onClick={() => setEditingTuteeId(u.tuteeId)}
+                        >
+                          {t("accountProfile.editProfile")}
+                        </TableAction>
+                      )}
                     {isAdminTier &&
                       u.userId &&
                       u.role === "STUDENT" &&
@@ -1405,7 +1432,10 @@ export default function UsersPage() {
                           {t("identityUsername.assign")}
                         </TableAction>
                       )}
-                    {isAdminTier && u.userId && !u.isSelf && u.role !== "HEAD" ? (
+                    {isAdminTier &&
+                    u.userId &&
+                    !u.isSelf &&
+                    u.role !== "HEAD" ? (
                       <TableAction
                         variant="danger"
                         disabled={
@@ -1461,7 +1491,12 @@ export default function UsersPage() {
       onRetryAccess={() => void accounts.refetch({ cancelRefetch: false })}
       retryingAccess={accounts.isFetching}
       directoryRows={accounts.data?.rows}
-      directoryReady={accounts.isSuccess && !accounts.isFetching && !accounts.error && !directoryDenied}
+      directoryReady={
+        accounts.isSuccess &&
+        !accounts.isFetching &&
+        !accounts.error &&
+        !directoryDenied
+      }
       returnFocusFallback={() => {
         if (directoryDenied) return directoryRetry.current;
         // Hash navigation owns its existing source-focus recovery after Close.
@@ -1491,7 +1526,11 @@ function DirectoryTuteeEditor({
       <TuteeEditor
         row={record}
         canApply={canApply}
-        historyPermissions={canApply ? { canLink: true, canCorrectOwnership: canApply } : undefined}
+        historyPermissions={
+          canApply
+            ? { canLink: true, canCorrectOwnership: canApply }
+            : undefined
+        }
         onClose={onClose}
       />
     );

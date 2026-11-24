@@ -3100,7 +3100,17 @@
     "newer": "최신 기록",
     "older": "이전 기록",
     "details": "변경 세부 정보",
-    "patrolChanged": "Patrol changed. Reload before correcting it."
+    "patrolChanged": "Patrol changed. Reload before correcting it.",
+    "patrolRooms": "순찰 교실 옵션",
+    "reloadPatrol": "순찰 초안 다시 불러오기",
+    "patrolReloadFailed": "최신 순찰 기록과 교실 옵션을 불러오지 못했습니다. 작성 중인 초안은 유지됩니다.",
+    "patrolUnavailable": "이 순찰 기록은 현재 이력 페이지에 더 이상 표시되지 않습니다. 초안은 유지됩니다.",
+    "patrolSaved": "수정이 저장되었습니다. 순찰 이력을 새로고침하는 중…",
+    "patrolSavedRefreshFailed": "수정이 저장되었지만 순찰 이력을 새로고침하지 못했습니다. 새로고침을 시도해 주세요.",
+    "patrolQueuedRefreshFailed": "수정이 검토 요청으로 제출되었지만 순찰 이력을 새로고침하지 못했습니다. 새로고침을 시도해 주세요.",
+    "invalidPatrolTime": "유효한 확인 시간을 입력하세요.",
+    "patrolRoomUnavailable": "{room} (사용 불가)",
+    "patrolRoomRequired": "저장하기 전에 각 기록에 사용 가능한 교실을 선택하세요."
   },
   "emailChange": {
     "title": "계정 이메일 변경",
@@ -4995,7 +5005,13 @@
       "ATTEMPT": "미적용 시도"
     },
     "unnamedAccount": "Unnamed account",
-    "formerAccount": "Former account"
+    "formerAccount": "Former account",
+    "filterOptions": "필터 옵션",
+    "retryReads": "감사 기록 다시 불러오기",
+    "loadingReads": "감사 이력과 필터 옵션을 불러오는 중…",
+    "loadFailed": "감사 이력 또는 필터 옵션을 불러오지 못했습니다.",
+    "refreshFailed": "감사 이력 또는 필터 옵션을 새로고침하지 못했습니다. 적용하지 않은 필터는 유지됩니다.",
+    "accessDenied": "더 이상 감사 이력에 접근할 수 없습니다."
   },
   "userMultiFilters": {
     "all": "All",
@@ -5404,7 +5420,13 @@
     "importTooLarge": "Choose a file smaller than 1 MB.",
     "importEmpty": "The file contains no subjects.",
     "importFileType": "Choose a .json or .csv file.",
-    "importInvalid": "Could not import file: {detail}"
+    "importInvalid": "Could not import file: {detail}",
+    "retry": "카탈로그 다시 불러오기",
+    "loadFailed": "과목 카탈로그를 불러오지 못했습니다.",
+    "refreshFailed": "과목 카탈로그를 새로고침하지 못했습니다. 초안은 유지되므로 변경 전에 다시 시도하세요.",
+    "accessDenied": "더 이상 과목 카탈로그에 접근할 수 없습니다.",
+    "savedRefreshing": "변경 사항이 저장되었습니다. 카탈로그를 새로고침하는 중…",
+    "savedRefreshFailed": "변경 사항이 저장되었지만 과목 카탈로그를 새로고침하지 못했습니다. 새로고침을 시도해 주세요."
   },
   "recruitment": {
     "preview": "읽기 전용 양식 미리보기",
