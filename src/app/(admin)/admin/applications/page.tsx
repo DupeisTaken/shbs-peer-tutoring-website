@@ -140,6 +140,7 @@ function ApplicationCard({
     t("participantNames.unnamed"),
   );
   const readOnly = useReadOnly();
+  const utils = api.useUtils();
   const account = api.account.me.useQuery().data;
   const additional = app.type !== "INITIAL";
   const canEditPanel =
@@ -149,7 +150,7 @@ function ApplicationCard({
       (!!account &&
         ["ADMIN", "HEAD"].includes(account.role) &&
         account.tutorId !== app.requestedTutorId &&
-        app.status === "PENDING"));
+        ["PENDING", "INTERVIEW"].includes(app.status)));
   const { confirm, dialog } = useDialog();
   // Mount details lazily, then retain the editor while collapsed so panel drafts
   // survive reopening without fetching qualifications for every unopened card.
@@ -449,8 +450,44 @@ function ApplicationCard({
                         .join(" · "),
                     }))}
                     interviewers={app.interviewers}
+                    repairRequired={additional && app.status === "INTERVIEW"}
                     tutors={tutors}
-                    onChanged={onChanged}
+                    onChanged={() => onChanged(true)}
+                    onReload={async () => {
+                      const [rows, actor, currentFeatures] = await Promise.all([
+                        utils.admin.tutorApplications.fetch(undefined, {
+                          staleTime: 0,
+                        }),
+                        utils.account.me.fetch(undefined, { staleTime: 0 }),
+                        utils.program.features.fetch(undefined, {
+                          staleTime: 0,
+                        }),
+                      ]);
+                      const fresh = rows.find((row) => row.id === app.id);
+                      // A fresh snapshot is adoptable only while the same actor
+                      // can still edit this exact application and enabled feature.
+                      if (
+                        !fresh ||
+                        fresh.isInvalid ||
+                        !currentFeatures.INTERVIEWS ||
+                        !["ADMIN", "HEAD", "COORDINATOR"].includes(
+                          actor.role,
+                        ) ||
+                        (fresh.type !== "INITIAL" &&
+                          (!["ADMIN", "HEAD"].includes(actor.role) ||
+                            actor.tutorId === fresh.requestedTutorId ||
+                            !["PENDING", "INTERVIEW"].includes(fresh.status)))
+                      )
+                        throw new Error(t("uiPatterns.loadFailed"));
+                      return {
+                        applicationId: fresh.id,
+                        updatedAt: fresh.updatedAt,
+                        interviewers: fresh.interviewers,
+                        repairRequired:
+                          fresh.type !== "INITIAL" &&
+                          fresh.status === "INTERVIEW",
+                      };
+                    }}
                   />
                   <p className="muted my-3 text-sm">
                     {t("workflows.allVotes")}{" "}

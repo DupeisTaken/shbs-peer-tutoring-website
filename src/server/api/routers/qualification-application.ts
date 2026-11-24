@@ -132,7 +132,8 @@ export const qualificationApplicationRouter = createTRPCRouter({
           },
           select: { id: true },
         });
-        const { managementReviewers } = await import("~/server/notifications/create");
+        const { managementReviewers } =
+          await import("~/server/notifications/create");
         // Applicant self-review is forbidden even for Head in this separate domain.
         const reviewers = await managementReviewers(tx, { exclude: user.id });
         await notifyUsers(
@@ -215,13 +216,42 @@ export const qualificationApplicationRouter = createTRPCRouter({
   // adminOnlyProcedure rejects coordinators before any proposal can be queued.
   decide: adminOnlyProcedure
     .input(
-      z.object({
-        id: z.string().min(1),
-        accept: z.boolean(),
-        comment: z.string().trim().min(1).max(500),
-        expectedUpdatedAt,
-        completion: interviewServiceInput.optional(),
-      }),
+      z
+        .object({
+          id: z.string().min(1),
+          accept: z.boolean(),
+          comment: z.string().trim().min(1).max(500),
+          expectedUpdatedAt,
+          // A repaired panel may have none of the earlier physical attendees.
+          // Only the explicit retained-service path accepts that empty intersection.
+          completion: interviewServiceInput
+            .extend({
+              attendedTutorIds: z.array(z.string()),
+            })
+            .optional(),
+          retainRecordedService: z.literal(true).optional(),
+        })
+        .superRefine((input, ctx) => {
+          if (
+            input.completion?.attendedTutorIds.length === 0 &&
+            !input.retainRecordedService
+          )
+            ctx.addIssue({
+              code: "custom",
+              path: ["completion", "attendedTutorIds"],
+              message: "Select at least one actual interview attendee.",
+            });
+          if (
+            input.retainRecordedService &&
+            (!input.accept || !input.completion)
+          )
+            ctx.addIssue({
+              code: "custom",
+              path: ["retainRecordedService"],
+              message:
+                "Retained service requires approval and the recorded completion evidence.",
+            });
+        }),
     )
     .mutation(({ ctx, input }) =>
       inTransaction(ctx.db, (tx) =>
