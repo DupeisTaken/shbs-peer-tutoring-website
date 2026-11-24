@@ -400,6 +400,50 @@ describe("static operator recovery schema review", () => {
       ),
     ).toThrow("UNREVIEWED_PUBLIC_RECOVERY_SCHEMA");
   });
+  it("accepts complete archive-provenance receipt metadata across reviewed schema versions and refuses partial or widened tables", () => {
+    const metadata = reviewedRecoverySchemaMetadata;
+    for (const columns of [
+      metadata.columns,
+      metadata.identityColumns,
+      metadata.legacyDeclineColumns,
+      metadata.identityLegacyDeclineColumns,
+    ]) {
+      expect(() =>
+        assertReviewedRecoverySchema(
+          [
+            ...columns,
+            ...metadata.importProvenanceColumns,
+            ...metadata.archiveProvenanceReceiptColumns,
+          ],
+          metadata.enums,
+        ),
+      ).not.toThrow();
+      expect(() =>
+        assertReviewedRecoverySchema(
+          [
+            ...columns,
+            ...metadata.importProvenanceColumns,
+            ...metadata.archiveProvenanceReceiptColumns.slice(1),
+          ],
+          metadata.enums,
+        ),
+      ).toThrow("UNREVIEWED_PUBLIC_RECOVERY_SCHEMA");
+    }
+    expect(() =>
+      assertReviewedRecoverySchema(
+        [
+          ...metadata.columns,
+          ...metadata.archiveProvenanceReceiptColumns,
+          {
+            table_name: "ArchiveProvenanceReceipt",
+            column_name: "bypassToken",
+            udt_name: "text",
+          },
+        ],
+        metadata.enums,
+      ),
+    ).toThrow("UNREVIEWED_PUBLIC_RECOVERY_SCHEMA");
+  });
   it("accepts the reviewed catalog and refuses a matching-but-unreviewed bearer table or column", () => {
     const { columns, enums } = reviewedRecoverySchemaMetadata;
     expect(() => assertReviewedRecoverySchema(columns, enums)).not.toThrow();

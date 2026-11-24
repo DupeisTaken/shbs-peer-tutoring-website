@@ -2695,6 +2695,24 @@ model ImportedRecordProvenance {
   @@id([entity, recordId])
 }
 
+/// Durable immutable receipt for operator-reviewed archive provenance reconciliation.
+model ArchiveProvenanceReceipt {
+  id          String   @id @default(cuid())
+  actorId     String
+  clientKey   String   @db.Uuid
+  inputHash   String
+  planHash    String
+  fingerprint String
+  reason      String
+  channel     String   @default("OPERATOR")
+  evidence    Json
+  subjects    Json
+  createdAt   DateTime @default(now())
+
+  @@unique([actorId, clientKey])
+  @@index([createdAt])
+}
+
 /// Independent school issue chain; previews and mail delivery never advance it.
 model SchoolHoursSchedule {
   id String @id @default("program")
