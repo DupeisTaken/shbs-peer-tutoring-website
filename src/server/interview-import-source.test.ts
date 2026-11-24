@@ -137,3 +137,14 @@ it("fences an imported former owner's credit when clearing a replacement panel",
   ).toContainEqual({ entity: "ServiceHourAdjustment", recordId: credit.id });
   expect(f.tx.serviceHourAdjustment.deleteMany).not.toHaveBeenCalled();
 });
+
+it("blocks imported historical credits before native row-shape collision checks when clearing", async () => {
+  const f = fixture({ entity: "ServiceHourAdjustment", recordId: credit.id });
+  f.tx.serviceHourAdjustment.findMany.mockResolvedValue([
+    { ...credit, reason: "Pretracking interview credit" },
+  ]);
+  await expect(
+    clearInterviewHours(f.db, applicationId, [tutorId]),
+  ).rejects.toThrow("imported historical evidence");
+  expect(f.tx.serviceHourAdjustment.deleteMany).not.toHaveBeenCalled();
+});

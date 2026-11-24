@@ -633,7 +633,7 @@ const panelRepairServiceReceipt = z.object({
 /** Legacy IDs have no source foreign key. A prefix finds departed historical
  * owners too, but only a canonical source ID and owner/shape establish ownership.
  * Exact current-panel IDs still catch collisions with unrelated adjustments. */
-export async function interviewHourRows(
+async function interviewHourCandidates(
   db: DomainDb,
   applicationId: string,
   tutorIds: string[],
@@ -649,11 +649,16 @@ export async function interviewHourRows(
       ],
     },
   });
-  const rows = candidates.filter(
+  return candidates.filter(
     (row) =>
       owners.has(row.id) ||
       row.id === interviewHoursId(applicationId, row.tutorId),
   );
+}
+
+function validateInterviewHourRows<
+  T extends { id: string; tutorId: string; type: string; reason: string | null },
+>(applicationId: string, rows: T[]) {
   for (const row of rows) {
     if (
       row.id !== interviewHoursId(applicationId, row.tutorId) ||
@@ -669,19 +674,29 @@ export async function interviewHourRows(
   return rows;
 }
 
+export async function interviewHourRows(
+  db: DomainDb,
+  applicationId: string,
+  tutorIds: string[],
+) {
+  const rows = await interviewHourCandidates(db, applicationId, tutorIds);
+  return validateInterviewHourRows(applicationId, rows);
+}
+
 /** Call while holding the application's review lock, before discarding its panel. */
 export async function clearInterviewHours(
   db: DomainDb,
   applicationId: string,
   tutorIds: string[],
 ) {
-  const rows = await interviewHourRows(db, applicationId, tutorIds);
+  const candidates = await interviewHourCandidates(db, applicationId, tutorIds);
   await assertMutableInterviewSources(
     db,
     applicationId,
-    [...new Set([...tutorIds, ...rows.map((row) => row.tutorId)])],
-    rows.map((row) => row.id),
+    [...new Set([...tutorIds, ...candidates.map((row) => row.tutorId)])],
+    candidates.map((row) => row.id),
   );
+  const rows = validateInterviewHourRows(applicationId, candidates);
   await db.serviceHourAdjustment.deleteMany({
     where: { id: { in: rows.map((row) => row.id) } },
   });
