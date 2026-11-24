@@ -502,23 +502,22 @@ Security mail is independent. A zero-effect event has explicit coverage; missing
 ambiguous or legacy origins remain unknown. Mixed preserved/compensated events
 with indistinguishable effects block automatic cancellation.
 
-Notification origin capture uses ordered AFTER ROW triggers around the existing
-mail enqueue trigger. BEFORE ROW stacks cannot safely pair a bulk insert with its
-later AFTER events. Migration 054000 preserves the earlier migration and replaces
-that ordering; coverage refuses coexistence with the old start trigger. A trusted
-primary root must contain the exact typed source mutation in the current
-transaction before its notice is created. Each other outstanding root with that
-same source mutation receives its own immutable event/effect reference to the
-shared physical notice or mail. Recipient overlap alone never establishes a link.
-Review decisions use their actual review record even when the signup request
-remains unchanged. Missing source proof stays unknown.
+Notification origin capture uses ordered `AFTER ROW` triggers around the mail
+enqueue trigger (`BEFORE ROW` stacks cannot safely pair a bulk insert with later
+`AFTER` events; coverage refuses coexistence with superseded start triggers). A
+trusted primary root must contain the exact typed source mutation in the current
+transaction before its notice is created. Each overlapping root with that same
+source mutation receives its own immutable event/effect reference to the shared
+physical notice or mail; recipient overlap alone never establishes a link. Review
+decisions use their actual review record even when the signup request is
+unchanged, and missing source proof stays unknown.
 
-Migration 056000 introduces delivery coverage marker 2; earlier markers cannot
-prove complete overlap attribution and are not backfilled by guesswork. Apply,
-transport admission and completion acquire all participating recovery roots in
-sorted order before physical delivery locks. A cancellation from either root
-stops the shared pending effect; a second root cannot authorize replay. The
-public inventory format remains version 1 because its safe fields are unchanged.
+Delivery coverage marker `2` tracks complete multi-root overlap attribution
+(earlier marker versions are not backfilled by guesswork). Apply, transport
+admission and completion acquire all participating recovery roots in sorted order
+before physical delivery locks. Cancelling from either root stops the shared
+pending effect without permitting replay from a second root. The public inventory
+format stays at version 1.
 
 Preview fingerprints include the safe effect inventory. Pending or leased generic
 deliveries are stopped under the recovery and exact delivery fences; unseen
@@ -576,64 +575,5 @@ Planning is bounded to 100 events, 2,000 changes, 1,000 tracked identities,
 these limits blocks automated execution on both routes. The read-only plan cannot
 invent missing history or force unsupported later work through compensation.
 
-[Standalone operator tests](../../scripts/recovery.test.ts) use synthetic dumps,
-injected database clients and executable fake PostgreSQL tools. They cover parser
-bounds, plan hashing, wrong-database refusal, changed backups, replay protection,
-external evidence, fixed argv, failure fencing and secret-free errors without
-touching a real database or running Next. Domain integration tests separately
-verify real transaction, permission, causal preservation and receipt behavior.
-CI runs the standalone tooling tests alongside the ordinary required checks. The
-separate [isolated rehearsal workflow](../../.github/workflows/recovery-rehearsal.yml)
-uses two job-owned PostgreSQL 16 services and native PostgreSQL 16 clients. It runs
-for scoped recovery/schema changes or explicit dispatch without changing the
-ordinary required-job topology.
-
-The [committed journal rehearsal](../../scripts/recovery-transfer-journal-postgres.test.ts)
-also executes the real `scripts/recovery.ts` admission entry point in separate,
-bounded Node processes. In the same random fixture database it commits an
-accountless admission and two preserved name edits through installed journal
-triggers, then exercises checkpoint, compare, stale-plan refusal, live actor
-demotion refusal, restore, exact retry, receipt lookup and retry-key conflict.
-The longer supported chain remains ineligible for website recovery. Snapshots
-check that reads and refusals preserve state, one operator compensation creates
-one receipt/reversal audit, and retry preserves that result while deliberately
-advancing the recovery fence. Unrelated transfer fixtures remain unchanged.
-Children use literal argv, an explicit synthetic environment and an empty owned
-dotenv file; each child must settle before database cleanup. This establishes the
-CLI dispatcher/file/authorization/transaction chain separately from parser tests,
-injected tools, direct domain calls and the whole-site HTTP rehearsal below.
-
-The opt-in [PostgreSQL restoration rehearsal](../../scripts/recovery-postgres.test.ts)
-requires two caller-owned isolated loopback clusters with distinct ports,
-`shbs_*_test` maintenance databases and compatible PostgreSQL tools. Set
-`SHBS_RECOVERY_TEST_SOURCE_ADMIN_URL` and `SHBS_RECOVERY_TEST_STAGING_ADMIN_URL`,
-then run it serially with `node --import tsx --test scripts/recovery-postgres.test.ts`.
-It applies the committed migration chain to random fixture databases, exercises
-native dump/restore and compares every restored public row with the actual
-checkpoint and every source row before rollback. Synthetic cases include
-retirement, suspension, independent grants/contact edits, source-only and
-backup-only accounts, null-password/high credential generations, each known bearer
-family, immutable proof receipts, sent/deferred effects, stale source state,
-transactional failure fencing and same-intent phase resumption. It then exercises
-real HTTP authentication, isolated pointer cutover and newest-security rollback.
-Its trusted matching standalone build is required in `.next/standalone`, including
-the externally bound `.recovery-checkout.json` manifest. The hosted workflow builds
-this runtime serially using only its job-owned synthetic database. Correctly
-minted registration, survey, calendar, school report, history, viewer/crew/login
-OTP and reset proofs must first succeed on a checkpoint clone and then fail after
-reconciliation through the real application routes. SQL inventory quarantine
-evidence for other proof families is reported separately. Both acceptance and
-rollback clone checks run ordinary Auth.js and the production worker startup path;
-the real pointer endpoints remain read-only.
-The helper cleans up only generated fixture databases/roles, never resets a
-supplied maintenance database and skips when either URL is absent.
-
-`SHBS_RECOVERY_TEST_ARTIFACT_DIR` enables allowlisted synthetic JSON/HTML receipts.
-The workflow uploads only the restoration receipt/report and allowlisted
-`w115-cli-witness.json`. The CLI witness records the tested checkout/source hashes,
-command case IDs, stable error codes, counters, booleans and owned cleanup results;
-it excludes plans, raw command output, fixture identities, grant codes, dumps,
-raw rows, connection URLs and credentials. A skipped local run or authored workflow is not a successful
-native rehearsal: use the result and artifacts for the exact reviewed revision.
-Neither mocked tools nor a successful disposable clone establishes production
-restoration, external-storage recovery or activation of a writable live site.
+- **Standalone CLI tests:** `npm run test:recovery` ([scripts/recovery.test.ts](../../scripts/recovery.test.ts), run in CI `checks`) tests parser bounds, plan hashing, wrong-database/changed-backup refusal, replay protection and secret-free errors with stubbed DB/Postgres tools.
+- **Committed journal & whole-site rehearsals:** [scripts/recovery-transfer-journal-postgres.test.ts](../../scripts/recovery-transfer-journal-postgres.test.ts) runs real `scripts/recovery.ts` admission/checkpoint CLI flows against isolated Postgres; [scripts/recovery-postgres.test.ts](../../scripts/recovery-postgres.test.ts) (opt-in via `SHBS_RECOVERY_TEST_SOURCE_ADMIN_URL` and `SHBS_RECOVERY_TEST_STAGING_ADMIN_URL`, run in CI by [recovery-rehearsal.yml](../../.github/workflows/recovery-rehearsal.yml)) exercises real dump/restore, row-for-row comparison, proof quarantine, HTTP acceptance and rollback against two isolated PostgreSQL 16 clusters. Set `SHBS_RECOVERY_TEST_ARTIFACT_DIR` to emit allowlisted JSON/HTML receipts (`w115-cli-witness.json`, excluding secrets/dumps/identities). Disposable rehearsals do not replace production restore or live cutover checks.

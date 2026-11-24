@@ -29,13 +29,14 @@ comparisons and alternative posting instructions. Missing historical carry is
 shown as unavailable, never inferred as zero. Both layouts share correction
 instructions; printed management output uses only the table.
 
-The saved public report uses the same four-field order, with a full-width native
-Details disclosure per person. The recipient email is a notification only:
-month/revision metadata and the link to the report, with no individual hour amounts,
-carry balances, participant lists or source breakdowns. The viewed report is the
+The saved public report uses the same four-field order, where clicking **Hours**
+(or the zero dash) opens a native `<div popover="auto" role="dialog">` evidence
+popover without a separate Details row (retaining an in-flow anchor fallback for
+older webviews). The recipient email is a notification only: month/revision
+metadata and the link to the report, with no individual hour amounts, carry
+balances, participant lists or source breakdowns. The viewed report is the
 posting instruction. Notification emails, the saved-report table and staff views
-are separate presentations of the same saved edition;
-review screenshots of those views are evidence, not images attached to emails.
+are separate presentations of the same saved edition.
 
 ## Source accounting and opening review
 
@@ -118,22 +119,14 @@ and signed corrections retain their existing eligibility.
 
 If a restored imported source ID overlaps previously reviewed or committed school
 evidence, issuance blocks for reconciliation instead of generating an artificial
-negative reversal. The migration does not guess which older records came from an
-import: pretracking evidence retains the explicit school-ledger opening review.
-This release does not add a bulk archive-to-report release action. Intentionally
-unreported historical hours require operator reconciliation with the school
-ledger; importing them alone is not posting authority. Opening-balance review
-does not establish archive provenance. Older unclassified records retain their
-existing automation behavior until a separate operator review establishes their
-origin; this release adds no retrospective classification tool or automatic
-backfill. Normal imported source
-inserts are journaled through their original source references. Simple financial
-provenance keys also link boundary changes to tracked source IDs as unsupported
-recovery consequences. A security-overlay restore fingerprints all provenance and
-refuses divergence rather than dropping the boundary silently. Composite marker
-keys do not independently expand into parent recovery references: this release
-has no marker-release API, and a future standalone reclassification workflow must
-add typed recovery references before it can safely change those boundaries.
+negative reversal. Pretracking evidence retains explicit school-ledger opening
+review; intentionally unreported historical hours require operator reconciliation
+with the school ledger rather than automatic import release or retrospective
+backfill. Normal imported source inserts are journaled through their original
+source references, financial provenance keys link boundary changes as unsupported
+recovery consequences, and security-overlay restores fingerprint all provenance
+and refuse divergence. Composite marker keys do not independently expand into
+parent recovery references (there is no marker-release API).
 
 Tutoring and Crew sources are attributed through explicit current/retained
 ownership and account-retirement history, never matching names, email or directory
@@ -303,58 +296,33 @@ forwarded link can cause a visit; this is not an email-read receipt or confirmat
 that school hours were posted. The public report displays no other recipient's
 address, reminders or engagement history. Existing links have no invented history.
 
-Apply `20261111020000_school_recipient_reminders` and regenerate Prisma. Existing
-rows retain the `initial` send key; reminder rows use distinct keys while the
-existing school-mail context-null constraint remains intact. This feature layers
-on the single-language notification email and compact report design in PR #653;
-recipient reminders use the same immutable report and brief email layout.
+Existing delivery rows use the `initial` send key; recipient reminder rows use
+distinct keys while preserving the school-mail context-null constraint and the
+immutable report layout.
 
 ## Authority and deployment
 
 The settings editor adopts its configuration version and initial reporting month
-once. Background reads expose stale settings without replacing the draft or its
-selected month; an explicit successful Reload replaces the configuration snapshot.
-Authoritative denial clears private drafts, reviews and requested previews. A fresh
-successful Retry restores reading, but a discarded preview must be requested again.
-Retry and reload completions overtaken by newer denial or unmount cannot restore
-old evidence. Accepted writes retain their read-only recovery instead of replaying
-the mutation after a failed refresh.
+once. Background reads expose stale settings without replacing drafts; explicit
+Reload updates the snapshot after a successful read. Authoritative denial clears
+private drafts, reviews and previews until a fresh Retry succeeds. Accepted
+writes use read-only recovery if refresh fails.
 
 Admin, Head and Coordinator can inspect management previews and reports; Viewer
 and participant roles cannot. Admin/Head apply settings directly; Coordinators
 propose settings changes for review. Opening-baseline review, issuance, retry and
 link management require direct Admin/Head authority. Public capabilities confer
-no management access. Shared links are read-only; personal links authorize only
-their original mailbox's reminder requests.
+no management access; shared links are read-only and personal links authorize
+only their original mailbox's reminder requests.
 
-Apply the complete reporting migration chain through
-`20261108010000_school_hours_recipient_labels` and the prospective archive-boundary
-migration `20261108010000_imported_record_provenance`, then regenerate Prisma
-before starting the updated application. The first migration
-adds the school reporting tables and outbox relation, disables the replaced
-monthly schedule and retires unsent
-overview receipts while preserving sent evidence. The two follow-up migrations
-permit only the narrowly scoped external school delivery shape and forbid
-request-specific context on those receipts.
-The journal migration registers both legacy and school-reporting tables with the
-recovery change journal. It reuses compatible origin/always coverage and installs
-missing triggers; it refuses disabled, replica-only or otherwise incompatible
-triggers without replacing them. Investigate that database state before retrying.
-The recovery baseline migration records a present-day `UNSUPPORTED` baseline for existing rows
-linked to unfinished recovery actions by the journal's top-level identities. It
-does not update report rows, reconstruct past event order, infer ownership from
-private report contents or reopen completed recoveries. Repeating registration
-does not duplicate baseline evidence. Registration follows connected report and
-schedule identities to completion in one call; a shared schedule conservatively
-connects all its editions. These consequences require manual review,
-not automatic admission compensation. The record inspector exposes only permitted
-metadata; report bodies, opening balances, recipients and link hashes stay private.
-The recipient-label migration adds an empty JSON object to existing schedules;
-it preserves their recipient addresses, report history and delivery receipts.
-Automation starts disabled; review opening balances and configure recipients
-before activation. No new environment secret is required. Persistent Node hosting
-is required for automatic
-sending; real SMTP/inbox readiness must be verified on the intended deployment.
+Both legacy and school-reporting tables are registered with the recovery change
+journal (existing rows linked to unfinished recovery actions carry an
+`UNSUPPORTED` baseline requiring manual review rather than automatic
+compensation; private report bodies, opening balances, recipients and link hashes
+stay hidden from the record inspector). Automation starts disabled: review
+opening balances and configure recipients before enabling. Persistent Node
+hosting is required for automatic sending; verify live SMTP/inbox delivery on the
+target deployment.
 
 See the [staff guide](../guides/user-guide.md) and
 [deployment procedure](../guides/deployment.md#monthly-service-hours-delivery).
