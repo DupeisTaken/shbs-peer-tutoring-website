@@ -16,6 +16,8 @@ const user = (id: string, role: Session["role"], client = db) =>
       user: { id, name: "Translation Review" },
       role,
       tutorId: null,
+      sessionVersion: 0,
+      historyAccessRevision: 0,
       expires: "2099-01-01",
     },
   });

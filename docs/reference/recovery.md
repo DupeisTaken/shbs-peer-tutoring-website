@@ -31,6 +31,22 @@ Reconciliation fingerprints the retained decision and intake as authority, exclu
 retry mechanics. The record inspector exposes decision metadata without private
 intake or receipt capability.
 
+### Terminal translation intent receipts
+
+`TranslationIntentReceipt` stores immutable `(actorId, intentId)` terminal replay and
+stop bindings for the five translation text setters, with no foreign keys or delete
+cascades so account or draft lifecycle changes never reopen a previous UUID.
+PostgreSQL `CHECK` constraints and an immutability trigger enforce protocol version,
+UUID spelling, accepted/stopped column exclusivity, and update/delete refusal.
+Admission and checkpoint journal checks explicitly exempt this metadata-only table
+without granting translation compensation. Operator schema review preserves
+compatibility with older backups while rejecting partial or mistyped receipt tables.
+Whole-site reconciliation validates the table's column, primary-key, `CHECK` AST, and
+trigger guard metadata against the reviewed contract before fingerprinting
+`TranslationIntentReceipt` as divergence authority, so weakened guards or divergent
+backup restores fail closed. The record inspector catalogs its primary key without
+exposing row reads.
+
 `inspectAdmissionRecovery` builds a plan against the current database without
 performing domain writes. The plan contains an action/application ID, fingerprint,
 coverage, dependent-event count, website eligibility, blockers, warnings, projected

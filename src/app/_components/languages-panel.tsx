@@ -50,15 +50,25 @@ function LanguageRemoval({
 }
 
 /** Separate catalog administration from translator-only text editing and catalog creation. */
-export function LanguagesPanel({ canAdd }: { canAdd: boolean }) {
+export function LanguagesPanel({
+  canAdd,
+  concealed = false,
+}: {
+  canAdd: boolean;
+  concealed?: boolean;
+}) {
   const t = useTranslations();
   const identity = api.account.me.useQuery();
   const eligible =
     !identity.error &&
     ["HEAD", "ADMIN", "COORDINATOR"].includes(identity.data?.role ?? "");
   const utils = api.useUtils();
-  const languages = api.i18n.managedLanguages.useQuery();
-  const canManage = api.i18n.canManageLanguages.useQuery();
+  const languages = api.i18n.managedLanguages.useQuery(undefined, {
+    enabled: !concealed,
+  });
+  const canManage = api.i18n.canManageLanguages.useQuery(undefined, {
+    enabled: !concealed,
+  });
   const list = languages.data ?? [];
   const [refreshError, setRefreshError] = useState<Error | null>(null);
   const [refreshing, setRefreshing] = useState(false);
@@ -136,9 +146,10 @@ export function LanguagesPanel({ canAdd }: { canAdd: boolean }) {
   );
   useLayoutEffect(() => {
     synchronizationAllowed.current =
-      !denied && translationAccess(identity.data).enter;
-  }, [denied, identity.data]);
+      !concealed && !denied && translationAccess(identity.data).enter;
+  }, [concealed, denied, identity.data]);
   const busy =
+    concealed ||
     add.isPending ||
     reorder.isPending ||
     del.isPending ||
@@ -207,6 +218,7 @@ export function LanguagesPanel({ canAdd }: { canAdd: boolean }) {
       .finally(() => setRefreshing(false));
   };
 
+  if (concealed) return null;
   if (denied)
     return (
       <div className="space-y-2">

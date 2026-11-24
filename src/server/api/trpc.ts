@@ -9,8 +9,21 @@ import {
   lockAccountAppealDecisionReview,
   parseAccountAppealDecisionReview,
 } from "~/server/account-appeals";
+import {
+  lockTranslationReviewDecision,
+  parseTranslationReviewDecision,
+} from "~/server/translation-review-preflight";
+import {
+  captureTranslationReviewAuthority,
+  lockTranslationReviewAuthority,
+} from "~/server/translation-review-authority";
 import { inTransaction } from "~/server/transactions";
-import { databaseScope, isTranslationPublication } from "~/server/db-scope";
+import { withTranslationWrite } from "~/server/translation-destination";
+import {
+  databaseScope,
+  isTranslationPublication,
+  translationPublicationScope,
+} from "~/server/db-scope";
 import { runAuditedMutation, recordAuditAttempt, auditAttemptRecorded } from "~/server/audit/evidence";
 import {
   APPROVAL_OPERATIONS,
@@ -290,6 +303,17 @@ export const protectedProcedure = t.procedure
           message: "Accept the tutee policy before participating.",
         });
     }
+    // An internal publication must retain its matching management authority.
+    // Never reinterpret a stale/mismatched scope as an ordinary Translator draft.
+    if (
+      translationPublicationScope.getStore() &&
+      !isTranslationPublication(session.user.id, account.role, path)
+    )
+      throw new TRPCError({
+        code: "FORBIDDEN",
+        message:
+          "Translation publication authority changed. Reload the current review.",
+      });
     // A rank never substitutes for an explicit translator assignment, including queued writes.
     if (
       (path.startsWith("localization.") ||
@@ -360,6 +384,13 @@ export const protectedProcedure = t.procedure
         // cannot turn an inaccessible management mutation into a request/replay loophole.
         if (!authority.requesterRoles.includes(account.role))
           throw new TRPCError({ code: "FORBIDDEN", message: "Your current role cannot submit this change." });
+        const translationReview =
+          path === "translationReview.decide"
+            ? {
+                input: parseTranslationReviewDecision(raw),
+                authority: captureTranslationReviewAuthority(session),
+              }
+            : null;
         const request = appealReview
           ? await inTransaction(ctx.db, (tx) =>
               databaseScope.run(tx, async () => {
@@ -373,7 +404,29 @@ export const protectedProcedure = t.procedure
                 );
               }),
             )
-          : await queueProposal({ ...ctx.session, role: account.role }, path, raw);
+          : translationReview
+            ? await withTranslationWrite(ctx.db, (tx) =>
+                databaseScope.run(tx, async () => {
+                  // Approval requests capture valid, current intent under the same
+                  // source locks as publication; queue writes share this transaction.
+                  const requester = await lockTranslationReviewAuthority(
+                    tx,
+                    translationReview.authority,
+                    "PROPOSE",
+                    translationReview.input,
+                  );
+                  await lockTranslationReviewDecision(
+                    tx,
+                    translationReview.input,
+                  );
+                  return queueProposal(
+                    { ...session, role: requester.role },
+                    path,
+                    raw,
+                  );
+                }),
+              )
+            : await queueProposal({ ...ctx.session, role: account.role }, path, raw);
         throw new TRPCError({ code: "PRECONDITION_FAILED",
           message: authority.reviewerRoles.includes("HEAD") && !authority.reviewerRoles.includes("ADMIN")
             ? "Submitted for Head approval. No live changes have been applied."
@@ -634,8 +687,15 @@ export const activeTutorProcedure = tutorProcedure.use(
  */
 export const translatorProcedure = protectedProcedure.use(
   async ({ ctx, next, path }) => {
-    if (isTranslationPublication(ctx.session.user.id, ctx.session.role, path))
-      return next();
+    if (translationPublicationScope.getStore()) {
+      if (isTranslationPublication(ctx.session.user.id, ctx.session.role, path))
+        return next();
+      throw new TRPCError({
+        code: "FORBIDDEN",
+        message:
+          "Translation publication authority changed. Reload the current review.",
+      });
+    }
     const me = await ctx.db.user.findUnique({
       where: { id: ctx.session.user.id },
       select: { canTranslate: true, role: true },

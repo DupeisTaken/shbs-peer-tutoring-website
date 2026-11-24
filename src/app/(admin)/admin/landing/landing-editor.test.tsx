@@ -1,5 +1,5 @@
 /** @vitest-environment jsdom */
-import { afterEach, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import {
   act,
   cleanup,
@@ -7,10 +7,14 @@ import {
   render,
   screen,
 } from "@testing-library/react";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { NextIntlClientProvider } from "next-intl";
 import en from "../../../../../messages/en.json";
 import type { Block } from "~/lib/page-blocks";
+import { installSessionReadReceipts } from "~/lib/session-read-receipts";
 import LandingAdminPage, { LayoutEditor } from "./landing-editor";
+
+let queryClient: QueryClient;
 type LayoutPayload = {
   owner: string;
   blocks: Block[];
@@ -31,44 +35,81 @@ const state = vi.hoisted(() => ({
   mutate: vi.fn<(payload: LayoutPayload, callbacks: LayoutCallbacks) => void>(),
   updateNews: vi.fn(),
 }));
-vi.mock("~/trpc/react", () => ({
-  api: {
-    useUtils: () => ({
+vi.mock("~/trpc/react", async () => {
+  const { useQuery } = await import("@tanstack/react-query");
+  const { translationFixtureKey } =
+    await import("~/test/translation-query-bindings");
+  const account = { id: "head", role: "HEAD", canTranslate: true };
+  return {
+    api: {
+      account: {
+        me: {
+          _def: () => ({ path: ["account", "me"] }),
+          useQuery: () =>
+            useQuery({
+              queryKey: translationFixtureKey("account.me"),
+              queryFn: async () => account,
+              initialData: account,
+              staleTime: Infinity,
+            }),
+        },
+      },
+      translationIntent: {
+        stop: {
+          useMutation: () => ({ mutateAsync: vi.fn(), isPending: false }),
+        },
+      },
+      useUtils: () => ({
+        home: {
+          layout: { invalidate: vi.fn() },
+          news: { invalidate: vi.fn() },
+        },
+        translationIntent: { get: { fetch: vi.fn() } },
+        client: { translationIntent: { get: { query: vi.fn() } } },
+      }),
+      i18n: {
+        languages: {
+          useQuery: () => ({ data: [{ code: "en", label: "English" }] }),
+        },
+      },
       home: {
-        layout: { invalidate: vi.fn() },
-        news: { invalidate: vi.fn() },
-      },
-    }),
-    i18n: {
-      languages: {
-        useQuery: () => ({ data: [{ code: "en", label: "English" }] }),
-      },
-    },
-    home: {
-      layout: { useQuery: () => ({ data: state.blocks, isLoading: false }) },
-      setLayout: {
-        useMutation: () => ({ mutate: state.mutate, isPending: false }),
-      },
-      images: { useQuery: () => ({ data: [], isLoading: false }) },
-      news: { useQuery: () => ({ data: state.news, isLoading: false }) },
-      createNews: { useMutation: () => ({ mutate: vi.fn(), isPending: false }) },
-      updateNews: {
-        useMutation: () => ({ mutate: state.updateNews, isPending: false }),
-      },
-      deleteNews: {
-        useMutation: () => ({ mutateAsync: vi.fn(), isPending: false }),
-      },
-      setNewsTranslation: {
-        useMutation: () => ({ mutate: vi.fn(), isPending: false }),
-      },
-      removeNewsTranslation: {
-        useMutation: () => ({ mutateAsync: vi.fn(), isPending: false }),
+        layout: { useQuery: () => ({ data: state.blocks, isLoading: false }) },
+        setLayout: {
+          useMutation: () => ({ mutate: state.mutate, isPending: false }),
+        },
+        images: {
+          _def: () => ({ path: ["home", "images"] }),
+          useQuery: () => ({ data: [], isLoading: false, isSuccess: true }),
+        },
+        news: { useQuery: () => ({ data: state.news, isLoading: false }) },
+        createNews: {
+          useMutation: () => ({ mutate: vi.fn(), isPending: false }),
+        },
+        updateNews: {
+          useMutation: () => ({ mutate: state.updateNews, isPending: false }),
+        },
+        deleteNews: {
+          useMutation: () => ({ mutateAsync: vi.fn(), isPending: false }),
+        },
+        setNewsTranslation: {
+          useMutation: () => ({ mutate: vi.fn(), isPending: false }),
+        },
+        removeNewsTranslation: {
+          useMutation: () => ({ mutateAsync: vi.fn(), isPending: false }),
+        },
       },
     },
-  },
-}));
+  };
+});
+beforeEach(() => {
+  queryClient = new QueryClient({
+    defaultOptions: { queries: { retry: false } },
+  });
+  installSessionReadReceipts(queryClient);
+});
 afterEach(() => {
   cleanup();
+  queryClient.clear();
   state.mutate.mockReset();
   state.updateNews.mockReset();
   state.blocks = [];
@@ -171,9 +212,11 @@ it.each([
       },
     ];
     render(
-      <NextIntlClientProvider locale="en" timeZone={timeZone} messages={en}>
-        <LandingAdminPage />
-      </NextIntlClientProvider>,
+      <QueryClientProvider client={queryClient}>
+        <NextIntlClientProvider locale="en" timeZone={timeZone} messages={en}>
+          <LandingAdminPage />
+        </NextIntlClientProvider>
+      </QueryClientProvider>,
     );
     fireEvent.click(
       screen.getByRole("tab", { name: en.admin.landing.tabs.news }),

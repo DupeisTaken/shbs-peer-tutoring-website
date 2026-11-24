@@ -2503,6 +2503,23 @@ model MessageModeration {
   @@index([messageId, createdAt])
 }
 
+/// Immutable original-actor replay/stop evidence, not a capability or a live publication.
+/// No relations/cascades: account or draft removal must never reopen an old UUID.
+model TranslationIntentReceipt {
+  actorId         String
+  intentId        String
+  protocolVersion Int
+  status          String
+  operation       String?
+  mode            String?
+  inputHash       String?
+  draftId         String?
+  cleared         Boolean?
+  createdAt       DateTime @default(now())
+
+  @@id([actorId, intentId])
+}
+
 /// Draft proposals never affect public rendering until a management member approves them.
 model TranslationDraft {
   id String @id @default(cuid())

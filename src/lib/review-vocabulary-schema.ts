@@ -2154,6 +2154,22 @@ export const reviewSchema = {
       "createdAt",
     ],
   },
+  TranslationIntentReceipt: {
+    references: {},
+    enums: {},
+    fields: [
+      "actorId",
+      "intentId",
+      "protocolVersion",
+      "status",
+      "operation",
+      "mode",
+      "inputHash",
+      "draftId",
+      "cleared",
+      "createdAt",
+    ],
+  },
   TranslationDraft: {
     references: {},
     enums: {},
