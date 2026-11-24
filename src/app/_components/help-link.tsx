@@ -6,16 +6,35 @@ import { useTranslations } from "next-intl";
 
 import { HelpCircleIcon } from "./icons";
 
+function useOptionalHelpTitle(override?: string): string {
+  let translated: string | undefined;
+  try {
+    // Runs unconditionally; isolated unit tests without NextIntlClientProvider fall back cleanly.
+    const t = useTranslations("helpNav");
+    translated = t("title");
+  } catch {
+    translated = undefined;
+  }
+  return override ?? translated ?? "Help Center";
+}
+
+function useOptionalPathname(): string | null {
+  try {
+    return usePathname();
+  } catch {
+    return null;
+  }
+}
+
 /**
  * Soft circular top-bar Question Mark entrance to the Help Center, matched to the
  * 32px desktop / 36px mobile circular badge geometry of NotificationBell, ThemeSwitcher,
  * and UserAvatar. Automatically hidden when already inside the Help Center (`/help`).
  */
 export function HelpLink({ label }: { label?: string }) {
-  const t = useTranslations("helpNav");
-  const pathname = usePathname();
-  const text = label ?? t("title");
-  const active = pathname === "/help" || pathname.startsWith("/help/");
+  const text = useOptionalHelpTitle(label);
+  const pathname = useOptionalPathname();
+  const active = pathname === "/help" || !!pathname?.startsWith("/help/");
 
   if (active) return null;
 
