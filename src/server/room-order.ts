@@ -1,5 +1,6 @@
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
+import { roomReference } from "~/lib/room-reference";
 import {
   inTransaction,
   lockEntity,
@@ -12,8 +13,10 @@ export const programRoomOrder = [
   { name: "asc" },
   { id: "asc" },
 ] as const;
+// Imported and historical rooms may carry non-CUID IDs; assertProgramRoomOrder
+// verifies exact catalog membership under lockProgramRooms.
 const roomIds = z
-  .array(z.string().cuid())
+  .array(roomReference)
   .max(500)
   .refine(
     (ids) => new Set(ids).size === ids.length,
