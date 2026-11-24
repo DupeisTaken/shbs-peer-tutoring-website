@@ -4,11 +4,16 @@ import { getTranslations } from "next-intl/server";
 
 import { auth } from "~/server/auth";
 import { db } from "~/server/db";
+import { getFeatures } from "~/server/program/features";
 import { WorkspaceHeader } from "~/app/_components/workspace-header";
 import { UserAvatar } from "~/app/_components/user-avatar";
 import { NavSidebar, NavMobileRow } from "~/app/_components/admin-nav";
-import { TEAM_TITLE } from "~/lib/branding";
 import { translationAccess } from "~/lib/translation-access";
+import {
+  resolveWorkspaceNavigation,
+  workspaceNavLabels,
+  workspaceSwitcherLabels,
+} from "~/lib/workspace-navigation";
 
 /**
  * The integrated editor admits assigned translators and management reviewers separately.
@@ -30,9 +35,12 @@ export default async function LocalizationLayout({
       username: true,
       canTranslate: true,
       role: true,
+      crewStatus: true,
       tutorId: true,
       tutorAccessRevoked: true,
       suspendedAt: true,
+      mergedIntoId: true,
+      schoolDeparture: true,
       tutor: { select: { username: true, status: true } },
     },
   });
@@ -42,43 +50,40 @@ export default async function LocalizationLayout({
   if (!access.enter) redirect("/");
   const elevated = access.publish || access.request;
 
-  const t = await getTranslations();
-  // Where "home"/back goes: admin-area roles to /admin, a linked tutor to their dashboard.
-  const adminArea = ["HEAD", "ADMIN", "COORDINATOR", "VIEWER"].includes(
-    me.role,
-  );
+  const [t, features] = await Promise.all([getTranslations(), getFeatures(db)]);
+  const nav = resolveWorkspaceNavigation({
+    account: me,
+    crewEnabled: features.CREW,
+    currentArea: "translations",
+    labels: workspaceNavLabels(t),
+  });
   const canTutor =
     !me.tutorAccessRevoked &&
     Boolean(me.tutorId ?? me.tutor) &&
-    (!adminArea || me.tutor?.status !== "ARCHIVED");
-  const home = adminArea ? "/admin" : canTutor ? "/dashboard" : "/";
-  const accountHref = adminArea
+    (!elevated || me.tutor?.status !== "ARCHIVED");
+  const accountHref = elevated
     ? "/admin/account"
     : canTutor
       ? "/settings"
       : "/my-account";
-  const accountLabel = adminArea
-    ? t("account.title")
-    : t("workflows.settings");
-  const handle = me.username ?? me.tutor?.username;
-  const displayName =
-    me.name ?? session.user.name ?? me.email ?? session.user.email ?? me.role;
-
-  const workspaceItems = elevated
-    ? [
-        ...(canTutor
-          ? [{ href: "/dashboard", label: t("components.userMenu.enterTutor") }]
-          : []),
-        { href: "/student", label: t("components.userMenu.enterTutee") },
-      ]
-    : [{ href: home, label: t("localization.back") }];
-
   const accountItems = [
-    { href: accountHref, label: accountLabel },
     ...(!elevated
-      ? [{ href: "/messages", label: t("workflows.messages") }]
+      ? [
+          {
+            href: "/messages",
+            label: t("workflows.messages"),
+            group: "tools" as const,
+          },
+        ]
       : []),
+    {
+      href: accountHref,
+      label: t(elevated ? "account.title" : "components.userMenu.settings"),
+      group: "account" as const,
+    },
   ];
+  const displayName = me.name ?? session.user.name ?? me.email ?? me.role;
+  const username = me.username ?? me.tutor?.username;
 
   return (
     <div
@@ -89,25 +94,26 @@ export default async function LocalizationLayout({
       }
     >
       <WorkspaceHeader
-        href={home}
-        title={TEAM_TITLE}
+        href="/localization"
+        title={t("components.workspaceTitles.translations")}
+        switcherItems={nav.items}
+        switcherLabels={workspaceSwitcherLabels(t)}
         skipLabel={t("common.skipToContent")}
         skipToId={elevated ? "admin-content" : "main-content"}
-        items={workspaceItems}
         navigation={
           elevated ? <NavMobileRow role={me.role} embedded /> : undefined
         }
         identity={
           <Link
             href={accountHref}
-            className="hidden shrink-0 rounded-md px-2 py-1 text-right leading-tight hover:bg-slate-100 lg:block"
-            title={accountLabel}
+            className="hidden shrink-0 rounded-md px-2 py-0.5 text-right leading-tight hover:bg-slate-100 lg:block"
+            title={t(elevated ? "account.title" : "components.userMenu.settings")}
           >
-            <p className="max-w-44 truncate text-sm font-medium text-slate-900">
-              {me.name ?? session.user.name}
+            <p className="max-w-44 truncate text-[13px] font-medium text-slate-900">
+              {displayName}
             </p>
-            <p className="muted text-xs">
-              {handle ? `@${handle} · ` : ""}
+            <p className="muted text-[11px]">
+              {username ? `@${username} · ` : ""}
               {t(`admin.users.roles.${me.role}`)}
             </p>
           </Link>
@@ -115,7 +121,7 @@ export default async function LocalizationLayout({
         account={
           <UserAvatar
             name={displayName}
-            username={handle}
+            username={username}
             email={me.email ?? session.user.email}
             role={me.role}
             items={accountItems}

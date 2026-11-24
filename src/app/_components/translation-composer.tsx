@@ -167,7 +167,7 @@ export function TranslationComposer() {
         <label>
           <span className="label">{t("contentType")}</span>
           <select
-            className="input w-full"
+            className="select w-full"
             value={kind}
             aria-label={t("contentType")}
             disabled={pending}
@@ -205,7 +205,7 @@ export function TranslationComposer() {
       <label className="block">
         <span className="label">{t("target")}</span>
         <select
-          className="input w-full"
+          className="select w-full"
           required
           value={target}
           aria-label={t("target")}

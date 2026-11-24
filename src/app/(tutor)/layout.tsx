@@ -1,5 +1,10 @@
 import { accountPortalAccess } from "~/server/portal-access";
 import { WorkspaceHeader } from "~/app/_components/workspace-header";
+import {
+  resolveWorkspaceNavigation,
+  workspaceNavLabels,
+  workspaceSwitcherLabels,
+} from "~/lib/workspace-navigation";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 
@@ -10,7 +15,6 @@ import { db } from "~/server/db";
 import { getFeatures } from "~/server/program/features";
 import { SignOutButton } from "~/app/_components/sign-out-button";
 import { UserAvatar } from "~/app/_components/user-avatar";
-import { APP_TITLE } from "~/lib/branding";
 
 /**
  * Gates the entire tutor section. Requires an authenticated user linked to a Tutor record.
@@ -30,13 +34,17 @@ export default async function TutorLayout({
   const me = await db.user.findUnique({
     where: { id: session.user.id },
     select: {
+      role: true,
       suspendedAt: true,
+      mergedIntoId: true,
       email: true,
       emailVerifiedAt: true,
       mustChangePassword: true,
       canTranslate: true,
       crewStatus: true,
-      tutor: { select: { username: true } },
+      tutorAccessRevoked: true,
+      schoolDeparture: true,
+      tutor: { select: { username: true, status: true } },
     },
   });
   if (me?.suspendedAt) redirect("/suspended");
@@ -91,55 +99,60 @@ export default async function TutorLayout({
     redirect("/onboarding/email");
 
   const features = await getFeatures(db);
-  const workspaceItems = [
-    { href: "/student", label: t("components.userMenu.enterTutee") },
-    ...(canEnterManagement
-      ? [
-          {
-            href: "/admin",
-            label: t(
-              access.managementReadOnly
-                ? "schoolDeparture.enter"
-                : "components.userMenu.backToManagement",
-            ),
-          },
-        ]
-      : []),
-  ];
+  const nav = resolveWorkspaceNavigation({
+    account: {
+      role: me.role ?? session.role,
+      suspendedAt: me.suspendedAt ?? null,
+      mergedIntoId: me.mergedIntoId ?? null,
+      crewStatus: me.crewStatus ?? null,
+      tutorId: session.tutorId,
+      tutorAccessRevoked: me.tutorAccessRevoked ?? false,
+      canTranslate: me.canTranslate ?? false,
+      schoolDeparture: me.schoolDeparture ?? null,
+      tutor: me.tutor ?? linkedTutor,
+    },
+    crewEnabled: features.CREW,
+    currentArea: "tutor",
+    labels: workspaceNavLabels(t),
+  });
   const accountItems = [
-    { href: "/settings", label: t("components.userMenu.settings") },
     {
       href: isElevated ? "/admin/messages" : "/messages",
       label: t("workflows.messages"),
+      group: "tools" as const,
     },
-    { href: "/handbook", label: t("tutor.nav.handbook") },
-    ...(features.CREW && me.crewStatus === "ACTIVE"
-      ? [{ href: "/patrol", label: t("crew.nav.patrol") }]
-      : []),
-    ...(me.canTranslate
-      ? [{ href: "/localization", label: t("localization.navLabel") }]
-      : []),
+    {
+      href: "/handbook",
+      label: t("tutor.nav.handbook"),
+      group: "tools" as const,
+    },
+    {
+      href: "/settings",
+      label: t("components.userMenu.settings"),
+      group: "account" as const,
+    },
   ];
 
   return (
     <div className="min-h-screen">
-      {/* Shared top-bar theme with the admin area: brand left, identity + global controls right. */}
+      {/* Shared top-bar theme with the admin area: workspace selector left, global controls right. */}
       <WorkspaceHeader
         href="/dashboard"
-        title={APP_TITLE}
-        items={workspaceItems}
+        title={t("components.workspaceTitles.tutor")}
+        switcherItems={nav.items}
+        switcherLabels={workspaceSwitcherLabels(t)}
         skipLabel={t("common.skipToContent")}
         containerClassName="mx-auto max-w-6xl"
         identity={
           <Link
             href="/settings"
-            className="hidden shrink-0 rounded-md px-2 py-1 text-right leading-tight hover:bg-slate-100 lg:block"
+            className="hidden shrink-0 rounded-md px-2 py-0.5 text-right leading-tight hover:bg-slate-100 lg:block"
             title={t("components.userMenu.settings")}
           >
-            <p className="text-sm font-medium text-slate-900">
+            <p className="text-[13px] font-medium text-slate-900">
               {session.user.name}
             </p>
-            <p className="muted text-xs">
+            <p className="muted text-[11px]">
               {me.tutor?.username ? `@${me.tutor.username}` : session.role}
             </p>
           </Link>

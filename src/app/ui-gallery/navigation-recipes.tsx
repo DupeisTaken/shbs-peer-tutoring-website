@@ -41,12 +41,20 @@ export function NavigationRecipes({ locale }: { locale: "en" | "zh" }) {
         sticky={false}
         skipLabel={zh ? "跳到主要内容" : "Skip to main content"}
         skipToId="ui-gallery-main"
+        help={
+          <Link
+            href="/help"
+            className="btn-secondary btn-sm min-h-11 lg:min-h-8 lg:py-0"
+          >
+            {zh ? "帮助中心" : "Help Center"}
+          </Link>
+        }
         language={
           <select
             key={locale}
             aria-label={zh ? "示例标题栏语言" : "Example header language"}
             defaultValue={locale}
-            className="select h-11 py-0 lg:h-8"
+            className="select control-compact field-auto h-11 py-0 text-[13px] font-medium text-slate-700 lg:h-8"
           >
             <option value="en">English</option>
             <option value="zh">中文</option>

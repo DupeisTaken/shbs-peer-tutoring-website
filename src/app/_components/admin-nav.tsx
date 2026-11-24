@@ -30,12 +30,6 @@ export const NAV_SECTIONS: { titleKey: string; items: NavItem[] }[] = [
     items: [
       { href: "/admin", labelKey: "admin.nav.links.dashboard", exact: true },
       { href: "/admin/activity", labelKey: "admin.nav.links.activity" },
-      { href: "/help", labelKey: "helpNav.title", exact: true },
-      {
-        href: "/admin/help",
-        labelKey: "helpNav.downloads",
-        elevatedOnly: true,
-      },
       {
         href: "/admin/messages",
         labelKey: "workflows.messages",
@@ -172,6 +166,11 @@ export const NAV_SECTIONS: { titleKey: string; items: NavItem[] }[] = [
       {
         href: "/admin/users",
         labelKey: "admin.nav.links.usersRoles",
+        elevatedOnly: true,
+      },
+      {
+        href: "/admin/help",
+        labelKey: "helpNav.downloads",
         elevatedOnly: true,
       },
     ],

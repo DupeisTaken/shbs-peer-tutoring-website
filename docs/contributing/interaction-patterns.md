@@ -113,9 +113,11 @@ see [name-field reference](../reference/name-fields.md).
 
 - **Management sidebar:** **Overview** holds daily queues/rosters; **Administration**
   holds program settings, signup forms, landing/policies/translations, codes,
-  approvals and users; **Data & Recovery** groups archival, audit and recovery tools
-  (**Program Records**, **Academic Corrections**, **Audit Log**, **Admission Recovery**,
-  **Database records**). Grouping never changes route permissions or approval policy.
+  approvals, users and PDF handbook distribution; **Data & Recovery** groups archival,
+  audit and recovery tools (**Program Records**, **Academic Corrections**, **Audit Log**,
+  **Admission Recovery**, **Database records**). **Help Center** (`/help`) lives in the
+  top bar (workspace switcher and `?` icon) and landing footer rather than the Overview
+  sidebar. Grouping never changes route permissions or approval policy.
 - **Program Settings tabs:** **Recruitment and Refresh**, **Account Settings**,
   **Deployment Configurations**, and **Optional Features**. Grouping never combines
   independent save operations or broadens authorization.
@@ -146,8 +148,12 @@ changes always win.
   searches/selections stay transient.
 - **`useSessionAccessDenied(...ownedQueries)`:** Latches authoritative access
   denial across subsequent transport failures until owned reads succeed again. Pass
-  a stable `{ ...query, denialKey }` when denial resets query keys so only a success
-  newer than that slot's denial releases it. The helper never grants permission.
+  a stable `{ ...query, denialKey, queryKey: trpcQueryKey(...) }` so denial recovery
+  tracks monotonic `QueryClient` read receipts (`installSessionReadReceipts`) rather
+  than wall-clock timestamps — backward clock skew, equal timestamps, older cached
+  default scopes, local `setQueryData` writes, and pre-denial in-flight fetches
+  cannot release an active denial latch, while a genuine fresh read recovers cleanly.
+  The helper never grants permission or replaces server checks.
 - **`useSessionPageScroll({ id, scope, ready, enabled })` / `SessionPagePosition`:**
   Register once per authorized page. Restores `#admin-content` at `lg` (`>=1024 px`)
   for management and the document otherwise; excludes dialogs, tables and sidebars;

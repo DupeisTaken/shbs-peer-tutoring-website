@@ -1,6 +1,6 @@
 {
   "helpNav": {
-    "title": "帮助与操作指南",
+    "title": "帮助中心",
     "downloads": "PDF 操作手册"
   },
   "recoveryWorkflow": {
@@ -689,7 +689,8 @@
       "teamSignin": "登录",
       "becomeCrew": "加入巡查队",
       "viewerSignup": "关注项目",
-      "landmark": "网站导航"
+      "landmark": "网站导航",
+      "signInAndJoin": "登录与加入"
     },
     "tagline": "朋辈辅导项目",
     "heroTitle": "一起学习，共同成长。",
@@ -2929,7 +2930,12 @@
       "enterTutor": "进入辅导伙伴主页",
       "enterAdmin": "进入管理区",
       "enterTutee": "进入学习伙伴主页",
-      "backToManagement": "返回管理主页"
+      "backToManagement": "返回管理主页",
+      "groups": {
+        "workspaces": "工作区",
+        "tools": "常用功能",
+        "account": "账号"
+      }
     },
     "theme": {
       "label": "主题",
@@ -2941,6 +2947,20 @@
         "amber": "琥珀",
         "sky": "天蓝"
       }
+    },
+    "workspaceTitles": {
+      "management": "管理区",
+      "viewer": "项目概览",
+      "tutor": "辅导伙伴",
+      "tutee": "学习伙伴",
+      "patrol": "巡查队",
+      "translations": "翻译",
+      "programHome": "项目主页"
+    },
+    "workspaceSwitcher": {
+      "label": "切换页面",
+      "workspaces": "工作区",
+      "general": "通用"
     }
   },
   "localization": {
@@ -3089,7 +3109,17 @@
     "newer": "较新记录",
     "older": "较早记录",
     "details": "变更详情",
-    "patrolChanged": "巡查记录已变更。请重新加载后再更正。"
+    "patrolChanged": "巡查记录已变更。请重新加载后再更正。",
+    "patrolRooms": "巡查教室选项",
+    "reloadPatrol": "重新加载巡查草稿",
+    "patrolReloadFailed": "无法加载最新的巡查记录和教室选项，你的草稿已保留。",
+    "patrolUnavailable": "此巡查记录已不在当前历史页中，你的草稿已保留。",
+    "patrolSaved": "更正已保存，正在刷新巡查历史…",
+    "patrolSavedRefreshFailed": "更正已保存，但巡查历史未能刷新。请尝试刷新。",
+    "patrolQueuedRefreshFailed": "更正已提交审核，但巡查历史未能刷新。请尝试刷新。",
+    "invalidPatrolTime": "请输入有效的观察时间。",
+    "patrolRoomUnavailable": "{room}（不可用）",
+    "patrolRoomRequired": "保存前请为每条观察记录选择一个可用教室。"
   },
   "emailChange": {
     "title": "更改账号邮箱",
@@ -4984,7 +5014,13 @@
       "ATTEMPT": "未应用的操作尝试"
     },
     "unnamedAccount": "未命名账号",
-    "formerAccount": "已删除账号"
+    "formerAccount": "已删除账号",
+    "filterOptions": "筛选选项",
+    "retryReads": "重试加载审计记录",
+    "loadingReads": "正在加载审计历史和筛选选项…",
+    "loadFailed": "无法加载审计历史或筛选选项。",
+    "refreshFailed": "无法刷新审计历史或筛选选项，未应用的筛选条件已保留。",
+    "accessDenied": "你已无权访问审计历史。"
   },
   "userMultiFilters": {
     "all": "全部",
@@ -5393,7 +5429,13 @@
     "importTooLarge": "请选择不超过 1 MB 的文件。",
     "importEmpty": "文件中没有科目。",
     "importFileType": "请选择 .json 或 .csv 文件。",
-    "importInvalid": "无法导入文件：{detail}"
+    "importInvalid": "无法导入文件：{detail}",
+    "retry": "重试加载目录",
+    "loadFailed": "无法加载科目目录。",
+    "refreshFailed": "无法刷新科目目录，你的草稿已保留；请重试后再更改。",
+    "accessDenied": "你已无权访问科目目录。",
+    "savedRefreshing": "更改已保存，正在刷新目录…",
+    "savedRefreshFailed": "更改已保存，但科目目录未能刷新。请尝试刷新。"
   },
   "recruitment": {
     "preview": "只读表单预览",

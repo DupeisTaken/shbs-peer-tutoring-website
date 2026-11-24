@@ -72,6 +72,39 @@ export const correctionsRouter = createTRPCRouter({
         },
       }),
     ),
+
+  // Reload a captured correction target independently of the moving 50-row list.
+  // This editing baseline is management-only and excludes submission/credit metadata.
+  patrolById: adminProcedure
+    .input(z.object({ id: z.string().min(1) }))
+    .query(async ({ ctx, input }) => {
+      if (ctx.portalAccess.managementReadOnly)
+        throw new TRPCError({ code: "FORBIDDEN" });
+      const row = await ctx.db.patrol.findUnique({
+        where: { id: input.id },
+        select: {
+          id: true,
+          updatedAt: true,
+          createdAt: true,
+          note: true,
+          hours: true,
+          crewUser: { select: { name: true } },
+          observations: {
+            select: {
+              id: true,
+              roomId: true,
+              headcount: true,
+              observedAt: true,
+              room: { select: { name: true } },
+            },
+            orderBy: [{ observedAt: "asc" }, { id: "asc" }],
+          },
+        },
+      });
+      if (!row) throw new TRPCError({ code: "NOT_FOUND" });
+      return row;
+    }),
+
   correctPatrol: adminProcedure
     .input(
       z.object({

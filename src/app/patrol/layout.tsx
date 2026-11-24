@@ -6,9 +6,13 @@ import { auth } from "~/server/auth";
 import { db } from "~/server/db";
 import { pageMetadata } from "~/server/branding-metadata";
 import { getFeatures } from "~/server/program/features";
+import {
+  resolveWorkspaceNavigation,
+  workspaceNavLabels,
+  workspaceSwitcherLabels,
+} from "~/lib/workspace-navigation";
 import { UserAvatar } from "~/app/_components/user-avatar";
 import { WorkspaceHeader } from "~/app/_components/workspace-header";
-import { TEAM_TITLE } from "~/lib/branding";
 
 export async function generateMetadata() {
   return pageMetadata("crew.patrol.title");
@@ -35,9 +39,11 @@ export default async function PatrolLayout({
       username: true,
       role: true,
       crewStatus: true,
-      canTranslate: true,
       tutorAccessRevoked: true,
+      canTranslate: true,
       suspendedAt: true,
+      mergedIntoId: true,
+      schoolDeparture: true,
       tutor: { select: { username: true, status: true } },
     },
   });
@@ -47,70 +53,77 @@ export default async function PatrolLayout({
   const features = await getFeatures(db);
   if (!features.CREW) redirect("/");
 
+  const role = me?.role ?? session.role;
   const elevated =
-    session.role === "HEAD" ||
-    session.role === "ADMIN" ||
-    session.role === "COORDINATOR";
+    role === "HEAD" || role === "ADMIN" || role === "COORDINATOR";
   // Crew (any status) and crew-only logins reach the portal; the page itself gates patrolling on
   // ACTIVE and shows a read-only notice otherwise. Elevated roles oversee the crew.
-  const isCrew = me?.crewStatus != null || session.role === "CREW";
+  const isCrew = me?.crewStatus != null || role === "CREW";
   if (!isCrew && !elevated) redirect("/");
 
   const t = await getTranslations();
+  const nav = resolveWorkspaceNavigation({
+    account: {
+      role,
+      suspendedAt: me?.suspendedAt ?? null,
+      mergedIntoId: me?.mergedIntoId ?? null,
+      crewStatus: me?.crewStatus ?? null,
+      tutorAccessRevoked: me?.tutorAccessRevoked ?? false,
+      canTranslate: me?.canTranslate ?? false,
+      schoolDeparture: me?.schoolDeparture ?? null,
+      tutor: me?.tutor ?? null,
+    },
+    crewEnabled: features.CREW,
+    currentArea: "crew",
+    labels: workspaceNavLabels(t),
+  });
   const canTutor =
     !me?.tutorAccessRevoked &&
     !!me?.tutor &&
     (!elevated || me.tutor.status !== "ARCHIVED");
-  // Where "back" goes depends on what else this account is (crew-only logins have nowhere else).
-  const backHref = elevated ? "/admin" : canTutor ? "/dashboard" : null;
   const accountHref = elevated
     ? "/admin/account"
     : canTutor
       ? "/settings"
       : "/my-account";
-  const accountLabel = elevated
-    ? t("account.title")
-    : t("workflows.settings");
-  const handle = me?.username ?? me?.tutor?.username;
-  const displayName =
-    me?.name ?? session.user.name ?? me?.email ?? session.user.email ?? t("crew.role");
-
-  const workspaceItems = [
-    ...(session.role !== "VIEWER"
-      ? [{ href: "/student", label: t("components.userMenu.enterTutee") }]
-      : []),
-    ...(backHref ? [{ href: backHref, label: t("crew.exit") }] : []),
-  ];
+  const accountLabel = t(
+    elevated ? "account.title" : "components.userMenu.settings",
+  );
   const accountItems = [
-    { href: accountHref, label: accountLabel },
     {
       href: elevated ? "/admin/messages" : "/messages",
       label: t("workflows.messages"),
+      group: "tools" as const,
     },
-    ...(me?.canTranslate
-      ? [{ href: "/localization", label: t("localization.navLabel") }]
-      : []),
+    {
+      href: accountHref,
+      label: accountLabel,
+      group: "account" as const,
+    },
   ];
+  const displayName = me?.name ?? session.user.name ?? me?.email ?? role;
+  const username = me?.username ?? me?.tutor?.username;
 
   return (
     <div className="min-h-screen">
       <WorkspaceHeader
         href="/patrol"
-        title={t("crew.brand", { team: TEAM_TITLE })}
+        title={t("components.workspaceTitles.patrol")}
+        switcherItems={nav.items}
+        switcherLabels={workspaceSwitcherLabels(t)}
         skipLabel={t("common.skipToContent")}
         containerClassName="mx-auto max-w-5xl"
-        items={workspaceItems}
         identity={
           <Link
             href={accountHref}
-            className="hidden shrink-0 rounded-md px-2 py-1 text-right leading-tight hover:bg-slate-100 lg:block"
+            className="hidden shrink-0 rounded-md px-2 py-0.5 text-right leading-tight hover:bg-slate-100 lg:block"
             title={accountLabel}
           >
-            <p className="max-w-44 truncate text-sm font-medium text-slate-900">
-              {me?.name ?? session.user.name}
+            <p className="max-w-44 truncate text-[13px] font-medium text-slate-900">
+              {displayName}
             </p>
-            <p className="muted text-xs">
-              {handle ? `@${handle} · ` : ""}
+            <p className="muted text-[11px]">
+              {username ? `@${username} · ` : ""}
               {t("crew.role")}
             </p>
           </Link>
@@ -118,9 +131,9 @@ export default async function PatrolLayout({
         account={
           <UserAvatar
             name={displayName}
-            username={handle}
+            username={username}
             email={me?.email ?? session.user.email}
-            role={me?.role ?? session.role}
+            role={role}
             items={accountItems}
             compactAtDesktop
           />

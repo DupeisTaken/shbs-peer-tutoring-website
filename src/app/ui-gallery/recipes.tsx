@@ -12,6 +12,7 @@ import { AgendaEventRecipe } from "./agenda-event-recipe";
 import { ErrorRecoveryRecipe } from "./error-recovery-recipe";
 import { NoticeLayoutExamples } from "./notice-layout-examples";
 import { PairingCardRecipe } from "./pairing-card-recipe";
+import { SelectorRecipe } from "./selector-recipe";
 import { useEffect, useState, type ReactNode } from "react";
 import { NextIntlClientProvider } from "next-intl";
 import enMessages from "../../../messages/en.json";
@@ -414,6 +415,7 @@ export function RecipeGallery({
     >
       <div className="grid items-start gap-6 lg:grid-cols-2">
         <AgendaEventRecipe />
+        <SelectorRecipe locale={locale} />
         <PairingCardRecipe locale={locale} />
         <ErrorRecoveryRecipe locale={locale} />
         <CodeRecipe locale={locale} />
@@ -507,7 +509,7 @@ export function RecipeGallery({
                         : "Name requirement example"}
                     </span>
                     <select
-                      className="input"
+                      className="select"
                       value={namePreview}
                       onChange={(event) =>
                         setNamePreview(event.target.value as typeof namePreview)

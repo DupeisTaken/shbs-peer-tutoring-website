@@ -403,7 +403,7 @@ export function HistoricalAcademicCorrections({
           <label>
             <span className="label">{t("participantType")}</span>
             <select
-              className={control}
+              className="select min-h-11 lg:min-h-10"
               value={kind}
               disabled={busy}
               onChange={(event) => {

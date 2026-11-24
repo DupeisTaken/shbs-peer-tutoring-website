@@ -158,17 +158,19 @@ export function ThemeSwitcher({
         aria-haspopup="dialog"
         aria-expanded={open}
         onClick={() => setOpen((v) => !v)}
-        className={`focus-visible:ring-accent-500 flex items-center justify-center rounded-md hover:bg-slate-100 focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-hidden ${
+        className={`group/theme focus-visible:ring-accent-500 flex items-center justify-center rounded-full focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-hidden ${
           compact
-            ? "h-8 px-1"
+            ? "h-8 w-8"
             : compactAtDesktop
-              ? "h-11 w-11 lg:h-8 lg:w-auto lg:px-1"
+              ? "h-11 w-11 lg:h-8 lg:w-8"
               : "h-11 w-11"
         }`}
       >
-        <span
-          className={`h-5 w-5 rounded-full ring-1 ring-slate-300 ${SWATCH[theme]}`}
-        />
+        <span className="flex h-9 w-9 items-center justify-center rounded-full border border-slate-200/90 bg-slate-100/80 transition group-hover/theme:border-slate-300 group-hover/theme:bg-slate-200/70 lg:h-8 lg:w-8">
+          <span
+            className={`h-[17px] w-[17px] rounded-full ring-1 ring-slate-900/15 ${SWATCH[theme]}`}
+          />
+        </span>
       </button>
 
       {open && (
@@ -176,7 +178,7 @@ export function ThemeSwitcher({
           ref={panelRef}
           role="dialog"
           aria-label={t("components.theme.label")}
-          className="absolute right-0 z-30 mt-2 w-44 rounded-lg border border-slate-200 bg-white p-3 shadow-lg"
+          className="popover-surface absolute right-0 z-30 mt-2 w-44 p-3"
         >
           <p className="pb-2 text-xs font-medium text-slate-500">
             {t("components.theme.label")}

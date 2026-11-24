@@ -66,13 +66,54 @@ const FONT_NAME: Record<FontWeight, string> = {
   mono: "Geist-Mono",
 };
 
+const DOWNLOAD_TIME_ZONE = "Asia/Shanghai";
+
+function shanghaiDateParts(date: Date) {
+  const formatter = new Intl.DateTimeFormat("en-CA", {
+    timeZone: DOWNLOAD_TIME_ZONE,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23",
+  });
+  const parts = Object.fromEntries(
+    formatter
+      .formatToParts(date)
+      .filter((part) => part.type !== "literal")
+      .map((part) => [part.type, part.value]),
+  );
+  return {
+    year: parts.year ?? "0000",
+    month: parts.month ?? "00",
+    day: parts.day ?? "00",
+    hour: parts.hour ?? "00",
+    minute: parts.minute ?? "00",
+  };
+}
+
+/** Human-readable download timestamp stamped into PDF cover metadata and footers. */
+export function formatDownloadTimestamp(date: Date): string {
+  const { year, month, day, hour, minute } = shanghaiDateParts(date);
+  return `${year}-${month}-${day} ${hour}:${minute} UTC+8`;
+}
+
+/** ASCII-safe download timestamp segment for Content-Disposition PDF filenames. */
+export function formatDownloadFilenameStamp(date: Date): string {
+  const { year, month, day, hour, minute } = shanghaiDateParts(date);
+  return `${year}-${month}-${day}-${hour}${minute}`;
+}
+
 /** Each request renders the maintained article records and baked capture files.
  * Typography uses the website's Geist TTF stack with Noto Sans SC for Chinese spans. */
 export async function renderHelpPdf(
   audience: HelpAudience,
   locale: HelpLocale,
+  downloadedAt: Date = new Date(),
 ) {
   const articles = handbookArticles(audience);
+  const downloadedStamp = formatDownloadTimestamp(downloadedAt);
   const root = process.cwd();
   const notoPath = path.join(root, "public/fonts/help/noto-sans-sc.otf");
   const geistSans = (file: string) =>
@@ -88,7 +129,8 @@ export async function renderHelpPdf(
     info: {
       Title: `SHBS — ${helpAudienceTitles[audience][locale]}`,
       Author: "SHBS Peer Tutoring",
-      Subject: "Help & How-to",
+      Subject: "Help Center",
+      CreationDate: downloadedAt,
     },
   });
   doc.registerFont("Noto-SC", notoPath);
@@ -268,8 +310,8 @@ export async function renderHelpPdf(
     doc.restore();
 
     const kicker = text(
-      "SHBS PEER TUTORING · HELP HANDBOOK",
-      "SHBS 同伴辅导 · 帮助手册",
+      "SHBS PEER TUTORING · HELP CENTER",
+      "SHBS 同伴辅导 · 帮助中心",
     );
     doc
       .font(fontFor(kicker, "semibold"))
@@ -297,7 +339,7 @@ export async function renderHelpPdf(
     const metaTop = doc.y + 18;
     drawHairline(metaTop);
     doc.y = metaTop + 10;
-    const metaLine = `${text("Revision", "版本")} ${helpCaptureInfo.sourceRevision.slice(0, 12)}   ·   ${text("Updated", "更新")} ${helpCaptureInfo.capturedAt.slice(0, 10)}`;
+    const metaLine = `${text("Revision", "版本")} ${helpCaptureInfo.sourceRevision.slice(0, 12)}   ·   ${text("Updated", "更新")} ${helpCaptureInfo.capturedAt.slice(0, 10)}   ·   ${text("Downloaded", "下载时间")} ${downloadedStamp}`;
     doc
       .font(fontFor(metaLine, "mono"))
       .fontSize(8.5)
@@ -888,7 +930,7 @@ export async function renderHelpPdf(
             align: "left",
           });
       }
-      const rightFooter = `SHBS · ${helpCaptureInfo.sourceRevision.slice(0, 8)} · ${String(page + 1).padStart(2, "0")} / ${String(range.count).padStart(2, "0")}`;
+      const rightFooter = `${downloadedStamp} · ${helpCaptureInfo.sourceRevision.slice(0, 8)} · ${String(page + 1).padStart(2, "0")} / ${String(range.count).padStart(2, "0")}`;
       doc
         .font("Geist-Mono")
         .fontSize(7.5)

@@ -261,6 +261,43 @@
   .textarea {
     @apply focus:border-accent-500 focus:ring-accent-500 min-h-11 w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm shadow-sm placeholder:text-slate-500 focus:ring-1 focus:outline-hidden lg:min-h-0;
   }
+  /* Single-value native selects replace the wide browser-default arrow gutter with a
+     crisp 14px SVG chevron (slate-500 for >=4.5:1 contrast on white) while keeping
+     native keyboard navigation, OS mobile pickers and direct-child grid alignment.
+     Multi-row listboxes ([multiple], [size!="1"]) retain native rendering. */
+  .select:not([multiple]):not([size]),
+  .select[size="1"] {
+    @apply cursor-pointer appearance-none ps-3 pe-8 transition-colors enabled:hover:border-slate-400 enabled:hover:bg-slate-50/70 disabled:cursor-not-allowed disabled:border-slate-200 disabled:bg-slate-50 disabled:text-slate-500;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='%2364748b' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M4.5 6.25 8 9.75l3.5-3.5'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 0.625rem center;
+    background-size: 0.875rem 0.875rem;
+  }
+  .select.control-compact:not([multiple]):not([size]),
+  .select.control-compact[size="1"] {
+    @apply min-h-11 py-2 ps-2.5 pe-7 lg:min-h-8 lg:py-1;
+    background-position: right 0.5rem center;
+  }
+  .select:not([multiple]):not([size]):dir(rtl),
+  .select[size="1"]:dir(rtl) {
+    background-position: left 0.625rem center;
+  }
+  .select.control-compact:not([multiple]):not([size]):dir(rtl),
+  .select.control-compact[size="1"]:dir(rtl) {
+    background-position: left 0.5rem center;
+  }
+  .select[aria-invalid="true"],
+  .select[aria-invalid="true"]:enabled:hover {
+    @apply border-red-500 focus:border-red-500 focus:ring-red-500;
+  }
+  @media (forced-colors: active) {
+    .select:not([multiple]):not([size]),
+    .select[size="1"] {
+      appearance: auto;
+      background-image: none;
+      padding-inline-end: 0.75rem;
+    }
+  }
 
   /* Standalone text actions (resend, account recovery and table actions) remain usable on
      touch screens too. Avoid changing ordinary unstyled prose links or icon artwork. */
@@ -274,6 +311,10 @@
   /* Surfaces -------------------------------------------------------------- */
   .card {
     @apply rounded-xl border border-slate-200 bg-white shadow-sm;
+  }
+  /* Shared floating menu/popover card surface (header menus, pickers, notifications). */
+  .popover-surface {
+    @apply rounded-xl border border-slate-200/90 bg-white shadow-xl shadow-slate-900/10 ring-1 ring-slate-900/5;
   }
   .page-title {
     @apply text-2xl font-bold tracking-tight text-slate-900;

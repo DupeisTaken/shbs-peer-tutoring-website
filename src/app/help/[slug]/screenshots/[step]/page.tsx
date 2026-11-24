@@ -52,7 +52,11 @@ export default async function HelpStepScreenshotPage({
   const frameStep = stepForCaptureView(step, viewNumber);
   const rawHref = `/api/help/images/${screenshot.id}?locale=${locale}`;
   return (
-    <main lang={locale} className="mx-auto max-w-[1600px] space-y-5 px-4 py-6">
+    <main
+      id="main-content"
+      lang={locale}
+      className="mx-auto max-w-[1600px] space-y-5 px-4 py-6"
+    >
       <header className="space-y-3">
         <Link
           href={`/help/${article.slug}#step-${stepNumber}`}

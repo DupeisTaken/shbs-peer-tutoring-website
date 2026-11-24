@@ -135,7 +135,7 @@ function Supervision() {
         <label className="block">
           <span className="label">{t("visibility")}</span>
           <select
-            className="input w-full"
+            className="select w-full"
             value={visibility}
             onChange={(e) => {
               setVisibility(e.target.value as typeof visibility);

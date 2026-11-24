@@ -996,7 +996,7 @@ function CalendarEditor({
         <label className="block">
           <span className="label">{t("schedulingEffect")}</span>
           <select
-            className="input w-full"
+            className="select w-full"
             value={schedulingEffect}
             aria-describedby={effectHelpId}
             onChange={(event) => {

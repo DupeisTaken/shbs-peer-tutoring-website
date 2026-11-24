@@ -5,9 +5,11 @@ import {
 } from "~/lib/approval-policy";
 
 import Link from "next/link";
+import { QueryClientContext } from "@tanstack/react-query";
+import { trpcProcedureKey, trpcQueryKey } from "~/lib/trpc-query-key";
 import { isAssignmentOperation } from "~/lib/assignment-qualification";
 import { AssignmentConfirmation } from "./assignment-confirmation";
-import { Suspense, useEffect, useRef, useState } from "react";
+import { Suspense, useContext, useEffect, useRef, useState } from "react";
 import {
   useSessionAccessDenied,
   useSessionPageScroll,
@@ -163,7 +165,10 @@ function RequestCard({
                 className="hover:underline"
                 href={`/admin/approvals?request=${encodeURIComponent(request.id)}`}
               >
-                {eventTitle(titles, { operation: request.operation, kind: "SUBMISSION" })}
+                {eventTitle(titles, {
+                  operation: request.operation,
+                  kind: "SUBMISSION",
+                })}
               </Link>
             </h2>
             <p className="mt-1 text-sm text-slate-500">
@@ -467,17 +472,29 @@ function ApprovalQueue({
     router.replace(`/admin/approvals?${search.toString()}`, { scroll: false });
   };
   const utils = api.useUtils();
-  const queue = api.approval.list.useQuery({
+  const queryClient = useContext(QueryClientContext);
+  const queueInput = {
     state: requestId ? undefined : state || undefined,
     page: requestId ? 0 : page,
     requesterId: requestId ? undefined : requesterId || undefined,
     requestId,
+  };
+  const queue = api.approval.list.useQuery(queueInput, {
+    enabled: !accessDenied,
   });
   const denied = useSessionAccessDenied({
     ...queue,
     denialKey: "approval-queue",
+    queryKey: trpcQueryKey(api.approval.list, ["approval", "list"], queueInput),
   });
   if (accessDenied !== denied) setAccessDenied(denied);
+  useEffect(() => {
+    if (!denied || !queryClient) return;
+    queryClient.removeQueries({
+      queryKey: trpcProcedureKey(api.approval.list, ["approval", "list"]),
+      exact: false,
+    });
+  }, [denied, queryClient]);
   const requesterKey = queue.data
     ? JSON.stringify(queue.data.requesters.map((user) => user.id))
     : null;
@@ -554,7 +571,7 @@ function ApprovalQueue({
               {/* Native inputs declare their own padding/min-height after shared
                   controls; keep this toolbar's desktop baseline explicit. */}
               <select
-                className="input control-compact mt-1 block w-full lg:min-h-8 lg:py-1"
+                className="select control-compact mt-1 block w-full lg:min-h-8 lg:py-1"
                 value={requesterId}
                 onChange={(e) => {
                   setRequesterId(e.target.value);
@@ -578,7 +595,9 @@ function ApprovalQueue({
           >
             {t("refresh")}
           </Button>
-          {queue.data?.canReview && !queue.error && <ReviewerNotificationRefresh />}
+          {queue.data?.canReview && !queue.error && (
+            <ReviewerNotificationRefresh />
+          )}
           {requestId && (
             <Link className="link" href="/admin/approvals?status=all">
               {t("allRequests")}
@@ -677,27 +696,50 @@ function ReviewerNotificationRefresh() {
   const reconcile = api.notification.reconcileManagementReviews.useMutation();
   const inFlight = useRef(false);
   const [pending, setPending] = useState(false);
-  const [result, setResult] = useState<{ pending: number; created: number } | null>(null);
+  const [result, setResult] = useState<{
+    pending: number;
+    created: number;
+  } | null>(null);
   const [error, setError] = useState<string | null>(null);
-  return <div className="space-y-2">
-    <Button size="compact" disabled={pending} onClick={async () => {
-      if (inFlight.current) return;
-      inFlight.current = true;
-      setPending(true);
-      setResult(null);
-      setError(null);
-      try {
-        setResult(await reconcile.mutateAsync());
-      } catch (failure) {
-        setError(failure instanceof Error ? failure.message : t("reviewerNoticesFailed"));
-      } finally {
-        inFlight.current = false;
-        setPending(false);
-      }
-    }}>{t(pending ? "reviewerNoticesPending" : "reviewerNoticesRefresh")}</Button>
-    {result && <p role="status" className="max-w-xl text-sm text-slate-700">{t("reviewerNoticesResult", result)}</p>}
-    {error && <p role="alert" className="max-w-xl text-sm text-red-700">{error}</p>}
-  </div>;
+  return (
+    <div className="space-y-2">
+      <Button
+        size="compact"
+        disabled={pending}
+        onClick={async () => {
+          if (inFlight.current) return;
+          inFlight.current = true;
+          setPending(true);
+          setResult(null);
+          setError(null);
+          try {
+            setResult(await reconcile.mutateAsync());
+          } catch (failure) {
+            setError(
+              failure instanceof Error
+                ? failure.message
+                : t("reviewerNoticesFailed"),
+            );
+          } finally {
+            inFlight.current = false;
+            setPending(false);
+          }
+        }}
+      >
+        {t(pending ? "reviewerNoticesPending" : "reviewerNoticesRefresh")}
+      </Button>
+      {result && (
+        <p role="status" className="max-w-xl text-sm text-slate-700">
+          {t("reviewerNoticesResult", result)}
+        </p>
+      )}
+      {error && (
+        <p role="alert" className="max-w-xl text-sm text-red-700">
+          {error}
+        </p>
+      )}
+    </div>
+  );
 }
 
 function LinkedQueue({ reviewer }: { reviewer: boolean }) {

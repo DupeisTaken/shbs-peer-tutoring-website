@@ -5,14 +5,19 @@ describe("help audiences follow live, independent account capabilities", () => {
   it("gives guests only public instructions and merged accounts no account guide", () => {
     expect(helpAccess(null)).toEqual({
       audiences: ["public"],
+      downloadableAudiences: ["public"],
       canDownload: false,
     });
     expect(
       helpAccess({ role: "HEAD", mergedIntoId: "surviving-account" }),
-    ).toEqual({ audiences: ["public"], canDownload: false });
+    ).toEqual({
+      audiences: ["public"],
+      downloadableAudiences: ["public"],
+      canDownload: false,
+    });
   });
 
-  it("keeps account recovery readable during suspension without workspaces or downloads", () => {
+  it("keeps account recovery readable during suspension without workspaces or staff downloads", () => {
     expect(
       helpAccess({
         role: "HEAD",
@@ -21,20 +26,20 @@ describe("help audiences follow live, independent account capabilities", () => {
         crewStatus: "ACTIVE",
         canTranslate: true,
       }),
-    ).toEqual({ audiences: ["public", "account"], canDownload: false });
+    ).toEqual({
+      audiences: ["public", "account"],
+      downloadableAudiences: ["public", "account"],
+      canDownload: false,
+    });
   });
 
-  it("separates ordinary participant and observer instructions", () => {
-    expect(helpAccess({ role: "STUDENT" }).audiences).toEqual([
-      "public",
-      "account",
-      "student",
-    ]);
-    expect(helpAccess({ role: "VIEWER" }).audiences).toEqual([
-      "public",
-      "account",
-      "observer",
-    ]);
+  it("separates ordinary participant and observer instructions and matching PDF downloads", () => {
+    const student = helpAccess({ role: "STUDENT" });
+    expect(student.audiences).toEqual(["public", "account", "student"]);
+    expect(student.downloadableAudiences).toEqual(["public", "account", "student"]);
+    const viewer = helpAccess({ role: "VIEWER" });
+    expect(viewer.audiences).toEqual(["public", "account", "observer"]);
+    expect(viewer.downloadableAudiences).toEqual(["public", "account", "observer"]);
     expect(
       helpAccess({ role: "VIEWER", canTranslate: true }).audiences,
     ).not.toContain("translator");
@@ -52,6 +57,13 @@ describe("help audiences follow live, independent account capabilities", () => {
       expect(result.audiences).not.toContain("crew");
       expect(result.audiences.includes("head")).toBe(role === "HEAD");
       expect(result.audiences.includes("admin")).toBe(role !== "COORDINATOR");
+      // Staff can distribute participant training handbooks while keeping admin/Head gated.
+      expect(result.downloadableAudiences).toContain("tutor");
+      expect(result.downloadableAudiences).toContain("crew");
+      expect(result.downloadableAudiences.includes("admin")).toBe(
+        role !== "COORDINATOR",
+      );
+      expect(result.downloadableAudiences.includes("head")).toBe(role === "HEAD");
     },
   );
 

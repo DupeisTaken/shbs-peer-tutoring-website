@@ -2,7 +2,10 @@ import { helpAudiences } from "~/lib/help/catalogue";
 import type { HelpAudience } from "~/lib/help/types";
 import { getHelpAccess } from "~/server/help/access";
 import { helpPrivateHeaders } from "~/server/help/assets";
-import { renderHelpPdf } from "~/server/help/pdf";
+import {
+  formatDownloadFilenameStamp,
+  renderHelpPdf,
+} from "~/server/help/pdf";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -20,12 +23,6 @@ export async function GET(
   const locale = new URL(request.url).searchParams.get("locale") ?? "en";
   let acquiredSlot = false;
   try {
-    const access = await getHelpAccess();
-    if (!access.canDownload)
-      return new Response("Forbidden", {
-        status: 403,
-        headers: helpPrivateHeaders,
-      });
     if (
       !helpAudiences.includes(audience as HelpAudience) ||
       (locale !== "en" && locale !== "zh")
@@ -34,10 +31,8 @@ export async function GET(
         status: 400,
         headers: helpPrivateHeaders,
       });
-    if (
-      (audience === "head" || audience === "admin") &&
-      !access.audiences.includes(audience)
-    )
+    const access = await getHelpAccess();
+    if (!access.downloadableAudiences.includes(audience as HelpAudience))
       return new Response("Forbidden", {
         status: 403,
         headers: helpPrivateHeaders,
@@ -52,12 +47,18 @@ export async function GET(
       );
     activePdfRenders++;
     acquiredSlot = true;
-    const bytes = await renderHelpPdf(audience as HelpAudience, locale);
+    const downloadedAt = new Date();
+    const bytes = await renderHelpPdf(
+      audience as HelpAudience,
+      locale,
+      downloadedAt,
+    );
+    const filenameStamp = formatDownloadFilenameStamp(downloadedAt);
     return new Response(new Uint8Array(bytes), {
       headers: {
         ...helpPrivateHeaders,
         "Content-Type": "application/pdf",
-        "Content-Disposition": `attachment; filename="shbs-help-${audience}-${locale}.pdf"`,
+        "Content-Disposition": `attachment; filename="shbs-help-${audience}-${locale}-${filenameStamp}.pdf"`,
       },
     });
   } catch {

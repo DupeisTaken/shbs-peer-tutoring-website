@@ -34,17 +34,21 @@ export function LanguageSwitcher({
     languages.data ??
     DEFAULT_ENABLED_LOCALES.map((c) => ({ code: c, label: LOCALE_LABELS[c] ?? c }));
 
+  const heightClass = embedded
+    ? "h-11 w-full text-sm"
+    : compact
+      ? "h-8 text-[13px]"
+      : compactAtDesktop
+        ? "h-11 text-[13px] lg:h-8"
+        : "h-11 text-[13px]";
+
   const select = (
     <select
       aria-label={t("language")}
-      className={`select py-0 ${
+      className={`select py-0 font-medium text-slate-700 disabled:cursor-wait ${
         embedded
           ? "h-11 w-full text-sm"
-          : compact
-            ? "h-8 w-auto text-xs"
-            : compactAtDesktop
-              ? "h-11 w-auto text-xs lg:h-8"
-              : "h-11 w-auto text-xs"
+          : `control-compact field-auto rounded-full border-slate-200/90 bg-slate-50/90 ps-3 shadow-none enabled:hover:border-slate-300 enabled:hover:bg-slate-100 ${heightClass}`
       }`}
       value={locale}
       disabled={pending}

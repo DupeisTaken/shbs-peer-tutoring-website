@@ -13,8 +13,10 @@ import { FilterToolbar } from "./ui/patterns";
 
 // Native input padding follows the shared control declarations; retain the
 // compact desktop baseline explicitly while leaving touch targets at 44 px.
-const filterControl =
+const filterInput =
   "input control-compact mt-1 w-full min-h-11 lg:min-h-8 lg:py-1";
+const filterSelect =
+  "select control-compact mt-1 w-full min-h-11 lg:min-h-8 lg:py-1";
 
 export function ApplicationFilters({
   value,
@@ -61,7 +63,7 @@ export function ApplicationFilters({
           <span className="label">{t("filters.search")}</span>
           <input
             type="search"
-            className={filterControl}
+            className={filterInput}
             value={value.search}
             onChange={(event) => update("search", event.target.value)}
           />
@@ -69,7 +71,7 @@ export function ApplicationFilters({
         <label className="min-w-0 flex-[1_1_10rem]">
           <span className="label">{t("filters.status")}</span>
           <select
-            className={filterControl}
+            className={filterSelect}
             value={value.status}
             onChange={(event) => update("status", event.target.value)}
           >
@@ -92,7 +94,7 @@ export function ApplicationFilters({
         <label className="min-w-0 flex-[1_1_12rem]">
           <span className="label">{t("filters.type")}</span>
           <select
-            className={filterControl}
+            className={filterSelect}
             value={value.type}
             onChange={(event) => update("type", event.target.value)}
           >
@@ -109,7 +111,7 @@ export function ApplicationFilters({
         <label className="min-w-0 flex-[1_1_12rem]">
           <span className="label">{t("filters.subject")}</span>
           <select
-            className={filterControl}
+            className={filterSelect}
             value={value.subjectId}
             onChange={(event) => update("subjectId", event.target.value)}
           >
@@ -124,7 +126,7 @@ export function ApplicationFilters({
         <label className="min-w-0 flex-[1_1_12rem]">
           <span className="label">{t("filters.completion")}</span>
           <select
-            className={filterControl}
+            className={filterSelect}
             value={value.completion}
             onChange={(event) => update("completion", event.target.value)}
           >
@@ -138,7 +140,7 @@ export function ApplicationFilters({
         <label className="min-w-0 flex-[1_1_15rem]">
           <span className="label">{t("filters.identity")}</span>
           <select
-            className={filterControl}
+            className={filterSelect}
             value={value.identity}
             onChange={(event) => update("identity", event.target.value)}
           >
@@ -152,7 +154,7 @@ export function ApplicationFilters({
         <label className="min-w-0 flex-[1_1_15rem]">
           <span className="label">{t("filters.sort")}</span>
           <select
-            className={filterControl}
+            className={filterSelect}
             value={value.sort}
             onChange={(event) => update("sort", event.target.value)}
           >
