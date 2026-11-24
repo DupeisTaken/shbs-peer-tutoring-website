@@ -21,8 +21,11 @@ const revision = (cwd) => execFileSync("git", ["rev-parse", "HEAD"], { cwd, enco
  * Each baseline is independently inspected before any partition is measured. */
 export function freezeCampaign() {
   const selected = JSON.parse(setting("SELECTION"));
+  assert.ok(!selected.admissionManifest, "A non-scheduling admission manifest cannot bind a measurement campaign");
   const candidateRevision = setting("CANDIDATE_SHA");
   assert.equal(revision("."), candidateRevision);
+  assert.notEqual(selected.baseline, candidateRevision, "Candidate revision cannot be its own control");
+  assert.notEqual(selected.catalogBaseline, candidateRevision, "Catalog baseline cannot match candidate revision");
   const inspect = (/** @type {boolean} */ catalog) => {
     const root = catalog && selected.catalogBaseline !== selected.baseline ? ".profile-catalog" : ".profile-baseline";
     const baselineRevision = catalog ? selected.catalogBaseline : selected.baseline;

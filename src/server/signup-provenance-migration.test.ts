@@ -1,14 +1,11 @@
 import { readFileSync } from "node:fs";
 import pg from "pg";
 import { expect, it } from "vitest";
+import { assertIsolatedTestDatabase } from "~/test/database-guard";
 
 it("backfills only explicit survey provenance without changing historical priority or links", async () => {
+  assertIsolatedTestDatabase(process.env.DATABASE_URL);
   const url = new URL(process.env.DATABASE_URL!);
-  if (
-    !["localhost", "127.0.0.1"].includes(url.hostname) ||
-    !url.pathname.endsWith("_test")
-  )
-    throw Error("Migration tests require an isolated local test database");
   const client = new pg.Client({ connectionString: url.href });
   await client.connect();
   try {

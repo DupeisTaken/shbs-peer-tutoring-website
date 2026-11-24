@@ -226,8 +226,13 @@ tests, and serial PostgreSQL integration tests (`fileParallelism: false`).
 
 `src/test/setup.ts` supplies dummy fallback URLs for unit tests only; integration
 tests require a real loopback database named `shbs_shipping_test` (enforced by
-[database-guard.ts](../../src/test/database-guard.ts)). Never point tests at a
-demo or production database.
+[database-guard.ts](../../src/test/database-guard.ts) and
+[database-test-safety.ts](../../src/server/database-test-safety.ts)). Under
+Vitest / `NODE_ENV=test`, [`src/server/db.ts`](../../src/server/db.ts) refuses
+to construct a Prisma/pg pool or run any query, write, or `afterAll` cleanup
+against a rejected URL while keeping `$disconnect()` safe and allowing unit
+tests with mocked or unused DB imports to run without PostgreSQL. Never point
+tests at a demo or production database.
 
 ```bash
 # Bash (in PowerShell, set $env:DATABASE_URL="...")
@@ -244,9 +249,11 @@ npm test -- --shard=1/3 --maxWorkers=1
 ```
 
 Recovery checkpoint integration tests (`correction-checkpoints.integration.test.ts`)
-use a schema-wide `TRUNCATE` (required to fire calendar/scheduling triggers even on
-empty tables) with a 20-second reset hook; set `SHBS_PROFILE_RECOVERY_FIXTURE=1`
-for phase timing diagnostics.
+and room-allocation tests (`room-allocation.test.ts`) both use a schema-wide
+`TRUNCATE` (required to fire calendar/scheduling triggers even on empty tables)
+inside a 20-second fixture-specific reset hook with bounded `lock_timeout` (1 s)
+and `statement_timeout` (6 s); set `SHBS_PROFILE_RECOVERY_FIXTURE=1` or
+`SHBS_PROFILE_ROOM_ALLOCATION_FIXTURE=1` for phase timing diagnostics.
 
 ### Browser layout and URL smoke scripts
 

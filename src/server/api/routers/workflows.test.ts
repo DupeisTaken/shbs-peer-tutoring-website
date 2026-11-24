@@ -6,6 +6,7 @@ import type { Session } from "next-auth";
 vi.mock("~/server/auth", () => ({ auth: async () => null }));
 import { createCaller } from "~/server/api/root";
 import { db } from "~/server/db";
+import { assertIsolatedTestDatabase } from "~/test/database-guard";
 import { currentPolicy } from "~/server/policy-acceptance";
 import {
   acceptStudentPolicy,
@@ -1142,18 +1143,8 @@ it("filters recorded attendance-flag states without reopening decisions or expos
 });
 
 beforeEach(async () => {
-  // Refuse destructive fixture cleanup anywhere except the explicitly created local review DB.
-  const url = new URL(process.env.DATABASE_URL!);
-  if (
-    !["localhost", "127.0.0.1"].includes(url.hostname) ||
-    !(
-      url.pathname === "/shbs_functional_review" ||
-      url.pathname.endsWith("_test")
-    )
-  )
-    throw Error(
-      "Workflow tests require an explicitly named local test database",
-    );
+  // Refuse destructive fixture cleanup anywhere except an explicit local *_test DB.
+  assertIsolatedTestDatabase(process.env.DATABASE_URL);
   const tables = await db.$queryRaw<
     { tablename: string }[]
   >`SELECT tablename FROM pg_tables WHERE schemaname='public' AND tablename <> '_prisma_migrations'`;
