@@ -282,7 +282,14 @@ vi.mock("~/trpc/react", async () => ({
       backfillStudentUsernames: {
         useMutation: () => ({ mutate: vi.fn(), isPending: false }),
       },
-      appeals: { useQuery: () => ({ data: state.empty }) },
+      appeals: {
+        useQuery: () => ({
+          data: state.empty,
+          isSuccess: true,
+          isFetching: false,
+          refetch: vi.fn(),
+        }),
+      },
       deleteUser: {
         useMutation: () => ({
           mutate: state.deleteUser,

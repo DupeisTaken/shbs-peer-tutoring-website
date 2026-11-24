@@ -121,10 +121,20 @@ const fixture = vi.hoisted(() => {
       affiliation: string | null;
       createdAt: Date;
       userId: string;
+      restriction: {
+        suspendedAt: Date | null;
+        reason: string | null;
+        authorityRevision: number;
+      };
     }[],
     appealError: null as null | { message: string; data?: { code?: string } },
-    decisionError: null as null | { message: string },
+    decisionError: null as null | { message: string; data?: { code?: string } },
     decisionPending: false,
+    decisionResult: {
+      ok: true as const,
+      coResolvedAppealIds: ["appeal"],
+      accessRestored: true,
+    },
     decision: vi.fn(),
     refresh: vi.fn<() => Promise<void>>(),
     refetch: vi.fn(),
@@ -375,15 +385,27 @@ vi.mock("~/trpc/react", async () => {
         decideAppeal: {
           useMutation: (options: {
             onSuccess: (
-              result: unknown,
-              input: { appealId: string; action: string },
+              result: {
+                ok: true;
+                coResolvedAppealIds: string[];
+                accessRestored: boolean;
+              },
+              input: {
+                appealId: string;
+                action: string;
+                expectedAuthorityRevision?: number;
+              },
             ) => Promise<void>;
             onSettled: () => void;
           }) => ({
-            mutate: (input: { appealId: string; action: string }) => {
+            mutate: (input: {
+              appealId: string;
+              action: string;
+              expectedAuthorityRevision?: number;
+            }) => {
               fixture.decision(input);
               fixture.completion = async () => {
-                await options.onSuccess({}, input);
+                await options.onSuccess(fixture.decisionResult, input);
                 options.onSettled();
               };
             },
@@ -1230,14 +1252,24 @@ const fullAppeal =
     12,
   );
 const seedAppeal = () => {
+  fixture.decisionResult = {
+    ok: true,
+    coResolvedAppealIds: ["appeal"],
+    accessRestored: true,
+  };
   fixture.appeals = [
     {
       id: "appeal",
       name: "Appealing student",
       message: fullAppeal,
       affiliation: "Grade 10",
-      createdAt: new Date(),
+      createdAt: new Date("2026-10-01T08:00:00Z"),
       userId: "student",
+      restriction: {
+        suspendedAt: new Date("2026-09-30T08:00:00Z"),
+        reason: "Unverified observer activity",
+        authorityRevision: 3,
+      },
     },
   ];
 };
@@ -1255,6 +1287,7 @@ it("reads the complete appeal before offering decisions and restores its opener 
   expect(
     within(dialog).getByText(/Original appeal first paragraph/).textContent,
   ).toBe(fullAppeal);
+  expect(within(dialog).getByText("Unverified observer activity")).toBeTruthy();
   expect(fixture.decision).not.toHaveBeenCalled();
   fireEvent(dialog, new Event("cancel", { bubbles: true, cancelable: true }));
   expect(screen.queryByRole("dialog")).toBeNull();
@@ -1271,6 +1304,7 @@ it("blocks dismissal and repeated decisions while the appeal write is pending", 
   expect(fixture.decision).toHaveBeenCalledExactlyOnceWith({
     appealId: "appeal",
     action: "APPROVE",
+    expectedAuthorityRevision: 3,
   });
   fixture.decisionPending = true;
   view.rerender(<UsersPage />);
@@ -1281,6 +1315,42 @@ it("blocks dismissal and repeated decisions while the appeal write is pending", 
   const dialog = screen.getByRole("dialog");
   fireEvent(dialog, new Event("cancel", { bubbles: true, cancelable: true }));
   expect(screen.getByRole("dialog")).toBe(dialog);
+});
+
+it("pauses decisions when restriction revision changes and hides Deny on an already-active account", () => {
+  seedAppeal();
+  const view = mount();
+  fireEvent.click(screen.getByRole("button", { name: "Review appeal" }));
+  expect(screen.getByRole("button", { name: "Deny" })).toBeTruthy();
+
+  // Restriction changes in background: decision is paused until explicit reload.
+  fixture.appeals = [
+    {
+      ...fixture.appeals[0]!,
+      restriction: {
+        suspendedAt: null,
+        reason: null,
+        authorityRevision: 4,
+      },
+    },
+  ];
+  view.rerender(<UsersPage />);
+  expect(
+    screen.getByText(messages.admin.users.appeals.reviewChanged),
+  ).toBeTruthy();
+  expect(
+    screen.getByRole<HTMLButtonElement>("button", { name: "Approve" }).disabled,
+  ).toBe(true);
+
+  // Close and reopen on already-active account: Deny is hidden, Approve offers Approve and close appeals.
+  fireEvent.click(screen.getByRole("button", { name: "Close" }));
+  fireEvent.click(screen.getByRole("button", { name: "Review appeal" }));
+  expect(screen.queryByRole("button", { name: "Deny" })).toBeNull();
+  expect(
+    screen.getByRole("button", {
+      name: messages.admin.users.appeals.approveClose,
+    }),
+  ).toBeTruthy();
 });
 
 it("retains a failed decision and recovers an accepted decision with reads only", async () => {

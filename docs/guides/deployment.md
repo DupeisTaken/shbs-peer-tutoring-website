@@ -311,11 +311,12 @@ bytes and nonzero free inodes. Exit `0` = `HEADROOM_OK`; `1` = insufficient;
 > ⚠️ **Never run `prisma/seed.ts` in production.** It creates demo accounts with
 > `Password123!`.
 
-Run the packaged bootstrap CLI inside `app` (requires a 12+ char password;
-optional `BOOTSTRAP_ADMIN_NAME` defaults to `"Program Head"`; creates Head and
-initial active period when missing, or promotes a second account to Admin / resets
-password on rerun; `AUTH_BOOTSTRAP_ADMIN_EMAILS` only promotes existing accounts
-on sign-in):
+Run the packaged bootstrap CLI inside `app` (requires a **12–1,024** character
+password validated before hashing or opening a database connection, preserving
+exact leading/trailing spaces; optional `BOOTSTRAP_ADMIN_NAME` defaults to
+`"Program Head"`; creates Head and initial active period when missing, or
+promotes a second account to Admin / resets password on rerun;
+`AUTH_BOOTSTRAP_ADMIN_EMAILS` only promotes existing accounts on sign-in):
 
 ```bash
 export BOOTSTRAP_ADMIN_EMAIL='you@school.edu'
