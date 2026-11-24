@@ -246,6 +246,7 @@ const {
             select: {
               id: true,
               name: true,
+              email: true,
               role: true,
               tutorId: true,
               tutorAccessRevoked: true,
@@ -273,6 +274,7 @@ const {
         token.historyAccessRevision = dbUser.historyAccessRevision;
         token.role = dbUser.role;
         token.name = dbUser.name;
+        if (dbUser.email !== undefined) token.email = dbUser.email;
         token.tutorId =
           dbUser.role === "VIEWER" || dbUser.tutorAccessRevoked
             ? null
@@ -280,11 +282,13 @@ const {
       } else if (token.sub) {
         // Token reuse (no fresh sign-in): keep the linked `tutorId` in sync with the DB so a
         // can-tutor toggle — which links/creates the Tutor (or archives it) on `/admin/users` —
-        // takes effect on the next request without forcing a re-login; roles refresh here too.
+        // takes effect on the next request without forcing a re-login; roles and primary email
+        // refresh here too.
         const dbUser = await db.user.findUnique({
           where: { id: token.sub },
           select: {
             name: true,
+            email: true,
             tutorId: true,
             tutorAccessRevoked: true,
             role: true,
@@ -310,6 +314,7 @@ const {
         token.role = dbUser.role;
         token.historyAccessRevision = dbUser.historyAccessRevision;
         token.name = dbUser.name;
+        if (dbUser.email !== undefined) token.email = dbUser.email;
       }
       return token;
     },
