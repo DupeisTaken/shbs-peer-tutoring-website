@@ -4065,6 +4065,7 @@
       },
       "entities": {
         "ImportedRecordProvenance": "Herkunft importierter historischer Datensätze",
+        "ArchiveProvenanceReceipt": "Beleg für den Abgleich der Archivherkunft",
         "SchedulingMaintenanceState": "Wartungsstatus der Terminplanung",
         "SchedulingDirtyEvent": "Invalidierungsereignis der Terminplanung",
         "PersonPartitionReceipt": "Beleg zur Identitätstrennung",

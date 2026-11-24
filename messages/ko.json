@@ -4065,6 +4065,7 @@
       },
       "entities": {
         "ImportedRecordProvenance": "가져온 과거 기록의 출처",
+        "ArchiveProvenanceReceipt": "아카이브 출처 대조 영수증",
         "SchedulingMaintenanceState": "일정 유지 관리 상태",
         "SchedulingDirtyEvent": "일정 무효화 이벤트",
         "PersonPartitionReceipt": "신원 분리 처리 기록",
