@@ -23,13 +23,13 @@ Open: `/admin/program`
 
 ### Walkthrough
 
-1. **Review preparation** Open Program Settings → Recruitment and Refresh. Read the current period, named destination, both prepared recruitment openings, their timezone and all staged feature switches.
+1. **Review status and openings** Open Program Settings → Recruitment and Refresh and find the unified Program Refresh card. Check the transition header, live schedule status, any staged optional features, and the compact embedded Next-Period Recruitment openings.
 
    Look for: Read the destination and full refresh effects before typing REFRESH.
 
-2. **Read all refresh effects** Inspect the displayed participation, scheduling and destination consequences. Resolve stale preparations and review current mail, policies, subjects, rooms and operator readiness before admitting the refresh.
+2. **Read all refresh effects** Expand Effects & full refresh details to inspect participation, scheduling and destination consequences. Resolve stale preparations and review current mail, policies, subjects, rooms and operator readiness before admitting the refresh.
 
-3. **Apply or schedule deliberately** For an immediate refresh, enter REFRESH and read the final named consequence review before confirming. For a scheduled refresh, review its exact execution time/timezone and target; cancel an unneeded pending schedule through its separate action.
+3. **Schedule or run from one entrance** Use Authorize Refresh, which defaults to Schedule for later (or switch to Refresh now in the same entrance when advancing immediately). Enter REFRESH, open the final named consequence review and confirm; use Cancel scheduled refresh to remove an active or paused schedule.
 
 4. **Verify the new period** After the accepted receipt, inspect the current period, activated openings/modules and participant workspaces. Use read-only refresh recovery if the accepted result cannot reload; never repeat a possibly completed period advance.
 
