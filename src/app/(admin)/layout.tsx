@@ -39,6 +39,8 @@ export default async function AdminLayout({
   const me = await db.user.findUnique({
     where: { id: session.user.id },
     select: {
+      name: true,
+      email: true,
       username: true,
       crewStatus: true,
       tutorAccessRevoked: true,
@@ -93,7 +95,7 @@ export default async function AdminLayout({
             title={t("account.title")}
           >
             <p className="text-sm font-medium text-slate-900">
-              {session.user.name}
+              {me?.name ?? session.user.name}
             </p>
             <p className="muted text-xs">
               {(me?.username ?? me?.tutor?.username)
@@ -105,9 +107,15 @@ export default async function AdminLayout({
         }
         account={
           <UserAvatar
-            name={session.user.name ?? session.user.email ?? session.role}
+            name={
+              me?.name ??
+              session.user.name ??
+              me?.email ??
+              session.user.email ??
+              session.role
+            }
             username={me?.username ?? me?.tutor?.username}
-            email={session.user.email}
+            email={me?.email ?? session.user.email}
             role={session.role}
             items={accountItems}
             compactAtDesktop

@@ -1,4 +1,8 @@
 "use client";
+import {
+  NEW_PASSWORD_MIN_LENGTH,
+  PASSWORD_MAX_LENGTH,
+} from "~/lib/password-contract";
 import { CodeInput } from "~/app/_components/ui/code-field";
 import { useSessionPageScroll } from "~/app/_components/session-view-state";
 import {
@@ -251,8 +255,12 @@ export default function SettingsPage() {
     )
       return;
     setPwError(null);
-    if (next.length < 8) {
+    if (next.length < NEW_PASSWORD_MIN_LENGTH) {
       setPwError(t("tutor.settings.pwTooShort"));
+      return;
+    }
+    if (next.length > PASSWORD_MAX_LENGTH) {
+      setPwError(t("tutor.settings.pwTooLong", { max: PASSWORD_MAX_LENGTH }));
       return;
     }
     if (next !== confirm) {
@@ -280,6 +288,18 @@ export default function SettingsPage() {
       !code.trim()
     )
       return;
+    if (next.length < NEW_PASSWORD_MIN_LENGTH) {
+      setPwError(t("tutor.settings.pwTooShort"));
+      return;
+    }
+    if (next.length > PASSWORD_MAX_LENGTH) {
+      setPwError(t("tutor.settings.pwTooLong", { max: PASSWORD_MAX_LENGTH }));
+      return;
+    }
+    if (next !== confirm) {
+      setPwError(t("tutor.settings.pwMismatch"));
+      return;
+    }
     passwordAdmission.current = true;
     setPwError(null);
     changePassword.mutate({
@@ -600,7 +620,8 @@ export default function SettingsPage() {
               onChange={(e) => setNext(e.target.value)}
               type="password"
               autoComplete="new-password"
-              minLength={8}
+              minLength={NEW_PASSWORD_MIN_LENGTH}
+              maxLength={PASSWORD_MAX_LENGTH}
               disabled={!!sentTo}
               className="input"
             />
@@ -613,6 +634,8 @@ export default function SettingsPage() {
               onChange={(e) => setConfirm(e.target.value)}
               type="password"
               autoComplete="new-password"
+              minLength={NEW_PASSWORD_MIN_LENGTH}
+              maxLength={PASSWORD_MAX_LENGTH}
               disabled={!!sentTo}
               className="input"
             />
