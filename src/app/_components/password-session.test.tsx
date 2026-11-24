@@ -5,10 +5,12 @@ import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { NextIntlClientProvider } from "next-intl";
 import en from "../../../messages/en.json";
 import zh from "../../../messages/zh.json";
+import { PASSWORD_MAX_LENGTH } from "~/lib/password-contract";
 
 const mocks = vi.hoisted(() => ({
   redirect: vi.fn(),
   change: vi.fn(),
+  requestCode: vi.fn(),
   updateName: vi.fn(),
   succeed: true,
   requestCodeError: null as null | {
@@ -54,7 +56,8 @@ vi.mock("~/trpc/react", async () => {
       onSuccess: (data: { email: string }) => void;
       onSettled?: () => void;
     }) => ({
-      mutate: () => {
+      mutate: (input: unknown) => {
+        mocks.requestCode(input);
         if (!mocks.requestCodeError) {
           options.onSuccess({ email: "s***@example.test" });
         }
@@ -124,6 +127,7 @@ import TutorSettings from "../(tutor)/settings/page";
 beforeEach(() => {
   mocks.redirect.mockReset();
   mocks.change.mockReset();
+  mocks.requestCode.mockReset();
   mocks.updateName.mockReset();
   mocks.succeed = true;
   mocks.requestCodeError = null;
@@ -225,6 +229,44 @@ it.each([AccountSettings, TutorSettings])(
       code: "ABCDE",
     });
     expect(mocks.redirect).toHaveBeenCalledOnce();
+  },
+);
+
+it.each([AccountSettings, TutorSettings])(
+  "rejects >1024-char new passwords locally without requesting a code or submitting (%s)",
+  (Component) => {
+    render(
+      <QueryClientProvider
+        client={
+          new QueryClient({ defaultOptions: { queries: { retry: false } } })
+        }
+      >
+        <NextIntlClientProvider locale="en" messages={en}>
+          <Component />
+        </NextIntlClientProvider>
+      </QueryClientProvider>,
+    );
+    const next = screen.getByLabelText<HTMLInputElement>(
+      new RegExp(`^${en.tutor.settings.newPassword}`),
+    );
+    const confirm = screen.getByLabelText<HTMLInputElement>(
+      en.tutor.settings.confirmPassword,
+    );
+    expect(next.maxLength).toBe(PASSWORD_MAX_LENGTH);
+    expect(confirm.maxLength).toBe(PASSWORD_MAX_LENGTH);
+
+    const oversized = "p".repeat(PASSWORD_MAX_LENGTH + 1);
+    fireEvent.change(screen.getByLabelText(en.tutor.settings.currentPassword), {
+      target: { value: "CurrentPassword123!" },
+    });
+    fireEvent.change(next, { target: { value: oversized } });
+    fireEvent.change(confirm, { target: { value: oversized } });
+    fireEvent.click(
+      screen.getByRole("button", { name: en.account.password.sendCode }),
+    );
+    expect(screen.getByText(/no more than 1024 characters/)).toBeTruthy();
+    expect(mocks.requestCode).not.toHaveBeenCalled();
+    expect(mocks.change).not.toHaveBeenCalled();
   },
 );
 

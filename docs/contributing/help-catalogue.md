@@ -73,11 +73,20 @@ on-demand workflow [`.github/workflows/help-assets.yml`](../../.github/workflows
    every JPEG's SHA-256 before `docker build` runs. If `help-assets-latest` has
    not been published yet, the build falls back cleanly to text-only Help.
 
-### Baking locally against a demo server
+### Unpacking or baking locally
 
-Use the [resource-safety and demo setup](local-development.md#worktree-and-resource-safety).
+To pull the latest CI-baked screenshots from the `help-assets-latest` GitHub
+Release into a local checkout (without running Playwright or Postgres), run:
+
+```sh
+npm run help:unpack
+```
+
+To bake screenshots locally against a demo server instead, use the
+[resource-safety and demo setup](local-development.md#worktree-and-resource-safety).
 Never point the capture script at production or a destructive test database.
-With a seeded local production or dev server running on `http://127.0.0.1:3027`:
+With a seeded local production or dev server running on `http://127.0.0.1:3027`
+(`AUTH_TRUST_HOST=true` for production `next start`):
 
 ```sh
 npm run help:capture -- --base-url=http://127.0.0.1:3027

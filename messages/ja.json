@@ -563,7 +563,13 @@
         "enable": "Enable 2FA",
         "disable": "Disable 2FA",
         "saving": "Saving…",
-        "saved": "Two-factor settings updated."
+        "saved": "Two-factor settings updated.",
+        "loading": "Loading two-factor settings…",
+        "loadFailed": "Two-factor settings could not be loaded.",
+        "refreshFailed": "Two-factor settings could not be refreshed. Your password draft is kept; try again before saving.",
+        "refreshing": "Refreshing two-factor settings…",
+        "accessDenied": "Two-factor settings are unavailable.",
+        "savedRefreshFailed": "Saved, but two-factor settings could not refresh. Try refreshing."
       }
     },
     "forgotPassword": "パスワードを忘れましたか？",
@@ -596,7 +602,8 @@
         "confirmPassword": "新しいパスワードを確認"
       },
       "submit": "新しいパスワードを設定",
-      "saving": "保存中…"
+      "saving": "保存中…",
+      "passwordLength": "Use {min}–{max} characters."
     },
     "onboarding": {
       "proofRequired": "アカウントのメールに届くリンクを開き、所有権を確認してパスワードを設定してください。このアドレスを利用できない場合は運営チームに連絡してください。二要素認証はログイン後に設定できます。",
@@ -1347,7 +1354,22 @@
         "deny": "却下",
         "review": "異議申し立てを審査",
         "message": "異議申し立ての原文",
-        "refreshFailed": "審査結果は保存されましたが、アカウントまたは異議申し立て一覧を更新できませんでした。結果を再送信せず、更新を再試行してください。"
+        "refreshFailed": "審査結果は保存されましたが、アカウントまたは異議申し立て一覧を更新できませんでした。結果を再送信せず、更新を再試行してください。",
+        "restrictionHeading": "Current Account Restriction",
+        "restricted": "Suspended",
+        "active": "Already active",
+        "restrictedAt": "Suspended {date}",
+        "submittedAt": "Appeal submitted {date}",
+        "noReason": "No suspension reason recorded.",
+        "coResolveHelp": "Approve restores access and closes all pending appeals for this account with one notice.",
+        "activeHelp": "This account is already active. Approve closes all pending appeals without changing access. Deny is unavailable.",
+        "reloadReview": "Reload restriction review",
+        "reviewChanged": "This appeal or account restriction changed. Reload the review before deciding.",
+        "reviewUnavailable": "Current review details could not be loaded. Try again before deciding.",
+        "approveClose": "Approve and close appeals",
+        "accessRestored": "Account access restored and all pending appeals approved.",
+        "closedActive": "Pending appeals closed. Account access was already active and did not change.",
+        "deniedReceipt": "Appeal denied. The account remains suspended."
       }
     },
     "registrationCodes": {
@@ -2570,7 +2592,7 @@
       "currentPassword": "現在のパスワード",
       "newPassword": "新しいパスワード",
       "confirmPassword": "新しいパスワードを確認",
-      "pwHelp": "8文字以上。",
+      "pwHelp": "Use 8–1024 characters.",
       "changePasswordBtn": "パスワードを変更",
       "changing": "変更中…",
       "passwordChanged": "パスワードを変更しました。",
@@ -2590,7 +2612,8 @@
       "reentryBtn": "復帰を申請",
       "recall": "申請を取り消す",
       "statusNote": "チューターのステータスは {status} です。読み取り専用アクセスです — 変更は管理者にお問い合わせください。",
-      "profileSyncFailed": "プロフィールは保存されましたが、再読み込みに失敗しました。再送信せずに、もう一度読み込んでください。"
+      "profileSyncFailed": "プロフィールは保存されましたが、再読み込みに失敗しました。再送信せずに、もう一度読み込んでください。",
+      "pwTooLong": "Use no more than {max} characters."
     },
     "dashboard": {
       "pending": {
@@ -3043,7 +3066,10 @@
     "send": "確認コードを送信",
     "code": "メール確認コード",
     "confirm": "確認してメールを変更",
-    "success": "メールを変更しました。"
+    "success": "メールを変更しました。",
+    "sentTo": "Enter the verification code sent to {email}.",
+    "changeAddress": "Use another email",
+    "savedRefreshFailed": "Email changed, but account details could not refresh. Try refreshing."
   },
   "profileCorrection": {
     "edit": "詳細を編集",

@@ -5,10 +5,12 @@ import {
   readFileSync,
   rmSync,
   existsSync,
+  writeFileSync,
 } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 
+export const DEFAULT_REPOSITORY = "DupeisTaken/shbs-peer-tutoring-website";
 export const DEFAULT_RELEASE_TAG = "help-assets-latest";
 export const ARCHIVE_NAME = "help-assets-baked.tar.gz";
 export const CHECKSUM_NAME = "help-assets-baked.tar.gz.sha256";
@@ -112,12 +114,83 @@ function defaultExec(command, args, options = {}) {
   });
 }
 
+function isMissingReleaseError(error) {
+  const stderr = String(error?.stderr ?? error?.message ?? "");
+  return /release not found|not found|HTTP 404/i.test(stderr);
+}
+
+function isGhUnavailableOrUnauthenticated(error) {
+  if (error?.code === "ENOENT") return true;
+  const stderr = String(error?.stderr ?? error?.message ?? "");
+  return /gh auth login|not logged into|authentication|GITHUB_TOKEN|GH_TOKEN/i.test(
+    stderr,
+  );
+}
+
+async function downloadReleaseViaHttps({
+  repo,
+  tag,
+  stagingDir,
+  fetchImpl = globalThis.fetch,
+}) {
+  if (typeof fetchImpl !== "function") {
+    throw new Error("Fetch API is unavailable for public release download");
+  }
+  const baseUrl = `https://github.com/${repo}/releases/download/${encodeURIComponent(tag)}`;
+  const checksumRes = await fetchImpl(`${baseUrl}/${CHECKSUM_NAME}`);
+  if (checksumRes.status === 404) {
+    return { status: "missing-release" };
+  }
+  if (!checksumRes.ok) {
+    throw new Error(
+      `Failed to download ${CHECKSUM_NAME} from ${repo}@${tag} (HTTP ${checksumRes.status})`,
+    );
+  }
+  const archiveRes = await fetchImpl(`${baseUrl}/${ARCHIVE_NAME}`);
+  if (archiveRes.status === 404) {
+    return { status: "missing-release" };
+  }
+  if (!archiveRes.ok) {
+    throw new Error(
+      `Failed to download ${ARCHIVE_NAME} from ${repo}@${tag} (HTTP ${archiveRes.status})`,
+    );
+  }
+  writeFileSync(
+    path.join(stagingDir, CHECKSUM_NAME),
+    await checksumRes.text(),
+    "utf8",
+  );
+  writeFileSync(
+    path.join(stagingDir, ARCHIVE_NAME),
+    Buffer.from(await archiveRes.arrayBuffer()),
+  );
+  return { status: "downloaded" };
+}
+
+function extractAndVerifyStaging({ stagingDir, rootDir, tag, exec }) {
+  const archivePath = path.join(stagingDir, ARCHIVE_NAME);
+  const checksumPath = path.join(stagingDir, CHECKSUM_NAME);
+  const sha = verifyArchiveChecksum(
+    readFileSync(archivePath),
+    readFileSync(checksumPath, "utf8"),
+  );
+  const listing = exec("tar", ["-tvzf", archivePath]);
+  validateTarListing(listing);
+  exec("tar", ["-xzf", archivePath, "-C", rootDir]);
+  const count = verifyExtractedCaptures(rootDir);
+  console.log(
+    `Unpacked ${count} verified baked help screenshots from release '${tag}' (${sha.slice(0, 12)}).`,
+  );
+  return { status: "unpacked", count, sha };
+}
+
 export function unpackHelpAssets({
   env = process.env,
   rootDir = process.cwd(),
   exec = defaultExec,
+  repo: explicitRepo,
 } = {}) {
-  const repo = env.GITHUB_REPOSITORY?.trim();
+  const repo = explicitRepo?.trim() || env.GITHUB_REPOSITORY?.trim();
   const tag = env.HELP_ASSETS_RELEASE_TAG?.trim() || DEFAULT_RELEASE_TAG;
   if (!repo) {
     console.log(
@@ -129,8 +202,7 @@ export function unpackHelpAssets({
   try {
     exec("gh", ["release", "view", tag, "--repo", repo, "--json", "tagName"]);
   } catch (error) {
-    const stderr = String(error?.stderr ?? error?.message ?? "");
-    if (/release not found|not found|HTTP 404/i.test(stderr)) {
+    if (isMissingReleaseError(error)) {
       console.log(
         `Release '${tag}' is not published yet on ${repo}; building with clean text-only Help manifest.`,
       );
@@ -154,20 +226,53 @@ export function unpackHelpAssets({
       "--dir",
       stagingDir,
     ]);
-    const archivePath = path.join(stagingDir, ARCHIVE_NAME);
-    const checksumPath = path.join(stagingDir, CHECKSUM_NAME);
-    const sha = verifyArchiveChecksum(
-      readFileSync(archivePath),
-      readFileSync(checksumPath, "utf8"),
-    );
-    const listing = exec("tar", ["-tvzf", archivePath]);
-    validateTarListing(listing);
-    exec("tar", ["-xzf", archivePath, "-C", rootDir]);
-    const count = verifyExtractedCaptures(rootDir);
+    return extractAndVerifyStaging({ stagingDir, rootDir, tag, exec });
+  } finally {
+    rmSync(stagingDir, { recursive: true, force: true });
+  }
+}
+
+/** Async entry point that prefers `gh` (authenticated CI/local) and falls back
+ * to public GitHub HTTPS release downloads when `gh` is unavailable or unauthenticated. */
+export async function unpackHelpAssetsWithFallback({
+  env = process.env,
+  rootDir = process.cwd(),
+  exec = defaultExec,
+  fetchImpl = globalThis.fetch,
+  repo: explicitRepo,
+} = {}) {
+  const repo = explicitRepo?.trim() || env.GITHUB_REPOSITORY?.trim();
+  const tag = env.HELP_ASSETS_RELEASE_TAG?.trim() || DEFAULT_RELEASE_TAG;
+  if (!repo) {
     console.log(
-      `Unpacked ${count} verified baked help screenshots from release '${tag}' (${sha.slice(0, 12)}).`,
+      "GITHUB_REPOSITORY is unset; skipping baked help-assets release download.",
     );
-    return { status: "unpacked", count, sha };
+    return { status: "skipped", count: 0 };
+  }
+
+  try {
+    return unpackHelpAssets({ env, rootDir, exec, repo });
+  } catch (error) {
+    if (!isGhUnavailableOrUnauthenticated(error)) {
+      throw error;
+    }
+  }
+
+  const stagingDir = mkdtempSync(path.join(os.tmpdir(), "shbs-help-assets-"));
+  try {
+    const download = await downloadReleaseViaHttps({
+      repo,
+      tag,
+      stagingDir,
+      fetchImpl,
+    });
+    if (download.status === "missing-release") {
+      console.log(
+        `Release '${tag}' is not published yet on ${repo}; building with clean text-only Help manifest.`,
+      );
+      return { status: "missing-release", count: 0 };
+    }
+    return extractAndVerifyStaging({ stagingDir, rootDir, tag, exec });
   } finally {
     rmSync(stagingDir, { recursive: true, force: true });
   }
@@ -177,5 +282,10 @@ if (
   process.argv[1] &&
   path.resolve(process.argv[1]) === path.resolve(import.meta.filename)
 ) {
-  unpackHelpAssets();
+  const args = process.argv.slice(2);
+  const repoArg = args.find((a) => a.startsWith("--repo="))?.slice(7);
+  const repo =
+    repoArg ||
+    (args.includes("--default-repo") ? DEFAULT_REPOSITORY : undefined);
+  await unpackHelpAssetsWithFallback({ repo });
 }
