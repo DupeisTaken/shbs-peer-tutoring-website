@@ -172,7 +172,7 @@ npx vitest run src/lib/help src/app/help src/server/help src/app/api/help --maxW
 npm run docs:check
 npm run test:deployment
 npm run test:ci
-python -B scripts/test_help_font.py
+python3 -B scripts/test_help_font.py
 ```
 
 [Contributor index](README.md) · [Catalogue](../guides/help/README.md)

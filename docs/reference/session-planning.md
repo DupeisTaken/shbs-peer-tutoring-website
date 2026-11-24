@@ -4,9 +4,12 @@ Recurring pairings describe teaching assignments. `SessionPlan` materializes one
 dated lesson from that assignment, with immutable subject and roster snapshots.
 `SessionPlanCohort` describes where and when a subset meets; each participant keeps
 a stable `SessionPlanParticipant` identity as they move. Actual attendance remains
-in `Session` and may have a different duration. The implementation lives in
-[the planning service](../../src/server/session-planning/index.ts) and
-[router](../../src/server/api/routers/session-planning.ts).
+in `Session` and may have a different duration. Implementation:
+[planning service](../../src/server/session-planning/index.ts),
+[router](../../src/server/api/routers/session-planning.ts), and
+[scheduling delivery](session-planning-delivery.md).
+
+**Contents:** [Tutor Schedule workspace](#tutor-schedule-workspace) · [Tutoring pauses and affirmative exceptions](#tutoring-pauses-and-affirmative-exceptions) · [Request profiling and comparison contract](#request-profiling-and-comparison-contract)
 
 Tutors use one workspace at `/dashboard` and the compatible `/schedule` entry.
 Schedule, Pairings, Preferences and History & hours are local panels. Each panel
@@ -50,7 +53,7 @@ Omitted or false flags preserve the existing agenda response shape and avoid the
 current-pairing lookup; historical readers remain captured evidence only.
 
 A tutoring pause retains a separate published, suppressed source for **Arrange
-optional session**. Tutors can propose or tutees can suggest an exception from
+exception**. Tutors can propose or tutees can suggest an exception from
 that source without restoring its automatic commitment. When a physical cohort
 contains both scheduled and paused learners, the paused action passes
 `pausedOnly` and the server selects only its paused roster. Ordinary attendance
@@ -653,406 +656,65 @@ facts at each decision, then resolve contact destinations and room names freshly
 at transaction finalization. A finalization failure rolls back the publication.
 Formal negotiation notices retain their response identities and existing timing.
 
-Run the source-comparison benchmarks from the repository root, choosing the
-unoptimized scheduling commit that is the optimization branch's base:
-
-```sh
-node scripts/benchmark-session-planning.mjs --baseline <commit> --output outputs/language-performance/implementation/compute.json
-node scripts/benchmark-room-allocation.mjs --baseline <commit> --output outputs/language-performance/implementation/room-results.json
-```
-
-The compute harness compares complete values, errors, calendar bytes and schedule
-fingerprints from actual source before timing synthetic workloads. It distinguishes
-fresh module formatter caches from warmed caches; operation caches start empty in
-both modes. The room harness includes allocator computation with immediate mock
-reads and explicit guard stubs. Neither measures network, rendering, real database
-latency, lock contention or a website-wide speedup. Preserve the emitted revisions,
-source hashes, runtime, sample ranges and scope alongside any reported medians.
-
-The PostgreSQL domain benchmark is `scripts/benchmark-session-publication.ts`.
-It requires an explicitly owned loopback database on port 55439 named
-`shbs_performance_test`, with this checkout's complete migrations already applied.
-It **truncates that database** for each synthetic fixture; never use a database
-owned by another task. Run baseline and changed sources serially with the exact
-same script, runtime, migrations and scenario:
-
-```sh
-node --conditions=react-server --import tsx scripts/benchmark-session-publication.ts --scenario basic --output outputs/scheduling-performance/baseline-basic.json
-node --conditions=react-server --import tsx scripts/benchmark-session-publication.ts --scenario basic --output outputs/scheduling-performance/after-basic.json --compare outputs/scheduling-performance/baseline-basic.json
-```
-
-Repeat with `--scenario rooms` and separate result paths for 100 assigned rooms.
-The script checks complete normalized publication/agenda results, migration
-checksums and source stability. One warmup and five measured samples establish
-illustrative medians/ranges and query counts, not production p95. Locks and
-recovery triggers execute normally, but the fixture has no competing requests,
-negotiations, HTTP, rendering or SMTP. Recovery journal semantics and concurrent
-publication require the domain tests in addition to benchmark output parity.
-
 ### Request profiling and comparison contract
 
-The [supplementary concurrency protocol](../../scripts/scheduling-concurrency/README.md)
-covers cold and Sunday publication, proposal/split, acceptance and deadline
-settlement under overlapping calls. It also reproduces the original two-reader
-agenda phase to evaluate a proposed change. Its reports identify the frozen
-application and the proposed revision separately from the original campaign.
-
-The dedicated [request-profile workflow](../../.github/workflows/scheduling-profile.yml)
-runs `scripts/profile-scheduling-requests.ts` on Node 22 Linux against its own
-PostgreSQL service. Cold publication, warm agendas, Sunday catch-up, negotiation,
-allocation, catalog reads and competing requests retain separate latency and
-diagnostic evidence. One preflight check runs the five prerequisite diagnostics
-serially. Eight scenario-group checks (cold, warm, Sunday, negotiation,
-allocation, catalog, contention and backlog) run their remaining partitions
-serially, with at most four groups active at once. Planning and final aggregation
-bring the benchmark to eleven checks. The full 60 latency partitions and ten
-diagnostics remain required; grouping does not reduce their sample populations.
-Baseline and candidate run serially on the same runner with the
-same synthetic fixture, harness, anchor, dependency lockfile and database schema.
-Each partition starts from pristine checkouts and a fresh job-owned database,
-preventing an earlier schema overlay from contaminating its original control.
-It retains its seven-minute command deadline and separate sealed artifact. The
-containing group has a longer bounded job timeout for its serial partitions.
-Provider-visible preparation and partition steps bind each artifact to its real
-execution; a failed group cannot turn missing or failed measurements into a PASS.
-The job reserves time for evidence upload and fails on exhausted budgets; partial
-samples do not count as passing evidence.
-
-The matrix admits all workers into one interval on the same Shanghai calendar
-date. Start a campaign between **00:30–11:30** or **19:15–20:30** Shanghai time.
-Admission reserves at least three hours before 14:30 or 23:30 respectively. The
-command deadline is also limited by the shared anchor's twelve-hour lifetime.
-These limits apply on weekdays, Sundays, calendar closures and makeup days.
-Outside either start window, the matrix writes a `DEFERRED` receipt with the
-next eligible UTC instant. It skips measurements and the aggregate. No runner
-waits for that instant. Check the account queue and confirm the PR still has
-the recorded head, then run `gh run rerun <deferred-run-id> --repo <owner/repo>`
-during an eligible window. Rerun the entire deferred workflow because it has no
-measurement jobs to resume. This preserves the original PR event and its scoped
-baseline and catalog pins. A successful deferral job cannot establish
-performance acceptance. Require the complete `PASS` aggregate for the current
-head and a successful, authenticated receipt for every declared measurement slot.
-
-The worker's phase receipts record the static command label, elapsed time, exit
-status and remaining phase budget. Only the initial disposable Alpine package
-setup may retry once. Each attempt has at most 30 seconds and both share a
-60-second ceiling under the worker's existing deadline. The first failure
-remains in the terminal receipt even when the retry succeeds. A failed
-migration, comparison, timing command or parity check ends that worker.
-
-The special workflow uses one preflight runner and caps the scenario groups at
-four per PR. These are four additional slots alongside the core CI allowance;
-three admitted PRs can use twelve profiling runners. Run required CI
-ahead of a coordinated campaign and check the account queue for other work. A delayed worker that cannot fit its
-entire command budget must fail before timing starts. Each worker records the
-actual Node and PostgreSQL clock ranges. Aggregation verifies those ranges
-against the same interval for latency, diagnostics and original-schema trials.
-
-This preserves the real HTTP and database clocks. The synthetic timetable has
-15:00 starts, later alternate and proposed slots, and 45-minute lessons. A
-15:00 crossing in the original comparison changed two notice-availability
-relations even though every persisted table matched. Both relations remain in
-the complete-history comparison. The midnight buffer keeps every real-time
-request in its original planning day, including the Sunday preparation and
-Monday visibility transition. The deadline-specific negotiation fixture picks
-an already scheduled cohort with room for the full 24-hour response window.
-It still checks the actual persisted deadline at one millisecond before expiry
-and at equality.
-
-The comparison helper rejects changed historical migrations or domain models.
-It permits only the exact appended maintenance models and their additive migration
-to be overlaid on the baseline. The baseline application source stays unchanged.
-This shared-schema control includes the new triggers' cost on both revisions; a
-separately labelled native-schema cold baseline records the original schema too.
-That pre-overlay command explicitly selects `--capture-schema native-original`:
-a fixed positive projection of the original schema's fields and delegates,
-excluding later identity/recovery fields and sidecars. Both its receipt and
-snapshot identify this reduced capture contract. It is restricted to unpaired
-cold HTTP latency controls; the aggregator independently verifies the original
-schema hash and keeps these observations separate from shared-schema parity.
-Ordinary paired commands use `--capture-schema shared`, retain the complete
-combined projection, and fail on missing fields or tables. There is no automatic
-fallback from complete capture to the native projection.
-Later comparisons with byte-identical schemas and migration chains require no
-overlay or native-schema control. Unrelated schema changes still fail closed.
-For a combined-feature run, manual dispatch may select an explicitly reviewed
-manifest under `.github/scheduling-profile-manifests/`. Without that input, the
-workflow selects the integration owner's reviewed `current.json` in that folder
-when it exists, allowing combined proof on a pull request before the workflow
-reaches the default branch. This convention does not authorize broader schema
-changes: the committed file still requires review and must bind the exact
-baseline/candidate schema hashes, dependency lockfile, complete historical
-migration inventory and added migration paths/hashes. Every unlisted difference
-is rejected; the selected path, manifest and its hash accompany the evidence. Such a control
-is labelled as running the baseline application under the candidate schema.
-The historical inventory accepts the repository's exact `0_init` bootstrap;
-new overlay migrations still require timestamped paths.
-Scenarios unavailable in the baseline need separate candidate evidence, without
-a baseline parity or speedup claim.
-An integration branch may also commit a reviewed
-`.github/scheduling-profile-manifests/baseline.txt` containing exactly one
-40-character lowercase commit SHA, optionally followed by LF. The workflow reads
-it from the immutable candidate checkout before checking out the baseline, and
-requires an exact schema manifest for that override. Manual baseline input takes
-precedence. Receipts retain the selected SHA, selection path and file hash; a
-moving branch name or an unbound schema delta is never accepted. This supports
-comparison to the original pre-integration source even when a PR is stacked.
-A single pull request can use a named control without pinning future pull
-requests. Commit a matching pair in that directory: `pr-<number>-baseline.txt`
-and `pr-<number>.json`. Only the corresponding PR selects the pair; both files
-are required. Manual selection takes precedence and the existing integration
-fallback still applies when there is no matching pair.
-
-PR #569 and the combined recovery PR #570 each bind their own schema manifest
-to the **original-plus-roster-order** control
-(`223a1b213a7a5167187b057d08a349d30f0087ad`). Its only parent is the
-frozen original `c113b8efbbfe0c350dc8c0d09aec92c48777d9c6`.
-Only the new proposal roster capture in `src/server/session-planning/index.ts`
-differs. The control has no scheduling optimizations or schema, test or
-dependency changes. Its native-schema cold measurements still use the
-roster-corrected source. Historical measurements and failed comparisons of
-the unmodified original remain separate and must not be pooled with this
-control. This choice does not change ordered audit or recovery comparisons.
-
-The scoped pair may also include `pr-<number>-catalog-baseline.txt`, with a
-distinct immutable commit and a trailing LF. Only the catalog diagnostic and
-its ten latency partitions use that pin. Other scenarios continue to use
-the primary baseline, including the cold original-schema observations. Both
-controls use the same reviewed schema manifest. The aggregate records the
-baseline by scenario and validates source preservation separately for each.
-
-For PR #569 the catalog source control is
-`c3947f096a1cf1eb33c02948d0385d46d6838d77`, directly descended from
-`223a1b213a7a5167187b057d08a349d30f0087ad`. Its only changed paths are
-`src/server/room-allocation.ts` and `src/server/ordered-pairing-release.ts`.
-The candidate schema overlay supplies
-`20261103031000_order_group_room_version_journal` to both revisions in
-shared-schema measurements. The original-schema cold control still measures
-the roster-corrected source on its historical database. Preserve separate
-pre-repair measurements when discussing the cost of the catalog correction.
-
-### Reviewed non-scheduling dependency admission
-
-Before clock deferral or Docker pulls, the matrix job checks out the selected
-immutable control(s) and runs `scripts/scheduling-profile/evaluate-admission.mjs`.
-When `package-lock.json` differs from the control, comparison inputs still fail
-closed: lockfiles are never normalized, comparison checks are never bypassed, and
-the candidate is never substituted for its own control.
-
-- **Measurement required (`BLOCKED`):** if any scheduling trigger path, runtime
-  config file, file in the static import graph of `scripts/profile-scheduling-requests.ts`
-  or `scripts/scheduling-profile/**`, non-dependency `package.json` field, or any
-  package inside the transitive `package-lock.json` scheduling closure changed,
-  measurement is required against an independently reviewed immutable control
-  with compatible locked dependencies.
-- **Reviewed non-scheduling dependency disposition (`NOT_APPLICABLE`):** when
-  programmatic inspection proves zero scheduling-relevant files and zero packages
-  in the transitive scheduling dependency closure changed, a pull request may
-  commit a PR-scoped `.github/scheduling-profile-manifests/pr-<number>-admission.json`
-  (or pass `admission-manifest` on manual dispatch) pinning `version: 1`,
-  `disposition: "NOT_APPLICABLE_NON_SCHEDULING_DEPENDENCY"`, `baselineRevision`,
-  baseline/candidate `package.json` and `package-lock.json` SHA-256 digests,
-  sorted `changedPackages`, and a concise `reason`. It cannot coexist with
-  PR-scoped baseline/schema manifests and is rejected if lockfiles are already
-  identical.
-- **Distinct reporting and clean gating:** `NOT_APPLICABLE` and `BLOCKED` each
-  upload `scheduling-profile-admission-<attempt>` (`scheduling-profile-admission.json`,
-  with `measured: false`, `samplingComplete: false`, and
-  `latencyComparisonEligible: false`) and write a step summary explicitly stating
-  that no benchmark ran and that `NOT_APPLICABLE` is not a measured `PASS`.
-  `preflight`, `profile`, and `aggregate` run only when `matrix` succeeds with
-  `admission == 'ADMITTED'`, preventing downstream `Missing PROFILE_CAMPAIGN` noise.
-
-PR #568 uses the same two source controls with its own ten-addition reviewed manifest. Its catalog-specific pin is `pr-568-catalog-baseline.txt`. Non-catalog workloads keep `pr-568-baseline.txt`. PR #569 uses its separate two-addition manifest. Unrelated pull requests without a scoped pair use their own base. The combined identity/recovery v3 projections and native-original contract are verified separately in PR #570.
-
-Artifacts retain source hashes, overlay paths, migration checksums, runtime,
-individual samples, errors and normalized output comparisons.
-
-HTTP mode uses the production tRPC router through the standalone HTTP adapter,
-the real client serializer and current authorization middleware. Synthetic opaque
-cookie capabilities replace the login exchange. It measures actual loopback HTTP,
-database queries and transactions, but excludes Next ingress/proxy, Auth.js login,
-TLS, browser rendering and SMTP. The harness selects the official `server-only`
-server entry with an exact-specifier module hook; React and Auth.js keep their
-normal resolution. Invoke it with both preloads:
+Local benchmarks (run from the repo root against a chosen baseline commit or the
+dedicated loopback database `shbs_performance_test` on port `55439`, which is
+truncated per fixture — never share it):
 
 ```sh
-node --import tsx --import ./scripts/scheduling-profile/register-server-runtime.mjs scripts/profile-scheduling-requests.ts --scenario warm --transport http --mode latency --samples 40 --anchor <shared-ISO-instant> --output outputs/scheduling-profile/warm.json
+node scripts/benchmark-session-planning.mjs --baseline <commit> --output outputs/scheduling-profile/compute.json
+node scripts/benchmark-room-allocation.mjs --baseline <commit> --output outputs/scheduling-profile/room-results.json
+node --conditions=react-server --import tsx scripts/benchmark-session-publication.ts --scenario basic --output outputs/scheduling-profile/after-basic.json --compare outputs/scheduling-profile/baseline-basic.json
+node --import tsx --import ./scripts/scheduling-profile/register-server-runtime.mjs scripts/profile-scheduling-requests.ts --scenario warm --transport http --mode latency --samples 40 --anchor <ISO-instant> --output outputs/scheduling-profile/warm.json
 ```
 
-The database guard requires the explicitly owned loopback port 55439 and database
-`shbs_performance_test`, without URL overrides. The harness truncates its public
-fixture tables without CASCADE and rejects cross-schema dependencies. It never
-loads dotenv configuration or sends mail. Do not run it against a shared database.
+CI runs [scheduling-profile.yml](../../.github/workflows/scheduling-profile.yml)
+(`scripts/profile-scheduling-requests.ts` on Node 22 Linux + PostgreSQL 16):
 
-Latency mode reports raw samples and nearest-rank empirical p50/p95 after a
-discarded warmup: 20 rounds for cold/Sunday and 40 for other workflow scenarios.
-The hosted workflow divides this complete population into contiguous four-round
-partitions, each with its own discarded process warmup. One fixed anchor and
-immutable Node image cover the run. Each baseline/candidate pair stays serial on
-one runner; up to four independent hosted jobs may run concurrently. This changes
-queueing capacity, not sample populations, per-runner limits or paired measurement
-order; available repository capacity may still queue jobs. Native-schema cold
-controls use the same four-round ranges and aggregate separately to 20 samples.
-Pure helper tests gate matrix preparation in the same two-CPU, 4 GB Node
-container before measurement runners start. Five diagnostic preflights each run three rounds per revision: negotiation,
-allocation, catalog, and the two controlled contention orders. They gate
-the 60 original latency partitions and five other diagnostics. A shared
-worker runs all 70 measurement jobs. Two controlled preflight jobs are
-additional to the original 68; the original latency population is unchanged.
-Final acceptance requires both phases, so a preflight pass alone is not evidence
-of complete latency coverage.
-The 90-second native, 150-second ordinary command and whole-job budgets remain
-fatal; partitioning never accepts a partial population or reduces sample counts.
-
-Both contention controls execute the entire ordinary contention fixture. After
-the shared prelude, a controller holds the planned-room fence while the first
-request owns the period fence. PostgreSQL must show the other request blocked
-on that first backend before the controller releases its hold. Each successful
-schedule supplies a complete reference graph for the same shared anchor and
-source revisions. The two diagnostic scenarios retain their controller setup and wait observations separately.
-
-The 40 free-running rounds continue to start both requests together. A narrow
-witness records the completion of their actual period-fence acquisitions inside
-their transactions. Raw audit IDs, persisted creation timestamps and ties are
-recorded separately. Each full observed history must equal one validated
-reference graph. When persisted audit chronology differs from acquisition order,
-the alternate history also requires proof that the two references differ only
-in the position of the intact allocator audit entry relative to the intact
-three-row response block. The aggregate records counts and durations by
-observed acquisition order, including empty strata and differing paired orders.
-Unknown business, clock, audit or recovery data fails comparison and retains
-the full snapshot. Historical failed runs keep their original result.
-
-Partition receipts contain raw observations and complete canonicalization for
-every round, but do not report eligible latency percentiles. The aggregation
-helper requires all seven scenarios, exact disjoint round coverage, matching
-source/harness/schema contracts, paired runtime identity, uncensored completed
-samples and successful paired semantic checks. It retains runner identities and
-paired comparisons. Pooled percentiles describe these hosted-runner observations;
-they are neither one host's repeated experiment nor production p95. Hardware and
-cloud variance between partitions remain explicit. All diagnostic jobs must also
-pass the workflow gate.
-
-#### Resuming a failed measurement partition
-
-For a run that contains the resume workflow, first inspect the failed job, the
-remaining clock budget and the account queue. A terminal dependency-install or
-bootstrap failure with complete phase evidence can be retried with
-`gh run rerun RUN_ID --failed --repo OWNER/REPO` while the original interval
-still admits the worker's entire budget. GitHub retains the successful matrix
-declaration. The retry measures both revisions again on the same runner.
-The aggregate keeps the first baseline and its failed partner in the provenance
-history and uses the new complete pair for that slot.
-
-The declaration pins the repository, run, workflow commit, candidate, both
-baseline selections, schema and lockfile bytes, Node and PostgreSQL image
-digests, anchor, report schema and partition protocol. Each worker seals its
-original files before uploading them. Before pooling, the aggregate reads all
-job attempts in that campaign and verifies each archive against GitHub's
-digest. Every slot must have exactly one complete successful pair as its latest
-execution. Both controlled diagnostic orders and required native cold controls
-must pass. A contention worker reads only the two completed ordering jobs when
-acquiring references. GitHub can report future steps of an active job as
-`pending` with no conclusion. Those steps never qualify a slot for pooling.
-On a partial rerun GitHub can assign a new check ID to a completed job while
-preserving its original runner and every step timestamp. The verifier ties that
-row back to its original successful job and archive using the authenticated
-attempt boundary and matching execution history. The receipt records both IDs.
-An actual new job still requires its own terminal evidence and archive.
-The aggregate records artifact IDs, attempts and hashes in
-`scheduling-profile-selection.json` beside the canonical result.
-
-A newer missing or invalid receipt, measurement timeout, cancellation,
-semantic mismatch, incomplete sample or exhausted campaign interval blocks
-recovery. Keep the original artifacts for investigation. An entirely new
-campaign declares a new interval and acquires its own complete population.
-GitHub reruns use the original event revision, so a run created before this
-workflow shipped cannot acquire its verifier or worker seals retroactively.
-See [GitHub's rerun semantics](https://docs.github.com/en/actions/how-tos/manage-workflow-runs/re-run-workflows-and-jobs).
-
-A repeated-state failure in the immutable baseline remains failed evidence even
-when a candidate fixes its cause. Do not sort away stored arrays, audit writes
-or recovery ordinals, or silently patch baseline application files. Any separately
-named correctness control requires explicit comparison-scope review and an exact
-immutable source revision; it cannot retroactively certify the original run.
-
-Cold means empty planning tables, not a restarted OS or database. Diagnostic
-runs are separate and report query counts/time, advisory acquisition elapsed and
-observed transaction-held intervals through commit. These intervals include driver
-and transport overhead; CPU and event-loop figures are process-wide and overlap
-under contention. They are not exact PostgreSQL wait accounting. Explicit domain
-clocks used for Sunday and deadline cases are labelled separately.
-
-Unfinished operations remain in timeout receipts as censored elapsed lower bounds,
-with explicit unfinished/error counts. They are excluded from completed p50/p95;
-partial or timed-out runs cannot establish latency gains. Completed failures remain
-in completed elapsed samples and are counted separately.
-
-The explicit `backlog` scenario is diagnostic-only, runs one to three rounds with
-no warmup, and is excluded from `--scenario all`. It exercises 205 open requests,
-the original ordered 200-request cap, 60 scoped notice failures followed by
-recovery, and 1,200 genuine room updates. An isolated SQL observer retains raw
-ordered timestamp writes and checks the exact open-request rotation clock plus
-terminal timestamps against the operation window. Instrumentation is removed in
-`finally`. These stress observations report no request latency percentiles and
-do not represent production traffic.
-
-Room creation and deletion take the catalog lock before the planned-room lock.
-An allocator holding the latter therefore sees stable catalog membership through
-its serial decisions. The per-room booking index stays operation-local. Bulk-wide
-canonical ownership reuse is deliberately deferred: the planned-room lock does
-not freeze all ownership writers, so such reuse needs a separate freshness proof
-and measured benefit. Final room conflict checks remain live.
-
-Parity checks cover business records, receipts, notices, ordered recovery changes
-and fences. Generated identifiers require unambiguous witnesses, and receipt
-hashes must match their exact inputs before canonical comparison. Synthetic
-setup rows, including the allocation scenario's room unavailability, use stable
-fixture IDs; all their fields remain in parity. API-created records retain their
-generated IDs and require explicit semantic witnesses. The normalization format is version 3: compact references point to a retained
-dictionary of full semantic identities, with compact edges to parent identities.
-This lossless graph encoding of normalized identities prevents repeated escaping
-of nested parent strings from exhausting the artifact size. It retains all
-selected rows, stored JSON and ordering witnesses; cycles, ambiguous identities
-and unresolved generated references fail the run. Full graph comparisons emit
-bounded failure messages; they do not expand entire snapshots into assertion
-diffs. Before a repeated-fixture or paired digest mismatch throws, the harness
-writes the actual failed snapshot, operation inputs/windows and digests to a
-separate `.parity-failure.json` artifact. Its bounded first-difference summary
-uses deterministic JSON-pointer paths and explicitly marks diagnostic truncation;
-it never decides equality. The failed round is not a completed receipt. Aggregation
-rejects retained failure snapshots even if another report claims PASS. Raw
-snapshots remain available in the paired artifacts. The sequential
-late-root witness preserves two participant journal changes and fence revision
-two; combining cohort and participant writes into one SQL statement remains
-unsupported. Under-one-second first publication is a target to verify from a
-passing supported-runtime result, not a property established by this harness's
-presence or by earlier Windows measurements.
-The combined schema capture also retains identity ownership and execution sidecars,
-qualification provenance, source requests, checkpoint scopes and transaction
-membership, shared delivery effects and cancellations, and workflow owner bindings.
-Every added domain table has an explicit scalar/JSON projection. New feature
-evidence remains a real difference when the historical baseline cannot produce it;
-such scenarios require separate candidate proof and cannot claim baseline parity.
-Persistence `createdAt`/`updatedAt` values are omitted recursively, including in
-journal snapshots and procedure results, except native qualification approval
-time, retained as `qualificationApprovedAt`. Qualification fixture approval and
-grant dates use the shared synthetic anchor. Continuation creation boundaries and
-sweep selection/rotation therefore need separate semantic witnesses. This is
-normalized output parity, not byte-identical full journal content. The native
-original-schema control currently covers cold publication only; other shared-schema
-comparisons isolate application changes and do not establish whole-rollout gains
-including new trigger overhead.
-
-[Workflow tests](../../src/server/session-planning/workflows.test.ts) exercise
-the real transaction/state model against the guarded isolated test database.
-[Attendance and messaging integration](../../src/server/session-planning/attendance-messaging.test.ts)
-checks receipt replay, actual duration, split rosters, provenance and contact scope.
-Transport and UI fixtures cover failures without sending mail to real recipients.
-Use the repository's [verification requirements](../contributing/verification.md)
-for schema agreement, complete regression checks and actual-page screenshots.
+- **Topology and population:** 11 checks — planning, 1 serial preflight (5
+  prerequisite diagnostics), 8 scenario groups (`cold`, `warm`, `Sunday`,
+  `negotiation`, `allocation`, `catalog`, `contention`, `backlog`; `max-parallel: 4`)
+  and final aggregation across **60 latency partitions and 10 diagnostics**.
+  Baseline and candidate run serially on the same runner with pristine checkouts,
+  fresh databases and 7-minute per-partition budgets.
+- **Dependency admission (early matrix gate):** Before clock deferral or Docker
+  pulls, `scripts/scheduling-profile/evaluate-admission.mjs` inspects the
+  immutable control(s) and candidate. Lockfile differences fail closed
+  (`BLOCKED`) whenever any scheduling trigger path, runtime config file, file in
+  the static scheduling import graph, non-dependency `package.json` field, or
+  package in the transitive `package-lock.json` scheduling closure changes
+  (requiring an independently reviewed immutable control with compatible locked
+  dependencies). When programmatic inspection proves zero scheduling impact, a
+  PR-scoped `.github/scheduling-profile-manifests/pr-<number>-admission.json`
+  (or manual `admission-manifest`) pinning baseline/candidate hashes and sorted
+  `changedPackages` emits a `NOT_APPLICABLE` receipt (`measured: false`,
+  distinct from measured `PASS`) and skips workers and aggregation. `aggregate`
+  runs only when `matrix` succeeds with `admission == 'ADMITTED'`.
+- **Admission windows (Asia/Shanghai):** Campaigns admit only between
+  **00:30–11:30** or **19:15–20:30** CST (reserving >=3 h before 14:30 / 23:30
+  and respecting the 12-hour shared anchor). Outside these windows the workflow
+  emits a `DEFERRED` receipt and skips workers — rerun the full workflow during
+  an eligible window (`gh run rerun <run-id>`) and never treat a deferred run as
+  a measured `PASS`.
+- **Resuming failed partitions:** A transient bootstrap/install failure can be
+  retried with `gh run rerun <run-id> --failed` while the original window still
+  fits the worker budget; semantic mismatches, timeouts or missing seals fail
+  closed and require a new campaign.
+- **Schema overlays and parity:** Paired runs require byte-identical schemas or
+  an explicitly reviewed manifest in `.github/scheduling-profile-manifests/`
+  (`current.json` or `pr-<number>.json` + `pr-<number>-baseline.txt`, with
+  optional `pr-<number>-catalog-baseline.txt`). `--capture-schema shared` checks
+  v3 lossless graph parity across business records, receipts, notices, ordered
+  recovery changes and fences (emitting `.parity-failure.json` on mismatch);
+  `--capture-schema native-original` runs unpaired cold original-schema controls.
+- **Locking and concurrency invariants:** Room creation/deletion acquires the
+  catalog lock before the planned-room lock; per-room booking indices stay
+  operation-local. See the
+  [supplementary concurrency protocol](../../scripts/scheduling-concurrency/README.md)
+  for overlapping cold/Sunday/proposal/settlement campaigns.
+- **Verification:** [workflows.test.ts](../../src/server/session-planning/workflows.test.ts),
+  [attendance-messaging.test.ts](../../src/server/session-planning/attendance-messaging.test.ts),
+  and [verification requirements](../contributing/verification.md).
 
 [Reference home](README.md).
-
-Manual dispatch of the supplementary concurrency workflow reproduces the measured scheduling revision `60be69874d08c803d0ff6b62627faded9db93e62`, including its v2 capture and PR #569 database manifest. Its aggregate identifies that revision even when dispatched from a later main. The regular combined profile uses the active PR head and its full shared capture.

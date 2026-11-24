@@ -2,59 +2,52 @@
 
 Choose checks for the affected behavior and run them serially on the local machine.
 Follow [resource safety](local-development.md#worktree-and-resource-safety) before
-setup. A documentation change requires no running app, browser or database.
+setup. A documentation change needs no running app, browser or database.
 
 ## Required checks
 
-Run commands from the repository root:
+Run all commands from the repository root:
 
-`npm run check` generates Next.js route/framework types before lint and TypeScript
-checks, so it also works in a fresh checkout that has never started the dev server.
+- `npm run check` runs `next typegen`, ESLint with `--max-warnings=0`, and
+  `tsc --noEmit` (works in a fresh checkout without starting the dev server). Fix
+  warning root causes instead of suppressing diagnostics.
+- Typed lint can exceed Node's 4 GiB heap; CI scopes
+  `NODE_OPTIONS=--max-old-space-size=6144` to `npm run check` only. Scope the same
+  override locally if needed and restore the environment afterward.
 
-`npm run check` runs ESLint with `--max-warnings=0`: both warnings and errors fail
-the required local/CI gate. Fix their causes before handoff; do not suppress
-diagnostics or lower rule severity to obtain a pass. A focused file check helps
-during development but does not replace the full repository check.
+| Change | Verify with |
+| --- | --- |
+| Any commit | `npm run check` and relevant tests |
+| Documentation | `npm run docs:check` (links, headings, discoverability, issue forms, `help:check`) |
+| Application behavior | Focused tests, then integration suites with `npm test -- --maxWorkers=1` |
+| Routes, environment or Prisma | `npm run build` plus relevant tests |
+| Runtime image packaging | `npm run test:deployment`, `python3 scripts/test_image_storage_metrics.py`, CI `image` and `image-storage` jobs |
+| Schema | Committed migration, `npm run db:migrate`, schema agreement on an isolated DB |
+| Demo seed | Run twice on a disposable DB, then `npx tsx --conditions=react-server prisma/verify-demo.ts` |
+| Interface copy | Update every catalog in `messages/` per [Writing UI copy](design.md#writing-ui-copy) and run `npx vitest run src/i18n --maxWorkers=1` |
+| User interface | Desktop/mobile EN/ZH screenshots and checks of interaction, loading, errors and permissions |
 
-Typed lint can exhaust Node's 4 GiB heap; the complete check has been verified
-with a 6 GiB old-space ceiling. CI sets `NODE_OPTIONS=--max-old-space-size=6144`
-only on the route-type, lint and type-check step. Tests, image builds and other
-steps retain their own memory settings. For local verification, scope this
-override to the check command and restore the prior environment afterward;
-run heavy work serially within the machine's available memory budget. The full
-file coverage, zero-warning rule, type checks, timeouts and required gates remain
-unchanged.
+Integration tests reset fixtures. Use the isolated loopback `shbs_shipping_test`
+database per [test setup](local-development.md#5-run-the-tests); never run
+destructive tests or demo seeds against real program data.
 
-| Change                        | Verify with                                                                                           |
-| ----------------------------- | ----------------------------------------------------------------------------------------------------- |
-| Any commit                    | `npm run check` and relevant tests                                                                    |
-| Documentation                 | `npm run docs:check`                                                                                  |
-| Application behavior          | Focused tests, then the relevant integration suite with `npm test -- --maxWorkers=1`                  |
-| Routes, environment or Prisma | `npm run build` in addition to relevant tests                                                         |
-| Runtime image packaging       | `npm run test:deployment`, `python3 scripts/test_image_storage_metrics.py`, and current CI image/smoke and image-storage jobs |
-| Schema                        | A committed migration, `npm run db:migrate`, and schema agreement against an isolated database        |
-| Demo seed                     | Run it twice on a disposable database, then `npx tsx --conditions=react-server prisma/verify-demo.ts` |
-| User interface                | Desktop/mobile screenshots and checks of interaction, loading, errors and permissions                 |
-
-Integration tests reset fixtures. Use the isolated loopback `shbs_shipping_test` database for the combined suite and follow [test setup](local-development.md#5-run-the-tests). Never seed or run destructive tests against real program data. Run one bounded server/browser at a time and stop processes you started; do not kill unrelated Node processes.
-
-The [CI workflow](../../.github/workflows/docker-build.yml) also checks dependency installation, migrations, schema agreement, dependency audit, production build and image boot/restart. Use its result for the commit being reviewed; old test totals are not current verification.
+The [CI workflow](../../.github/workflows/docker-build.yml) runs `checks`
+(`npm run check`, `npm run docs:check`, `npm run test:ci`, `npm run test:lint-glob`,
+`npm run test:pr-size`, `npm run test:recovery`, `npm audit`), three parallel test
+shards, `image` (unpacking CI-baked Help screenshots via
+`scripts/unpack-help-assets.mjs`, production Docker build, and image/CLI smoke),
+`image-storage` (layout comparison on packaging changes), and the required `verify`
+gate. Always cite the current revision's CI run rather than historical test totals.
 
 ## CI capacity and queue discipline
 
-Budget for every workflow triggered by the PR within the account's 20 standard
-hosted runner planning slots. **Displayed checks are not simultaneous runners.**
-The core build workflow has eight displayed jobs, including the skipped PR
-publication job, but uses at most four runners at once. PR Size adds one check
-and one possible runner. **Allow each PR four additional concurrent scheduling
-benchmark slots**, separate from its five-slot core CI allowance. The existing
-profiling cap implements that allowance; keep the benchmarks enabled and their
-complete sample populations intact. Four **core-only** PR runs can occupy all 20
-slots; adding benchmarks can queue work rather than increasing the account limit.
-Main-branch runs,
-manual campaigns, other repositories and earlier workflow revisions share the
-same pool. Actual jobs can queue when that other work overlaps.
-[GitHub Actions limits](https://docs.github.com/en/actions/reference/limits#job-concurrency-limits-for-github-hosted-runners).
+Budget every workflow triggered by a PR within the account's 20 standard hosted
+runner slots. **Displayed checks are not simultaneous runners.** Core CI has 8
+displayed jobs (including the skipped PR publish job) and uses at most 4 runners
+at once; PR Size adds 1 check/runner. **Allow each PR 4 additional concurrent
+scheduling benchmark slots** when profiling triggers. Four core-only PR runs fill
+the 20-slot budget; main-branch runs, manual campaigns and other repos share the
+same pool.
 
 | Workflows triggered for one PR revision | Displayed checks | Conservative peak runners |
 | --- | ---: | ---: |
@@ -63,472 +56,138 @@ same pool. Actual jobs can queue when that other work overlaps.
 | Also isolated recovery rehearsal | 21 | 10 |
 | Also production network observation | 22 | 11 |
 
-These totals assume one run of each workflow. Repeated PR Size events (including
-description edits and draft/ready transitions), reruns and other check providers
-can change the displayed total. Recovery and network workflows have their own
-path filters and can run independently of profiling. Network observation is
-globally serialized. Peak figures sum independent workflow bounds; they are
-planning limits, not measured overlap or a reservation of hosted runners.
+- **Scheduling profile** ([scheduling-profile.yml](../../.github/workflows/scheduling-profile.yml))
+  adds **11 checks**: planning, 1 serial preflight group (5 diagnostics), 8 scenario
+  groups (`cold`, `warm`, `Sunday`, `negotiation`, `allocation`, `catalog`,
+  `contention`, `backlog`, `max-parallel: 4`) and aggregation across **60 latency
+  partitions and 10 diagnostics**. It matches file paths (including admin/tutor
+  routers, `prisma/**`, `package.json`, `package-lock.json`, scheduling and
+  benchmark helpers). Check the admission artifact before calling a green run a
+  measured PASS — both clock-deferred (`DEFERRED`) and reviewed non-scheduling
+  dependency (`NOT_APPLICABLE`, via `pr-<number>-admission.json` or manual
+  `admission-manifest`) runs exit green with workers and aggregation skipped
+  (`measured: false`), while scheduling-relevant dependency or code changes fail
+  closed (`BLOCKED`) at admission without downstream `Missing PROFILE_CAMPAIGN`
+  noise. See the
+  [profiling contract](../reference/session-planning.md#request-profiling-and-comparison-contract).
+- **Queue discipline:** Check active/queued runs before pushing or rerunning.
+  Batch verified changes from subagents into one push. Per-PR concurrency cancels
+  superseded revisions; cancel only superseded runs owned by the task.
+- **Core shards and gates:** Three balanced shards (`max-parallel: 3`) each use an
+  isolated PostgreSQL 16 service and run serially (`--maxWorkers=1`) while
+  `checks` → `image` → `image-storage` run sequentially in a fourth slot (30-minute
+  timeout per job). Required `verify` fails on any failed, cancelled, skipped or
+  missing prerequisite.
+- **CI regression tests:** Run `npm run test:ci` after workflow or shard changes.
+  After editing the scheduling group plan, regenerate worker steps with
+  `node scripts/scheduling-profile/generate-workflow.mjs` so CI rejects no drift.
 
-The [scheduling profile](../../.github/workflows/scheduling-profile.yml) adds
-**11 checks**: planning, one serial preflight group, eight scenario groups and
-final aggregation. The scenario groups are cold, warm, Sunday, negotiation,
-allocation, catalog, contention and backlog. Each group executes its partitions
-serially, with at most four groups running at once. The complete population stays
-at **60 latency partitions and 10 diagnostics**; five diagnostics must pass in
-preflight before the scenario groups start. Previously, each partition created
-its own hosted job, adding 72 benchmark checks and producing the 81-check PR shape
-with core CI. Grouping changes check presentation and runner reuse, not sampling.
-With core CI, two profiled PRs can need 18 slots; three can need 27 before recovery,
-network or main-branch work is counted.
+### Shard sizing and dependency/packaging gates
 
-Profiling matches changed file paths, including the entire admin/tutor routers,
-`prisma/**`, `package.json` and `package-lock.json`, as well as scheduling sources
-and benchmark helpers. A comment-only router edit or unrelated dependency/schema
-change can therefore trigger it. The filter does not inspect changed functions.
-An admitted, completed aggregate supplies comparison evidence; a clock-deferred
-run can finish successfully with workers and aggregate skipped and supplies no
-benchmark result. Inspect the admission artifact/summary before calling a green
-workflow a measured PASS. See the [profiling contract](../reference/session-planning.md#request-profiling-and-comparison-contract).
-
-Keep complete sample populations and immutable controls when optimizing this
-cost. Each partition starts with pristine source checkouts and a fresh database,
-retains its seven-minute command budget and uploads its own sealed evidence.
-The containing group has a longer bounded timeout so it can complete its serial
-work. Provider-visible prepare/partition steps preserve per-partition execution
-history and authenticated retries inside a grouped check. Lowering `max-parallel`
-reduces peak demand without changing the 11 checks. Narrower triggers
-or manual-only profiling save work but remove automatic comparison coverage and
-need an explicit policy decision. Reviewed non-scheduling dependency changes can
-commit a PR-scoped `.github/scheduling-profile-manifests/pr-<number>-admission.json`
-manifest (or pass `admission-manifest` on manual dispatch): early matrix admission
-independently verifies that zero scheduling-relevant files and zero packages in the
-transitive scheduling dependency closure changed, emitting a `NOT_APPLICABLE`
-receipt (`measured: false`) distinct from a measured `PASS` and skipping workers
-and aggregation. Any scheduling-relevant dependency or code change fails closed at
-admission (`BLOCKED`) without downstream `Missing PROFILE_CAMPAIGN` noise and
-requires an independently reviewed immutable control with compatible locked
-dependencies.
-
-- Use subagents extensively for independent investigation, implementation and
-  review. Give each agent a distinct scope and acceptance criteria. The lead
-  integrates their work, runs heavy local checks serially and batches verified
-  changes into a single push.
-- Check queued and running jobs before starting another CI-producing stream.
-  Count build, PR Size and every matching conditional workflow, including manual
-  campaigns already in progress. When occupancy is high, continue local work and
-  defer additional PR runs. Per-workflow concurrency groups do not enforce an
-  account-wide runner budget.
-- Per-PR concurrency cancels superseded revisions of the same PR. For a failing
-  review, inspect the failed step and shard report. Push a verified code fix
-  or rerun the failed jobs after a transient runner failure. Cancel
-  only superseded runs owned by the task.
-
-Three duration-balanced test shards can start immediately and remain active in
-parallel (`max-parallel: 3`). Each has its own `shbs_shipping_test` PostgreSQL
-service and runs files serially with `--maxWorkers=1`. The jobs `checks`, `image`
-and `image-storage` run in sequence, so together they occupy at most one more slot.
-This lets tests start while static checks run and saves six installations,
-PostgreSQL startups and migration sequences compared with nine shards. One PR
-Size job can overlap these four build jobs.
-[Build workflow](../../.github/workflows/docker-build.yml) · [PR Size workflow](../../.github/workflows/pr-size.yml).
-
-Core build jobs have a 30-minute timeout to stop a stuck runner. The required
-`verify` gate has a two-minute timeout and requires success from every shard,
-`checks`, `image` and `image-storage`. Failed, cancelled, skipped or missing
-prerequisites fail the gate. Queue time adds to the time contributors wait for
-the result. Diagnose slow runs using the actual runner queue, test durations,
-dependency installation and image/cache steps.
-
-Run `npm run test:ci` for concurrency, dependency, gate and image-promotion
-regressions. It inventories all automatic PR workflows, expands the real profiling
-matrix and checks total jobs separately from peak runners; a new automatic
-workflow requires a capacity review. After changing the group plan, run
-`node scripts/scheduling-profile/generate-workflow.mjs` to refresh the checked-in
-worker steps; the CI regression rejects generator drift. It also checks that the
-installed sequencer assigns every discovered test file to exactly one shard.
-Group orchestration specs run in root CI, outside the measured baseline's
-`*.test.ts` helper glob, so immutable controls need no candidate workflow assets.
-Hosted shards upload seven-day JSON reports.
-Keep the default Vitest reporter alongside JSON output so test failures and
-console diagnostics remain visible. Local `npm test` runs the full suite serially.
-
-### Shard sizing and timing evidence
-
-CI assigns the longest expected file first, placing each file on the shard with
-the least assigned work. Ties use the file path and then the lowest shard
-index. The versioned timing data uses the largest measured duration per file
-from the listed source runs, in whole milliseconds. The sequencer gives an
-unmeasured path 11 seconds and weights execution and import costs to balance
-files across the three runners. Update the timings after fixture or dependency
-changes and use `npm run test:ci` to confirm full coverage.
-[Shard sequencer](../../scripts/ci-shard-sequencer.ts) · [Timing data and source runs](../../scripts/ci-shard-timings.json).
-
-The previous nine-shard PR workflow passed at `8abaa270` in **21m 59s** from
-creation to completion. Static checks and storage comparison preceded the tests.
-The test phase lasted **16m 12s** from the first shard starting to the last one
-finishing. Individual shards took 3m 44s to 5m 46s. The packaging comparison
-ran in full on this revision.
-[Hosted nine-shard baseline](https://github.com/DupeisTaken/shbs-peer-tutoring-website/actions/runs/41585144405).
-
-Replaying those timings with three long test shards and one sequential lane
-projects **15m 16s** for a packaging change and **13m 30s** for an ordinary PR
-where storage comparison finishes after scope detection. The replay includes
-about 52.4 seconds of fixed cost per test shard and 0.72 seconds of overhead per
-file, yielding a test phase of about 13m 26s. In the packaging case, the three
-serial jobs account for 15m 12s and the final gate adds four seconds. With the
-ordinary 11-second scope check, the tests finish last. The estimates assume
-available runners and core CI only. Peak four-PR core slot demand follows from the job graph. The
-baseline measured one workflow. Compare hosted elapsed time and queue delays
-before revising this allocation.
-
-The combined identity, scheduling and recovery suite has 674 files. For the 52
-files missing from the original inventory, the timing map takes the maximum
-rounded-up duration observed in three successful hosted runs.
-[First run](https://github.com/DupeisTaken/shbs-peer-tutoring-website/actions/runs/41576683483),
-[second run](https://github.com/DupeisTaken/shbs-peer-tutoring-website/actions/runs/41583957456),
-[third run](https://github.com/DupeisTaken/shbs-peer-tutoring-website/actions/runs/41589617797).
-
-Three suites now commit their reset and fixture writes together before invoking
-the real application client. The room suite also batches independent seed rows.
-All constraints, triggers, test cases and tested transaction boundaries remain
-active. Three serial Ubuntu samples on the required PostgreSQL 16 and Node 22
-configuration each passed all 162 cases. Maximum reporter durations were 47,391
-ms for history correction, 38,476 ms for partition and 81,670 ms for room
-allocation. These replace the older weights for those files. Under the previous nine-shard policy, the longest projected job was 512.550
-seconds and the longest observed shard job took 450 seconds. The three-shard policy above now governs scheduling.
-[Calibration run and JSON artifacts](https://github.com/DupeisTaken/shbs-peer-tutoring-website/actions/runs/41600315274).
-
-
-For a dependency-audit failure, inspect the reported advisory and dependency path,
-then update the affected lockfile entries within the supported version range.
-Keep the audit gate enabled. For Vite/Vitest tooling updates, run `npm audit`,
-`npm run test:ci` (including shard discovery) and a focused test suite before
-relying on the complete CI test shards and image build for the new commit.
-
-The Docker build owns production-build validation; there is no duplicate host
-build. Publishable `main` runs save the smoke-tested image as a one-day artifact,
-then a separate publishing job verifies its image ID and pushes it without a
-rebuild. PR runs skip the image archive/upload. Image-transfer costs and GitHub
-runner queues still affect total latency; compare successful runs at the same
-scope rather than treating a failed early exit as a speed improvement.
-
-The required image build imports the existing GHA cache with `cache-from:
-type=gha` but does not export cache. In [main run 41499237387](https://github.com/DupeisTaken/shbs-peer-tutoring-website/actions/runs/41499237387)
-at `b5ece262d35a3edb91c47de81f1d933ad664c20f`, the image loaded about 255 seconds
-after job start; optional `mode=max` cache preparation then took 83.6 seconds and
-uploading continued until cancellation, before smoke checks could start. Removing
-that export leaves runner time for verification and image transfer.
-There is no second cache-only build or image rebuild during promotion.
-
-[Docker's GHA cache options](https://docs.docker.com/build/cache/backends/gha/)
-document `timeout` and `ignore-error`, but these are not a reliable total export
-deadline in the observed BuildKit v0.33.1. Its [export preparation and finalization](https://github.com/moby/buildkit/blob/v0.33.1/solver/llbsolver/export.go#L99-L131)
-have no separate overall timeout; the [cache client's request retry budget](https://github.com/moby/buildkit/blob/v0.33.1/vendor/github.com/tonistiigi/go-actions-cache/cache.go#L483-L525)
-does not bound every [Azure blob upload](https://github.com/moby/buildkit/blob/v0.33.1/vendor/github.com/tonistiigi/go-actions-cache/cache_v2.go#L59-L70).
-Ignoring an eventual cache error cannot recover time already spent before the
-required job is cancelled.
-
-The import keeps the existing default `buildkit` scope; the storage-comparison
-helper also only imports that cache. This workflow no longer refreshes it, so
-cache eviction or misses can make later builds colder. [GitHub's cache access rules](https://docs.github.com/en/actions/reference/workflows-and-actions/dependency-caching#restrictions-for-accessing-a-cache)
-also prevent main from restoring a cache written to a PR merge ref: successful
-PR caching does not establish a warm main build. Validate both the next complete
-PR run and main's smoke/save/upload/promotion path, including cache-miss behavior;
-the 255-second observation is evidence from one build, not a future timing guarantee.
-
-The separate `image-storage` job detects changes to the Dockerfile, build-context
-exclusions, workflow or runtime packaging/measurement helpers. Unrelated changes finish successfully after scope
-detection without another image build. Relevant changes compare the baseline
-Dockerfile from an immutable base revision with the candidate Dockerfile, both
-using the candidate source and the same pinned Linux/amd64 Node base. A common
-cached Next build supplies both layouts; an inert comment added to the built
-`server.js` supplies a controlled second release for each layout, making four
-final images without four independent application builds.
-Manual workflow runs default to the checked revision's first parent, or accept an
-explicit full commit SHA in `storage-baseline`. The CLI cache imports receive
-masked runtime credentials through an action step; no credential is included in
-the measurement artifacts.
-
-The comparison requires identical `/app` inventories (paths, types, modes,
-UID/GID, literal symlink targets and file sizes/hashes) between corresponding
-baseline/candidate images, plus equal runtime configuration. Inventory timestamps
-are excluded. Buildx metadata binds each build's identity: classic Docker may
-inspect by config ID, while the containerd store may inspect by manifest ID and
-omit the config digest from build metadata. Inventory runs against that immutable
-inspected identity. Archive verification uses the recorded config digest when
-present; otherwise it authenticates the saved manifest against the recorded build
-digest and verifies that manifest's config and ordered layer payloads. Both paths
-check the inspected layer identities and recheck each tag for rebinding. Raw build
-metadata is not uploaded; selected digest diagnostics contain no provenance or
-configuration contents. The comparison checks that the controlled probe changes
-only `server.js` and
-compares per-image Docker `Size`, the two-image exported-layer-content union and
-a snapshot-chain-weighted payload proxy. The candidate single-image size and
-both pair proxies must not grow. Seven-day JSON artifacts retain file-equivalence,
-layer-accounting and comparison evidence. These metrics are neither compressed
-registry transfer bytes nor actual production filesystem recovery; the controlled
-probe is not a forecast of every release. The existing exact-image smoke and
-publish path verifies the production image. Storage measurement follows a
-successful image job and must also pass before publication.
-
-Operator CLIs run outside Next's bundled server. When changing their imports,
-keep the runtime stage's explicit source copies complete. `npm run test:deployment`
-also follows explicit sources staged into `runtime-output/app` when that whole
-directory is copied into the final image. Stage new CLI sources there to avoid
-storing duplicate runner layers for files already present in Next's trace. Tests
-reject missing final copies and incorrect source destinations. The suite
-traverses all CLI dependency graphs and verifies production packages without
-importing application code. Image smoke runs administrator bootstrap twice and
-reconciliation with clean/findings exit statuses, using only each CLI's required
-environment. Recovery help runs without database or web credentials, then its
-read-only table catalog runs with only the isolated database URL. Both recovery
-commands have hard timeouts and validate the shipped entry point and JSON output;
-a successful web-server boot alone does not validate CLI packaging.
-
-The [Dockerfile](../../Dockerfile) prunes production dependencies after the
-application build, preserving generated Prisma configuration caches. Pruning
-from the earlier dependency-install stage changes the runtime file set. The
-[runtime assembler](../../scripts/assemble-runtime.mjs) merges standalone traced
-dependencies with the full production dependency tree, with production files
-winning collisions, into disjoint dependency and application trees. The runner
-copies dependencies before changing application files so retained releases can
-share their snapshot chain without keeping overwritten dependency bytes in a
-lower layer. Preserve the explicit operator-CLI source copies and complete
-production graph; a smaller Next server bundle alone does not satisfy startup
-migration and CLI requirements. Synthetic assembler, canonical inventory and
-comparison tests run through `npm run test:deployment`; Python 3 standard-library
-archive-accounting tests run separately in CI. See
-[local packaging checks](local-development.md#runtime-packaging-checks) for commands
-and resource ownership.
-
-The `@next/eslint-plugin-next` override replaces only its `fast-glob` dependency
-with the local adapter in `tools/next-lint-glob`, backed by `tinyglobby` 0.2.17.
-It implements only Next's CommonJS `globSync` call with `onlyDirectories`,
-preserving literal-directory and absolute-path behavior and rejecting unsupported
-options. This removes the unpatched `braces`
-dependency ([GHSA-vfj7-8cjw-p6xm](https://github.com/advisories/GHSA-vfj7-8cjw-p6xm))
-without disabling any lint rules or audit findings. Run `npm run test:lint-glob`
-and `npm audit` when updating the lint dependencies; CI runs both. The tests
-exercise Next's installed root-discovery helper and internal-link rule. Remove
-the scoped override when Next ships an unaffected dependency chain.
-The direct development dependency anchors the local package at the repository
-root; the override references it with `$fast-glob`. Keep the adapter's Docker
-`COPY` before `npm ci` so clean image builds resolve the same package.
-
-Legacy ESLint consumers also receive a small CommonJS compatibility export from
-`tools/next-lint-glob/minimatch-compat`. It delegates matching to minimatch 11.0.1,
-the patched release for [GHSA-g3hv-75wg-m249](https://github.com/advisories/GHSA-g3hv-75wg-m249),
-while retaining the callable default export required by their v3 API usage.
-The import plugin's `makeRe(...).test(path)` usage delegates to the patched matcher;
-it does not generate a legacy regular expression or expose a general RegExp API.
-TypeScript ESLint receives 11.0.1 directly through its named-export API. The
-scoped overrides preserve lint rules; `test:lint-glob` exercises actual package
-resolution, file inclusion/exclusion and real rule violations. Remove the
-compatibility export when all legacy consumers support the modern API.
-
-The `vite` override pins the test runner's transitive toolchain to 8.1.6, which
-contains the patched editor launcher (see
-[GHSA-698v-4r3x-3vcv](https://github.com/advisories/GHSA-698v-4r3x-3vcv)).
-Keep the lockfile and override together; run `npm audit`, the affected Vitest
-suites and CI before changing this pin. It does not replace the dependency audit
-or suppress advisory findings.
-
-When adding, renaming or editing interface copy, update every bundled catalog in
-`messages/`, including languages hidden from the default picker, and follow
-[Writing UI copy](design.md#writing-ui-copy). Run
-`npx vitest run src/i18n --maxWorkers=1` (`locales.test.ts`, `messages.test.ts`,
-`peer-wording.test.ts` and `willing-to-tutor.test.ts`) to check key parity,
-nonblank values, ICU placeholders, mojibake, manual `*` markers and EN/ZH
-register/glossary regressions before the complete CI suite.
+- **Shard sequencer:** [ci-shard-sequencer.ts](../../scripts/ci-shard-sequencer.ts)
+  places the longest files first onto the lightest of 3 shards using measured
+  durations from [ci-shard-timings.json](../../scripts/ci-shard-timings.json)
+  (11 s default for unmeasured files; tie-break by path then shard index). Refresh
+  timings after major fixture or dependency changes and run `npm run test:ci` to
+  confirm every test file is assigned to exactly one shard.
+- **Dependency audit & overrides:** Keep `npm audit` enabled and fix advisories by
+  updating lockfile entries within supported ranges. `package.json` maintains
+  deliberate scoped overrides (`tools/next-lint-glob` for `@next/eslint-plugin-next`'s
+  `fast-glob`, `tools/next-lint-glob/minimatch-compat` for legacy ESLint consumers,
+  and `vite` pinned to a patched release) without disabling lint rules or audit
+  checks. Run `npm run test:lint-glob` and `npm audit` when changing lint or test
+  toolchain dependencies, and remove scoped overrides once upstream ships clean chains.
+- **Docker cache & promotion:** `image` imports GHA cache (`cache-from: type=gha`)
+  without exporting cache, because unbounded BuildKit cache export previously
+  stalled jobs before smoke checks. `main` runs save the smoke-tested image as a
+  one-day artifact and promote it by verified image ID without rebuilding.
+- **Runtime packaging & CLI smoke:** [Dockerfile](../../Dockerfile) prunes
+  production dependencies after build and [assemble-runtime.mjs](../../scripts/assemble-runtime.mjs)
+  stages disjoint dependency and application trees. Keep explicit operator CLI
+  sources (`admin:create`, `identity:reconcile`, `recovery`) complete in
+  `runtime-output/app` — image smoke verifies all three CLIs in addition to web
+  boot. Packaging changes trigger `image-storage`, which compares baseline and
+  candidate `/app` inventories, runtime configuration and two-release layer-growth
+  proxies. See [local packaging checks](local-development.md#runtime-packaging-checks).
 
 ## Verify and document a UI change
 
-For a new reusable pattern, add an interactive example and behavior tests after implementation. Follow the [UI verification matrix](#ui-verification-matrix), including English/Chinese, keyboard focus, all six accent palettes, long labels and narrow screens. Capture screenshots from the running application as well as the gallery; gallery fixtures cannot prove feature permissions or mutations. Check the [technical boundaries](../reference/technical-report.md#shared-ui-patterns) before migrating existing workflows.
-
-File new proposals using the [issue conventions](issues.md), with the affected workflow, expected behavior, validation and behavior to preserve. The completed shared-pattern migration is recorded in [issue #219](https://github.com/DupeisTaken/shbs-peer-tutoring-website/issues/219). For subsequent changes, inspect the current page and domain tests rather than treating an old migration checklist as outstanding work.
-
-In a UI PR, state the trigger and resulting behavior, identify the shared patterns and affected page families, and link the issues it addresses. Record the tested commit and distinguish a full-suite run from later focused reruns. Cite measured control heights and the tested languages/viewports; palette fit alone is not a contrast result. Keep generated HTML reports, browser session files and local logs out of the commit. Close specific delivered issues through the PR, while referencing broader migration trackers that still have remaining scope.
-
-For a phased UI migration, establish the composition and ownership contract first,
-then address lost work, inaccessible interactions and misleading states before
-pattern alignment and broader journey changes. Give each scoped fix a linked issue
-and each wave a separate PR. Distinguish reproduced defects, source risks awaiting
-a scenario and design opportunities; old audit entries are not proof that current
-code is still broken. Shared component changes require checks of their actual
-callers, while feature-only changes should not trigger an unrelated visual rewrite.
-
-Keep one local HTML rollout report with a collapsed log for each phase: linked
-issues/PR, scope, tested revision, before/after screenshots, behavior cases,
-measurements, results and remaining limits. Finish the affected cases and required
-checks before advancing; record full-suite results separately from focused reruns.
-The final pass revisits every affected route and nested tab, including read-only,
-empty/error, long-content and translated states. Keep durable guidance here and in
-the technical/development guides; the local report is evidence, not a second set
-of component rules. New features follow the same [extension recipe](implementation.md#add-an-action-or-feature)
-and [page-composition roles](design.md#compose-a-page-by-its-purpose) from their first caller.
+- For a new reusable pattern, add an interactive `/ui-gallery` example and
+  behavior tests. Check [technical boundaries](../reference/technical-report.md#shared-ui-patterns)
+  before migrating existing workflows.
+- Verify **real application pages** in addition to the gallery — synthetic gallery
+  fixtures cannot prove permissions, native browser focus or persisted writes.
+- Test four core viewports/locales on the same synthetic record: **desktop EN
+  (1440 px)**, **desktop ZH (1440 px)**, **mobile EN (390 px)** and **mobile ZH
+  (390 px)** — plus `1024 px` when sizing rules change, 200% enlarged text, long
+  labels and all six accent palettes when shared styles change.
+- Measure rendered control heights with `getBoundingClientRect()` against the
+  [control-height hierarchy](design.md#control-height-hierarchy) and check painted
+  foreground/background contrast separately from palette fit.
+- Capture clean loaded states and deliberate pending/failure states separately.
+  Wait for the specific recovery notice to clear before claiming Retry succeeded.
+- For phased migrations or review batches, keep one local HTML rollout report with
+  collapsed before/after logs in ignored `outputs/` or `.validation/` — never
+  commit reports, screenshots or browser session logs. Preserve earlier reports as
+  historical evidence rather than rewriting them.
 
 ## UI pattern gallery
 
-While `npm run dev` is running, sign in with a local demo account and open `/ui-gallery`. The gallery renders real shared components with synthetic data and no application mutations. Language, accent theme and form-state controls expose English/Chinese, all six palettes and editable/saving/error/read-only examples. Theme previews do not write the theme cookie and restore the previous theme when leaving the gallery. Reload resets the example data.
-
-Resize the browser to test the actual viewport and breakpoints; a narrow card inside a desktop window does not simulate mobile CSS. Check the form save scope, selection state, tab keyboard navigation, dialog focus, brief table columns, rightmost text-link detail entries, comparison-table scrolling and recovery controls. Confirm actions remain reachable before and after horizontal scrolling. Follow the [control-height hierarchy](design.md#control-height-hierarchy) for rendered control measurements. Store screenshots in ignored `outputs/` or `.validation/` and include real pages in visual verification.
-
-The composition examples include a wide editor with nested review and policy reader, four-part participant identity, a wrapping filter toolbar, explicit disclosure lifetimes, three different settings/save models, versioned change review and background failures that retain drafts. Exercise nested Escape and focus return, save failure/retry, preview invalidation and collapse/reopen. The public card reuses production framing. These examples use synthetic state; verify domain permissions and real versioned writes on the actual pages as well.
-
-The `/ui-gallery` server page calls `notFound()` in production, and normal authentication still applies in development. Focused gallery tests require no database:
+With `npm run dev` running, sign in with a demo account and open `/ui-gallery`
+(returns `notFound()` in production). Use its language, accent and form-state
+controls to inspect shared components without mutating program data; resize the
+real browser window to test responsive breakpoints. Run gallery unit tests without
+a database:
 
 ```bash
 npx vitest run src/app/ui-gallery --maxWorkers=1
 ```
 
-For the additional-qualification entry dialog, run `npx vitest run src/app/_components/qualification-review.test.tsx src/app/_components/qualification-review-dialog.test.tsx src/app/_components/qualification-review-cache.test.tsx --maxWorkers=1`. The real-database counterpart is `npx vitest run src/server/qualification-applications.test.ts --maxWorkers=1` against the isolated `shbs_shipping_test` database described below. On `/admin/applications`, rehearse both additional-subject and higher-level requests: initially closed review, entry without a write, Cancel/Escape and focus return, required notes, direct approval with no reject action, rejection only through the interview chair/voting workflow, delayed/failed writes, stale draft Reload, and saved-decision refresh recovery. Include server refusal of direct rejection for both request types and Admin/Head roles, interviews enabled/disabled, assigned-panel non-bypass and restricted roles at desktop/mobile sizes in English/Chinese.
-
-For initial, additional-subject and higher-level interviews, include an Admin chair with a Head panelist, a Head chair, and a rejected Coordinator chair. Legacy panels with a missing or demoted chair need a valid Admin/Head chair assignment before scheduling, new decisions or first completion. Check that the tutor dashboard hides chair actions for an ineligible saved chair while preserving permitted panel voting and history. Scheduling checks the chair's current account role and tutor link without requiring all other panelists to remain eligible; decisions and first completion revalidate the full panel. For already completed interviews, verify hour corrections and idempotent retries with a recorded Coordinator or demoted chair: today's chair-role check is skipped, while the recorded chair, other panel/qualification checks and correction approvals remain. Corrections must not replace the historical panel or reopen admission.
-
-See [contributor guidance](interaction-patterns.md#reuse-interaction-patterns) for adding patterns and [technical boundaries](../reference/technical-report.md#shared-ui-patterns) for their responsibilities.
-
-After a refused interview approval, verify the retained draft's stale-evidence
-notice in English and Chinese: below `sm`, its full-width guidance precedes the
-explicit replace-draft action. Measure the text and button bounds, keep the
-button at least 44 px tall, and confirm the long dialog scrolls to its footer.
-
 ## UI verification matrix
 
-Use one running local site with synthetic data and one browser session at a time.
-Record the commit, role, language, viewport, interaction and observed result beside
-the screenshots. Verify the affected application pages; a gallery screenshot alone
-does not establish authorization, native browser focus or persisted behavior.
+Use one local synthetic site and one browser session at a time. Record commit,
+role, language, viewport, interaction and observed result beside screenshots.
 
-| Surface                                   | Check in the running application                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
-| ----------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Application and interview discovery | Check both Tutor Applications cards and Interview Records: completion is separate from admission status; newest/oldest completion and application dates, name order, missing dates last, global history sorting beyond the first 20 records, result counts and reset. Verify legacy saved filters, exact application links, retained approval/search/completion drafts and loading/error recovery. On first and repeated links to a tall expanded card, measure that its name/status remain below the actual sticky header; correct focus alone is insufficient. Retain native centering for short targets and the independent desktop scroll pane. Capture EN/ZH desktop/mobile controls and completion-date summaries; sorting and filtering must make no workflow writes. |
-| Combined interview approval | Check all votes, majority/tie, Admin and Head chair, missing/invalid service, explicit attendance, existing exact completion, stale versions, revoked authority, lost-response receipt and saved-but-refresh-failed recovery. Verify accepted rows survive filters while their approval dialog owns recovery. Check initial code vs linked account and qualification approval without a code; retries must not duplicate credits or notifications. Use the disposable demo database only. |
-| Interview setup links | Open Set up account on an accepted initial application; verify active code, linked account, pending verification, restricted account, expired/used/missing and conflicting references, and failed read/Retry. Observers and participants must not read codes. Opening/refreshing must issue nothing. Follow the popup’s Users & Roles link to the exact tutor ID with saved search, role/account filters and hidden historical/unverified records. Include the unambiguous application-linked registration-code tutor fallback when `promotedTutorId` is absent, and no inferred target for ambiguous links. Check the highlighted row, keyboard focus, unavailable/deleted target, read failure/retry and denied access; **Return to directory** restores the saved view. Opening the link must not create an account or issue an invitation. Check EN/ZH at desktop/mobile sizes. |
-| Tables                                    | Brief cells; authorized text actions at the right edge before/after local scrolling; named region reachable by keyboard; populated, empty, error and read-only states                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
-| Unified Combine records | On Users & Roles and participant profile editors, search all authorized User/Tutor/Tutee records independently of directory filters, including accountless/archived/current records and exact IDs. Preserve selection across searches and review every expanded group member. Check Admin accountless+accountless and history+one ready login; Admin denial of Head-required cases without claiming a submitted request; Head password, retained-login choice and explicit safe retirement. Group two active profiles as review-required without changing their participation or access, then reopen the group. Verify one directory row and searches by each source name, with individual logins and original records available in details. Include person-combine, account-directory, legacy account-combine, component and Users-page suites. |
-| Combination recovery and layout | Before committing synthetic fixtures, capture EN/ZH at 1440/390 px. Measure checkbox labels at least 44 px, trailing actions at 24 px desktop/44 px mobile, local table overflow, keyboard selection and pending parent dismissal. Check failed preview/draft retention, authoritative denial concealing cached private evidence, saved-write/failed-refresh read-only Retry, and a committed write with its response interrupted: visible operation reference, receipt lookup, no duplicate write, or exact same-operation retry if no receipt exists. Unknown outcomes keep dismissal blocked while recovery remains usable. Retain matched baseline evidence separately; screenshots alone do not establish permission or concurrency behavior. |
-| Historical ownership and directory | Link several accountless tutor/tutee archives to an account with current participation. Verify the tutor's standalone Users & Roles row disappears, canonical account details include every retained record, original roster/evidence remain and unowned rows stay visible. Repeat a link; check history-only visibility, Admin/Head correction authority, target-email changes, ownership A→B→A, stale review and supported combine-family ownership. After a saved link, hold/fail directory refresh and verify read-only Retry. Include account-directory, tutor-history, tutee-history and filter regressions. |
-| Personal tutoring history | On `/history`, check separate received/provided tables, original IDs/periods, counts and stored session hours without amendments or recomputation. Open each rightmost action; browse tutor sessions, meetings and amendments independently with more than 50 records and verify reopening resets cursors and refreshes data. Cover empty/loading, cached read failure/Retry, foreign-record denial, successful complete-list exclusion closing an open detail, transient permission-refresh retention and revoked participation with retained ownership. Check EN/ZH at 1440/390 px, long labels, keyboard focus/Close, local table scrolling and 44 px mobile actions. |
-| Forms and dialogs                         | Save scope; pending fields/dismissal; failed-save draft retention; nested Escape/Tab and focus return; successful child write with pending refetch; actual long-content scrolling                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
-| Account deletion step-up                  | Users & Roles: fresh consequence/fingerprint review, precise current singleton/history counts, retained ownership/intake/Head blockers and explicit stale-review Reload. Check delayed password focus, named native dialog, label/opener restoration, same-turn admission, pending dismissal, rejected draft and accepted-write/read recovery. Include `delete-account.test.ts`, the deletion component, Users page and auth/ownership regressions. Use synthetic EN/ZH desktop/mobile records; opening and canceling proves layout/focus, while database tests prove deletion, concurrency and rollback                                                                                                                                                                                                                                                                                                                                                                                                                          |
-| Request disclosure                        | Measure the sole Expand/Collapse target at desktop and mobile widths and the actual arrow leaf's contrast. Verify Enter/Space, focus, expanded state, retained selections, fulfilled auto-collapse and visible invalid-record review controls; include long labels and enlarged text without document overflow                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
-| Copy, disclosures and chrome              | Check EN and ZH rendered copy against [Writing UI copy](design.md#writing-ui-copy): 1–2 sentence inline notices, collapsed secondary/historical rules (e.g. `MessageInbox` older-message disclosure), prerequisite inputs above gated actions (e.g. `Current password` in `AccountEmails`), `FieldRequirement` markers without manual `*`, and disambiguating DB IDs shown only when visible names collide |
-| Repeat profile edits                      | Account, tutor, tutee and Head username: Save → automatic refresh → Save without closing or a restart action; forced fresh version read; Retry refresh without a POST; automatic completion leaves sibling focus alone; retained academic/history drafts and original versions                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
-| Tutee detail reader                       | Actual Tutees roster: one trailing View details action; ordered subject choices, email copy and paginated history in one wide dialog; current versus historical academics; missing email and retained-owner setup restrictions. Check EN/ZH, long names/subjects/email, desktop/mobile scrolling, sticky Close, Escape/focus return and pending verification dismissal. History mounts on opening, refreshes on reopening, and retains cached content with Retry after failure. Viewers and departure observers must retain summary/subject access without contact or history queries                                                                                                                                                                                                                                                                                                                                                                                                                                             |
-| Named destructive review                  | Rooms, hour adjustments, pairings, time slots, subject levels, tutees and registration invitations: exact target/consequence, Cancel/Escape without writes, one confirmed mutation, queued versus applied result, failed-write retry, held refresh and read-only recovery after Close. Viewers retain only authorized read access                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
-| Timed confirmations                       | Hold a schedule-conflict write and press Escape repeatedly: the dialog and reason remain. After rejection, retry retains the reason/ticket; idle Cancel restores the opener. Mandatory policy review blocks repeated Escape even when idle while keeping explicit Sign out available. Verify native behavior separately from jsdom handlers.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
-| Tutor attendance                          | Submit twice before the first response and verify one feature POST; reject it and retry the retained draft. Hold/fail totals refresh after acceptance, verify read-only Retry issues no attendance POST, then use Submit another entry to start a new draft. Server deduplication is a separate integration assertion.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
-| Tutor pairing groups                      | Create without a time → reload → schedule → split/rejoin. Check complete student × subject coverage, missing combinations, shared schedule/primary room, distinct roster and adjacent management rows under sorting and room filtering. Verify member-specific notification targets and group details. Verify Both Available / Other Time Slots / Unavailable, exact/partial overlaps and adjacency. Review/Cancel without writes; stale draft/explicit Reload; pending dismissal; accepted-save read Retry without another POST. Record attendance, regroup and compare saved evidence/hours, including background primary changes. Check member and catalog slot edits, foreign/inactive/old-period denial, archived groups with departed students, unrelated room conflicts and concurrent saves. Capture desktop/mobile English/Chinese on the real portal, measure 44 px phone controls and retain independent attendance drafts.                                                                                                                                                                                |
-| Cached queries                            | Initial loading/error/empty are distinct; background failure retains content and draft; Retry completes without a mutation; explicit conflict Reload adopts data only on success. Use a real QueryClient for denial → cache eviction → transport failure → authorized recovery, including independent query scopes and unchanged observer restrictions                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
-| Retained editor contexts                  | Policy/landing languages, meeting selection and translation targets keep independent drafts. Collapse, search and tab changes retain pending/error state without eagerly mounting untouched contexts. Accepted writes with failed synchronization recover through reads only; leaving or reloading the feature ends local draft retention                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
-| Review evidence and revocation            | Policy archives use the exact selected language/version. Appeals and Crew reviews expose original full text. Exercise named dialogs, Escape and exact focus return. In the gallery and Crew, authoritative access revocation conceals the active evidence; pending generations still settle, accepted/queued keys stay blocked and stale callbacks cannot affect a later authorized review                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
-| Feedback audience and recurring schedules | Verify unknown/loading, failed, cached-true, cached-false and confirmed audience settings without inventing a privacy guarantee. Check all seven stored weekdays in English/Chinese, including availability headings and accessible group names, confirmed/unconfirmed schedules and empty room/slot states. Measure active weekday text against its actual background (at least 4.5:1), not a parent color. Confirm unchanged numeric weekdays, slot IDs and Save/review payloads; do not infer a next session date                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
-| Invalid public requests                   | Tutor Applications and Signup Requests, including older public entries: required reason, invalid badge/filter, recorded staff reason, clear with reason, unchanged original status and blocked processing. Check Admin/Head direct changes, Coordinator proposals, observer badge without private details, EN/ZH at 1440/390 px, Escape/focus return, retained draft, pending dismissal and read-only refresh recovery. Include `request-invalidity.test.ts`, the shared dialog/page tests and invitation regressions; verify concurrent processing cannot pass a newly committed flag.                                                                                                                                                                                                                                                                                                                                                                                                                                           |
-| Filters and settings                      | Pressed selections versus content tabs; filter/page reset rules; consistent control heights, including the tutor qualification Request/Cancel action pair at 40 px desktop and at least 44 px mobile; immediate switches, unknown/yes/no choices and staged saves keep their own semantics                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
-| Roster search and pairing selection       | Search within the authorized role/participation scope using four-part and legacy names plus permitted identifiers. Clearing search preserves other filters. Select → search away → clear retains exact IDs; removing one leaves others intact. Use long names and at least 50 candidates on mobile without document overflow                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
-| Creation and grouped workspaces           | Pairings, Announcements, Time Slots and Hour Adjustments: one creation entry, close/reopen draft retention, independent create/edit drafts, rejected saves, pending dismissal and nested review. Program, Crew and Support: inventory every existing control, retained panel drafts/filters/pagination, review and accepted-write recovery outside hidden panels, keyboard tabs and unchanged roles                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
-| Last-resort creation warning              | Management New Pairing, Add a Tutee and Add Tutor: warning before fields on every opening; fresh unchecked acknowledgement and disabled Continue; Cancel/Escape restores the opener without opening fields or writing; acknowledged Continue opens fields without a mutation/proposal. Close/reopen requires acknowledgement while preserving unfinished drafts. Check EN/ZH desktop/mobile, long warning text, keyboard focus, pending-save dismissal, role restrictions and existing save tickets/approvals in the actual pages as well as the gallery                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
-| Save scope and tutor orientation          | Blur guidance describes only existing immediate fields; focus without changes writes nothing. Top/footer layout Save share one pending state and admission guard. Tutor attention counts exclude paused interviews and distinguish unavailable from empty reads; task-specific attention links and today's schedule remain, while the duplicated permanent section-link strip is removed. Actual workspace navigation stays reachable. WorkflowShell keeps one shared utility set and correct role/return context at 1024 px and narrow widths                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
-| Long table readers and pagination         | Room-grid and original Crew text: header Close remains reachable after scrolling; lazy mounting, nested Escape/focus return and pending child writes. Participant/support/message lists: distinct navigation names, first/middle/final/empty states, independent page resets and 44 px narrow controls with enlarged text                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
-| Readable historical states                | Measure actual foreground/background contrast for undone audit entries, inactive announcements and fulfilled request metadata/actions. Inspect the painted text or glyph leaf: a parent color does not establish a child icon's contrast when the child overrides it. Keep status meaning without fading whole records; verify selected recipients and unread messages under all six accent themes. A passing body-text ratio does not establish metadata, action or focus contrast                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
-| Mixed review/filter rows                  | Measure Discipline note/actions, Service Hours month/Clear/History, and Session Flags penalty/actions at 1440 and 390 px in EN/ZH, including long labels and 200% text. Check 32 px desktop baselines, at least 44 px mobile targets, wrapping and retained pending/error drafts. Session Flags must not label unknown or failed reads as an empty queue.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
-| Headers and navigation                    | Public, patrol, localization, management, tutor, tutee and standalone account headers: single utilities, 32 px desktop / 44 px narrow controls, wrapping labels, one H1; native route Back/Forward and manual local tab activation with retained drafts. At 200% text size, check actual control bounds and pixels for overlap: workspace utilities may wrap within their mobile grid area, preserving target sizes and keeping navigation unobscured. Document width alone cannot detect controls overlapping inside the header.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
-| Registration and reply                    | EN/ZH invitation code card, numbered later steps and heading focus; separate Viewer/tutee entrypoints; full tutee form before OTP verification and legacy-link confirmation; receipt copy, optional email success/failure, prefilled continuation, Close/reopen and exact focus return; bound email, edit/reverify, resend failure and pending locks. Check signed-in Add access, new-account prefill, primary/verified-secondary ownership, additive Tutor/Crew/tutee access, exclusive Viewer transition and management max-rank/no-demotion. Existing Viewer-source LOGIN changes no membership. Preserve MFA, suspension, participation departure refusal, credentials, intake priority and policy evidence; departure alone must not block an authorized management grant. Verify the short-lived HttpOnly handoff cookie and absence of proofs/passwords from URLs or JavaScript storage. Reply retains recipient context, separate drafts, cancel focus return, retry keys and permission failures below the sticky header |
-| Enabled signup CAPTCHA                    | Use an isolated local SDK fixture without paid provider calls. On tutee signup/resend and Viewer identity/code resends, check native Verify/Cancel/Retry reachability outside disabled ancestors, frozen drafts, cancellation/rejection recovery, one write per accepted proof and rejection of a spent server grant                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
-| Participant/public flows                  | Native invalid-name correction, legacy names, requirement markers, creation collapse/reopen, translated back/language navigation and existing consent boundaries                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
-| Tutor membership review | Settings: active tutor and captured optional reason; Cancel/Escape without writes, rejected submission retaining the reason, same-turn duplicate admission and pending input/dismissal protection. Accepted request says submitted, retains ACTIVE status and shows its review eligibility; failed synchronization and recovery after Close issue reads only. Test changed status/identity, denied access concealing private review, separate recall/reentry and the distinct direct PENDING activation choice. |
-| Tutee feedback pending state | Actual Attendance feedback form: hold the write and verify rating, message and Save are disabled; duplicate activation admits one submission. Reject it and recover the retained fields. Failed background reads keep the draft but block submission until a read-only retry succeeds. |
-| Public request appeal receipt | Emailed appeal page: distinguish the neutral submission receipt from pending, declined and cleared decision notices and their semantic colors. Pending/declined must not imply that the invalid flag was cleared. Verify rejected-draft retention, frozen pending fields, duplicate admission and accepted-submission read-only refresh recovery. |
-| Historical claim recovery | Actual signed-in history claim: initial and background inspection failures offer read-only Retry, retain permitted cached identity and disable confirmation/claim while reads are untrustworthy. Authoritative denial conceals cached identity and clears confirmation; a later transport failure must not reveal it. Fresh authorized inspection permits a new explicit confirmation. Invalid capability and same-turn duplicate claim cases retain the existing ownership checks. |
-| Management messages and meeting readers | Message Supervision and user contact overrides: separately named shared pagers, independent search/page state, first/middle/final/empty states and 44 px narrow targets. In Meetings, open both per-tutor attendance detail callers with enough records to overflow; verify body scrolling, reachable sticky Close, nested keyboard focus/Escape and no document overflow in EN/ZH desktop/mobile. |
-| Inactive and zero-value reports | Service Hours, meeting summaries and attendance, and historical reports: inactive identity/status remains explicit and readable; measure zero values, ordinary totals and status text against their actual backgrounds. Check all six accent themes where shared styles apply; do not count a whole-row opacity or parent-color change as proof of leaf contrast. |
-
-Use an actual narrow viewport such as 390 CSS pixels and a desktop viewport such
-as 1440 pixels; include the 1024 px boundary when sizing rules change. Check
-English/Chinese, long labels and enlarged text, and inspect all six accent palettes
-when shared styles change. Measure control bounds with `getBoundingClientRect()`
-against [the height hierarchy](design.md#control-height-hierarchy). Check normal,
-hover, selected, disabled and focus states where the patch changes them. Distinguish
-palette layout checks from measured foreground/background contrast.
-
-Take clean screenshots after loading completes and separate captures for deliberate
-failure/pending scenarios. Wait for the specific recovery notice to clear before
-claiming Retry succeeded; another query may have its own error banner. Keep full
-mobile forms reviewable across multiple captures. Inspect the screenshots, record
-test limitations, and stop owned browser/server/database processes after checking.
-
-For confirmation timing changes, use the [action matrix](../reference/technical-report.md#confirmation-timing-contract).
-Capture real countdown states before and after using the same synthetic record,
-role, locale and viewport; record the rendered label as well as the nominal server
-delay. Check exact readiness/expiry boundaries, client clock jumps, throttled
-background callbacks and focus/visibility resume, cancelled/reopened or changed
-targets, late preparation, same-turn duplicates and repeated identical write
-rejections. Verify policy read/agreement evidence and the assignment-to-qualification
-ticket handoff. The dedicated timing, dialog and submission tests cover these
-boundaries; the survey and assignment router suites verify actual stored ticket
-consumption, cancellation scope and unchanged lifetimes against the isolated DB.
-
-For each rollout phase, capture the before and after state using the same synthetic
-record, role, language, viewport and interaction. Compare the affected content
-edges, heading hierarchy, card spacing, text wrapping and reachable actions against
-the [page-composition roles](design.md#compose-a-page-by-its-purpose); different
-task widths are not themselves a defect. Label changed fixtures or environments
-explicitly, and keep hosted observations separate when its deployed revision is
-unknown. Put cases, measurements, focused/full-suite results and remaining gaps in
-that phase's collapsed local HTML report log. Screenshots establish appearance in
-the recorded state; tests and interaction checks establish the corresponding draft,
-permission, pending-write and recovery behavior.
-
-## Evidence for a UI review batch
-
-Keep a separate before/after evidence matrix for **desktop English**, **desktop
-Chinese**, **mobile English** and **mobile Chinese**. Use the same synthetic record,
-role, locale, viewport and interaction for each pair. A desktop English crop does
-not stand in for mobile Chinese verification. Record actual client width as well
-as the requested viewport, the source revision and whether the capture shows a
-summary, editor, pending state or intentional read failure.
-
-Measure the intended visual row: compare badge/action centers with the input box
-when labels and helpers sit outside it, and compare whole-card actions with the
-summary's bounds. Check wrapping application metadata starts at the name edge.
-For room grids, include at least 20 rooms, overlapping occupied slots, unavailable
-periods, empty room selection, both view modes and long translated room names.
-For navigation, leave and return through links and Back/Forward; verify the actual
-management content scroller as well as document scroll and identity changes.
-
-Reports explain the design rules and implementation alongside each numbered
-request, then expose the four evidence groups separately. Keep logs, raw immutable
-evidence, user-annotated references and failure/recovery cases collapsed. Identify
-missing baselines and test-only behavior explicitly; a source inspection or an
-annotated user crop is not a measured browser result. Preserve earlier reports
-with their original revisions instead of rewriting their historical claims.
-
-## UI handoff safeguards
-
-- Follow the [UI verification matrix](#ui-verification-matrix)
-  on the affected real pages as well as the gallery. Use actual desktop/mobile
-  viewports, English/Chinese, long labels, keyboard navigation and role restrictions.
-- Keep browser/server work serial and tests bounded. Stop only processes you own;
-  inspect shared dependency junctions and database ownership before cache cleanup.
-- Document which commit, cases and measurements were checked. Distinguish full-suite
-  results from focused reruns, and gallery layout checks from contrast measurements.
-- Keep human guidance in the existing `docs/` guides and local HTML/screenshot
-  evidence in ignored `outputs/` or `.validation/`. Track new proposals through the
-  [issue conventions](issues.md), link PRs to their issues, and keep broader
-  migration trackers open when only part of their scope is delivered.
+| Surface | Verify in the running application |
+| --- | --- |
+| Application & interview discovery | Tutor Applications cards and Interview Records: completion separate from admission; newest/oldest completion and application dates, name order, missing dates last, global sorting past 20 rows, result counts/reset, exact deep-link scroll below sticky header without breaking short-target centering or desktop scroll pane; no writes on filter/sort. |
+| Additional-qualification review | On `/admin/applications`, rehearse additional-subject and higher-level requests: initially closed review, Cancel/Escape focus return, required notes, direct approval with no reject button, rejection only via chair/voting, server refusal of direct reject, stale Reload, saved-decision refresh recovery (`qualification-review*.test.tsx`, `qualification-applications.test.ts`). |
+| Interviews & combined approval | Admin/Head chair and rejected Coordinator chair; legacy missing/demoted chair blocked until valid chair assigned; completed-interview hour corrections preserving legacy chair; all votes, majority/tie, duration/attendance, stale versions, revoked authority, lost-response receipt, saved-but-refresh-failed recovery, no duplicate credits/notices, and stale-evidence notice layout (`>=44 px` replace button below `sm`). |
+| Interview setup links | Accepted initial application **Set up account**: active code, linked account, pending verification, restricted/expired/used/missing/conflicting states, failed read Retry; observer denial; **Users & Roles** deep link (including unambiguous registration-code fallback) preserving filters and **Return to directory**; zero writes on open. |
+| Tables & long readers | Brief cells; rightmost unboxed text actions reachable before/after local scroll (`24 px` desktop / `44 px` mobile); named keyboard scroll region; populated/empty/error/read-only states. Tall readers (`TableDetails longReader`, room grids, Crew text, Audit evidence, Meetings attendance): sticky Close reachable at deep scroll, no nested sticky action overlap over header, lazy mount, Escape/focus return. |
+| Unified Combine records & history links | Users & Roles and participant editors: search all authorized User/Tutor/Tutee records independent of directory filters; preserve selection across searches; Admin vs. Head authority (no false submitted-request claim on denial), Head password, retained-login choice, safe retirement; multi-active review-required grouping; `44 px` checkboxes; failed preview/denial concealment, interrupted-response receipt lookup and read-only Retry; linking multiple accountless archives removes standalone rows while keeping original evidence. |
+| Personal tutoring history (`/history`) | Separate received/provided tables, original IDs/periods and stored session hours; independent >50-row pagination for sessions, meetings and amendments; reopening resets cursors and refreshes; cached failure Retry, foreign denial, revoked participation with retained ownership. |
+| Forms, dialogs & repeat profile edits | Save scope, pending fields/dismissal, failed-save draft retention, nested Escape/Tab and exact opener focus return, long-content scroll. Profile/username editors: Save → automatic fresh refresh → Save across repeat cycles without closing; Retry refresh without POST; sibling focus and drafts untouched; academic conflict Reload waiting on both academic and policy reads. |
+| Account deletion step-up | Users & Roles: fresh consequence/fingerprint review, current singleton/history counts, ownership/intake/Head blockers, stale Reload, delayed password focus, same-turn admission, pending dismissal, accepted-write read recovery (`delete-account.test.ts` proves DB rollback/concurrency). |
+| Copy, disclosures & chrome | EN/ZH copy follows [Writing UI copy](design.md#writing-ui-copy): 1–2 sentence inline notices, collapsed secondary rules, prerequisite inputs above gated actions, `FieldRequirement` markers without manual `*`, DB IDs only on name collisions; disclosure target sized independently of arrow glyph contrast. |
+| Tutee detail reader | Tutees roster: single rightmost **View details** opening wide dialog with ordered subjects, email copy and lazy paginated history; current vs. historical academics; viewer/observer restriction without private queries. |
+| Named destructive review & creation risk | Rooms, hour adjustments, pairings, time slots, subject levels, tutees, registration codes: exact target/consequence, Cancel/Escape without writes, queued vs. applied result, failed-write retry and read-only recovery after Close. Manual New Pairing/Add Tutee/Add Tutor: fresh unchecked `CreationRiskDialog` on every open before fields. |
+| Timed confirmations | Schedule-conflict write blocks Escape while pending and retains draft/ticket on error; mandatory policy review blocks Escape while idle while keeping Sign out available. Follow [confirmation timing contract](../reference/technical-report.md#confirmation-timing-contract) for readiness/expiry boundaries, clock jumps and focus resume. |
+| Tutor attendance & pairing groups | Attendance: same-turn double-submit admits one POST; failed totals refresh uses read-only Retry; **Submit another entry** starts new draft. Pairing groups: unified single/combined 50/50 cards, create without time → schedule → split/rejoin, dynamic combine mode dimming incompatible cards and auto-selecting minimal companions with notice, complete student×subject coverage, Both Available/Other/Unavailable slots, stale Reload and read-only Retry. |
+| Cached queries & retained editors | Initial loading/error/empty distinct; background failure keeps content/draft with read-only Retry; authoritative denial evicts cache and stays latched across transport errors (`useSessionAccessDenied`). Policy/landing/meeting/translation contexts keep independent drafts across collapse/search/tab changes; policy archives use exact version/language and Crew/appeals conceal evidence on revocation. |
+| Feedback audience & recurring schedules | Unknown/loading/failed/cached-true/cached-false audience states without inventing privacy claims; all 7 localized weekdays via `formatWeekday`, active weekday contrast (`>=4.5:1`), unchanged numeric payloads. |
+| Invalid requests & public appeals | Tutor Applications and Signup Requests: required reason, invalid badge/filter, clear with reason, Admin direct vs. Coordinator proposal, observer badge without private details, concurrent processing blocked. Emailed appeal page: neutral receipt distinct from Pending/Declined/Cleared notices, rejected-draft retention and read-only recovery. |
+| Filters, settings & Preferences | Pressed `ChoiceButton` vs. `SectionTabs`; filter/page resets; `32 px` desktop / `44 px` mobile toolbar heights; Preferences entrance cards (`TimeAvailability`, `SubjectWillingness`, `QualificationRequests`) opening wide `ProfileDialog` with retained drafts across close/reopen and opener focus return. |
+| Roster search, creation & grouped workspaces | `matchesPersonSearch` within authorized scope; clearing search preserves filters; selected IDs survive filtering. Pairings/Announcements/Time Slots/Hour Adjustments single creation entry with independent create/edit drafts. Program/Crew/Support tabbed workspaces retain hidden-panel drafts while keeping active reviews/recovery outside hidden panels. |
+| Readable historical states & mixed review rows | Measure painted text/glyph contrast (not parent color) on undone audit entries, inactive announcements, zero-value reports and fulfilled requests across all 6 accents. Check Discipline, Service Hours and Session Flags filter/action rows at 1440/390 px and 200% text; Session Flags never labels failed reads as empty. |
+| Headers & navigation | Public, patrol, localization, management, tutor, tutee and account headers: single utility set, `32 px` desktop / `44 px` narrow controls, one H1, no overlap at 200% text; native Back/Forward, `#admin-content` vs. document scroll restoration, and identity changes. |
+| Registration, CAPTCHA & reply | EN/ZH green 5-char invitation / blue 4-digit email code inputs, legacy-format acceptance, bound email, separate Viewer/tutee entrypoints, full tutee form before OTP, receipt popup, signed-in **Add access**, HttpOnly handoff cookie (no tokens in URLs/JS storage). Enabled CAPTCHA (isolated local fixture): Verify/Cancel/Retry reachable outside disabled ancestors, single-use server grant. Reply keeps recipient context, separate drafts and focus return. |
+| Tutor membership, tutee feedback & history claim | Tutor opt-out: named review, accepted receipt retains ACTIVE status and shows 7-day eligibility, read-only refresh recovery. Tutee feedback: pending locks inputs, background read failure blocks submit until Retry. Historical claim: failed read keeps cached identity with Retry and blocks claim; denial conceals identity and clears confirmation. |
 
 ## Behavior and data-integrity cases
 
-For behavior changes, include stale versions, competing writes, authorization
-changes and rollback cases where they apply. Test rejected writes separately
-from accepted writes whose synchronization fails. State which cases used real
-database transactions, component fixtures or actual browser interactions.
+For behavior changes, cover stale versions, competing writes, authorization
+changes and transaction rollbacks. Test rejected writes separately from accepted
+writes whose synchronization fails. Distinguish database transactions, component
+fixtures and live browser checks.
 
 ## Handoff record
 
-Record the source revision, affected files/pages, checked scenarios and exact
-commands/results in the PR. Distinguish complete suites from focused reruns,
-current evidence from historical reports, and verified cases from remaining scope.
-Keep local evidence in ignored `outputs/` or `.validation/`; see
-[documentation ownership](documentation.md#historical-evidence-and-continuation-notes).
+In the PR description, record:
+- Linked issue(s), source revision, affected files/pages and shared patterns.
+- Checked scenarios, rendered measurements (`getBoundingClientRect()`, EN/ZH,
+  desktop/mobile) and exact commands/results.
+- Full-suite runs separately from focused reruns, current evidence separately from
+  historical reports, and any remaining unverified scope.
+- Keep local evidence in ignored `outputs/` or `.validation/`; see
+  [documentation ownership](documentation.md#historical-evidence-and-continuation-notes).

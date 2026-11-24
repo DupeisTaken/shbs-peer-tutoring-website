@@ -16,7 +16,7 @@ user tasks and operational procedures belong in [guides](../guides/README.md).
 | Dated sessions, agreements, attendance and publication | [Session planning](session-planning.md) |
 | Essential scheduling email and private calendar feeds | [Scheduling delivery](session-planning-delivery.md) |
 | Individual unreported school hours, schedules and report links | [School reports](school-hours.md) |
-| Historical monthly overview snapshots | [Legacy monthly reports](monthly-service-hours.md) |
+| Historical monthly overview snapshots (retired; read-only history & CSV) | [Legacy monthly reports](monthly-service-hours.md) |
 | Public signup rate limits, recovery and trusted proxy boundary     | [Signup protection](signup-protection.md)                                                                              |
 | Optional CAPTCHA integration and rollout requirements              | [CAPTCHA](captcha.md)                                                                                                  |
 
