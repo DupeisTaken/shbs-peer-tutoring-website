@@ -278,8 +278,8 @@ authorized decision interfaces and policy rules.
 
 | Language | Title | Description | Action |
 | --- | --- | --- | --- |
-| English | Primary Email Changed | Your primary account email changed. Review your account and contact private support if you do not recognize this activity. | Review your account |
-| 中文 | 主邮箱已更改 | 您的账户主邮箱已更改。如非本人操作，请查看账户并联系私密支持。 | 查看账户 |
+| English | Primary Email Changed | Your primary account email was updated. Review your account settings to confirm. | Review your account |
+| 中文 | 主邮箱已更改 | 你的账号主邮箱已更新。请查看账号设置确认。 | 查看账号 |
 
 ### secondary_added
 
@@ -289,8 +289,8 @@ authorized decision interfaces and policy rules.
 
 | Language | Title | Description | Action |
 | --- | --- | --- | --- |
-| English | Secondary Email Verified | A secondary email was verified on your account. Review your email addresses. | Review your account |
-| 中文 | 辅助邮箱已验证 | 您的账户已验证一个辅助邮箱。请查看账户邮箱。 | 查看账户 |
+| English | Secondary Email Verified | A secondary email was verified on your account. Check your email settings if needed. | Review your account |
+| 中文 | 备用邮箱已验证 | 你的账号已验证一个备用邮箱。如需确认请查看邮箱设置。 | 查看账号 |
 
 ### secondary_removed
 
@@ -300,8 +300,8 @@ authorized decision interfaces and policy rules.
 
 | Language | Title | Description | Action |
 | --- | --- | --- | --- |
-| English | Secondary Email Removed | A secondary email was removed from your account. Review your email addresses. | Review your account |
-| 中文 | 辅助邮箱已移除 | 您的账户已移除一个辅助邮箱。请查看账户邮箱。 | 查看账户 |
+| English | Secondary Email Removed | A secondary email was removed from your account. Check your email settings if needed. | Review your account |
+| 中文 | 备用邮箱已移除 | 你的账号已移除一个备用邮箱。如需确认请查看邮箱设置。 | 查看账号 |
 
 ### security_changed
 
@@ -311,8 +311,8 @@ authorized decision interfaces and policy rules.
 
 | Language | Title | Description | Action |
 | --- | --- | --- | --- |
-| English | Account Security Changed | Your password or two-step verification settings changed. Contact private support if you do not recognize this activity. | Review your account |
-| 中文 | 账户安全设置已更改 | 您的密码或两步验证设置已更改。如非本人操作，请联系私密支持。 | 查看账户 |
+| English | Account Security Changed | Your password or two-factor verification settings were updated. Review your account security settings. | Review your account |
+| 中文 | 账号安全设置已更改 | 你的密码或双重验证设置已更新。请查看账号安全设置。 | 查看账号 |
 
 ### information_changed
 
@@ -322,8 +322,8 @@ authorized decision interfaces and policy rules.
 
 | Language | Title | Description | Action |
 | --- | --- | --- | --- |
-| English | Account Information Updated | Your account information or access changed. Sign in to review your current account. | Review your account |
-| 中文 | 账户信息已更新 | 您的账户信息或访问权限已更改。请登录查看当前账户。 | 查看账户 |
+| English | Account Information Updated | Your account details or access were updated. Open Account Settings to review. | Review your account |
+| 中文 | 账号信息已更新 | 你的账号信息或权限已更新。请前往账号设置查看。 | 查看账号 |
 
 ### message_received
 
@@ -334,7 +334,7 @@ authorized decision interfaces and policy rules.
 | Language | Title | Description | Action |
 | --- | --- | --- | --- |
 | English | New Private Message | You have a new private message. Open your inbox to read it and reply. | Open your inbox |
-| 中文 | 新的私信 | 您收到一条新私信。请打开收件箱阅读并回复。 | 打开收件箱 |
+| 中文 | 新的私信 | 你收到一条新私信。请打开收件箱阅读并回复。 | 打开收件箱 |
 
 ### program_update
 
@@ -344,8 +344,8 @@ authorized decision interfaces and policy rules.
 
 | Language | Title | Description | Action |
 | --- | --- | --- | --- |
-| English | Program Update | You have a program update. Sign in to review the notice and any next steps. | View program update |
-| 中文 | 项目通知 | 您收到一条项目通知。请登录查看通知和后续步骤。 | 查看项目通知 |
+| English | Program Update | You have a new program update. Open the site to view details. | View program update |
+| 中文 | 项目通知 | 你有一条新的项目通知。请打开网站查看详情。 | 查看项目通知 |
 
 ### tutor_application_pending
 
@@ -355,8 +355,8 @@ authorized decision interfaces and policy rules.
 
 | Language | Title | Description | Action |
 | --- | --- | --- | --- |
-| English | New Pending Tutor Request | You have a new pending tutor application. Review the application before arranging an interview or making a decision. | Review tutor applications |
-| 中文 | 新的辅导伙伴申请待审核 | 您收到一份新的辅导伙伴申请。请先审核申请，再安排面试或作出决定。 | 查看辅导伙伴申请 |
+| English | New Tutor Application | A new tutor application is ready for review. | Review tutor applications |
+| 中文 | 新的辅导伙伴申请 | 有一份新的辅导伙伴申请等待审核。 | 查看辅导伙伴申请 |
 
 ### qualification_requested
 
@@ -366,8 +366,8 @@ authorized decision interfaces and policy rules.
 
 | Language | Title | Description | Action |
 | --- | --- | --- | --- |
-| English | Additional Qualification Request | A tutor requested an additional subject or qualification level. Review the request through the qualification workflow. | Review qualification request |
-| 中文 | 新增资格申请 | 一位辅导伙伴申请新增科目或提高资格等级。请按资格审核流程查看申请。 | 查看资格申请 |
+| English | Additional Qualification Request | A tutor requested an additional subject or level. | Review qualification request |
+| 中文 | 新增资格申请 | 一位辅导伙伴申请新增科目或等级资格。 | 查看资格申请 |
 
 ### qualification_approved
 
@@ -378,7 +378,7 @@ authorized decision interfaces and policy rules.
 | Language | Title | Description | Action |
 | --- | --- | --- | --- |
 | English | Qualification Request Approved | Your additional qualification request was approved. Review the updated qualifications on your dashboard. | View qualifications |
-| 中文 | 资格申请已批准 | 您的新增资格申请已批准。请在工作台查看更新后的资格。 | 查看资格 |
+| 中文 | 资格申请已批准 | 你的新增资格申请已批准。请在工作台查看更新后的资格。 | 查看资格 |
 
 ### qualification_rejected
 
@@ -389,7 +389,7 @@ authorized decision interfaces and policy rules.
 | Language | Title | Description | Action |
 | --- | --- | --- | --- |
 | English | Qualification Request Declined | Your additional qualification request was declined. Review the decision in your request history. | Review qualification decision |
-| 中文 | 资格申请未通过 | 您的新增资格申请未通过。请在申请记录中查看决定。 | 查看资格决定 |
+| 中文 | 资格申请未通过 | 你的新增资格申请未通过。请在申请记录中查看决定。 | 查看资格决定 |
 
 ### crew_application_pending
 
@@ -399,8 +399,8 @@ authorized decision interfaces and policy rules.
 
 | Language | Title | Description | Action |
 | --- | --- | --- | --- |
-| English | New Crew Application Awaiting Admin Review | A new crew application is awaiting Admin review. Open the crew workflow to review it. | Review crew applications |
-| 中文 | 新值勤申请等待管理员审核 | 一份新值勤申请正在等待管理员审核。请前往值勤流程审核。 | 查看工作组申请 |
+| English | New Crew Application | A new crew application is ready for review. | Review crew applications |
+| 中文 | 新的巡查队申请 | 有一份新的巡查队申请等待审核。 | 查看巡查队申请 |
 
 ### viewer_registered
 
@@ -411,7 +411,7 @@ authorized decision interfaces and policy rules.
 | Language | Title | Description | Action |
 | --- | --- | --- | --- |
 | English | New Viewer Account | A new viewer account was registered. Review its read-only access in Users & Roles. | Review users and roles |
-| 中文 | 新的观察员账户 | 一个新的观察员账户已注册。请在用户与角色中查看其只读权限。 | 查看用户与角色 |
+| 中文 | 新的观察员账号 | 一个新的观察员账号已注册。请在用户与角色中查看其只读权限。 | 查看用户与角色 |
 
 ### tutor_setup_needed
 
@@ -421,8 +421,8 @@ authorized decision interfaces and policy rules.
 
 | Language | Title | Description | Action |
 | --- | --- | --- | --- |
-| English | Tutor Account Setup Needed | A tutor was added without a login account. Review the account setup workflow and send the authorized setup invitation. | Review account setup |
-| 中文 | 辅导伙伴需要设置账户 | 一位辅导伙伴已添加，但尚无登录账户。请查看账户设置流程并发送经授权的设置邀请。 | 查看账户设置 |
+| English | Tutor Account Setup Needed | A tutor was added without a login account. Open Users & Roles to send a setup link. | Review account setup |
+| 中文 | 辅导伙伴需要设置账号 | 一位新辅导伙伴尚无登录账号，请前往用户与角色发送设置链接。 | 查看账号设置 |
 
 ### interview_panel_assigned
 
@@ -432,8 +432,8 @@ authorized decision interfaces and policy rules.
 
 | Language | Title | Description | Action |
 | --- | --- | --- | --- |
-| English | Interview Panel Assignment | You were assigned to an interview panel. Review the application and panel duties in Schedule; a panel assignment alone does not schedule an interview. | View interview panel |
-| 中文 | 已分配面试小组 | 您已被分配至面试小组。请在日程查看申请和职责；小组分配本身不代表已安排面试时间。 | 查看面试小组 |
+| English | Interview Panel Assignment | You were assigned to an interview panel. Check Schedule to review the application and coordinate the interview time. | View interview panel |
+| 中文 | 已分配面试小组 | 你已被分配至面试小组。请前往日程查看申请并协调面试时间。 | 查看面试小组 |
 
 ### interview_scheduled
 
@@ -443,8 +443,8 @@ authorized decision interfaces and policy rules.
 
 | Language | Title | Description | Action |
 | --- | --- | --- | --- |
-| English | New Interview Scheduled | You have a new interview scheduled. Review the recorded time and interview details in Schedule. If no time is shown here, check Schedule. | View scheduled interview |
-| 中文 | 已安排新的面试 | 您有一场新安排的面试。请在日程核对记录的时间和面试详情。如本通知未显示时间，请查看日程。 | 查看已安排的面试 |
+| English | Interview Scheduled | An interview has been scheduled. Check Schedule for the time and details. | View interview |
+| 中文 | 面试时间已确定 | 已安排一场面试。请在日程中查看时间和详情。 | 查看面试 |
 
 ### interview_approved
 
@@ -455,8 +455,8 @@ authorized decision interfaces and policy rules.
 
 | Language | Title | Description | Action |
 | --- | --- | --- | --- |
-| English | Interview approved | The assigned chair approved the interview and recorded panel service hours. Review the application for its outcome. | View application |
-| 中文 | 面试已通过 | 指定主席已批准面试并记录评审组服务时数。请查看申请结果。 | 查看申请 |
+| English | Interview Approved | The interview chair approved the interview and recorded panel hours. Open the application to view the outcome. | View application |
+| 中文 | 面试已通过 | 面试组长已批准此次面试并记录面试小组服务时数。请查看申请结果。 | 查看申请 |
 
 ### management_review_pending
 
@@ -466,8 +466,8 @@ authorized decision interfaces and policy rules.
 
 | Language | Title | Description | Action |
 | --- | --- | --- | --- |
-| English | Management Change Awaiting Review | A management change proposal is awaiting approval. Review its recorded evidence before applying or declining it; the proposed change has not been applied. | Review management change |
-| 中文 | 管理变更待审核 | 一项管理变更提案正等待批准。请先查看记录的依据，再决定应用或拒绝；提议的变更尚未应用。 | 查看管理变更 |
+| English | Management Change Awaiting Review | A proposed management change is waiting for your approval before it takes effect. | Review management change |
+| 中文 | 管理变更待审核 | 有一项管理变更提案正等待审核，批准后才会生效。 | 查看管理变更 |
 
 ### scheduled_refresh_completed
 
@@ -477,8 +477,8 @@ authorized decision interfaces and policy rules.
 
 | Language | Title | Description | Action |
 | --- | --- | --- | --- |
-| English | Scheduled Program Refresh Completed | The scheduled program refresh completed. Review the active period and signup settings. | Review program settings |
-| 中文 | 计划项目刷新已完成 | 计划项目刷新已完成。请检查当前学期及报名设置。 | 查看项目设置 |
+| English | Scheduled Program Refresh Completed | The scheduled program refresh completed. Check the active period and signup settings. | Review program settings |
+| 中文 | 定时项目刷新已完成 | 定时项目刷新已完成。请核对当前周期与报名设置。 | 查看项目设置 |
 
 ### scheduled_refresh_blocked
 
@@ -488,8 +488,8 @@ authorized decision interfaces and policy rules.
 
 | Language | Title | Description | Action |
 | --- | --- | --- | --- |
-| English | Scheduled Program Refresh Needs Review | The scheduled program refresh could not proceed. Head must review the current settings and authorization before scheduling again. | Review refresh schedule |
-| 中文 | 计划项目刷新需要重新审核 | 计划项目刷新未能执行。主管须检查当前设置及授权后重新安排。 | 查看刷新计划 |
+| English | Scheduled Program Refresh Needs Review | The scheduled program refresh could not run. Review the settings and schedule it again. | Review refresh schedule |
+| 中文 | 定时项目刷新需要审核 | 定时项目刷新未能执行。请核对设置后重新安排。 | 查看刷新计划 |
 
 ### management_head_review_pending
 
@@ -499,8 +499,8 @@ authorized decision interfaces and policy rules.
 
 | Language | Title | Description | Action |
 | --- | --- | --- | --- |
-| English | Management Change Awaiting Head Review | A management change proposal requires the program Head's approval. Review its recorded evidence; the proposed change has not been applied. | Review management change |
-| 中文 | 管理变更待负责人审核 | 一项管理变更提案需要项目负责人批准。请查看记录的依据；提议的变更尚未应用。 | 查看管理变更 |
+| English | Management Change Awaiting Head Review | A proposed management change needs Head approval before it takes effect. | Review management change |
+| 中文 | 管理变更待负责人审核 | 有一项管理变更提案需要负责人批准后才会生效。 | 查看管理变更 |
 
 ### management_approved
 
@@ -510,8 +510,8 @@ authorized decision interfaces and policy rules.
 
 | Language | Title | Description | Action |
 | --- | --- | --- | --- |
-| English | Management Change Approved | Your management change proposal was approved and applied. Review the recorded decision and resulting state. | Review decision |
-| 中文 | 管理变更已批准 | 您的管理变更提案已批准并应用。请查看记录的决定和变更后的状态。 | 查看决定 |
+| English | Management Change Approved | Your management change proposal was approved and applied. | Review decision |
+| 中文 | 管理变更已批准 | 你的管理变更提案已通过并生效。 | 查看决定 |
 
 ### management_rejected
 
@@ -521,8 +521,8 @@ authorized decision interfaces and policy rules.
 
 | Language | Title | Description | Action |
 | --- | --- | --- | --- |
-| English | Management Change Declined | Your management change proposal was declined. The proposed change was not applied; review the recorded decision. | Review decision |
-| 中文 | 管理变更未通过 | 您的管理变更提案未通过。提议的变更未应用；请查看记录的决定。 | 查看决定 |
+| English | Management Change Declined | Your management change proposal was declined and no changes were made. | Review decision |
+| 中文 | 管理变更未通过 | 你的管理变更提案未通过，未作任何更改。 | 查看决定 |
 
 ### translation_review_pending
 
@@ -532,8 +532,8 @@ authorized decision interfaces and policy rules.
 
 | Language | Title | Description | Action |
 | --- | --- | --- | --- |
-| English | Translation Awaiting Review | A translation draft is awaiting review. Open localization review to inspect the draft and decide whether to publish it. | Review translation |
-| 中文 | 翻译待审核 | 一份翻译草稿正等待审核。请打开本地化审核，查看草稿并决定是否发布。 | 查看翻译 |
+| English | Translation Awaiting Review | A translation draft is waiting for review. | Review translation |
+| 中文 | 翻译待审核 | 有一份翻译草稿等待审核。 | 查看翻译 |
 
 ### announcement_published
 
@@ -543,8 +543,8 @@ authorized decision interfaces and policy rules.
 
 | Language | Title | Description | Action |
 | --- | --- | --- | --- |
-| English | New Program Announcement | A program announcement was published for you. Open the announcement to read it and acknowledge it where required. | Read announcement |
-| 中文 | 新的项目公告 | 一则面向您的项目公告已发布。请打开公告阅读，并在需要时确认已阅。 | 阅读公告 |
+| English | New Program Announcement | A new program announcement was published. Open it to read and acknowledge if needed. | Read announcement |
+| 中文 | 新的项目公告 | 项目发布了新公告。请打开阅读，如有需要请确认已阅。 | 阅读公告 |
 
 ### tutor_optout_requested
 
@@ -554,8 +554,8 @@ authorized decision interfaces and policy rules.
 
 | Language | Title | Description | Action |
 | --- | --- | --- | --- |
-| English | Tutor Opt-Out Request Awaiting Review | A tutor requested to opt out. Review the request after the required cooldown; the request alone does not change participation. | Review tutor requests |
-| 中文 | 辅导伙伴退出申请待审核 | 一位辅导伙伴申请退出。请在规定冷静期后审核；提交申请本身不会改变参与状态。 | 查看辅导伙伴申请 |
+| English | Tutor Opt-Out Request Awaiting Review | A tutor requested to opt out. Their participation stays active until approved after the cooldown. | Review tutor requests |
+| 中文 | 辅导伙伴退出申请待审核 | 一位辅导伙伴申请退出。冷静期结束并获批前，其参与状态保持不变。 | 查看辅导伙伴申请 |
 
 ### tutor_reentry_requested
 
@@ -565,8 +565,8 @@ authorized decision interfaces and policy rules.
 
 | Language | Title | Description | Action |
 | --- | --- | --- | --- |
-| English | Tutor Reentry Request Awaiting Review | A tutor requested to rejoin. Review the request before restoring active participation. | Review tutor requests |
-| 中文 | 辅导伙伴重新加入申请待审核 | 一位辅导伙伴申请重新加入。请先审核申请，再恢复参与状态。 | 查看辅导伙伴申请 |
+| English | Tutor Reentry Request Awaiting Review | A tutor requested to rejoin. | Review tutor requests |
+| 中文 | 辅导伙伴重新加入申请待审核 | 一位辅导伙伴申请重新加入。 | 查看辅导伙伴申请 |
 
 ### crew_optout_requested
 
@@ -576,8 +576,8 @@ authorized decision interfaces and policy rules.
 
 | Language | Title | Description | Action |
 | --- | --- | --- | --- |
-| English | Crew Opt-Out Request Awaiting Admin Review | A crew member requested to opt out. An Admin can review the request after the required cooldown. | Review crew request |
-| 中文 | 退出值勤申请等待管理员审核 | 一位值勤成员申请退出。规定的冷静期结束后，管理员可审核该申请。 | 查看工作组申请 |
+| English | Crew Opt-Out Request | A crew member requested to opt out. It can be reviewed after the cooldown. | Review crew request |
+| 中文 | 巡查成员退出申请待审核 | 一位巡查成员申请退出。冷静期结束后可审核。 | 查看巡查队申请 |
 
 ### crew_reentry_requested
 
@@ -587,8 +587,8 @@ authorized decision interfaces and policy rules.
 
 | Language | Title | Description | Action |
 | --- | --- | --- | --- |
-| English | Crew Reentry Request Awaiting Admin Review | A crew member requested to rejoin. An Admin must review the request before participation is restored. | Review crew request |
-| 中文 | 重新加入值勤申请等待管理员审核 | 一位值勤成员申请重新加入。恢复参与前须由管理员审核申请。 | 查看工作组申请 |
+| English | Crew Reentry Request | A crew member requested to rejoin. | Review crew request |
+| 中文 | 巡查成员重新加入申请待审核 | 一位巡查成员申请重新加入巡查队。 | 查看巡查队申请 |
 
 ### membership_optout_approved
 
@@ -598,8 +598,8 @@ authorized decision interfaces and policy rules.
 
 | Language | Title | Description | Action |
 | --- | --- | --- | --- |
-| English | Opt-Out Approved | Your opt-out request was approved. Review your current participation status and retained records. | View participation |
-| 中文 | 退出申请已批准 | 您的退出申请已批准。请查看当前参与状态和保留的记录。 | 查看参与状态 |
+| English | Opt-Out Approved | Your opt-out request was approved. | View participation |
+| 中文 | 退出申请已批准 | 你的退出申请已通过。 | 查看参与状态 |
 
 ### membership_reentry_approved
 
@@ -609,8 +609,8 @@ authorized decision interfaces and policy rules.
 
 | Language | Title | Description | Action |
 | --- | --- | --- | --- |
-| English | Reentry Approved | Your reentry request was approved and your participation is active again. Review your workspace for current responsibilities. | Open your workspace |
-| 中文 | 重新加入申请已批准 | 您的重新加入申请已批准，参与状态已恢复。请在工作区查看当前职责。 | 打开工作区 |
+| English | Reentry Approved | Your reentry request was approved. You are active again. | Open your workspace |
+| 中文 | 重新加入申请已批准 | 你的重新加入申请已通过，你已恢复参与。 | 打开工作区 |
 
 ### membership_declined
 
@@ -620,8 +620,8 @@ authorized decision interfaces and policy rules.
 
 | Language | Title | Description | Action |
 | --- | --- | --- | --- |
-| English | Participation Request Declined | Your participation change request was declined. Review the decision in your workspace. | Review participation decision |
-| 中文 | 参与变更申请未通过 | 您的参与变更申请未通过。请在工作区查看决定。 | 查看参与决定 |
+| English | Participation Request Declined | Your participation request was declined. | Review participation decision |
+| 中文 | 参与变更申请未通过 | 你的参与变更申请未通过。 | 查看参与决定 |
 
 ### tutee_optout_requested
 
@@ -631,8 +631,8 @@ authorized decision interfaces and policy rules.
 
 | Language | Title | Description | Action |
 | --- | --- | --- | --- |
-| English | Tutee Opt-Out Awaiting Review | A tutor relayed a tutee opt-out request. Review it during the recorded cooldown; the workflow may apply it automatically when that period ends. | Review tutee requests |
-| 中文 | 学习伙伴退出申请待审核 | 一位辅导伙伴转达了学习伙伴的退出申请。请在记录的冷静期内审核；冷静期结束后，流程可能自动批准。 | 查看学习伙伴申请 |
+| English | Tutee Opt-Out Awaiting Review | A tutor relayed a tutee opt-out request. It will auto-approve after the cooldown unless cancelled. | Review tutee requests |
+| 中文 | 学习伙伴退出申请待审核 | 一位辅导伙伴转达了学习伙伴的退出申请。如未取消，冷静期结束后将自动生效。 | 查看学习伙伴申请 |
 
 ### tutee_optout_cancelled
 
@@ -642,8 +642,8 @@ authorized decision interfaces and policy rules.
 
 | Language | Title | Description | Action |
 | --- | --- | --- | --- |
-| English | Tutee Opt-Out Cancelled | Management cancelled a tutee opt-out request. Review the current assignment and request state on your dashboard. | Review assignment |
-| 中文 | 学习伙伴退出申请已取消 | 管理团队取消了一项学习伙伴退出申请。请在工作台查看当前安排和申请状态。 | 查看辅导安排 |
+| English | Tutee Opt-Out Cancelled | Management cancelled a tutee opt-out request. | Review assignment |
+| 中文 | 学习伙伴退出申请已取消 | 管理人员取消了一项学习伙伴退出申请。 | 查看辅导安排 |
 
 ### tutee_removed
 
@@ -654,8 +654,8 @@ authorized decision interfaces and policy rules.
 
 | Language | Title | Description | Action |
 | --- | --- | --- | --- |
-| English | Tutee Removed from Current Roster | A tutee was removed from the current roster. Review the current assignment and retained history in your workspace. | Review roster update |
-| 中文 | 学习伙伴已移出当前名单 | 一位学习伙伴已移出当前名单。请在工作区查看当前安排和保留的历史记录。 | 查看名单更新 |
+| English | Tutee Removed from Current Roster | A tutee was removed from the current roster. | Review roster update |
+| 中文 | 学习伙伴已移出当前名单 | 一位学习伙伴已移出本期名单。 | 查看名单更新 |
 
 ### attendance_cards_pending
 
@@ -665,8 +665,8 @@ authorized decision interfaces and policy rules.
 
 | Language | Title | Description | Action |
 | --- | --- | --- | --- |
-| English | Discipline Cards Awaiting Review | An attendance survey submitted {count} discipline card request(s). Review each request before issuing a card. | Review discipline cards |
-| 中文 | 纪律卡申请待审核 | 一份出勤问卷提交了 {count} 项纪律卡申请。发卡前请逐项审核。 | 查看纪律卡申请 |
+| English | Discipline Cards Awaiting Review | {count, plural, one {# discipline card request} other {# discipline card requests}} awaiting review. | Review discipline cards |
+| 中文 | 纪律卡申请待审核 | 有 {count} 项纪律卡申请等待审核。 | 查看纪律卡申请 |
 
 Without a recorded count: An attendance survey submitted discipline card requests. Review each request before issuing a card. / 一份出勤问卷提交了纪律卡申请。发卡前请逐项审核。
 
@@ -678,8 +678,8 @@ Without a recorded count: An attendance survey submitted discipline card request
 
 | Language | Title | Description | Action |
 | --- | --- | --- | --- |
-| English | Allocated-Room Attendance Reported | Attendance was reported in an allocated room. Open attendance review to inspect the recorded submission. | Review attendance |
-| 中文 | 已提交分配教室的出勤记录 | 有人提交了分配教室的出勤记录。请打开出勤审核查看记录。 | 查看出勤 |
+| English | Room Conflict in Attendance | Attendance was logged in a room that is booked elsewhere or blocked. | Review attendance |
+| 中文 | 出勤记录存在教室冲突 | 有出勤记录使用了已被占用或禁用的教室。 | 查看出勤 |
 
 ### attendance_review_warning
 
@@ -689,8 +689,8 @@ Without a recorded count: An attendance survey submitted discipline card request
 
 | Language | Title | Description | Action |
 | --- | --- | --- | --- |
-| English | Attendance Warning Recorded | An attendance review recorded a warning. Review the recorded decision on your dashboard. | Review attendance decision |
-| 中文 | 出勤警告已记录 | 一次出勤审核记录了警告。请在工作台查看记录的决定。 | 查看出勤决定 |
+| English | Attendance Warning Recorded | A warning was recorded for an attendance review. | Review attendance decision |
+| 中文 | 出勤警告已记录 | 出勤审核已记录一次警告。 | 查看出勤决定 |
 
 ### attendance_review_penalty
 
@@ -700,8 +700,8 @@ Without a recorded count: An attendance survey submitted discipline card request
 
 | Language | Title | Description | Action |
 | --- | --- | --- | --- |
-| English | Attendance Penalty Applied | An attendance review applied a service-hour penalty. Review the recorded decision and updated service hours. | Review attendance decision |
-| 中文 | 出勤审核已应用时数扣减 | 一次出勤审核应用了服务时数扣减。请查看记录的决定和更新后的服务时数。 | 查看出勤决定 |
+| English | Attendance Penalty Applied | A service-hour deduction was applied after an attendance review. | Review attendance decision |
+| 中文 | 出勤审核已应用时数扣减 | 出勤审核已扣减服务时数。 | 查看出勤决定 |
 
 ### attendance_review_escalated
 
@@ -711,8 +711,8 @@ Without a recorded count: An attendance survey submitted discipline card request
 
 | Language | Title | Description | Action |
 | --- | --- | --- | --- |
-| English | Attendance Flag Escalated for Review | An attendance flag was escalated for further review. Review the recorded state; this notice does not itself confirm a penalty. | Review attendance decision |
-| 中文 | 出勤标记已提交进一步审核 | 一项出勤标记已提交进一步审核。请查看记录的状态；本通知本身不代表已应用扣减。 | 查看出勤决定 |
+| English | Attendance Flag Escalated for Review | An attendance flag was escalated for further review. No penalty has been applied yet. | Review attendance decision |
+| 中文 | 出勤标记已提交进一步审核 | 一项出勤标记已提交进一步审核，暂未应用扣减。 | 查看出勤决定 |
 
 ### attendance_history_updated
 
@@ -722,8 +722,8 @@ Without a recorded count: An attendance survey submitted discipline card request
 
 | Language | Title | Description | Action |
 | --- | --- | --- | --- |
-| English | Historical Attendance Updated | A catalogue change updated {count} teaching block(s). Related attendance flags and deductions were reconsidered; review the audit evidence. | Review audit evidence |
-| 中文 | 历史出勤已更新 | 一项目录变更更新了 {count} 个辅导时段。相关出勤标记和扣减已重新审查；请查看审计依据。 | 查看审计依据 |
+| English | Historical Attendance Updated | A time-slot update changed {count, plural, one {# past session} other {# past sessions}}. Related flags and deductions were updated. | Review audit evidence |
+| 中文 | 历史出勤已更新 | 时段调整更新了 {count} 个历史辅导时段，相关出勤标记与扣减已更新。 | 查看审计依据 |
 
 Without a recorded count: A catalogue change updated historical teaching blocks. Related attendance flags and deductions were reconsidered; review the audit evidence. / 一项目录变更更新了历史辅导时段。相关出勤标记和扣减已重新审查；请查看审计依据。
 
@@ -735,8 +735,8 @@ Without a recorded count: A catalogue change updated historical teaching blocks.
 
 | Language | Title | Description | Action |
 | --- | --- | --- | --- |
-| English | Account Suspended | Your account access was suspended pending review. Open the suspension page to review the available appeal steps. | Review suspension |
-| 中文 | 账户已暂停 | 您的账户访问已暂停，等待审核。请打开暂停页面查看可用的申诉步骤。 | 查看暂停状态 |
+| English | Account Suspended | Your account is suspended. Open the suspension page to submit an appeal. | Review suspension |
+| 中文 | 账号已暂停 | 你的账号已暂停，可前往暂停页面提交申诉。 | 查看暂停状态 |
 
 ### account_reinstated
 
@@ -746,8 +746,8 @@ Without a recorded count: A catalogue change updated historical teaching blocks.
 
 | Language | Title | Description | Action |
 | --- | --- | --- | --- |
-| English | Account Reinstated | Your account access was restored. Sign in to review your current permissions and workspace. | Open your workspace |
-| 中文 | 账户已恢复 | 您的账户访问已恢复。请登录查看当前权限和工作区。 | 打开工作区 |
+| English | Account Reinstated | Your account is active again. | Open your workspace |
+| 中文 | 账号已恢复 | 你的账号已恢复使用。 | 打开工作区 |
 
 ### account_appeal_requested
 
@@ -757,8 +757,8 @@ Without a recorded count: A catalogue change updated historical teaching blocks.
 
 | Language | Title | Description | Action |
 | --- | --- | --- | --- |
-| English | Account Appeal Awaiting Review | A suspended account submitted an appeal. Authorized management can review the appeal in Users & Roles. | Review account appeal |
-| 中文 | 账户申诉待审核 | 一个暂停的账户提交了申诉。经授权的管理人员可在用户与角色中审核申诉。 | 查看账户申诉 |
+| English | Account Appeal Awaiting Review | A suspended account submitted an appeal. | Review account appeal |
+| 中文 | 账号申诉待审核 | 一个已暂停账号提交了申诉。 | 查看账号申诉 |
 
 ### account_appeal_approved
 
@@ -768,8 +768,8 @@ Without a recorded count: A catalogue change updated historical teaching blocks.
 
 | Language | Title | Description | Action |
 | --- | --- | --- | --- |
-| English | Account Appeal Approved | Your account appeal was approved and account access was restored. Sign in to review your current access. | Open your workspace |
-| 中文 | 账户申诉已批准 | 您的账户申诉已批准，账户访问已恢复。请登录查看当前权限。 | 打开工作区 |
+| English | Account Appeal Approved | Your appeal was approved and your account is active again. | Open your workspace |
+| 中文 | 账号申诉已批准 | 你的申诉已通过，账号已恢复使用。 | 打开工作区 |
 
 ### account_appeal_declined
 
@@ -779,8 +779,8 @@ Without a recorded count: A catalogue change updated historical teaching blocks.
 
 | Language | Title | Description | Action |
 | --- | --- | --- | --- |
-| English | Account Appeal Declined | Your account appeal was declined and the account remains suspended. Review the available support steps. | Review appeal decision |
-| 中文 | 账户申诉未通过 | 您的账户申诉未通过，账户仍处于暂停状态。请查看可用的支持步骤。 | 查看申诉决定 |
+| English | Account Appeal Declined | Your appeal was declined and your account stays suspended. | Review appeal decision |
+| 中文 | 账号申诉未通过 | 你的申诉未通过，账号仍处于暂停状态。 | 查看申诉决定 |
 
 ### record_corrected
 
@@ -790,8 +790,8 @@ Without a recorded count: A catalogue change updated historical teaching blocks.
 
 | Language | Title | Description | Action |
 | --- | --- | --- | --- |
-| English | Management Record Correction Applied | Management applied a record correction. Review the original and corrected evidence in the audit log. | Review audit evidence |
-| 中文 | 管理记录修正已应用 | 管理团队应用了一项记录修正。请在审计日志中查看原始和修正后的依据。 | 查看审计依据 |
+| English | Management Record Correction Applied | Management corrected a record. View the details in the audit log. | Review audit evidence |
+| 中文 | 管理记录修正已应用 | 管理人员更正了一条记录，可在审计日志中查看详情。 | 查看审计依据 |
 
 ### tutee_feedback_received
 
@@ -801,8 +801,8 @@ Without a recorded count: A catalogue change updated historical teaching blocks.
 
 | Language | Title | Description | Action |
 | --- | --- | --- | --- |
-| English | New Tutee Feedback | A tutee submitted session feedback. Authorized management can review the feedback in Student Support. | Review feedback |
-| 中文 | 新的学习伙伴反馈 | 一位学习伙伴提交了辅导反馈。经授权的管理人员可在学习伙伴支持中查看反馈。 | 查看反馈 |
+| English | New Tutee Feedback | A tutee submitted session feedback. | Review feedback |
+| 中文 | 新的学习伙伴反馈 | 一位学习伙伴提交了辅导反馈。 | 查看反馈 |
 
 ### tutee_card_appeal
 
@@ -812,8 +812,8 @@ Without a recorded count: A catalogue change updated historical teaching blocks.
 
 | Language | Title | Description | Action |
 | --- | --- | --- | --- |
-| English | Tutee Card Appeal Awaiting Review | A tutee appealed a discipline card. Review the appeal and recorded card evidence in Student Support. | Review card appeal |
-| 中文 | 学习伙伴纪律卡申诉待审核 | 一位学习伙伴对纪律卡提出了申诉。请在学习伙伴支持中查看申诉和记录的纪律卡依据。 | 查看纪律卡申诉 |
+| English | Tutee Card Appeal Awaiting Review | A tutee appealed a discipline card. | Review card appeal |
+| 中文 | 学习伙伴纪律卡申诉待审核 | 一位学习伙伴对纪律卡提出了申诉。 | 查看纪律卡申诉 |
 
 ### tutee_appeal_reviewed
 
@@ -823,8 +823,8 @@ Without a recorded count: A catalogue change updated historical teaching blocks.
 
 | Language | Title | Description | Action |
 | --- | --- | --- | --- |
-| English | Tutee Appeal Reviewed | Your discipline card appeal was reviewed. Open your student workspace to see the decision and current standing. | Review appeal decision |
-| 中文 | 学习伙伴申诉已审核 | 您的纪律卡申诉已审核。请打开学习伙伴工作区查看决定和当前状态。 | 查看申诉决定 |
+| English | Tutee Appeal Reviewed | Your discipline card appeal was reviewed. Open your workspace to see the decision. | Review appeal decision |
+| 中文 | 学习伙伴申诉已审核 | 你的纪律卡申诉已完成审核，请前往工作区查看结果。 | 查看申诉决定 |
 
 ### student_assignment_updated
 
@@ -835,8 +835,8 @@ Without a recorded count: A catalogue change updated historical teaching blocks.
 
 | Language | Title | Description | Action |
 | --- | --- | --- | --- |
-| English | Tutoring Assignment Updated | A tutoring assignment was updated. Review the recurring weekly schedule and its confirmation state in your workspace; this notice does not create a dated session. | Review tutoring assignment |
-| 中文 | 辅导安排已更新 | 一项辅导安排已更新。请在工作区查看每周安排及其确认状态；本通知不会创建某个日期的辅导记录。 | 查看辅导安排 |
+| English | Tutoring Assignment Updated | Your weekly tutoring schedule was updated. Open your workspace to check the new details. | Review tutoring assignment |
+| 中文 | 辅导安排已更新 | 你的每周辅导安排已更新，请前往主页查看最新详情。 | 查看辅导安排 |
 
 ### student_continuation_released
 
@@ -846,8 +846,8 @@ Without a recorded count: A catalogue change updated historical teaching blocks.
 
 | Language | Title | Description | Action |
 | --- | --- | --- | --- |
-| English | Continued Tutoring Assignment Released | A continued tutoring assignment was released after availability changed. The signup request remains filed for reassignment. Open the request for details. | Review retained signup request |
-| 中文 | 延续辅导分配已解除 | 由于可用时间变化，延续的辅导分配已解除。报名申请仍保留，等待重新安排。请打开申请查看详情。 | 查看保留的报名申请 |
+| English | Continued Tutoring Assignment Released | A continued tutoring assignment was released after availability changed. Your signup request stays open for reassignment. | Review retained signup request |
+| 中文 | 延续辅导分配已解除 | 由于可用时间变化，延续的辅导分配已解除，报名申请仍保留等待重新安排。 | 查看保留的报名申请 |
 
 ### recovery_workflow_draft
 
@@ -858,8 +858,8 @@ Without a recorded count: A catalogue change updated historical teaching blocks.
 
 | Language | Title | Description | Action |
 | --- | --- | --- | --- |
-| English | Review a Fresh Signup Draft | Management prepared a new draft for your review. Your original request remains closed. Submit a new request with current policy agreement and fresh mailbox verification. | Review signup draft |
-| 中文 | 请审核新的报名草稿 | 管理人员已为你准备新的报名草稿，等待你审核。原申请仍保持关闭。请重新提交申请，同意现行规则并完成新的邮箱验证。 | 审核报名草稿 |
+| English | Review a Fresh Signup Draft | Staff prepared a draft signup for you to review. Check the details, accept the policy, and confirm your email to submit. | Review signup draft |
+| 中文 | 请审核新的报名草稿 | 管理人员已为你准备好报名草稿，请核对信息、同意政策并验证邮箱后提交。 | 审核报名草稿 |
 
 ### student_availability_updated
 
@@ -869,8 +869,8 @@ Without a recorded count: A catalogue change updated historical teaching blocks.
 
 | Language | Title | Description | Action |
 | --- | --- | --- | --- |
-| English | Tutee Availability Updated | A tutee updated their available time slots. Review the current availability before adjusting an assignment. | Review availability |
-| 中文 | 学习伙伴可用时间已更新 | 一位学习伙伴更新了可用时段。调整辅导安排前，请查看当前可用时间。 | 查看可用时间 |
+| English | Tutee Availability Updated | A tutee updated their available times. | Review availability |
+| 中文 | 学习伙伴可用时间已更新 | 一位学习伙伴更新了可用时段。 | 查看可用时间 |
 
 ### student_request_recalled
 
@@ -880,8 +880,8 @@ Without a recorded count: A catalogue change updated historical teaching blocks.
 
 | Language | Title | Description | Action |
 | --- | --- | --- | --- |
-| English | Signup Request Recalled | A signup request was recalled and closed. Review its retained history; a new submission is required to request participation again. | Review request history |
-| 中文 | 报名申请已撤回 | 一份报名申请已撤回并关闭。请查看保留的历史记录；再次申请参与需要重新提交。 | 查看申请记录 |
+| English | Signup Request Recalled | A signup request was recalled. Submit a new request if you want to join again. | Review request history |
+| 中文 | 报名申请已撤回 | 报名申请已撤回。如需再次参与，请重新提交申请。 | 查看申请记录 |
 
 ### student_request_expired
 
@@ -891,8 +891,8 @@ Without a recorded count: A catalogue change updated historical teaching blocks.
 
 | Language | Title | Description | Action |
 | --- | --- | --- | --- |
-| English | Signup Verification Overdue | A signup request closed because verification was not completed by its deadline. A new request is required; review the retained request history. | Review request history |
-| 中文 | 报名验证逾期 | 一份报名申请因未在截止时间前完成验证而关闭。需要重新申请；请查看保留的申请记录。 | 查看申请记录 |
+| English | Signup Verification Overdue | A signup request closed because email verification timed out. Submit a new request to reapply. | Review request history |
+| 中文 | 报名验证逾期 | 报名申请因逾期未验证已关闭。如需参与，请重新提交申请。 | 查看申请记录 |
 
 ### student_withdrawal_pending
 
@@ -903,8 +903,8 @@ Without a recorded count: A catalogue change updated historical teaching blocks.
 
 | Language | Title | Description | Action |
 | --- | --- | --- | --- |
-| English | Quarter Withdrawal Awaiting Review | A request to withdraw for the current quarter is awaiting review. Participation continues until the withdrawal is approved. | Review withdrawal request |
-| 中文 | 本季度退出申请待审核 | 一份本季度退出申请正等待审核。退出获批前，参与状态继续有效。 | 查看退出申请 |
+| English | Withdrawal Request Awaiting Review | A withdrawal request is awaiting review. Tutoring continues until it is approved. | Review withdrawal request |
+| 中文 | 退出申请待审核 | 有一份退出申请等待审核，获批前原辅导继续进行。 | 查看退出申请 |
 
 ### student_withdrawal_approved
 
@@ -914,8 +914,8 @@ Without a recorded count: A catalogue change updated historical teaching blocks.
 
 | Language | Title | Description | Action |
 | --- | --- | --- | --- |
-| English | Quarter Withdrawal Approved | A quarter withdrawal was approved and the request closed. Review the retained history; the current quarter cannot be reactivated through this request. | Review withdrawal decision |
-| 中文 | 本季度退出申请已批准 | 一份本季度退出申请已批准，申请已关闭。请查看保留的历史；无法通过此申请恢复本季度参与。 | 查看退出决定 |
+| English | Withdrawal Approved | Your withdrawal was approved and the request is closed. | Review withdrawal decision |
+| 中文 | 退出申请已批准 | 你的退出申请已批准，当前申请已关闭。 | 查看退出决定 |
 
 ### student_withdrawal_declined
 
@@ -925,8 +925,8 @@ Without a recorded count: A catalogue change updated historical teaching blocks.
 
 | Language | Title | Description | Action |
 | --- | --- | --- | --- |
-| English | Quarter Withdrawal Declined | A quarter withdrawal request was declined. Current participation continues; review the recorded decision. | Review withdrawal decision |
-| 中文 | 本季度退出申请未通过 | 一份本季度退出申请未通过。当前参与状态继续有效；请查看记录的决定。 | 查看退出决定 |
+| English | Withdrawal Declined | Your withdrawal request was declined. Your tutoring continues. | Review withdrawal decision |
+| 中文 | 退出申请未通过 | 你的退出申请未通过，原辅导继续进行。 | 查看退出决定 |
 
 ### student_schedule_review_pending
 
@@ -936,8 +936,8 @@ Without a recorded count: A catalogue change updated historical teaching blocks.
 
 | Language | Title | Description | Action |
 | --- | --- | --- | --- |
-| English | Tutor Schedule Conflict Awaiting Review | A tutor reported a schedule conflict for an assignment. Review the request before changing the current assignment. | Review schedule conflict |
-| 中文 | 辅导伙伴时间冲突待审核 | 一位辅导伙伴报告了辅导安排的时间冲突。更改当前安排前，请先审核申请。 | 查看时间冲突 |
+| English | Tutor Schedule Conflict Awaiting Review | A tutor reported a schedule conflict for an assignment. | Review schedule conflict |
+| 中文 | 辅导伙伴时间冲突待审核 | 一位辅导伙伴报告了辅导安排的时间冲突。 | 查看时间冲突 |
 
 ### student_schedule_review_approved
 
@@ -947,8 +947,8 @@ Without a recorded count: A catalogue change updated historical teaching blocks.
 
 | Language | Title | Description | Action |
 | --- | --- | --- | --- |
-| English | Schedule Conflict Approved; Rematching Needed | A schedule conflict request was approved and the affected assignment was removed. Review the request to arrange a new match. | Review rematching request |
-| 中文 | 时间冲突申请已批准，待重新匹配 | 一份时间冲突申请已批准，相关安排已移除。请查看申请并重新匹配。 | 查看重新匹配申请 |
+| English | Schedule Conflict Approved; Rematching Needed | A schedule conflict was approved and the assignment was removed. Open the request to arrange a new match. | Review rematching request |
+| 中文 | 时间冲突申请已批准，待重新匹配 | 时间冲突申请已通过，相关安排已移除，请重新匹配。 | 查看重新匹配申请 |
 
 ### student_schedule_review_declined
 
@@ -958,8 +958,8 @@ Without a recorded count: A catalogue change updated historical teaching blocks.
 
 | Language | Title | Description | Action |
 | --- | --- | --- | --- |
-| English | Schedule Conflict Declined | A schedule conflict request was declined. The current assignment continues; review the recorded decision. | Review schedule decision |
-| 中文 | 时间冲突申请未通过 | 一份时间冲突申请未通过。当前安排继续有效；请查看记录的决定。 | 查看时间安排决定 |
+| English | Schedule Conflict Declined | A schedule conflict request was declined. The current assignment stays in place. | Review schedule decision |
+| 中文 | 时间冲突申请未通过 | 时间冲突申请未通过，原安排保持不变。 | 查看时间安排决定 |
 
 ### tutor_reactivated
 
@@ -969,8 +969,8 @@ Without a recorded count: A catalogue change updated historical teaching blocks.
 
 | Language | Title | Description | Action |
 | --- | --- | --- | --- |
-| English | Tutor Participation Reactivated | A tutor became available for the current term. Review the current participation and assignment state in the tutor roster. | Review tutor roster |
-| 中文 | 辅导伙伴参与状态已恢复 | 一位辅导伙伴已恢复本学期可用状态。请在辅导伙伴名单中查看当前参与状态和安排。 | 查看辅导伙伴名单 |
+| English | Tutor Participation Reactivated | A tutor became available for this term. | Review tutor roster |
+| 中文 | 辅导伙伴参与状态已恢复 | 一位辅导伙伴已恢复本周期参与。 | 查看辅导伙伴名单 |
 
 ### tutor_opted_out
 
@@ -980,8 +980,8 @@ Without a recorded count: A catalogue change updated historical teaching blocks.
 
 | Language | Title | Description | Action |
 | --- | --- | --- | --- |
-| English | Tutor Opted Out for This Term | A tutor opted out for the current term. Review the current participation and assignment state in the tutor roster. | Review tutor roster |
-| 中文 | 辅导伙伴已退出本学期 | 一位辅导伙伴已退出本学期。请在辅导伙伴名单中查看当前参与状态和安排。 | 查看辅导伙伴名单 |
+| English | Tutor Opted Out for This Term | A tutor opted out for this term. | Review tutor roster |
+| 中文 | 辅导伙伴已退出本学期 | 一位辅导伙伴已退出本周期。 | 查看辅导伙伴名单 |
 
 ### meeting_absence_excused
 
@@ -991,8 +991,8 @@ Without a recorded count: A catalogue change updated historical teaching blocks.
 
 | Language | Title | Description | Action |
 | --- | --- | --- | --- |
-| English | Tutor Meeting Absence Excused | A tutor recorded an excuse for an upcoming meeting absence. Review the meeting's attendance state; the excuse text is available only in the authorized workflow. | Review meeting attendance |
-| 中文 | 辅导伙伴会议请假已记录 | 一位辅导伙伴为即将举行的会议记录了请假。请查看会议出席状态；请假原文仅在授权流程中可见。 | 查看会议出席 |
+| English | Tutor Meeting Absence Excused | A tutor excused themselves from an upcoming meeting. Open Meetings to view details. | Review meeting attendance |
+| 中文 | 辅导伙伴会议请假已记录 | 一位辅导伙伴提交了即将举行会议的请假，请前往会议页面查看详情。 | 查看会议出席 |
 
 ### school_departure_updated
 
@@ -1002,8 +1002,8 @@ Without a recorded count: A catalogue change updated historical teaching blocks.
 
 | Language | Title | Description | Action |
 | --- | --- | --- | --- |
-| English | School Participation Status Updated | Your school departure or return status was updated. Review the recorded state and any participation steps in your account workspace. | Review school participation |
-| 中文 | 在校参与状态已更新 | 您的离校或返校状态已更新。请在账户工作区查看记录的状态和后续参与步骤。 | 查看在校参与 |
+| English | School Participation Status Updated | Your school participation status was updated. Check your account for details. | Review school participation |
+| 中文 | 在校参与状态已更新 | 你的在校参与状态已更新，请前往账号查看详情。 | 查看在校参与 |
 
 ### request_invalidity_appeal_pending
 
@@ -1013,8 +1013,8 @@ Without a recorded count: A catalogue change updated historical teaching blocks.
 
 | Language | Title | Description | Action |
 | --- | --- | --- | --- |
-| English | Invalid Request Appeal Awaiting Review | A submitter appealed an applied invalid-request flag. Open the linked request to review the appeal; submitting an appeal does not clear the flag. | Review invalid request appeal |
-| 中文 | 无效申请申诉待审核 | 一位申请提交者对已应用的无效标记提出申诉。请打开链接中的申请审核申诉；提交申诉不会解除标记。 | 查看无效申请申诉 |
+| English | Invalid Request Appeal Awaiting Review | A submitter appealed an invalid-request flag. Review the appeal on the linked request. | Review invalid request appeal |
+| 中文 | 无效申请申诉待审核 | 提交者对无效申请标记提出了申诉，请前往对应申请查看。 | 查看无效申请申诉 |
 
 ### school_calendar_changed
 
@@ -1079,8 +1079,8 @@ See [the source copy](../../src/server/email/request-notice-copy.ts),
 
 | Language | Title | Description | Action |
 | --- | --- | --- | --- |
-| English | Invalid Request Closed | The appeal was declined. This request is closed and its queue priority is removed; you can submit a fresh request. | Review request history |
-| 中文 | 无效申请已关闭 | 申诉未获接受。此申请已关闭并移除排队优先顺序；您可以重新提交申请。 | 查看申请记录 |
+| English | Invalid Request Closed | Your appeal was declined and this request is closed. You can submit a new request to rejoin the queue. | Review request history |
+| 中文 | 无效申请已关闭 | 你的申诉未通过，当前申请已关闭。如需继续申请，可以重新提交报名。 | 查看申请记录 |
 
 ### interview_upcoming
 
@@ -1090,8 +1090,8 @@ See [the source copy](../../src/server/email/request-notice-copy.ts),
 
 | Language | Title | Description | Action |
 | --- | --- | --- | --- |
-| English | Upcoming Interview | Your scheduled interview is coming up. Review the recorded time and panel duties. | View interview |
-| 中文 | 面试即将开始 | 您已安排的面试即将开始。请查看记录的时间及面试小组职责。 | 查看面试 |
+| English | Upcoming Interview | Your interview is coming up. Check the time and details. | View interview |
+| 中文 | 面试即将开始 | 你的面试即将开始，请核对时间和详情。 | 查看面试 |
 
 ### meeting_upcoming
 
@@ -1101,8 +1101,8 @@ See [the source copy](../../src/server/email/request-notice-copy.ts),
 
 | Language | Title | Description | Action |
 | --- | --- | --- | --- |
-| English | Upcoming Meeting | Your scheduled meeting is coming up. Review the recorded time and meeting details. | View meeting |
-| 中文 | 会议即将开始 | 您已安排的会议即将开始。请查看记录的时间及会议详情。 | 查看会议 |
+| English | Upcoming Meeting | Your meeting is coming up. Check the time and details. | View meeting |
+| 中文 | 会议即将开始 | 你的会议即将开始，请核对时间和详情。 | 查看会议 |
 
 ### tutoring_upcoming
 
@@ -1112,8 +1112,8 @@ See [the source copy](../../src/server/email/request-notice-copy.ts),
 
 | Language | Title | Description | Action |
 | --- | --- | --- | --- |
-| English | Upcoming Tutoring Session | Your confirmed tutoring session is coming up. Review the recorded time and session details. | View tutoring session |
-| 中文 | 辅导课程即将开始 | 您已确认的辅导课程即将开始。请查看记录的时间及课程详情。 | 查看辅导课程 |
+| English | Upcoming Tutoring Session | Your tutoring session is coming up. Check the time and details. | View tutoring session |
+| 中文 | 辅导课程即将开始 | 你的辅导即将开始，请核对时间和详情。 | 查看辅导课程 |
 
 ### room_assignment_needed
 

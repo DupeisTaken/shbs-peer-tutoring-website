@@ -137,10 +137,10 @@ it.each(["en", "zh"] as const)(
         locale === "en" ? "Program Update" : "项目通知",
       );
       expect(message.text).toContain(
-        locale === "en" ? "You have a program update" : "你收到一条项目通知",
+        locale === "en" ? "You have a new program update" : "你有一条新的项目通知",
       );
       expect(message.text).not.toContain(
-        locale === "en" ? "你收到一条项目通知" : "You have a program update",
+        locale === "en" ? "你有一条新的项目通知" : "You have a new program update",
       );
       expect(renderEmail({ brand: "School", ...message })).toContain(
         `<html lang="${locale}">`,
@@ -199,8 +199,8 @@ it.each(["en", "zh"] as const)(
       );
       const guidance =
         locale === "en"
-          ? "administrator requires"
-          : "项目管理员要求接收此类别通知";
+          ? "This notification category is required by the program."
+          : "此类别邮件为项目必发通知。";
       expect(message.text.split(guidance)).toHaveLength(2);
       expect(message.presentation?.body?.split(guidance)).toHaveLength(2);
       expect(message.presentation?.unsubscribeLabel).toBe(
@@ -210,7 +210,7 @@ it.each(["en", "zh"] as const)(
         locale === "en" ? "Unsubscribe:" : "取消订阅:",
       );
       expect(message.text).not.toContain(
-        locale === "en" ? "项目管理员" : "administrator requires",
+        locale === "en" ? "此类别邮件" : "required by the program",
       );
       expect(message.text).not.toContain("PRIVATE");
     }
@@ -417,20 +417,20 @@ it("persists distinct notification destinations for all verified recipients and 
     ).toBe(true);
     expect(message.text).toContain(`Unsubscribe: ${unsubscribe.href}`);
     expect(message.text).toContain("Asia/Shanghai");
-    expect(message.text).not.toContain("do not recognize");
+    expect(message.text).not.toContain("didn't make this change");
     const html = renderEmail({ brand: "School", ...message });
     expect(html).not.toContain("PRIVATE SENTINEL");
     expect(html).not.toContain("PRIVATE BODY");
     expect(html).toContain("View program update");
     expect(message.presentation?.body).toContain("Asia/Shanghai");
-    // Generic legacy updates still need their maintained sign-in instruction,
-    // but must not append the second, generic settings/sign-in footer.
+    // Generic legacy updates keep their maintained program-update line once,
+    // without appending an extra generic settings/sign-in footer.
     expect(
-      message.presentation?.body?.match(/Sign in to review/g),
+      message.presentation?.body?.match(/Open the site to view details/g),
     ).toHaveLength(1);
-    expect(message.text.match(/Sign in to review/g)).toHaveLength(1);
-    expect(message.text).not.toContain("account settings");
-    expect(message.presentation?.body).not.toContain("account settings");
+    expect(message.text.match(/Open the site to view details/g)).toHaveLength(1);
+    expect(message.text).not.toContain("Account Settings");
+    expect(message.presentation?.body).not.toContain("Account Settings");
     expect(message.presentation?.body).not.toContain(unsubscribe.href);
     // The unsubscribe token belongs in its footer href, never a second raw URL
     // paragraph beside the main action. The complete text alternative keeps it.

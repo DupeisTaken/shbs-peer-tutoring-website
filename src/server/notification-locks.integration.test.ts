@@ -273,7 +273,9 @@ it("dispatches required mail over a saved opt-out, rechecks unlocks and never br
   await notice();
   await deliverNotifications();
   expect(mail.send).toHaveBeenCalledTimes(1);
-  expect(mail.send.mock.calls[0]![0].text).toContain("administrator requires");
+  expect(mail.send.mock.calls[0]![0].text).toContain(
+    "This notification category is required by the program.",
+  );
   const queued = await notice();
   await setLocks(notificationLockCategories({}));
   await deliverNotifications();
@@ -302,7 +304,7 @@ it("dispatches required mail over a saved opt-out, rechecks unlocks and never br
   // The role edit legitimately queues account mail; it must not deliver the old review.
   expect(
     mail.send.mock.calls.filter(
-      ([message]) => message.presentation?.eyebrow === "REVIEW REQUEST",
+      ([message]) => message.presentation?.eyebrow === "REVIEW NEEDED",
     ),
   ).toHaveLength(0);
 });

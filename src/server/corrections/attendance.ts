@@ -338,6 +338,12 @@ export async function correctAttendance(
           ]);
         const clock = (minute: number) =>
           `${String(Math.floor(minute / 60)).padStart(2, "0")}:${String(minute % 60).padStart(2, "0")}`;
+        const oldSlot = `${primary.date.toISOString().slice(0, 10)} ${clock(primary.startMin)}–${clock(primary.endMin)}`;
+        const newSlot = `${input.date.toISOString().slice(0, 10)} ${clock(input.startMin)}–${clock(input.endMin)}`;
+        const slotSummary =
+          oldSlot === newSlot ? oldSlot : `${oldSlot} → ${newSlot}`;
+        const enChanges = changes("en");
+        const zhChanges = changes("zh");
         await withRecoveryDeliverySource(
           tx,
           { entity: "Session", recordId: primaryId },
@@ -346,8 +352,8 @@ export async function correctAttendance(
               heads.map((h) => h.id),
               {
                 ...notificationInAppEvent("record_corrected", undefined, {
-                  en: `Management corrected ${tutor?.englishName ?? "Tutor"}'s attendance: ${primary.date.toISOString().slice(0, 10)} ${clock(primary.startMin)}–${clock(primary.endMin)} → ${input.date.toISOString().slice(0, 10)} ${clock(input.startMin)}–${clock(input.endMin)}. ${changes("en")}`,
-                  zh: `管理人员已更正 ${tutor?.englishName ?? "辅导伙伴"} 的出勤记录：${primary.date.toISOString().slice(0, 10)} ${clock(primary.startMin)}–${clock(primary.endMin)} → ${input.date.toISOString().slice(0, 10)} ${clock(input.startMin)}–${clock(input.endMin)}。${changes("zh")}`,
+                  en: `Management corrected ${tutor?.englishName ?? "Tutor"}'s attendance (${slotSummary}).${enChanges ? ` ${enChanges}` : ""}`,
+                  zh: `管理人员已更正 ${tutor?.englishName ?? "辅导伙伴"} 的出勤记录（${slotSummary}）。${zhChanges}`,
                 }),
                 title: "Management corrected a record",
                 body: `${actor.name ?? "Management"}: ${input.reason}`,

@@ -83,12 +83,16 @@ export const viewerRouter = createTRPCRouter({
                 to: input.email.trim().toLowerCase(),
                 ...codeEmailCopy({
                   locale,
+                  preview: emailText(locale, {
+                    en: `Enter this 4-digit code within ${VIEWER_CODE_TTL_MINUTES} minutes to finish Viewer signup.`,
+                    zh: `请在 ${VIEWER_CODE_TTL_MINUTES} 分钟内输入 4 位验证码以完成观察员注册。`,
+                  }),
                   subject: emailText(locale, { en: "Verify Viewer signup", zh: "验证观察员注册" }),
                   code: res.code,
                   eyebrow: emailText(locale, { en: "EMAIL VERIFICATION", zh: "邮箱验证" }),
                   body: emailText(locale, {
-                    en: `Enter this code to continue signing up for read-only Viewer access. It expires in ${VIEWER_CODE_TTL_MINUTES} minutes. This does not enroll you as a tutor or tutee.\n\nIf you did not request this, ignore this email.`,
-                    zh: `输入此验证码以继续申请只读观察员权限，${VIEWER_CODE_TTL_MINUTES} 分钟内有效。此步骤不会将您登记为辅导伙伴或学习伙伴。\n\n如非本人申请，请忽略此邮件。`,
+                    en: `Enter this 4-digit code to finish signing up for a read-only Viewer account. It expires in ${VIEWER_CODE_TTL_MINUTES} minutes.\n\nDidn't request this? Ignore this email.`,
+                    zh: `输入此 4 位验证码以完成只读观察员账号注册，${VIEWER_CODE_TTL_MINUTES} 分钟内有效。\n\n如非本人申请，忽略此邮件即可。`,
                   }),
                 }),
               });

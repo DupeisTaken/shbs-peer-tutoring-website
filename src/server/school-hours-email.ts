@@ -96,13 +96,13 @@ function editionGuidance(
         )
       : lines(
           "Apply each person's highlighted amount to that person's school account once. Raw tutoring and Crew changes explain the source activity; they are not extra credit.",
-          "请将每个人突出显示的时数计入对应学校账户一次。辅导与执勤的原始变化用于说明来源，并非额外入账时数。",
+          "请将每个人突出显示的时数计入对应学校账户一次。辅导与巡查的原始变化用于说明来源，并非额外入账时数。",
         );
   }
   if (report.revision === 1 && report.postingPolicy === "TENTH_HOUR_CARRY")
     return lines(
       "Apply each person's highlighted amount to that person's school account once. Negative amounts deduct hours. Raw tutoring and Crew changes explain the source activity; they are not extra credit.",
-      "请将每个人突出显示的时数计入对应学校账户一次。负数表示扣减；辅导与执勤的原始变化用于说明来源，并非额外入账时数。",
+      "请将每个人突出显示的时数计入对应学校账户一次。负数表示扣减；辅导与巡查的原始变化用于说明来源，并非额外入账时数。",
     );
   return report.revision > 1
     ? lines(
@@ -111,7 +111,7 @@ function editionGuidance(
       )
     : lines(
         "Apply each person's highlighted amount to that person's school account once. A negative amount is a correction to deduct. Tutoring and Crew are the breakdown, not additional amounts to add again.",
-        "请将每个人突出显示的时数计入该人的学校账户一次。负数表示应扣除的更正额；辅导与执勤仅为总额明细，不应再次相加。",
+        "请将每个人突出显示的时数计入该人的学校账户一次。负数表示应扣除的更正额；辅导与巡查仅为总额明细，不应再次相加。",
       );
 }
 
@@ -211,8 +211,8 @@ export function renderSchoolHoursContent(
     ? t("Raw tutoring change", "辅导原始变化")
     : t("Tutoring net", "辅导净额");
   const crewLabel = carryPolicy
-    ? t("Raw Crew change", "执勤原始变化")
-    : t("Crew", "执勤");
+    ? t("Raw Crew change", "巡查原始变化")
+    : t("Crew", "巡查");
   const guidance = e(editionGuidance(report, locale)).replaceAll("\n", "<br>");
   const popovers: string[] = [];
   const people = rows
@@ -228,7 +228,7 @@ export function renderSchoolHoursContent(
       // Native popovers keep the accounting table to one row per person and need no
       // script. Evidence lives outside the table so the Hours cell stays numeric.
       popovers.push(
-        `<div id="${id}" class="person-details" popover="auto" role="dialog" aria-labelledby="${id}-title"><header class="person-popover-header"><h2 id="${id}-title">${e(row.exportName)} · ${t("Details", "详情")}</h2><button type="button" class="person-popover-close" popovertarget="${id}" popovertargetaction="hide" autofocus>${t("Close", "关闭")}</button></header><div class="person-detail-content"><p class="school-account">${t("School account", "学校账户")}: ${e(row.schoolAccountKey)}</p>${report.revision === 1 ? `<p class="posting-guidance">${guidance}</p>` : ""}<p class="exact-posting">${t("Exact Hours", "精确入账时数")}: <strong>${exact(row.hoursToAdd)}</strong></p><p>${tutoringLabel}: <strong>${e(durationLabel(row.tutoringChange, locale))}</strong><br>${t("Exact tutoring hours", "精确辅导时数")}: ${exact(row.tutoringChange)}<br>${crewLabel}: <strong>${e(durationLabel(row.crewChange, locale))}</strong><br>${t("Exact Crew hours", "精确执勤时数")}: ${exact(row.crewChange)}<br>${t("Exact Raw Change", "精确原始变化")}: <strong>${exact(rawChange)}</strong>${carryPolicy ? `<br>${t("Exact Carry In", "精确期初余量")}: ${row.carryInHours === undefined ? carry(undefined) : `${e(row.carryInHours)} ${unit}`}<br>${t("Exact Carry Out", "精确期末余量")}: ${row.carryOutHours === undefined ? carry(undefined) : `${e(row.carryOutHours)} ${unit}`}` : ""}</p>${report.revision > 1 ? `<p>${t("Previous edition amount", "上版时数")}: ${row.previousEditionAmount === null ? "—" : exact(row.previousEditionAmount)}<br>${t("Replacement month amount", "替代月度时数")}: <strong>${exact(row.monthAmount)}</strong>${row.unchanged ? `<br>${t(`Unchanged since r${report.revision - 1}`, `与 r${report.revision - 1} 相比无变化`)}` : ""}</p>${editionChoicesHtml(row, report.revision, nonnegativePolicy, locale)}` : ""}</div></div>`,
+        `<div id="${id}" class="person-details" popover="auto" role="dialog" aria-labelledby="${id}-title"><header class="person-popover-header"><h2 id="${id}-title">${e(row.exportName)} · ${t("Details", "详情")}</h2><button type="button" class="person-popover-close" popovertarget="${id}" popovertargetaction="hide" autofocus>${t("Close", "关闭")}</button></header><div class="person-detail-content"><p class="school-account">${t("School account", "学校账户")}: ${e(row.schoolAccountKey)}</p>${report.revision === 1 ? `<p class="posting-guidance">${guidance}</p>` : ""}<p class="exact-posting">${t("Exact Hours", "精确入账时数")}: <strong>${exact(row.hoursToAdd)}</strong></p><p>${tutoringLabel}: <strong>${e(durationLabel(row.tutoringChange, locale))}</strong><br>${t("Exact tutoring hours", "精确辅导时数")}: ${exact(row.tutoringChange)}<br>${crewLabel}: <strong>${e(durationLabel(row.crewChange, locale))}</strong><br>${t("Exact Crew hours", "精确巡查时数")}: ${exact(row.crewChange)}<br>${t("Exact Raw Change", "精确原始变化")}: <strong>${exact(rawChange)}</strong>${carryPolicy ? `<br>${t("Exact Carry In", "精确期初余量")}: ${row.carryInHours === undefined ? carry(undefined) : `${e(row.carryInHours)} ${unit}`}<br>${t("Exact Carry Out", "精确期末余量")}: ${row.carryOutHours === undefined ? carry(undefined) : `${e(row.carryOutHours)} ${unit}`}` : ""}</p>${report.revision > 1 ? `<p>${t("Previous edition amount", "上版时数")}: ${row.previousEditionAmount === null ? "—" : exact(row.previousEditionAmount)}<br>${t("Replacement month amount", "替代月度时数")}: <strong>${exact(row.monthAmount)}</strong>${row.unchanged ? `<br>${t(`Unchanged since r${report.revision - 1}`, `与 r${report.revision - 1} 相比无变化`)}` : ""}</p>${editionChoicesHtml(row, report.revision, nonnegativePolicy, locale)}` : ""}</div></div>`,
       );
       return `<tbody class="person"><tr class="school-summary"><th scope="row" class="person-identity" data-label="${t("Individual", "个人")}">${e(row.exportName)}</th><td class="carry-in" data-label="${t("Carry In", "期初余量")}">${carry(carryPolicy ? row.carryInHours : undefined)}</td><td class="raw-duration" data-label="${t("Raw Change", "原始变化")}" title="${t("Rounded to nearest minute", "四舍五入至分钟")}">${e(durationLabel(rawChange, locale))}</td><td class="posting" data-label="${t("Hours", "入账时数")}" style="color:${row.hoursToAdd < 0 ? "#B42318" : row.hoursToAdd === 0 ? "#475569" : "#115E59"}"><a class="hours-fallback" href="#${id}" aria-label="${e(detailsLabel)}">${schoolHoursValueHtml(row.hoursToAdd, locale)}</a><button type="button" class="hours-button" popovertarget="${id}" aria-haspopup="dialog" aria-label="${e(detailsLabel)}">${schoolHoursValueHtml(row.hoursToAdd, locale)}</button></td><td class="carry-out" data-label="${t("Carry Out", "留待后续")}">${carry(carryPolicy ? row.carryOutHours : undefined)}</td></tr></tbody>`;
     })
@@ -261,8 +261,9 @@ export function schoolHoursEmailCopy(input: {
   report: SchoolHoursPublicReport;
   reportUrl: string;
   preview?: boolean;
+  reminder?: boolean;
 }) {
-  const { report, reportUrl, preview } = input;
+  const { report, reportUrl, preview, reminder } = input;
   const locale = normalizeEmailLocale(input.locale);
   const revised = report.revision > 1;
   const monthDate = new Date(`${report.month}-01T00:00:00Z`);
@@ -274,6 +275,7 @@ export function schoolHoursEmailCopy(input: {
   const copy =
     locale === "zh"
       ? {
+          eyebrow: "学校服务时数",
           heading: "月度报告已就绪",
           // Keep the short revision phrase together in the shared subject heading.
           revision: `第\u00a0${report.revision}\u00a0版`,
@@ -281,35 +283,46 @@ export function schoolHoursEmailCopy(input: {
           issued: "发出时间",
           action: "查看月度报告",
           preview: "仅供预览",
+          reminder:
+            "这是同一已保存版本的提醒。已入账的时数请勿重复登记。",
           message: revised
-            ? "请打开更新后的报告查看本版本。"
-            : "请打开已保存的报告查看本版本。",
-          receipt: "此邮件仅通知报告已就绪；邮件送达不代表学校已完成入账。",
+            ? "打开更新后的报告查看本版本。"
+            : "打开已保存的报告查看本版本。",
+          receipt: "此邮件仅通知报告已就绪，不代表学校已完成入账。",
           privacy:
-            "持有报告链接的人无需账户即可查看，请仅与预期学校收件人分享。",
-          inbox: "月度报告已就绪，请通过报告链接查看。",
+            "持有链接的人无需登录账号即可查看报告，请仅分享给相关学校工作人员。",
+          inbox: reminder
+            ? "月度学校服务时数报告提醒，请勿重复登记已入账时数。"
+            : "月度学校服务时数报告已就绪，打开链接即可查看。",
         }
       : {
+          eyebrow: "SCHOOL SERVICE HOURS",
           heading: "Your monthly report is ready",
           revision: `Revision ${report.revision}`,
           replaces: `Replaces Revision ${report.revision - 1}`,
           issued: "Issued",
           action: "View Month Report",
           preview: "preview only",
+          reminder:
+            "Reminder for the same saved edition. Do not re-enter hours that are already posted.",
           message: revised
             ? "Open the updated report to review this edition."
             : "Open the saved report to review this edition.",
           receipt:
-            "This email only announces the report. Delivery does not confirm school entry.",
+            "This email notifies you that the report is ready; delivery does not confirm school entry.",
           privacy:
-            "Anyone with the report link can view it without an account. Share only with intended school recipients.",
-          inbox:
-            "Your monthly report is ready to view through the report link.",
+            "Anyone with the link can view the report without signing in—share only with intended school staff.",
+          inbox: reminder
+            ? "Reminder: your monthly service-hours report is ready. Do not re-enter posted hours."
+            : "Your monthly service-hours report is ready to view.",
         };
-  const subject =
+  const baseSubject =
     locale === "zh"
-      ? `${monthLabel}学校时数报告${revised ? "更新" : ""} · ${copy.revision}`
+      ? `${monthLabel}学校服务时数报告${revised ? "更新" : ""} · ${copy.revision}`
       : `${monthLabel} school-hours report${revised ? " updated" : ""} · ${copy.revision}`;
+  const subject = reminder
+    ? `${locale === "zh" ? "提醒：" : "Reminder: "}${baseSubject}`
+    : baseSubject;
   const issued = new Intl.DateTimeFormat(locale === "en" ? "en-GB" : locale, {
     dateStyle: "long",
     timeStyle: "short",
@@ -318,7 +331,14 @@ export function schoolHoursEmailCopy(input: {
   const metadata = `${monthLabel} · ${copy.revision}${revised ? ` · ${copy.replaces}` : ""}`;
   const issuedText = `${copy.issued}: ${issued} (${report.timeZone})`;
   const actionText = `${copy.action}${preview ? ` (${copy.preview})` : `: ${reportUrl}`}`;
-  const text = `${copy.heading}\n${metadata}\n${issuedText}\n\n${copy.message}\n\n${actionText}\n\n${copy.receipt}\n\n${copy.privacy}`;
+  const text = [
+    ...(reminder ? [copy.reminder] : []),
+    `${copy.heading}\n${metadata}\n${issuedText}`,
+    copy.message,
+    actionText,
+    copy.receipt,
+    copy.privacy,
+  ].join("\n\n");
   // Match every push email through the shared renderer. A preview omits action
   // metadata entirely, so neither its CTA nor copyable fallback becomes a link.
   const html = renderEmail({
@@ -328,8 +348,10 @@ export function schoolHoursEmailCopy(input: {
     iconUrl: input.iconUrl,
     presentation: {
       locale,
+      eyebrow: copy.eyebrow,
       preview: copy.inbox,
       body: [
+        ...(reminder ? [copy.reminder] : []),
         `${revised ? `${copy.replaces}\n` : ""}${issuedText}`,
         copy.message,
         ...(preview ? [actionText] : []),

@@ -49,19 +49,19 @@ export function renderEmail(input: {
   const chrome = emailText(locale, {
     en: {
       eyebrow: "ACCOUNT & PROGRAM MAIL",
-      fallback: "Copy this link into your browser:",
-      privacy: "Automated message. Keep account links and codes private.",
+      fallback: "Or copy this link into your browser:",
+      privacy: "Automated message. Keep links and codes private.",
       unsubscribe: "Unsubscribe",
       icon: `${brand} icon`,
-      preview: "Details and next steps inside.",
+      preview: "Open this email for details and next steps.",
     },
     zh: {
-      eyebrow: "账户与项目邮件",
-      fallback: "复制链接到浏览器：",
-      privacy: "此为自动邮件，请勿分享账户链接和验证码。",
+      eyebrow: "账号与项目邮件",
+      fallback: "也可以复制此链接到浏览器打开：",
+      privacy: "此为自动邮件，请勿转发其中的链接和代码。",
       unsubscribe: "取消订阅",
       icon: `${brand}图标`,
-      preview: "请查看邮件中的详情和后续步骤。",
+      preview: "打开邮件查看详情和后续步骤。",
     },
   });
   const explicitPreview = presentation.preview?.trim();

@@ -298,8 +298,8 @@ export const messagingRouter = createTRPCRouter({
           people.map((p) => p.id),
           {
             ...notificationInAppEvent("message_received", { actorName: sender.name }, {
-              en: `${sender.name ?? "A program participant"} sent you a private message. Open your inbox to read it.`,
-              zh: `${sender.name ?? "一位项目参与者"} 给您发送了私信，请到收件箱查看。`,
+              en: `${sender.name ?? "A program participant"} sent you a private message.`,
+              zh: `${sender.name ?? "一位项目参与者"}给你发了一条私信。`,
             }),
             title: "New private message",
             link: "/messages",

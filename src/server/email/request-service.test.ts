@@ -684,10 +684,10 @@ it("never invents a historical submission time and clear copy states that partic
   await apply(row, 1, false);
   const copy = requestNoticeEmailCopy(await latest(row), false);
   expect(copy.text).toContain(
-    "This does not itself approve the request or confirm participation",
+    "had its invalid flag cleared and is back in review",
   );
   expect(copy.presentation.action.url).toBe(
-    "https://school.example.test/privacy",
+    "https://school.example.test/privacy#contact",
   );
   expect(copy.text).not.toContain(privateReason);
 });

@@ -28,7 +28,7 @@ export default async function RequestAppealPage({
       description={t("requestAppeal.description")}
       backLabel={t("common.backToMain")}
       footer={
-        <PublicFormRoute href="/privacy" label={t("requestAppeal.contact")}>
+        <PublicFormRoute href="/privacy#contact" label={t("requestAppeal.contact")}>
           {t("requestAppeal.contactHelp")}
         </PublicFormRoute>
       }

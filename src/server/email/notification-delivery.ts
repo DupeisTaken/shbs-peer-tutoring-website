@@ -29,11 +29,7 @@ import {
   schoolCalendarEmailEligible,
 } from "../school-calendar-notifications";
 import { monthlyHoursCategory } from "~/server/monthly-hours";
-import {
-  admitMonthlyHoursDelivery,
-  finishMonthlyHoursDelivery,
-  monthlyHoursDeliveryCopy,
-} from "~/server/monthly-hours-delivery";
+import { admitMonthlyHoursDelivery } from "~/server/monthly-hours-delivery";
 import {
   schoolHoursCategory,
   admitSchoolHoursDelivery,
@@ -187,31 +183,9 @@ export async function deliverNotifications(limit = 10, deadline?: number) {
       continue;
     }
     if (row.category === monthlyHoursCategory) {
-      const admitted = await admitMonthlyHoursDelivery(
-        db,
-        id,
-        leaseUntil,
-        attemptId,
-      );
-      if (!admitted?.row.attemptId) continue;
-      let accepted = false;
-      try {
-        await emailSender.send({
-          category: "PROGRAM",
-          to: admitted.row.recipient,
-          messageId: `<monthly-hours-${id}@shbs-notifications>`,
-          ...monthlyHoursDeliveryCopy(admitted),
-        });
-        accepted = true;
-      } catch {
-        /* Completion retains only safe transport diagnostics. */
-      }
-      await finishMonthlyHoursDelivery(
-        db,
-        id,
-        admitted.row.attemptId,
-        accepted,
-      );
+      // Monthly overview emails have been retired; admitMonthlyHoursDelivery marks
+      // any leftover historical rows SKIPPED (WORKFLOW_REPLACED) without sending.
+      await admitMonthlyHoursDelivery(db, id, leaseUntil, attemptId);
       continue;
     }
     if (row.category === requestServiceCategory) {

@@ -10,7 +10,10 @@ import {
   signupAppealEmailCopy,
   tutoringSignupEmailCopy,
 } from "./direct-email-copy";
-import { historyInvitationScope } from "./required-notice-details";
+import {
+  historyInvitationScope,
+  invitationPurpose,
+} from "./required-notice-details";
 import { renderEmail } from "./template";
 
 const deadline = {
@@ -61,13 +64,13 @@ describe("direct delivery copy", () => {
       code: "AB01CD",
       body: "Enter the full code shown.",
     });
-    expect(copy.text).toContain(" is AB01CD.");
+    expect(copy.text).toContain("is AB01CD.");
     expect(copy.text).not.toContain("4 digits");
     expect(copy.text).not.toContain("4 位数字");
     expect(copy.presentation.code).toBe("AB01CD");
   });
 
-  it("keeps invitation mailbox proof separate from access acceptance", () => {
+  it("keeps invitation mailbox verification direct and separate from access acceptance", () => {
     const copy = invitationVerificationEmailCopy({
       code: "0012",
       purpose,
@@ -75,10 +78,10 @@ describe("direct delivery copy", () => {
       url,
     });
     for (const content of [copy.text, copy.presentation.body]) {
-      expect(content).toContain("proves mailbox ownership");
-      expect(content).toContain("accept any added access separately");
+      expect(content).toContain("verify your email and view your");
+      expect(content).toContain("confirm any changes on the next screen");
       expect(content).toContain(
-        "without changing their password or memberships",
+        "sign in with your current password and keep your existing roles",
       );
       expect(content).toContain(
         emailDeadline(deadline, { en: "Code expires", zh: "验证码有效期至" }),
@@ -86,7 +89,7 @@ describe("direct delivery copy", () => {
     }
     expect(copy.subject).toContain(purpose.en);
     expect(copy.subject).not.toContain(purpose.zh);
-    expect(copy.subject).toContain("Verify email · ");
+    expect(copy.subject).toContain("Verify your email · ");
   });
 
   it.each(["A2B3C", "012345ABCDEF"])(
@@ -100,7 +103,7 @@ describe("direct delivery copy", () => {
       expect(copy.presentation.body).toContain(
         code.length === 5 ? "5 letters and numbers" : "Previously issued code",
       );
-      expect(copy.presentation.body).toContain("does not grant access");
+      expect(copy.presentation.body).toContain("existing roles won't be replaced");
       expect(copy.presentation.body).toContain(
         emailDeadline(deadline, {
           en: "Invitation expires",
@@ -110,14 +113,40 @@ describe("direct delivery copy", () => {
     },
   );
 
+  it.each(["TUTOR", "ADMIN", "COORDINATOR", "HEAD", "CREW"] as const)(
+    "builds five-character %s invitation emails with direct register links in EN and ZH",
+    (kind) => {
+      const code = "A2B3C";
+      const registerUrl = `https://school.example/register?code=${code}`;
+      for (const locale of ["en", "zh"] as const) {
+        const rolePurpose = invitationPurpose(kind);
+        const copy = invitationEmailCopy({
+          locale,
+          code,
+          purpose: rolePurpose,
+          deadline,
+          url: registerUrl,
+        });
+        expect(copy.subject).toContain(rolePurpose[locale]);
+        expect(copy.presentation.code).toBe(code);
+        expect(copy.presentation.codePurpose).toBe("invitation");
+        expect(copy.presentation.action?.url).toBe(registerUrl);
+        expect(copy.text).toContain(code);
+        expect(copy.text).toContain(registerUrl);
+        expect(copy.presentation.body).toContain(
+          locale === "zh" ? "5 位字母与数字" : "5 letters and numbers",
+        );
+      }
+    },
+  );
+
   it("keeps signup completion, original priority and verification deadline in both representations", () => {
     const copy = tutoringSignupEmailCopy({ code: "0012", url, deadline });
     for (const content of [copy.text, copy.presentation.body]) {
-      expect(content).toContain("signup is not complete");
+      expect(content).toContain("original place in line is kept");
       expect(content).toContain(
-        "finish account review and confirm your request",
+        "sign in or set up your account to confirm",
       );
-      expect(content).toContain("original submission priority is kept");
       expect(content).toContain(
         emailDeadline(deadline, { en: "Code expires", zh: "验证码有效期至" }),
       );
@@ -133,25 +162,25 @@ describe("direct delivery copy", () => {
       verificationDue: deadline,
     });
     expect(copy.presentation.body).toContain(
-      "Code and confirmation link expire in 24 hours",
+      "This code and link expire in 24 hours",
     );
     expect(copy.presentation.body).toContain(
-      "permanently disqualified and all assignments released",
+      "permanently closed and any assignments released",
     );
-    expect(copy.presentation.body).toContain("Resends do not extend it");
+    expect(copy.presentation.body).toContain("Requesting a new link does not extend it");
     expect(copy.presentation.body).toContain(
-      "existing account without changing its password",
+      "keeps your current password",
     );
-    expect(copy.presentation.body).toContain("review and accept it to finish");
+    expect(copy.presentation.body).toContain("keeps your original submission time");
     expect(copy.text).toContain(
       emailDeadline(deadline, {
-        en: "Complete verification by",
-        zh: "完成验证截止时间",
+        en: "Verification deadline",
+        zh: "验证截止时间",
       }),
     );
   });
 
-  it("labels code expiry separately from the permanent request deadline and places both before continuation details", () => {
+  it("labels code expiry separately from the permanent request deadline", () => {
     const verificationDue = {
       ...deadline,
       at: new Date("2026-11-16T23:30:00.000Z"),
@@ -165,18 +194,15 @@ describe("direct delivery copy", () => {
     });
     for (const content of [copy.text, copy.presentation.body]) {
       expect(content).toContain("Code expires: November 10, 2026");
-      expect(content).toContain("Complete verification by: November 17, 2026");
+      expect(content).toContain("Verification deadline: November 17, 2026");
       expect(content.indexOf("Code expires")).toBeLessThan(
-        content.indexOf("Complete verification by"),
-      );
-      expect(content.indexOf("Complete verification by")).toBeLessThan(
-        content.indexOf("signup is not complete"),
+        content.indexOf("Verification deadline"),
       );
     }
   });
 
   it.each([true, false])(
-    "preserves reviewed history scope and explicit claim without current participation (exact=%s)",
+    "preserves history scope and explicit claim without current participation (exact=%s)",
     (exact) => {
       const scope = historyInvitationScope([
         { kind: "TUTOR" },
@@ -187,17 +213,16 @@ describe("direct delivery copy", () => {
       for (const content of [copy.text, copy.presentation.body]) {
         expect(content).toContain(scope.en);
         expect(content).not.toContain(scope.zh);
-        expect(content).toContain("separate email verification code");
-        expect(content).toContain("explicitly claim");
-        expect(content).toContain("seven days");
-        expect(content).toContain("does not enroll you");
-        expect(content).toContain("accept policies for you");
+        expect(content).toContain("email verification code");
+        expect(content).toContain("view and claim these records");
+        expect(content).toContain("7 days");
+        expect(content).toContain("without changing your current participation");
       }
       expect(copy.presentation.action.label).toContain(
-        "Review historical records",
+        "View historical records",
       );
       if (!exact)
-        expect(copy.presentation.body).toContain("old email is unavailable");
+        expect(copy.presentation.body).toContain("old email is no longer available");
     },
   );
 
@@ -212,15 +237,15 @@ describe("direct delivery copy", () => {
       new Set([accepted.subject, rejected.subject, flagged.subject]).size,
     ).toBe(3);
     expect(accepted.subject).toContain("accepted");
-    expect(accepted.text).toContain("original priority");
+    expect(accepted.text).toContain("original place in line");
     expect(rejected.subject).toContain("rejected");
-    expect(rejected.text).toContain("request is closed");
-    expect(rejected.text).toContain("new priority");
-    expect(flagged.text).toContain("current intake period ends");
+    expect(rejected.text).toContain("request has been closed");
+    expect(rejected.text).toContain("rejoin the queue");
+    expect(flagged.text).toContain("current signup period ends");
     expect(flagged.presentation.body).not.toContain(url);
     expect(flagged.text).toContain(url);
     expect(flagged.presentation).toHaveProperty("action", {
-      label: "Review and appeal",
+      label: "Submit an appeal",
       url,
     });
   });
@@ -328,7 +353,9 @@ describe("direct delivery copy", () => {
         locale,
       });
       expect(paused.text).toContain(
-        locale === "en" ? "Resends do not extend it" : "重发不会延长期限",
+        locale === "en"
+          ? "Requesting a new link does not extend it"
+          : "重新发送不会延长期限",
       );
     },
   );

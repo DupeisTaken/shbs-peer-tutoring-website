@@ -156,6 +156,10 @@ export async function startHistoryAccount(
       to: invite.email,
       ...codeEmailCopy({
         locale,
+        preview: emailText(locale, {
+          en: "Enter this 4-digit code within 15 minutes to set up historical record access.",
+          zh: "请在 15 分钟内输入 4 位验证码以设置历史记录访问账号。",
+        }),
         subject: emailText(locale, {
           en: "Verify historical access",
           zh: "验证历史记录访问",
@@ -166,8 +170,8 @@ export async function startHistoryAccount(
           zh: "邮箱验证",
         }),
         body: emailText(locale, {
-          en: "Enter this code to set up a personal login for historical records. It expires in 15 minutes. This does not enroll you in the current program.\n\nIf you did not request this, ignore this email.",
-          zh: "输入此验证码以设置历史记录访问账号，15 分钟内有效。此步骤不会加入当前项目。\n\n如非本人申请，请忽略此邮件。",
+          en: "Enter this 4-digit code to create a history-only account for viewing your past tutoring records. It does not enroll you in the current program, and expires in 15 minutes.\n\nDidn't request this? Ignore this email.",
+          zh: "输入此 4 位验证码以创建仅查看历史辅导记录的账号，不会加入当前项目。验证码 15 分钟内有效。\n\n如非本人申请，忽略此邮件即可。",
         }),
       }),
     });

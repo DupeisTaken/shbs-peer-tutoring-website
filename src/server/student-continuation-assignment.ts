@@ -727,25 +727,47 @@ export async function reconcileTutorContinuations(
     });
     const detail =
       reason === "SOURCE_CHANGED"
-        ? "The assignment was changed separately. / 安排已另行变更。"
+        ? {
+            en: `${snapshot.subject}: your continued assignment was updated separately.`,
+            zh: `${snapshot.subject}：你的延续辅导安排已另行调整。`,
+          }
         : reason === "TUTOR_UNAVAILABLE"
-          ? "The tutor is no longer available. / 导师目前无法继续。"
-          : "The previous weekly time is no longer available. / 原每周上课时间已不可用。";
+          ? {
+              en: `${snapshot.subject}: the tutor is no longer available.`,
+              zh: `${snapshot.subject}：辅导伙伴目前无法继续。`,
+            }
+          : {
+              en: `${snapshot.subject}: the previous weekly time is no longer available.`,
+              zh: `${snapshot.subject}：原每周辅导时间已不可用。`,
+            };
     const student = await tx.tutee.findUnique({
       where: { id: row.tuteeId },
       select: { status: true },
     });
-    const nextStep =
+    const reopenNote =
       survey?.state === "OPEN" && student?.status !== "INACTIVE"
-        ? "The signup request is retained for staff review. / 报名申请已保留，等待管理人员处理。"
-        : "Existing participation decisions remain in effect. / 现有参与决定保持有效。";
-    const body = `${snapshot.subject}: ${detail} ${nextStep}`;
-    const event = notificationData("student_continuation_released");
+        ? {
+            en: " Your signup request stays open for reassignment.",
+            zh: " 你的报名申请仍保留，等待重新安排。",
+          }
+        : {
+            en: " Existing participation decisions remain in effect.",
+            zh: " 原有参与状态保持不变。",
+          };
+    const inAppDetail = {
+      en: `${detail.en}${reopenNote.en}`,
+      zh: `${detail.zh}${reopenNote.zh}`,
+    };
+    const event = notificationData(
+      "student_continuation_released",
+      undefined,
+      inAppDetail,
+    );
     await notifyUsers(
       managers.map((person) => person.id),
       {
         ...event,
-        body,
+        body: inAppDetail.en,
         link: requestStaffDestination({ kind: "survey", id: row.surveyId }),
       },
       tx,
@@ -757,7 +779,7 @@ export async function reconcileTutorContinuations(
         [participant.id],
         {
           ...event,
-          body,
+          body: inAppDetail.en,
           link: participant.tutorId === tutorId ? "/dashboard" : "/student",
         },
         tx,

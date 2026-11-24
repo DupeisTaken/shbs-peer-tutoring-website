@@ -521,14 +521,18 @@ async function sendSurveyReplacement(
         to: email,
         ...linkedEmailCopy({
           locale,
+          preview: emailText(locale, {
+            en: "No extra verification needed—sign in to view your tutoring request.",
+            zh: "无需重复验证，登录后即可查看你的辅导申请。",
+          }),
           subject: emailText(locale, {
             en: "Tutoring request already confirmed",
             zh: "辅导申请已确认",
           }),
           eyebrow: emailText(locale, { en: "TUTORING SIGNUP", zh: "辅导报名" }),
           body: emailText(locale, {
-            en: "Your original tutoring request is already confirmed. Its submission time is unchanged. Contact the team if you need to change your request.",
-            zh: "原辅导申请已确认，提交时间不变。如需更改申请，请联系项目团队。",
+            en: "Your tutoring request is already confirmed, and your original place in line hasn't changed.\n\nSign in to check your request or reach out to the program team if you need help.",
+            zh: "你的辅导申请此前已确认，原本的排队顺序没有变化。\n\n你可以登录查看申请，或联系项目团队获取帮助。",
           }),
           action: {
             label: emailText(locale, { en: "Sign in", zh: "登录" }),

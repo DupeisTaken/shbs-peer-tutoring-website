@@ -706,7 +706,7 @@ it.each(["en", "zh"] as const)(
       expect(doc.documentElement.lang).toBe(locale);
       expect(email.subject).toBe(
         locale === "zh"
-          ? `2026年10月学校时数报告${revision > 1 ? "更新" : ""} · 第\u00a0${revision}\u00a0版`
+          ? `2026年10月学校服务时数报告${revision > 1 ? "更新" : ""} · 第\u00a0${revision}\u00a0版`
           : `October 2026 school-hours report${revision > 1 ? " updated" : ""} · Revision ${revision}`,
       );
       expect(doc.querySelectorAll("a")).toHaveLength(2);
@@ -773,13 +773,19 @@ it.each(["en", "zh"] as const)(
       }
       if (locale === "en") {
         expect(doc.body.textContent).not.toMatch(/[\u3400-\u9fff]/u);
-        expect(email.text).toContain("Delivery does not confirm school entry");
-        expect(email.text).toContain("Anyone with the report link");
+        expect(email.text).toContain("delivery does not confirm school entry");
+        expect(email.text).toContain("Anyone with the link can view");
+        expect(doc.querySelector("p.muted.accent")?.textContent).toBe(
+          "SCHOOL SERVICE HOURS",
+        );
       } else {
         expect(doc.body.textContent).not.toContain("Revision");
         expect(email.text).not.toContain("View Month Report");
-        expect(email.text).toContain("邮件送达不代表学校已完成入账");
-        expect(email.text).toContain("持有报告链接的人无需账户即可查看");
+        expect(email.text).toContain("不代表学校已完成入账");
+        expect(email.text).toContain("持有链接的人无需登录账号即可查看报告");
+        expect(doc.querySelector("p.muted.accent")?.textContent).toBe(
+          "学校服务时数",
+        );
       }
     }
   },

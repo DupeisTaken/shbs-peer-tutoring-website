@@ -39,19 +39,20 @@ it("renders every hours-only row, preserves negative/fractional values and escap
   const copy = monthlyHoursEmailCopy(input);
   expect(copy.html).toContain("&lt;img src=x onerror=alert(1)&gt;");
   expect(copy.html).not.toContain("<img src=x");
-  expect(copy.text).toContain("Inactive / 非活跃");
+  expect(copy.text).toContain("Inactive / 未参与");
   expect(copy.text).toContain("-0.2333");
   expect(copy.text).toContain("https://example.test/saved");
   expect(copy.html).toContain("取消订阅");
-  expect(copy.text).toContain("not a count of physical teaching blocks");
+  expect(copy.text).toContain("rather than physical teaching blocks");
+  expect(copy.text).toContain("For authorized program staff only");
   expect(copy.text).not.toContain("Private correction review note");
   expect(copy.subject).toContain("2024-09");
   expect(copy.text).toContain("replaces r1");
   expect(copy.text).toContain(
-    "TOTAL / 总计 (1 tutors / 位辅导伙伴) |  | 0 | 0 | 0.0167 | 0.25 | -0.2333",
+    "Total (1 tutors) / 总计（1 位辅导伙伴） |  | 0 | 0 | 0.0167 | 0.25 | -0.2333",
   );
   expect(copy.html).toMatch(
-    /TOTAL \/ 总计 \(1 tutors \/ 位辅导伙伴\)<\/th><th[^>]*><\/th><th[^>]*>0<\/th>/,
+    /Total \(1 tutors\) \/ 总计（1 位辅导伙伴）<\/th><th[^>]*><\/th><th[^>]*>0<\/th>/,
   );
   expect(
     [...copy.html.matchAll(/href="([^"]+)"/g)].map((match) => match[1]),
@@ -60,7 +61,7 @@ it("renders every hours-only row, preserves negative/fractional values and escap
   expect(preview.subject).toBe(copy.subject);
   expect(preview.html).not.toMatch(/<a\b|\bhref=/i);
   expect(preview.html).toContain(
-    '<span style="color:#B6D5FF" aria-disabled="true">Unsubscribe / 取消订阅</span>',
+    '<span style="color:#B6D5FF" aria-disabled="true">Unsubscribe / 取消订阅 (preview only / 仅供预览)</span>',
   );
   expect(`${preview.html}${preview.text}`).not.toContain(input.reportUrl);
   expect(`${preview.html}${preview.text}`).not.toContain(input.unsubscribeUrl);

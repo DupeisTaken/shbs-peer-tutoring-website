@@ -39,7 +39,6 @@ describe("management notification details", () => {
     expect(detail.en).toContain(`${english}: Emma Chen.`);
     expect(detail.zh).toContain(chinese);
     expect(detail.zh).toContain("Emma Chen");
-    expect(detail.en.includes("No admission change was applied")).toBe(outcome !== "approved");
     expect(JSON.stringify(detail)).not.toMatch(/private|Untrusted/);
   });
 

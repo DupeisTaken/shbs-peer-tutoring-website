@@ -93,7 +93,7 @@ async function reconcileDomainReviewNotifications(
         return [{ event: row.kind === "OPT_OUT" ? "crew_optout_requested" : "crew_reentry_requested",
           link: managementReviewSourceLink("CrewStatusRequest", row.id),
           detail: { en: `${row.user.name ?? row.user.username ?? "Crew member"}: ${row.kind === "OPT_OUT" ? "crew opt-out" : "crew reentry"} awaiting review.`,
-            zh: `${row.user.name ?? row.user.username ?? "工作组成员"}：${row.kind === "OPT_OUT" ? "退出工作组" : "重新加入工作组"}申请待审核。` },
+            zh: `${row.user.name ?? row.user.username ?? "巡查成员"}：${row.kind === "OPT_OUT" ? "退出巡查队" : "重新加入巡查队"}申请待审核。` },
           body: `${row.user.name ?? row.user.username ?? "Crew member"}: ${row.kind === "OPT_OUT" ? "opt-out" : "reentry"} awaiting review.` }];
       }) };
     },
@@ -105,7 +105,7 @@ async function reconcileDomainReviewNotifications(
       return { cursor: rows.at(-1)?.id, pending: rows.length, notices: rows.map((row): DomainReviewNotice => ({
         event: "crew_application_pending", link: managementReviewSourceLink("CrewApplication", row.id),
         body: `${row.name} applied to join the crew.`,
-        detail: { en: `${row.name} applied to join the crew.`, zh: `${row.name} 已申请加入工作组。` },
+        detail: { en: `${row.name} applied to join the crew.`, zh: `${row.name} 申请加入巡查队。` },
       })) };
     },
   ];

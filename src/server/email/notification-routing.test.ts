@@ -363,7 +363,7 @@ it("keeps head-only review mail separate from ordinary Admin reviews", async () 
   await deliverNotifications();
   expect(mocks.send).toHaveBeenCalledTimes(1);
   const message = mocks.send.mock.calls[0]?.[0] as EmailMessage;
-  expect(message.presentation?.eyebrow).toBe("REVIEW REQUEST");
+  expect(message.presentation?.eyebrow).toBe("REVIEW NEEDED");
   expect(message.presentation?.unsubscribeUrl).toBeTruthy();
 });
 
@@ -417,7 +417,7 @@ it("requires reminder opt-in and a still-current eligible event before dispatch"
   await deliverNotifications();
   expect(mocks.send).toHaveBeenCalledOnce();
   const message = mocks.send.mock.calls[0]?.[0] as EmailMessage;
-  expect(message.presentation?.eyebrow).toBe("UPCOMING EVENT");
+  expect(message.presentation?.eyebrow).toBe("REMINDER");
   expect(message.presentation?.unsubscribeUrl).toBeTruthy();
 });
 

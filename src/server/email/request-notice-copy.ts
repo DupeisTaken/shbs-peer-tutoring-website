@@ -34,15 +34,15 @@ export function requestNoticeEmailCopy(
   const appealEnglish =
     row.requestKind === "survey"
       ? canAppeal
-        ? "Appeal during the current signup period. Final rejection closes this request and removes its queue priority."
-        : "This appeal link is unavailable. Sign in to the request or contact the program."
-      : "You may appeal this decision below.";
+        ? "Submit an appeal before the current signup period ends. If the appeal is rejected, this request closes and loses its place in line."
+        : "This appeal link is unavailable. Sign in to your account or contact the program team."
+      : "You can appeal this decision using the button below.";
   const appealChinese =
     row.requestKind === "survey"
       ? canAppeal
-        ? "请在当前报名周期内申诉。最终驳回将关闭本申请并取消排队优先顺序。"
-        : "此申诉链接不可用。请登录申请或联系项目团队。"
-      : "您可通过下方链接对决定提出申诉。";
+        ? "请在当前报名周期结束前提交申诉。如果申诉未通过，本申请将关闭并失去原有排队顺序。"
+        : "此申诉链接不可用。请登录你的账号或联系项目团队。"
+      : "你可以点击下方按钮对此决定提出申诉。";
   const timeZone = row.requestTimeZone ?? "Asia/Shanghai";
   const time = (locale: string) =>
     row.requestSubmittedAt
@@ -61,8 +61,8 @@ export function requestNoticeEmailCopy(
   const chineseTitle = invalid
     ? `${requestTitle.zh}已标记为无效`
     : `${requestTitle.zh}无效标记已解除`;
-  const english = `${tutor ? "A tutor application" : "A tutee signup request"} using this email address ${invalid ? "was marked invalid. Processing is paused until authorized management clears the flag. " + appealEnglish + "" : "had its invalid flag cleared. This does not itself approve the request or confirm participation."}\n\nSubmitted: ${time("en")}`;
-  const chinese = `使用此邮箱提交的${tutor ? "辅导伙伴申请" : "学习伙伴报名申请"}${invalid ? "已标记为无效。在经授权的管理人员解除标记前，申请处理暂停。" + appealChinese + "" : "的无效标记已解除。这本身不代表申请获批或参与状态已确认。"}\n\n提交时间：${time("zh")}`;
+  const english = `${tutor ? "A tutor application" : "A tutee signup request"} using this email address ${invalid ? "was marked invalid and is paused for now. " + appealEnglish : "had its invalid flag cleared and is back in review."}\n\nSubmitted: ${time("en")}`;
+  const chinese = `使用此邮箱提交的${tutor ? "辅导伙伴申请" : "学习伙伴报名申请"}${invalid ? "已被标记为无效，目前已暂停处理。" + appealChinese : "的无效标记已解除，已恢复正常审核。"}\n\n提交时间：${time("zh")}`;
   // Free text may already be bilingual. Preserve it once, under the same mailbox-proof gate.
   const reason =
     verified && row.requestReason
@@ -84,16 +84,16 @@ export function requestNoticeEmailCopy(
           en: "Contact the program",
           zh: "联系项目团队",
         }),
-        url: `${emailOrigin()}/privacy`,
+        url: `${emailOrigin()}/privacy#contact`,
       };
   const guidance = canAppeal
     ? {
-        en: "This link only allows an appeal for this flag. Anyone you forward it to can use that limited link; it does not grant an account or approve participation.",
-        zh: "此链接仅允许对此标记提出申诉。收到转发链接的人也能使用此有限权限；链接不会授予账户或批准参与。",
+        en: "Anyone with this link can submit an appeal for this request, so please don't forward it.",
+        zh: "持有此链接的人可为此申请提交申诉，请勿转发给他人。",
       }
     : {
-        en: "Contact the program through its verified contact details if you need help.",
-        zh: "如需帮助，请通过项目已确认的联系方式联系团队。",
+        en: "Need help? Reach out to the program team using the contact details on our site.",
+        zh: "如需帮助，请通过网站上的联系方式联系项目团队。",
       };
   const body = `${emailText(language, { en: english, zh: chinese })}${reason}\n\n${emailText(language, guidance)}`;
   return {
@@ -102,8 +102,10 @@ export function requestNoticeEmailCopy(
     presentation: {
       locale: language,
       preview: emailText(language, {
-        en: "Review this request status and the available next step.",
-        zh: "请核对申请状态及后续处理方式。",
+        en: invalid
+          ? "Check your request status and appeal options."
+          : "Your request is back in review.",
+        zh: invalid ? "查看你的申请状态及申诉方式。" : "你的申请已恢复正常审核。",
       }),
       body,
       eyebrow: emailText(language, { en: "REQUEST STATUS", zh: "申请状态" }),

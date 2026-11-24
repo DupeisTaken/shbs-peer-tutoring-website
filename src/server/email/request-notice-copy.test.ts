@@ -44,8 +44,8 @@ describe.each(["en", "zh"] as const)(
         );
         expect(invalid.text).toContain(
           locale === "en"
-            ? "Processing is paused until authorized management clears the flag"
-            : "申请处理暂停",
+            ? "was marked invalid and is paused for now"
+            : "已被标记为无效，目前已暂停处理",
         );
         expect(invalid.presentation.action.url).toBe(appealUrl);
         const cleared = requestNoticeEmailCopy(
@@ -60,11 +60,11 @@ describe.each(["en", "zh"] as const)(
         );
         expect(cleared.text).toContain(
           locale === "en"
-            ? "This does not itself approve the request or confirm participation"
-            : "这本身不代表申请获批或参与状态已确认",
+            ? "had its invalid flag cleared and is back in review"
+            : "的无效标记已解除，已恢复正常审核",
         );
         expect(cleared.presentation.action.url).toBe(
-          "https://school.example.test/privacy",
+          "https://school.example.test/privacy#contact",
         );
       },
     );
@@ -126,16 +126,16 @@ describe.each(["en", "zh"] as const)(
       const available = requestNoticeEmailCopy(row, false, appealUrl);
       expect(available.text).toContain(
         locale === "en"
-          ? "Appeal during the current signup period"
-          : "请在当前报名周期内申诉",
+          ? "Submit an appeal before the current signup period ends"
+          : "请在当前报名周期结束前提交申诉",
       );
       expect(available.text).toContain(
-        locale === "en" ? "removes its queue priority" : "取消排队优先顺序",
+        locale === "en" ? "loses its place in line" : "失去原有排队顺序",
       );
       expect(available.text).toContain(
         locale === "en"
-          ? "does not grant an account or approve participation"
-          : "链接不会授予账户或批准参与",
+          ? "please don't forward it"
+          : "请勿转发给他人",
       );
       expect(available.presentation.action.url).toBe(appealUrl);
       const unavailable = requestNoticeEmailCopy(row, false);
@@ -145,7 +145,7 @@ describe.each(["en", "zh"] as const)(
           : "此申诉链接不可用",
       );
       expect(unavailable.presentation.action.url).toBe(
-        "https://school.example.test/privacy",
+        "https://school.example.test/privacy#contact",
       );
       expect(unavailable.text).not.toContain("?token=");
     });

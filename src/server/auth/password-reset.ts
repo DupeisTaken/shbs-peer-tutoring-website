@@ -63,13 +63,17 @@ export async function issueAccountVerification(
     to: recipient.email,
     ...linkedEmailCopy({
       locale: recipient.locale,
-      subject: emailText(recipient.locale, { en: "Verify and set up your account", zh: "验证并设置账户" }),
-      eyebrow: emailText(recipient.locale, { en: "ACCOUNT SETUP", zh: "账户设置" }),
-      body: emailText(recipient.locale, {
-        en: "The program team invited you to verify this email and set your password. The link expires in seven days. Your tutor or tutee participation stays unchanged.\n\nIf you did not request an account, ignore this email.",
-        zh: "项目团队邀请您验证邮箱并设置密码。链接七天内有效，不会更改辅导伙伴或学习伙伴身份。\n\n如未申请账户，请忽略此邮件。",
+      preview: emailText(recipient.locale, {
+        en: "Verify your email and choose a password within 7 days.",
+        zh: "请在 7 天内验证邮箱并设置登录密码。",
       }),
-      action: { label: emailText(recipient.locale, { en: "Set up your account", zh: "设置账户" }), url: link },
+      subject: emailText(recipient.locale, { en: "Finish setting up your account", zh: "完成账号验证与设置" }),
+      eyebrow: emailText(recipient.locale, { en: "ACCOUNT SETUP", zh: "账号设置" }),
+      body: emailText(recipient.locale, {
+        en: "The program team sent you this link to verify your email and choose a password. Your existing tutor or tutee participation stays the same. This link expires in 7 days.\n\nIf you weren't expecting this, ignore this email.",
+        zh: "项目团队为你发送了此链接，用于验证邮箱并设置密码。你现有的辅导伙伴或学习伙伴身份不受影响。链接 7 天内有效。\n\n如果你没有申请账号，忽略此邮件即可。",
+      }),
+      action: { label: emailText(recipient.locale, { en: "Set up your account", zh: "设置账号" }), url: link },
     }),
   }, receipt);
   return receipt;
@@ -96,13 +100,19 @@ function hashToken(token: string): string {
  * and "send" the reset link. Always resolves the same way regardless of whether an account
  * was found — callers must show an identical message either way (no account enumeration).
  */
-export async function issuePasswordReset(identifier: string): Promise<void> {
-  await issuePasswordResetDelivery(identifier);
+export async function issuePasswordReset(
+  identifier: string,
+  options?: { mode?: "reset" | "setup" },
+): Promise<void> {
+  await issuePasswordResetDelivery(identifier, options?.mode ?? "reset");
 }
 
 /** Staff setup needs the exact post-commit outcome; public recovery deliberately
  * discards it so unknown accounts and delivery failures cannot expose identity. */
-async function issuePasswordResetDelivery(identifier: string): Promise<DirectEmailReceipt> {
+async function issuePasswordResetDelivery(
+  identifier: string,
+  mode: "reset" | "setup" = "reset",
+): Promise<DirectEmailReceipt> {
   const receipt: DirectEmailReceipt = { emailed: false };
   if (!isEmailDeliveryAvailable("SECURITY")) return receipt;
 
@@ -145,7 +155,7 @@ async function issuePasswordResetDelivery(identifier: string): Promise<DirectEma
     });
     return { locale: normalizeEmailLocale(current.emailLocale) };
   });
-  if (issued) await deliverResetLink(targetEmail, token, issued.locale, receipt);
+  if (issued) await deliverResetLink(targetEmail, token, issued.locale, receipt, mode);
   return receipt;
 }
 
@@ -153,21 +163,66 @@ async function issuePasswordResetDelivery(identifier: string): Promise<DirectEma
  * Email the reset link. With a provider configured this sends a real message; otherwise the
  * sender logs it in dev (link included) and warns in production.
  */
-async function deliverResetLink(to: string, token: string, locale: EmailLocale, receipt: DirectEmailReceipt): Promise<void> {
+async function deliverResetLink(
+  to: string,
+  token: string,
+  locale: EmailLocale,
+  receipt: DirectEmailReceipt,
+  mode: "reset" | "setup" = "reset",
+): Promise<void> {
   const link = `${appBaseUrl()}/reset-password?token=${token}`;
+  const isSetup = mode === "setup";
 
   await sendEmailWithReceipt({
     category: "SECURITY",
     to,
     ...linkedEmailCopy({
       locale,
-      subject: emailText(locale, { en: "Reset your password", zh: "重设密码" }),
-      eyebrow: emailText(locale, { en: "ACCOUNT RECOVERY", zh: "账户恢复" }),
-      body: emailText(locale, {
-        en: `Use this link to set a new password within ${TOKEN_TTL_MINUTES} minutes.\n\nIf you did not request this, ignore this email; your password stays unchanged.`,
-        zh: `请在 ${TOKEN_TTL_MINUTES} 分钟内通过此链接设置新密码。\n\n如非本人申请，请忽略此邮件，密码不会更改。`,
-      }),
-      action: { label: emailText(locale, { en: "Reset your password", zh: "重设密码" }), url: link },
+      preview: emailText(
+        locale,
+        isSetup
+          ? {
+              en: `Use the link inside within ${TOKEN_TTL_MINUTES} minutes to confirm your email and set your password.`,
+              zh: `请在 ${TOKEN_TTL_MINUTES} 分钟内打开链接以确认邮箱并设置密码。`,
+            }
+          : {
+              en: `Use the link inside within ${TOKEN_TTL_MINUTES} minutes to choose a new password.`,
+              zh: `请在 ${TOKEN_TTL_MINUTES} 分钟内打开链接设置新密码。`,
+            },
+      ),
+      subject: emailText(
+        locale,
+        isSetup
+          ? { en: "Finish setting up your account", zh: "完成账号验证与设置" }
+          : { en: "Reset your password", zh: "重置密码" },
+      ),
+      eyebrow: emailText(
+        locale,
+        isSetup
+          ? { en: "ACCOUNT SETUP", zh: "账号设置" }
+          : { en: "ACCOUNT RECOVERY", zh: "账号恢复" },
+      ),
+      body: emailText(
+        locale,
+        isSetup
+          ? {
+              en: `Use the button below to confirm your email and set your password. This link expires in ${TOKEN_TTL_MINUTES} minutes.\n\nIf you didn't request this, ignore this email.`,
+              zh: `点击下方按钮即可确认邮箱并设置密码，链接 ${TOKEN_TTL_MINUTES} 分钟内有效。\n\n如果这不是你的操作，忽略此邮件即可。`,
+            }
+          : {
+              en: `Use the button below to choose a new password. This link expires in ${TOKEN_TTL_MINUTES} minutes.\n\nDidn't request a password reset? Ignore this email—your password won't change.`,
+              zh: `点击下方按钮即可设置新密码，链接 ${TOKEN_TTL_MINUTES} 分钟内有效。\n\n如果这不是你的操作，忽略此邮件即可，你的密码不会改变。`,
+            },
+      ),
+      action: {
+        label: emailText(
+          locale,
+          isSetup
+            ? { en: "Set up your account", zh: "设置账号" }
+            : { en: "Reset password", zh: "重置密码" },
+        ),
+        url: link,
+      },
     }),
   }, receipt);
 }

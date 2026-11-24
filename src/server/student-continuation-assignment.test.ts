@@ -1161,7 +1161,7 @@ it("retires continuation tracking after approved withdrawal without reactivating
   ).toBe(true);
   expect(
     notices.some((notice) =>
-      notice.body?.includes("retained for staff review"),
+      notice.body?.includes("stays open for reassignment"),
     ),
   ).toBe(false);
 });

@@ -6,7 +6,11 @@ import { useTranslations } from "next-intl";
 
 import { forgotPasswordAction } from "./actions";
 
-export function ForgotPasswordForm() {
+export function ForgotPasswordForm({
+  emailAvailable = true,
+}: {
+  emailAvailable?: boolean;
+}) {
   const t = useTranslations();
   const [state, formAction, pending] = useActionState(forgotPasswordAction, undefined);
   const [valid, setValid] = useState(false);
@@ -15,7 +19,9 @@ export function ForgotPasswordForm() {
     return (
       <div className="space-y-4 text-center">
         <p className="text-slate-700">{t("auth.forgot.sent")}</p>
-        <p className="muted text-xs">{t("auth.forgot.sentEmailNote")}</p>
+        {!emailAvailable && (
+          <p className="muted text-xs">{t("auth.forgot.sentEmailNote")}</p>
+        )}
         <Link href="/signin" className="link">
           {t("auth.forgot.backToSignIn")}
         </Link>

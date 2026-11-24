@@ -152,9 +152,9 @@ it.each(["en", "zh"] as const)("uses the authenticated account's %s preference f
     await issuePasswordReset(address);
     const recovery = mail.send.mock.lastCall![0];
     expect(recovery.to).toBe(address);
-    expect(recovery.subject).toBe(locale === "zh" ? "重设密码" : "Reset your password");
+    expect(recovery.subject).toBe(locale === "zh" ? "重置密码" : "Reset your password");
     expect(recovery.text).toContain(locale === "zh" ? "60 分钟" : "60 minutes");
-    expect(recovery.text).not.toContain(locale === "zh" ? "Use this link" : "请在");
+    expect(recovery.text).not.toContain(locale === "zh" ? "Use the button" : "点击下方按钮");
   }
 });
 
@@ -163,8 +163,8 @@ it.each(["en", "zh"] as const)("uses the exact unverified account's %s preferenc
   await issueAccountVerification(userId);
   const setup = mail.send.mock.lastCall![0];
   expect(setup.to).toBe(`${userId}@example.test`);
-  expect(setup.subject).toBe(locale === "zh" ? "验证并设置账户" : "Verify and set up your account");
-  expect(setup.text).toContain(locale === "zh" ? "七天内有效" : "seven days");
+  expect(setup.subject).toBe(locale === "zh" ? "完成账号验证与设置" : "Finish setting up your account");
+  expect(setup.text).toContain(locale === "zh" ? "7 天内有效" : "7 days");
   expect(setup.text).not.toContain(locale === "zh" ? "The program team" : "项目团队");
 });
 

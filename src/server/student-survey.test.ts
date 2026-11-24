@@ -633,7 +633,7 @@ describe("survey-first enrollment", () => {
     expect(message.presentation?.locale).toBe(locale);
     expect(message.subject).toBe(locale === "zh" ? "验证辅导报名邮箱" : "Verify your tutoring signup");
     expect(message.text).toContain(locale === "zh" ? "报名尚未完成" : "signup is not complete");
-    expect(message.text).toContain(locale === "zh" ? "24 小时后失效" : "expire in 24 hours");
+    expect(message.text).toContain(locale === "zh" ? "24 小时内有效" : "expire in 24 hours");
     expect(message.text).not.toContain(locale === "zh" ? "signup is not complete" : "报名尚未完成");
     expect(message.text).toContain("/tutee/account?token=");
     await resendSurvey(db, row.email);
@@ -1551,7 +1551,7 @@ describe("student request lifecycle", () => {
         .signupSubmittedAt,
     ).toEqual(row.submittedAt);
     expect(send.mock.calls.at(-1)?.[0].text).toContain(
-      emailDeadline({ at: row.verificationDueAt!, timeZone: await getProgramTimeZone(db) }, { en: "Complete verification by", zh: "完成验证截止时间" }),
+      emailDeadline({ at: row.verificationDueAt!, timeZone: await getProgramTimeZone(db) }, { en: "Verification deadline", zh: "验证截止时间" }),
     );
     await resendSurvey(db, email);
     expect(

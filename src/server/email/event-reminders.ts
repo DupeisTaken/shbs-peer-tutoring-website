@@ -265,15 +265,15 @@ async function datedOccurrence(
     (subjects.length > 3 ? ` (+${subjects.length - 3})` : "");
   const tutorName = safeLabel(cohort.plan.tutor.englishName).slice(0, 80);
   const location = cohort.online
-    ? { en: "; Online", zh: "；线上" }
+    ? { en: " · Online", zh: "；线上" }
     : room
       ? {
-          en: `; Room ${safeLabel(room.name).slice(0, 80)}`,
+          en: ` · Room ${safeLabel(room.name).slice(0, 80)}`,
           zh: `；教室 ${safeLabel(room.name).slice(0, 80)}`,
         }
       : { en: "", zh: "" };
-  const label = `Tutor ${tutorName}; ${subjectLabel}${location.en}`;
-  const labelZh = `辅导伙伴 ${tutorName}；${subjectLabel}${location.zh}`;
+  const label = `${subjectLabel} with ${tutorName}${location.en}`;
+  const labelZh = `${subjectLabel}（辅导伙伴：${tutorName}${location.zh}）`;
   const studentLabel =
     participants
       .slice(0, 3)
@@ -281,8 +281,8 @@ async function datedOccurrence(
       .join(", ") +
     (participants.length > 3 ? ` (+${participants.length - 3})` : "");
   const tutorDetail = {
-    en: `${label}; Tutees: ${studentLabel}`,
-    zh: `${labelZh}；学习伙伴：${studentLabel}`,
+    en: `${subjectLabel} with ${studentLabel}${location.en}`,
+    zh: `${subjectLabel}（学习伙伴：${studentLabel}${location.zh}）`,
   };
   // A publication at the same weekly instant inherits its receipt identity. It
   // cannot resend already accepted mail, or race the last legacy source sweep.
@@ -562,11 +562,11 @@ async function occurrence(
   const studentLabel =
     studentNames.slice(0, 3).join(", ") +
     (studentNames.length > 3 ? ` (+${studentNames.length - 3})` : "");
-  const label = `Tutor ${tutorName}; ${subjectLabel}${room ? `; Room ${room}` : ""}`;
-  const labelZh = `辅导伙伴 ${tutorName}；${subjectLabel}${room ? `；教室 ${room}` : ""}`;
+  const label = `${subjectLabel} with ${tutorName}${room ? ` · Room ${room}` : ""}`;
+  const labelZh = `${subjectLabel}（辅导伙伴：${tutorName}${room ? `；教室 ${room}` : ""}）`;
   const tutorDetail = {
-    en: `${label}; Tutees: ${studentLabel}`,
-    zh: `${labelZh}；学习伙伴：${studentLabel}`,
+    en: `${subjectLabel} with ${studentLabel}${room ? ` · Room ${room}` : ""}`,
+    zh: `${subjectLabel}（学习伙伴：${studentLabel}${room ? `；教室 ${room}` : ""}）`,
   };
   return {
     label,
@@ -634,8 +634,8 @@ function detail(
         ? { en: "Meeting", zh: "会议" }
         : { en: "Tutoring", zh: "辅导" };
   return {
-    en: `${lead.en} — ${type.en}: ${label.en}. Review the exact scheduled time below.`,
-    zh: `${lead.zh} — ${type.zh}：${label.zh}。请查看下方的确切预定时间。`,
+    en: `${lead.en}: ${type.en} — ${label.en}.`,
+    zh: `${lead.zh}：${type.zh} — ${label.zh}。`,
   };
 }
 

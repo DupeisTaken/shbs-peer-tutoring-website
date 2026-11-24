@@ -95,7 +95,15 @@ function UnsubscribeDraft({ token }: { token?: string }) {
         const result = readResult(await response.json());
         if (!result || (!response.ok && result.status !== "invalid"))
           throw new Error("Unavailable");
-        if (!controller.signal.aborted) setState(result);
+        if (!controller.signal.aborted) {
+          setState(result);
+          if (
+            result.status === "locked" ||
+            result.status === "already-unsubscribed"
+          ) {
+            setScope("all");
+          }
+        }
       } catch {
         if (!controller.signal.aborted) setState({ status: "error" });
       }
@@ -282,7 +290,7 @@ function UnsubscribeDraft({ token }: { token?: string }) {
           {(["category", "all"] as const).map((value) => (
             <label
               key={value}
-              className={`flex min-h-11 cursor-pointer items-start gap-3 rounded-xl border p-4 transition-colors ${scope === value ? "border-accent-500 bg-accent-50" : "border-slate-200 bg-white"} ${(already || locked) && value === "category" ? "cursor-default" : "hover:border-accent-500"}`}
+              className={`flex min-h-11 cursor-pointer items-start gap-3 rounded-xl border p-4 transition-colors ${scope === value ? "border-accent-500 bg-accent-50" : "border-slate-200 bg-white"} ${(already || locked) && value === "category" ? "cursor-default opacity-60" : "hover:border-accent-500"}`}
             >
               <input
                 type="radio"

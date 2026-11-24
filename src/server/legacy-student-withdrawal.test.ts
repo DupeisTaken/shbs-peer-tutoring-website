@@ -119,8 +119,8 @@ describe("manual student withdrawal ownership and policy", () => {
           userId: "admin",
           context: {
             inAppDetail: {
-              en: "Tutee Morgan Student requested withdrawal for Autumn 2026. Participation continues until approval.",
-              zh: "学习伙伴 Morgan Student 申请退出 Autumn 2026 的辅导。批准前仍继续参与。",
+              en: "Morgan Student requested to withdraw for Autumn 2026. Tutoring continues until approved.",
+              zh: "Morgan Student 申请退出 Autumn 2026 的辅导，批准前继续进行。",
             },
           },
         }),

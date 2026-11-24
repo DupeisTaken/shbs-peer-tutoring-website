@@ -172,9 +172,15 @@ export function NotificationBell() {
             const inner = (
               <>
                 <p
-                  className={`text-sm text-slate-800 ${n.readAt ? "font-medium" : "font-semibold"}`}
+                  className={`flex items-center gap-2 text-sm text-slate-800 ${n.readAt ? "font-medium" : "font-semibold"}`}
                 >
-                  {title}
+                  {!n.readAt && (
+                    <span
+                      aria-hidden="true"
+                      className="bg-accent-600 h-2 w-2 shrink-0 rounded-full"
+                    />
+                  )}
+                  <span className="min-w-0 break-words">{title}</span>
                 </p>
                 {body && (
                   <p className="mt-1 text-xs leading-relaxed break-words text-slate-600">
@@ -194,7 +200,7 @@ export function NotificationBell() {
                 </p>
               </>
             );
-            const cls = `block min-h-11 px-3 py-3 text-left hover:bg-slate-50 focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-accent-600 ${
+            const cls = `block min-h-11 px-3 py-3 text-left focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-accent-600 ${
               n.readAt ? "bg-white" : "bg-accent-50/40"
             }`;
             return (
@@ -210,16 +216,16 @@ export function NotificationBell() {
                     onNavigate={(event) =>
                       navigateNotificationFragment(n.link!, event)
                     }
-                    className={cls}
+                    className={`${cls} hover:bg-slate-50`}
                     onClick={() => {
-                      if (!writeBlocked) markOne.mutate({ id: n.id });
+                      if (!writeBlocked && !n.readAt) markOne.mutate({ id: n.id });
                     }}
                   >
                     {inner}
                   </Link>
-                ) : (
+                ) : !n.readAt ? (
                   <button
-                    className={`w-full ${cls}`}
+                    className={`w-full ${cls} hover:bg-slate-50`}
                     disabled={
                       writeBlocked || markOne.isPending || markAll.isPending
                     }
@@ -227,6 +233,8 @@ export function NotificationBell() {
                   >
                     {inner}
                   </button>
+                ) : (
+                  <div className={cls}>{inner}</div>
                 )}
               </li>
             );

@@ -86,15 +86,19 @@ export async function issueStepUpCode(
     to: user.email,
     ...codeEmailCopy({
       locale,
+      preview: emailText(locale, {
+        en: `Enter this 4-digit code within ${STEP_UP_CODE_TTL_MINUTES} minutes to ${action.en}.`,
+        zh: `请在 ${STEP_UP_CODE_TTL_MINUTES} 分钟内输入 4 位验证码以${action.zh}。`,
+      }),
       subject: emailText(locale, {
-        en: `Verify to ${action.en}`,
-        zh: `验证${action.zh}`,
+        en: `Verification code to ${action.en}`,
+        zh: `${action.zh}验证码`,
       }),
       code,
-      eyebrow: emailText(locale, { en: "ACCOUNT SECURITY", zh: "账户安全" }),
+      eyebrow: emailText(locale, { en: "ACCOUNT SECURITY", zh: "账号安全" }),
       body: emailText(locale, {
-        en: `Enter this code to ${action.en}. It expires in ${STEP_UP_CODE_TTL_MINUTES} minutes and verifies only this operation.\n\nIssuing this code does not complete the requested action. If you did not request this, ignore this email.`,
-        zh: `输入此验证码以${action.zh}。验证码 ${STEP_UP_CODE_TTL_MINUTES} 分钟内有效，仅用于此操作。\n\n发送验证码不代表该操作已完成。如非本人申请，请忽略此邮件。`,
+        en: `Enter this 4-digit code on the website to ${action.en}. It expires in ${STEP_UP_CODE_TTL_MINUTES} minutes.\n\nNothing changes until you enter the code. If you didn't request this, ignore this email and consider updating your password.`,
+        zh: `请在网站输入此 4 位验证码以${action.zh}，验证码 ${STEP_UP_CODE_TTL_MINUTES} 分钟内有效。\n\n输入验证码前不会生效。如果这不是你的操作，请忽略此邮件并留意账号密码安全。`,
       }),
     }),
   });

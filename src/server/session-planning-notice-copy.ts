@@ -9,76 +9,76 @@ import {
  * Reasons, messages, peer names and participant lists never enter this formatter. */
 const descriptions = {
   suggestion: [
-    "A tutee suggested a tutoring time. Only a tutor can submit a formal request.",
-    "学生建议了一个辅导时间。只有导师可以提交正式请求。",
+    "A tutee suggested a tutoring time. Only a tutor can send a formal request.",
+    "学习伙伴建议了一个辅导时间。只有辅导伙伴可以提交正式请求。",
   ],
   schedule_updated: [
-    "The dated timetable was updated from the weekly plan. This does not record anyone's response to a schedule proposal.",
-    "单次课表已根据每周计划更新，不代表任何人已回复时间提议。",
+    "This session's schedule was updated from your weekly plan. This is an automatic update, not a reply to a reschedule request.",
+    "本次辅导安排已根据每周计划更新。这是自动更新，不代表有人回复了改期提议。",
   ],
   proposed: [
-    "A tutoring time proposal is waiting for your reply.",
-    "一项正式辅导时间提议等待您的回复。",
+    "You have a tutoring time proposal waiting for your reply.",
+    "有一项辅导时间提议等你回复。",
   ],
   cancellation_proposed: [
-    "A proposal to cancel this extra tutoring session is waiting for your reply. The confirmed session remains scheduled until the cancellation is agreed.",
-    "取消本次额外辅导的提议等待您的回复。在取消提议达成一致前，已确认的辅导安排继续有效。",
+    "You have a request to cancel this extra tutoring session waiting for your reply. The session stays scheduled unless everyone agrees to cancel.",
+    "有一项取消本次额外辅导的提议等你回复。在所有相关成员同意前，本次辅导仍按原计划进行。",
   ],
   cancellation_response_accepted: [
-    "A participant agreed to cancel this extra tutoring session. It remains scheduled until every affected participant agrees to the same cancellation.",
-    "一位参与者已同意取消本次额外辅导。在所有受影响参与者同意同一取消提议前，辅导安排继续有效。",
+    "A participant agreed to cancel this extra tutoring session. It stays scheduled until everyone involved agrees.",
+    "一位参与者已同意取消本次额外辅导。在所有相关成员同意同一提议前，本次辅导照常进行。",
   ],
   cancellation_response_autoaccepted: [
-    "A participant's cancellation response was automatically accepted after the 24-hour window following mail-service acceptance. The session remains scheduled until every affected participant agrees.",
-    "邮件服务接受通知后的24小时回复期限已结束，一位参与者的取消回复已自动接受。在所有受影响参与者同意前，辅导安排继续有效。",
+    "A participant's 24-hour reply window ended after the notice was sent, so their cancellation reply was automatically accepted. The session stays scheduled until everyone involved agrees.",
+    "通知发出后的 24 小时回复期限已过，一位参与者的取消回复已自动接受。在所有相关成员同意前，本次辅导照常进行。",
   ],
   cancellation_rejected: [
-    "The cancellation proposal was declined. The extra tutoring session remains scheduled at its confirmed time.",
-    "取消提议已被拒绝。本次额外辅导仍按已确认的时间进行。",
+    "The cancellation request was declined, so this extra tutoring session remains scheduled at its confirmed time.",
+    "取消提议已被拒绝，本次额外辅导仍按原确认时间进行。",
   ],
   countered: [
-    "An alternative tutoring time is waiting for your reply. Earlier offers no longer apply.",
-    "一个替代辅导时间等待您的回复。此前的提议已失效。",
+    "An alternative tutoring time is waiting for your reply. Earlier proposals no longer apply.",
+    "有一个替代辅导时间等你回复，此前的提议已失效。",
   ],
   response_accepted: [
-    "A participant accepted the current offer. The group moves only when everyone accepts that same offer; review remaining responses in the portal.",
-    "一位参与者已接受当前提议。所有人同意同一提议后，小组才会调整时间；请在平台查看其余回复。",
+    "A participant accepted the current proposal. Group sessions move only when everyone accepts the same time—check remaining replies on the website.",
+    "一位参与者已接受当前提议。小组辅导需所有成员同意同一时间才会调整，请在网站查看其余回复。",
   ],
   response_autoaccepted: [
-    "A participant's 24-hour response window after mail-service acceptance ended; their response was automatically accepted. This alone does not confirm a group move.",
-    "邮件服务接受通知后，一位参与者的24小时回复期限已结束，其回复已自动接受。这本身不代表小组时间调整已确认。",
+    "A participant's 24-hour reply window ended after the notice was sent, so their reply was automatically accepted. The group time is not confirmed until everyone agrees.",
+    "通知发出后的 24 小时回复期限已过，一位参与者的回复已自动接受。小组时间需所有成员同意后才会确认。",
   ],
   accepted: [
-    "The tutoring time was agreed. Review your confirmed session in the portal.",
-    "辅导时间已达成一致。请在平台查看已确认的课程。",
+    "The tutoring time is confirmed. View your updated session on the website.",
+    "辅导时间已确认，请在网站查看更新后的安排。",
   ],
   autoaccepted: [
-    "The tutoring time was automatically accepted when the 24-hour window after mail-service acceptance ended.",
-    "邮件服务接受通知后的24小时回复期限已结束，辅导时间已自动接受。",
+    "The 24-hour reply window ended after the notice was sent, so this tutoring time was automatically accepted.",
+    "通知发出后的 24 小时回复期限已过，本次辅导时间已自动接受。",
   ],
   split_requested: [
-    "Separate scheduling was requested. The group response timer is paused; the tutor must submit individual requests.",
-    "有人申请单独安排时间。小组回复计时已暂停，导师须提交个人请求。",
+    "Separate times were requested for this group session. The group reply deadline is paused while the tutor sends individual requests.",
+    "有人申请为本次小组辅导单独安排时间。小组回复倒计时已暂停，辅导伙伴需分别提交个人时间请求。",
   ],
   split: [
-    "The dated group now has individual scheduling requests. Your weekly pairing is unchanged.",
-    "该次小组课程现已分为个人时间请求。每周配对安排保持不变。",
+    "This group session has been split into individual scheduling requests. Your regular weekly pairing is unchanged.",
+    "本次小组辅导已拆分为个人时间请求，你的每周常规配对不受影响。",
   ],
   cancelled: [
-    "This dated tutoring session was cancelled. Weekly recurrence is separate; review the affected session in the portal.",
-    "该次辅导课程已取消。每周常规安排单独保留；请在平台查看受影响的课程。",
+    "This tutoring session was cancelled. Your regular weekly schedule is unchanged—view the details on the website.",
+    "本次辅导已取消，你的每周常规安排不受影响。请在网站查看详情。",
   ],
   expired: [
-    "The schedule request expired before agreement. An existing confirmed session keeps its original time.",
-    "时间请求在达成协议前已到期。已确认课程保留原定时间。",
+    "This schedule request expired before everyone agreed. Any confirmed session keeps its original time.",
+    "时间请求在达成一致前已过期，已确认的辅导保留原定时间。",
   ],
   deadline_missed: [
-    "A response deadline elapsed while scheduling processing was unavailable. The system did not move a session retroactively or infer attendance or absence. Review the original and proposed times with the tutor in the portal.",
-    "回复期限在安排处理不可用期间结束。系统没有追溯调整课程，也未推断出勤或缺勤。请采取行动：与导师在平台核对原定时间及提议时间。",
+    "A reply deadline passed while automatic scheduling was temporarily unavailable. No session was moved, and no attendance or absence was recorded. Check the original and proposed times on the website and confirm with your tutoring partner.",
+    "自动排课暂时不可用期间，有一项回复期限已过。系统未更改辅导时间，也未记录出勤或缺勤。请在网站核对原定与提议时间，并与对方确认。",
   ],
   stale: [
-    "The schedule request is no longer current. Check the portal before acting.",
-    "该时间请求已不再有效。请先在平台查看最新状态。",
+    "This schedule request is no longer active. Check your current schedule on the website.",
+    "该时间请求已失效，请在网站查看最新辅导安排。",
   ],
 } as const;
 
@@ -275,8 +275,8 @@ export function sessionPlanningNoticeCopy(
   if (obsolete) {
     lines.push(
       t(
-        "This is an earlier update, no longer an actionable offer. Check the current portal state before acting.",
-        "此为历史通知，已不再是可操作的提议。请先查看平台当前状态。",
+        "This earlier notice is out of date—this offer is no longer open. Check your current schedule on the website for the latest status.",
+        "这条早期通知已过期，原提议不再有效。请在网站查看当前最新的辅导安排。",
       ),
     );
   }
@@ -291,47 +291,49 @@ export function sessionPlanningNoticeCopy(
     lines.push(
       pauseRange.start === pauseRange.end
         ? t(
-            `Regular tutoring is paused on ${start}. Your scheduled regular session has been cancelled.`,
-            `${start}暂停常规辅导。您已安排的常规辅导已取消。`,
+            `Regular tutoring is paused on ${start}, so your regular session has been cancelled.`,
+            `${start}暂停常规辅导，你当天已安排的常规辅导已取消。`,
           )
         : t(
-            `Regular tutoring is paused from ${start} through ${end} (inclusive). Your scheduled regular session has been cancelled.`,
-            `${start}至${end}暂停常规辅导（含首尾两日）。您已安排的常规辅导已取消。`,
+            `Regular tutoring is paused from ${start} through ${end} (inclusive), so your regular session has been cancelled.`,
+            `${start}至${end}暂停常规辅导（含首尾两日），你在此期间的常规辅导已取消。`,
           ),
     );
     lines.push(
       t(
-        "Agreed extra sessions and explicitly agreed rescheduled sessions remain scheduled.",
-        "已确认的额外辅导和已明确同意的改期辅导继续有效。",
+        "Confirmed extra sessions and agreed rescheduled sessions still go ahead.",
+        "已确认的额外辅导和已同意改期的辅导照常进行。",
       ),
     );
     lines.push(
       safe.recipientRole === "tutor"
         ? t(
-            "Feel free to coordinate with your tutee to arrange extra sessions if needed.",
-            "如有需要，可与您的学习伙伴协商安排额外辅导。",
+            "If needed, you can coordinate with your tutee to schedule an extra session.",
+            "如有需要，你可以和学习伙伴商量安排额外辅导。",
           )
         : safe.recipientRole === "tutee"
           ? t(
-              "Feel free to coordinate with your tutor to arrange extra sessions if needed.",
-              "如有需要，可与您的辅导伙伴协商安排额外辅导。",
+              "If needed, you can coordinate with your tutor to schedule an extra session.",
+              "如有需要，你可以和辅导伙伴商量安排额外辅导。",
             )
           : t(
-              "Feel free to coordinate with your tutoring partner to arrange extra sessions if needed.",
-              "如有需要，双方可协商安排额外辅导。",
+              "If needed, you can coordinate with your tutoring partner to schedule an extra session.",
+              "如有需要，双方可以商量安排额外辅导。",
             ),
     );
-  } else lines.push(copy[language === "zh" ? 1 : 0]);
+  } else if (!obsolete) {
+    lines.push(copy[language === "zh" ? 1 : 0]);
+  }
   if (!obsolete && safe.isActionable) {
     lines.push(
       safe.requiresExplicitAcceptance
         ? t(
-            "Explicit agreement required: every affected tutor and learner must affirmatively agree to this exact offer before the cutoff. Silence will not accept it. Sign in to respond; replying to this email does not decide.",
-            "必须明确同意：每位受影响的辅导伙伴和学习伙伴须在截止前明确同意同一提议。未回复不会视为接受。请登录平台回复；回复本邮件不能作出决定。",
+            "Explicit agreement required: every affected tutor and tutee must actively accept this proposal on the website before the deadline—no response will not accept it. Reply on the website (email replies won't be recorded).",
+            "需要明确同意：所有相关的辅导伙伴和学习伙伴都须在截止前登录网站同意同一提议，未回复不会视为接受。请在网站回复（直接回复本邮件无效）。",
           )
         : t(
-            "Respond in the portal. The 24-hour clock starts only after mail-service acceptance; check the exact deadline and short-notice cutoff there. Silence can mean acceptance. Email replies do not decide the offer.",
-            "请登录平台回复。邮件服务接受通知后才开始24小时计时；准确期限及临近开课限制以平台为准。未回复可能视为接受，回复本邮件不能作出决定。",
+            "Reply on the website and check the exact deadline and short-notice cutoff there (the 24-hour window starts when the notice is sent). If you don't reply in time, it may be accepted automatically. Replying to this email won't be recorded.",
+            "请登录网站回复，并以网站显示的准确截止时间和临近开课限制为准（24 小时回复期自通知发出起算）。若未按时回复，可能会视为自动接受。直接回复本邮件无效。",
           ),
     );
   }
@@ -340,7 +342,7 @@ export function sessionPlanningNoticeCopy(
   if (safe.subjectLabel)
     details.push(
       t(
-        `Lesson subjects: ${safe.subjectLabel}`,
+        `Subjects: ${safe.subjectLabel}`,
         `辅导科目：${safe.subjectLabel}`,
       ),
     );
@@ -379,7 +381,7 @@ export function sessionPlanningNoticeCopy(
         : key === "suggestion"
           ? ["Suggested time", "建议时间"]
           : key === "cancelled"
-            ? ["Cancelled session time", "已取消课程时间"]
+            ? ["Cancelled session time", "已取消辅导时间"]
             : key === "expired" || key === "stale"
               ? ["Earlier proposed time", "此前提议时间"]
               : ["Proposed time", "提议时间"];
@@ -413,12 +415,12 @@ export function sessionPlanningNoticeCopy(
   lines.push(
     pauseRange
       ? t(
-          "Calendar subscriptions may lag; check the portal for current confirmed sessions.",
-          "日历订阅可能延迟；请在平台查看当前已确认的辅导安排。",
+          "Subscribed calendars may lag; check the website for your current confirmed sessions.",
+          "订阅日历可能同步较慢，当前已确认的辅导安排请以网站为准。",
         )
       : t(
-          "Calendar subscriptions may lag; the portal has the current schedule and response deadline.",
-          "日历订阅可能延迟；最新安排和回复期限以平台为准。",
+          "Subscribed calendars may lag; check the website for the latest schedule and deadlines.",
+          "订阅日历可能同步较慢，最新安排和回复截止时间请以网站为准。",
         ),
   );
   return {
@@ -428,24 +430,24 @@ export function sessionPlanningNoticeCopy(
       locale: language,
       preview: obsolete
         ? t(
-            "This is an earlier notice. Check the current schedule before acting.",
-            "此为历史通知，请先查看当前安排。",
+            "This notice is out of date. Check your current schedule on the website.",
+            "此通知已过期，请在网站查看当前辅导安排。",
           )
         : safe.isActionable
           ? safe.requiresExplicitAcceptance
             ? t(
-                "Respond on the website; silence will not accept this offer.",
+                "Reply on the website; no response will not accept this proposal.",
                 "请在网站回复，未回复不会视为接受此提议。",
               )
             : t(
-                "Respond on the website and check the exact response deadline.",
-                "请在网站回复，并核对准确的回复期限。",
+                "Reply on the website and check the exact response deadline.",
+                "请在网站回复，并核对准确的回复截止时间。",
               )
           : t(
-              "Check the current tutoring schedule and recorded update.",
-              "请核对当前辅导安排及已记录的变更。",
+              "Check your current tutoring schedule on the website.",
+              "请在网站查看当前的辅导安排。",
             ),
-      eyebrow: t("ESSENTIAL SESSION UPDATE", "必要课程通知"),
+      eyebrow: t("SESSION UPDATE", "辅导安排通知"),
       action: {
         label:
           obsolete || pauseRange
@@ -454,7 +456,7 @@ export function sessionPlanningNoticeCopy(
               ? safe.kind === "CANCEL"
                 ? t("Respond to cancellation", "回复取消提议")
                 : t("Respond to proposal", "回复时间提议")
-              : t("View session", "查看课程"),
+              : t("View session", "查看辅导安排"),
         url: "",
       },
     },

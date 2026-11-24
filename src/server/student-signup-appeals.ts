@@ -95,7 +95,12 @@ async function deliveryOwner(tx: DomainDb, row: StudentSurvey) {
         });
     const email = owner.emailVerifiedAt ? owner.email : secondary?.email;
     return email
-      ? { email, accountId: owner.id, sessionVersion: owner.sessionVersion }
+      ? {
+          email,
+          accountId: owner.id,
+          sessionVersion: owner.sessionVersion,
+          emailLocale: normalizeEmailLocale(owner.emailLocale),
+        }
       : null;
   }
   if (row.confirmedAt) return null;
@@ -277,7 +282,12 @@ export async function deliverSignupNotice(db: DomainDb, noticeId: string) {
       ? {
           appealUrl: `${emailOrigin()}/tutee-signup/appeal#token=${noticeToken({ id: notice.id, surveyId: notice.surveyId, invalidityVersion: notice.invalidityVersion, recipientEmail: notice.recipientEmail, accountId: notice.accountId, sessionVersion: notice.sessionVersion })}`,
         }
-      : {}),
+      : {
+          actionUrl:
+            notice.kind === "APPEAL_ACCEPTED"
+              ? `${emailOrigin()}/signin?callbackUrl=%2Fstudent`
+              : `${emailOrigin()}/tutee-signup`,
+        }),
   });
   try {
     await emailSender.send({

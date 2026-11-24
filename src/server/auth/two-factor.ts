@@ -83,23 +83,28 @@ export async function issueLoginCode(
     return current;
   });
 
+  const locale = normalizeEmailLocale(user.emailLocale);
   await emailSender.send({
     category: "SECURITY",
     to: user.email,
     ...codeEmailCopy({
-      locale: normalizeEmailLocale(user.emailLocale),
-      subject: emailText(normalizeEmailLocale(user.emailLocale), {
+      locale,
+      preview: emailText(locale, {
+        en: `Enter this 4-digit code within ${CODE_TTL_MINUTES} minutes to finish signing in.`,
+        zh: `请在 ${CODE_TTL_MINUTES} 分钟内输入 4 位验证码以完成登录。`,
+      }),
+      subject: emailText(locale, {
         en: "Your sign-in code",
-        zh: "您的登录验证码",
+        zh: "你的登录验证码",
       }),
       code,
-      eyebrow: emailText(normalizeEmailLocale(user.emailLocale), {
+      eyebrow: emailText(locale, {
         en: "SIGN IN",
-        zh: "登录",
+        zh: "登录验证",
       }),
-      body: emailText(normalizeEmailLocale(user.emailLocale), {
-        en: `Enter this code to finish signing in. It expires in ${CODE_TTL_MINUTES} minutes.\n\nIf you did not just try to sign in, change your password or contact the program team.`,
-        zh: `输入此验证码以完成登录，${CODE_TTL_MINUTES} 分钟内有效。\n\n如非本人尝试登录，请更改密码或联系项目团队。`,
+      body: emailText(locale, {
+        en: `Enter this 4-digit code on the website to finish signing in. It expires in ${CODE_TTL_MINUTES} minutes.\n\nDidn't just try to sign in? Change your password right away or contact the program team.`,
+        zh: `请在网站输入此 4 位验证码以完成登录，${CODE_TTL_MINUTES} 分钟内有效。\n\n如果刚才不是你在尝试登录，请立即修改密码或联系项目团队。`,
       }),
     }),
   });

@@ -6,6 +6,7 @@ import {
 import { getTranslations } from "next-intl/server";
 
 import { pageMetadata } from "~/server/branding-metadata";
+import { isEmailDeliveryAvailable } from "~/server/email/sender";
 import { ForgotPasswordForm } from "./forgot-password-form";
 
 export async function generateMetadata() {
@@ -14,6 +15,7 @@ export async function generateMetadata() {
 
 export default async function ForgotPasswordPage() {
   const t = await getTranslations();
+  const emailAvailable = isEmailDeliveryAvailable("SECURITY");
   return (
     <PublicFormPage
       title={t("auth.forgot.title")}
@@ -24,7 +26,7 @@ export default async function ForgotPasswordPage() {
       }
     >
       <PublicFormCard>
-        <ForgotPasswordForm />
+        <ForgotPasswordForm emailAvailable={emailAvailable} />
       </PublicFormCard>
     </PublicFormPage>
   );

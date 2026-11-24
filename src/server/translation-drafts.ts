@@ -40,8 +40,8 @@ export async function proposeTranslation(
     await notifyAdmins(
       {
         ...notificationInAppEvent("translation_review_pending", undefined, {
-          en: `${action.en} Translation target: ${target}${typeof fields.locale === "string" ? ` (${fields.locale})` : ""}. Awaiting review; not published.`,
-          zh: `${action.zh} 翻译目标：${target}${typeof fields.locale === "string" ? `（${fields.locale}）` : ""}。待审核，尚未发布。`,
+          en: `${action.en} Target: ${target}${typeof fields.locale === "string" ? ` (${fields.locale})` : ""}.`,
+          zh: `${action.zh} 目标：${target}${typeof fields.locale === "string" ? `（${fields.locale}）` : ""}。`,
         }),
         title: "Translation awaiting review",
         link: "/localization?view=review",

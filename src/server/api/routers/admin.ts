@@ -189,6 +189,7 @@ import {
   issueTutorSetupLink,
 } from "~/server/auth/password-reset";
 import {
+  deliverRegistrationCodeEmail,
   issueRegistrationCode,
   MAX_CODE_ATTEMPTS,
 } from "~/server/auth/registration";
@@ -2205,7 +2206,7 @@ export const adminRouter = createTRPCRouter({
         {
           ...notificationInAppEvent("tutor_setup_needed", undefined, {
             en: `Tutor ${tutor.englishName} was added and needs an account setup link.`,
-            zh: `辅导伙伴 ${tutor.englishName} 已添加，需要发送账户设置链接。`,
+            zh: `已添加辅导伙伴 ${tutor.englishName}，请发送账号设置链接。`,
           }),
           title: "New tutor needs an account",
           body: `${tutor.englishName} was added — send them a setup link.`,
@@ -3182,11 +3183,11 @@ export const adminRouter = createTRPCRouter({
                     undefined,
                     {
                       en: addedAssignments.length
-                        ? `Tutee ${tutee.englishName} is assigned to ${addedAssignments.map((a) => `${a.tutorName} (${a.subject})`).join("; ")}. The weekly schedule is awaiting confirmation.`
-                        : `Assignment review for tutee ${tutee.englishName} is complete; no additional assignments were added.`,
+                        ? `You were matched with ${addedAssignments.map((a) => `${a.tutorName} (${a.subject})`).join("; ")}. Your tutor will confirm the weekly time.`
+                        : "Your assignment review is complete.",
                       zh: addedAssignments.length
-                        ? `学习伙伴 ${tutee.englishName} 已分配给 ${addedAssignments.map((a) => `${a.tutorName}（${a.subject}）`).join("；")}。每周辅导时间待确认。`
-                        : `学习伙伴 ${tutee.englishName} 的分配审核已完成；未新增分配。`,
+                        ? `你已匹配到 ${addedAssignments.map((a) => `${a.tutorName}（${a.subject}）`).join("；")}，辅导伙伴将确认每周辅导时间。`
+                        : "你的分配审核已完成。",
                     },
                   ),
                   title: "Your tutoring assignment was updated",
@@ -4191,7 +4192,7 @@ export const adminRouter = createTRPCRouter({
       await notifyTutors(tutorIds, {
         ...notificationInAppEvent("interview_panel_assigned", undefined, {
           en: `You were assigned to the interview panel for ${app.name}.`,
-          zh: `您已被安排参加 ${app.name} 的面试评审小组。`,
+          zh: `你已被分配至 ${app.name} 的面试小组。`,
         }),
         title: "You're on an interview panel",
         body: `Applicant: ${app.name}`,
@@ -5119,8 +5120,8 @@ export const adminRouter = createTRPCRouter({
                     : "attendance_review_escalated",
                 undefined,
                 {
-                  en: `${flag.tutor.englishName}'s ${flag.session.pairing.subject} attendance for ${flag.session.date.toISOString().slice(0, 10)}: ${input.action === "WARN" ? "a warning was recorded" : input.action === "PENALIZE" ? `a ${input.penaltyHours ?? 0.5}-hour service penalty was applied` : "the discrepancy was escalated for review"}.`,
-                  zh: `${flag.tutor.englishName} 在 ${flag.session.date.toISOString().slice(0, 10)} 的 ${flag.session.pairing.subject} 出勤：${input.action === "WARN" ? "已记录警告" : input.action === "PENALIZE" ? `已扣减 ${input.penaltyHours ?? 0.5} 服务小时` : "异常已提交进一步审核"}。`,
+                  en: `Your ${flag.session.pairing.subject} session on ${flag.session.date.toISOString().slice(0, 10)}: ${input.action === "WARN" ? "a warning was recorded" : input.action === "PENALIZE" ? `${input.penaltyHours ?? 0.5} service hours were deducted` : "flagged for further review"}.`,
+                  zh: `你 ${flag.session.date.toISOString().slice(0, 10)} 的 ${flag.session.pairing.subject} 辅导：${input.action === "WARN" ? "已记录警告" : input.action === "PENALIZE" ? `已扣减 ${input.penaltyHours ?? 0.5} 服务时数` : "已提交进一步审核"}。`,
                 },
               ),
             },
@@ -5341,12 +5342,23 @@ export const adminRouter = createTRPCRouter({
         entity: "RegistrationCode",
         entityId: result.id,
       });
-      // The plaintext code is in the return value only — copy it now.
+      const emailed = email
+        ? await deliverRegistrationCodeEmail(
+            {
+              email,
+              code: result.code,
+              kind,
+              expiresAt: result.expiresAt,
+            },
+            ctx.db,
+          )
+        : false;
       return {
         id: result.id,
         code: result.code,
         expiresAt: result.expiresAt,
         kind,
+        emailed,
       };
     }),
 
@@ -6119,8 +6131,8 @@ export const adminRouter = createTRPCRouter({
       });
       await notifyUsers([target.id], {
         ...notificationInAppEvent("account_suspended", undefined, {
-          en: `${target.name ?? "Your account"}: Viewer access was suspended. You may submit an account appeal.`,
-          zh: `${target.name ?? "您的账户"}：观察员访问权限已暂停，您可提交账户申诉。`,
+          en: "Your viewer access is suspended. You can submit an appeal.",
+          zh: "你的观察员权限已暂停，你可以提交申诉。",
         }),
         title: "Account suspended",
         body: "Your account access was suspended pending review. You can submit an appeal.",
@@ -6156,8 +6168,8 @@ export const adminRouter = createTRPCRouter({
       });
       await notifyUsers([input.userId], {
         ...notificationInAppEvent("account_reinstated", undefined, {
-          en: "Your account suspension was lifted. Account access is restored and pending account appeals were approved.",
-          zh: "您的账户暂停状态已解除，访问权限已恢复，待处理的账户申诉已批准。",
+          en: "Your account is active again.",
+          zh: "你的账号已恢复使用。",
         }),
         title: "Account reinstated",
         body: "Your account access has been restored.",
@@ -6239,15 +6251,15 @@ export const adminRouter = createTRPCRouter({
             : "account_appeal_declined",
           undefined,
           {
-            en: `Your account appeal submitted on ${programDateKey(appeal.createdAt, await getProgramTimeZone(ctx.db))} was ${input.action === "APPROVE" ? "approved; account access was restored" : "declined; account access remains suspended"}.`,
-            zh: `您于 ${programDateKey(appeal.createdAt, await getProgramTimeZone(ctx.db))} 提交的账户申诉${input.action === "APPROVE" ? "已批准，账户访问权限已恢复" : "未获批准，账户访问权限仍被暂停"}。`,
+            en: `Your appeal from ${programDateKey(appeal.createdAt, await getProgramTimeZone(ctx.db))} was ${input.action === "APPROVE" ? "approved. Your account is active again" : "declined. Your account stays suspended"}.`,
+            zh: `你 ${programDateKey(appeal.createdAt, await getProgramTimeZone(ctx.db))} 提交的申诉${input.action === "APPROVE" ? "已通过，账号已恢复使用" : "未通过，账号仍处于暂停状态"}。`,
           },
         ),
         body:
           input.action === "APPROVE"
             ? "Your account access has been restored."
             : "Your appeal was declined; your account stays suspended.",
-        link: "/",
+        link: input.action === "APPROVE" ? "/" : "/suspended",
       });
       await recordAudit({
         userId: ctx.session.user.id,
@@ -6632,8 +6644,8 @@ export const adminRouter = createTRPCRouter({
                   announcementAction: "published",
                 },
                 {
-                  en: `Announcement “${input.title}” was published. Open announcements to read it.`,
-                  zh: `公告“${input.title}”已发布，请打开公告查看。`,
+                  en: `New announcement: “${input.title}”.`,
+                  zh: `新公告：“${input.title}”。`,
                 },
               ),
             },
@@ -6656,8 +6668,8 @@ export const adminRouter = createTRPCRouter({
                   announcementAction: "published",
                 },
                 {
-                  en: `Announcement “${input.title}” was published. Open announcements to read it.`,
-                  zh: `公告“${input.title}”已发布，请打开公告查看。`,
+                  en: `New announcement: “${input.title}”.`,
+                  zh: `新公告：“${input.title}”。`,
                 },
               ),
             },

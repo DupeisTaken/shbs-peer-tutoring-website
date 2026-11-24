@@ -17,6 +17,7 @@ import {
 import { lockUsernameNamespace } from "./auth/username";
 import { authenticateEmailAction } from "./auth/account-emails";
 import { emailSender, isEmailDeliveryAvailable } from "./email/sender";
+import { verifiedRecipientEmailLocale } from "./email/recipient-locale";
 import { historyInvitationScope } from "./email/required-notice-details";
 import { historyInvitationEmailCopy } from "./email/direct-email-copy";
 import {
@@ -455,10 +456,16 @@ export async function inviteTuteeHistory(
     // Never let a post-commit error tell the caller to replay the admitted write.
     // PUBLISHED is monotonic: uncertain commits are resolved by a fresh read only.
     try {
+      const locale = await verifiedRecipientEmailLocale(deliveryDb, input.email);
       await emailSender.send({
         category: "SECURITY",
         to: input.email,
-        ...historyInvitationEmailCopy({ scope, url: url.href, exact: false }),
+        ...historyInvitationEmailCopy({
+          scope,
+          url: url.href,
+          exact: false,
+          locale,
+        }),
       });
     } catch {
       try {

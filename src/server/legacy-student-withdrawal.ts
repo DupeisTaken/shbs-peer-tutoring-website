@@ -103,10 +103,10 @@ export async function applyLegacyStudentWithdrawal(
     await tx.notification.createMany({
       data: managers.map((u) => ({
         userId: u.id,
-        title: "Tutee withdrawal awaiting review / 学习伙伴退出申请待审核",
+        title: "Withdrawal request awaiting review",
         ...notificationInAppEvent("student_withdrawal_pending", undefined, {
-          en: `Tutee ${student.englishName} requested withdrawal for ${term.name}. Participation continues until approval.`,
-          zh: `学习伙伴 ${student.englishName} 申请退出 ${term.name} 的辅导。批准前仍继续参与。`,
+          en: `${student.englishName} requested to withdraw for ${term.name}. Tutoring continues until approved.`,
+          zh: `${student.englishName} 申请退出 ${term.name} 的辅导，批准前继续进行。`,
         }),
         link: "/admin/tutee-requests",
       })),

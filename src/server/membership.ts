@@ -105,7 +105,7 @@ export async function requestMembership(
               undefined,
               {
                 en: `${current.name} requested ${kind === "OPT_OUT" ? "to opt out" : "to rejoin"} as ${member.kind === "tutor" ? "a tutor" : "a crew member"}.`,
-                zh: `${current.name} 申请${kind === "OPT_OUT" ? "退出" : "重新加入"}${member.kind === "tutor" ? "辅导伙伴" : "工作组"}。`,
+                zh: `${current.name} 申请${kind === "OPT_OUT" ? "退出" : "重新加入"}${member.kind === "tutor" ? "辅导伙伴" : "巡查队"}。`,
               },
             ),
             body: `${current.name} asked ${kind === "OPT_OUT" ? "to opt out (review after the cooldown)" : "to rejoin"}.`,
@@ -324,8 +324,8 @@ export async function decideMembership(
                     : "membership_declined",
                   undefined,
                   {
-                    en: `${current.name}: ${kind === "tutor" ? "Tutor" : "Crew"} ${request.kind === "OPT_OUT" ? "opt-out" : "reentry"} request ${approve ? "approved" : "declined"}${approve ? `; membership is now ${request.kind === "OPT_OUT" ? "opted out" : "active"}` : "; membership was not changed"}.`,
-                    zh: `${current.name}：${kind === "tutor" ? "辅导伙伴" : "工作人员"}${request.kind === "OPT_OUT" ? "退出" : "重新加入"}申请${approve ? "已批准" : "未批准"}${approve ? `，参与状态现为${request.kind === "OPT_OUT" ? "已退出" : "参与中"}` : "，参与状态未改变"}。`,
+                    en: `Your ${kind === "tutor" ? "tutor" : "crew"} ${request.kind === "OPT_OUT" ? "opt-out" : "reentry"} request was ${approve ? "approved" : "declined"}${approve && request.kind !== "OPT_OUT" ? ". You're active again" : ""}.`,
+                    zh: `你的${kind === "tutor" ? "辅导伙伴" : "巡查队"}${request.kind === "OPT_OUT" ? "退出" : "重新加入"}申请${approve ? "已批准" : "未通过"}${approve && request.kind !== "OPT_OUT" ? "，你已恢复参与" : ""}。`,
                   },
                 ),
                 body: approve

@@ -691,23 +691,28 @@ export const studentRouter = createTRPCRouter({
             ? { id: historyOwner.userId }
             : { studentId: appeal.studentId },
         });
-        if (owner)
+        if (owner) {
+          const cardDate = programDateKey(
+            before.createdAt,
+            await getProgramTimeZone(tx),
+          );
           await notifyUsers(
             [owner.id],
             {
               ...notificationInAppEvent("tutee_appeal_reviewed", undefined, {
                 en: input.overturn
-                  ? `Your appeal of the ${notificationCard(before.color, "en")} issued on ${programDateKey(before.createdAt, await getProgramTimeZone(tx))} was upheld; that card was invalidated.`
-                  : `Your appeal of the ${notificationCard(before.color, "en")} issued on ${programDateKey(before.createdAt, await getProgramTimeZone(tx))} was declined; that card remains in effect.`,
+                  ? `Your appeal of the ${notificationCard(before.color, "en")} from ${cardDate} was approved and the card was removed.`
+                  : `Your appeal of the ${notificationCard(before.color, "en")} from ${cardDate} was declined and the card stays active.`,
                 zh: input.overturn
-                  ? `您对 ${programDateKey(before.createdAt, await getProgramTimeZone(tx))} 发出的${notificationCard(before.color, "zh")}所提申诉已获支持，该卡已作废。`
-                  : `您对 ${programDateKey(before.createdAt, await getProgramTimeZone(tx))} 发出的${notificationCard(before.color, "zh")}所提申诉未获支持，该卡仍然有效。`,
+                  ? `你对 ${cardDate} ${notificationCard(before.color, "zh")}的申诉已通过，该卡已撤销。`
+                  : `你对 ${cardDate} ${notificationCard(before.color, "zh")}的申诉未通过，该卡仍然有效。`,
               }),
               title: "Your appeal was reviewed",
-              link: "/student",
+              link: "/student?view=support",
             },
             tx,
           );
+        }
         return { ok: true };
       }),
     ),
