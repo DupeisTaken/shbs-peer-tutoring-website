@@ -24,6 +24,7 @@ void test("default comparison has no implicit schema authorization", () => {
     baselineSelectionPath: null, baselineSelectionFileSha256: null,
     catalogBaseline: base, catalogBaselineSelectionSource: "default-baseline",
     catalogBaselineSelectionPath: null, catalogBaselineSelectionFileSha256: null,
+    admissionManifest: null, admissionManifestFileSha256: null,
   }); } finally { f.close(); }
 });
 void test("reviewed conventional files bind the selected immutable baseline and exact bytes", () => {
@@ -204,5 +205,34 @@ void test("baseline overrides require a manifest and reject branch names, traver
     }
     assert.throws(() => selectComparison(f.root, { defaultBaseline: base, manualBaseline: "main" }), /immutable/);
     assert.throws(() => selectComparison(f.root, { defaultBaseline: base, manualManifest: `${directory}/../outside.json` }), /fixed directory/);
+  } finally { f.close(); }
+});
+void test("PR-scoped and manual admission manifests stay isolated and mutually exclusive with schema manifests", () => {
+  const f = fixture();
+  try {
+    f.write("current.json", "{}"); f.write("baseline.txt", `${reviewed}\n`);
+    f.write("pr-744-admission.json", '{"version":1}');
+    const scoped = selectComparison(f.root, { defaultBaseline: base, prNumber: "744" });
+    assert.equal(scoped.baseline, base);
+    assert.equal(scoped.manifest, null);
+    assert.equal(scoped.baselineSelectionSource, "default-baseline");
+    assert.equal(scoped.admissionManifest, `${directory}/pr-744-admission.json`);
+    assert.equal(scoped.admissionManifestFileSha256, createHash("sha256").update('{"version":1}').digest("hex"));
+    const unrelated = selectComparison(f.root, { defaultBaseline: base, prNumber: "745" });
+    assert.equal(unrelated.admissionManifest, null);
+    assert.equal(unrelated.baseline, reviewed);
+    const manualAdmit = selectComparison(f.root, { defaultBaseline: base, manualBaseline: manual, manualAdmissionManifest: `${directory}/pr-744-admission.json` });
+    assert.equal(manualAdmit.baseline, manual);
+    assert.equal(manualAdmit.baselineSelectionSource, "manual-baseline");
+    assert.equal(manualAdmit.admissionManifest, `${directory}/pr-744-admission.json`);
+    assert.throws(
+      () => selectComparison(f.root, { defaultBaseline: base, manualManifest: `${directory}/current.json`, manualAdmissionManifest: `${directory}/pr-744-admission.json` }),
+      /mutually exclusive/,
+    );
+    f.write("pr-744.json", "{}"); f.write("pr-744-baseline.txt", `${reviewed}\n`);
+    assert.throws(
+      () => selectComparison(f.root, { defaultBaseline: base, prNumber: "744" }),
+      /cannot coexist/,
+    );
   } finally { f.close(); }
 });

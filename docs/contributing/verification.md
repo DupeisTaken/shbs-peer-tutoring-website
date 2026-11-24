@@ -63,7 +63,12 @@ same pool.
   partitions and 10 diagnostics**. It matches file paths (including admin/tutor
   routers, `prisma/**`, `package.json`, `package-lock.json`, scheduling and
   benchmark helpers). Check the admission artifact before calling a green run a
-  measured PASS — a clock-deferred run exits green with workers skipped. See the
+  measured PASS — both clock-deferred (`DEFERRED`) and reviewed non-scheduling
+  dependency (`NOT_APPLICABLE`, via `pr-<number>-admission.json` or manual
+  `admission-manifest`) runs exit green with workers and aggregation skipped
+  (`measured: false`), while scheduling-relevant dependency or code changes fail
+  closed (`BLOCKED`) at admission without downstream `Missing PROFILE_CAMPAIGN`
+  noise. See the
   [profiling contract](../reference/session-planning.md#request-profiling-and-comparison-contract).
 - **Queue discipline:** Check active/queued runs before pushing or rerunning.
   Batch verified changes from subagents into one push. Per-PR concurrency cancels
