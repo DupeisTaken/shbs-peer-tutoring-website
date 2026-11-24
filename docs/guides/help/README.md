@@ -46,6 +46,7 @@ the rolling `help-assets-latest` GitHub Release. Container builds in
 automatically verify and unpack that release before `docker build` so deployed
 sites serve illustrated Help pages and PDFs while Git stays free of binary blobs.
 
+To pull the latest CI-baked screenshots into a local checkout, run `npm run help:unpack`.
 See the [maintenance and capture procedure](../../contributing/help-catalogue.md)
 for local capture commands (`npm run help:capture`), image budgets, manifests
 ([`captures.json`](captures.json), [`coverage.json`](coverage.json),
