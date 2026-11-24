@@ -36,43 +36,19 @@ An approval ID means a queued proposal, never a successful application.
 | Users & Roles account deletion                                                                                                                                   | The list-owned `AccountDeletion` composes the existing password `Modal` with a fresh server consequence/fingerprint review. Bind the label/form, preserve the captured target and rejected password draft, admit one pending write, and restore the opener after idle dismissal. A stale review needs explicit Reload; accepted deletion uses read-only recovery and removes its cached row. Keep Admin/Head eligibility and live password checks; no countdown or ordinary generic review replaces this step-up |
 | Room, time-slot, pairing, tutee, hour-adjustment and subject-level deletion; invitation revocation                                                               | `useActionReview` composes the shared modal around the exact record and consequence. Features supply the original authorized mutation, optional proposal recognition and read-only refresh. Failed writes retain the review; accepted writes never run again when refresh fails. Cancel and Escape before submission perform no write                                                                                                                                                                      |
 | Crew application/request decisions, activation/inactivation and account deletion; public announcement, news, image, section, page and saved-translation deletion | Name the affected person/content in `useActionReview`. The route or list owns review lifetime so card removal/tab changes cannot discard pending work or read recovery. Reversible crew status changes and re-creatable translations explicitly permit another review after a successful refresh; one accepted review never replays its mutation                                                                                                                                                           |
-| Service Hours breakdown comparison, room timetables and attendance history                                                                                       | Read-only comparison matrices in named keyboard-scroll regions; no artificial action column. The compact Service Hours summary retains its real Details action                                                                                                                                                                                                                                                                                                                                             |
+| Initial application name corrections | Composes `ConfiguredPersonNameFields` with existing dialog/recovery rules for four name fields and a reason (Admin/Head apply; Coordinator proposes). Request-local only — never reuse the account-profile writer or alter invalidity, interview completion or promotion |
+| Service Hours breakdown comparison, room timetables and attendance history | Read-only comparison matrices in named keyboard-scroll regions; no artificial action column. The compact Service Hours summary retains its real Details action |
 
-Manual Tutor, Tutee and Pairing entry points first mount a fresh `CreationRiskDialog`; Continue opens the retained feature editor and performs no write. Recheck live admission before transitioning, and return `false` from `onContinue` if the editor cannot open so Cancel remains usable. The gate does not replace assignment qualification/consent review. Pairing creation also keeps its existing draft UUID through edits and failed requests; follow the [creation receipt contract](../reference/technical-report.md#automatic-room-allocation-contract) before changing reset or retry behavior.
+Manual Tutor, Tutee and Pairing entry points first mount a fresh `CreationRiskDialog`; Continue opens the retained feature editor without writing. Recheck live admission before transitioning and return `false` from `onContinue` if the editor cannot open so Cancel stays usable. Pairing creation keeps its draft UUID across edits and failed requests; see the [creation receipt contract](../reference/technical-report.md#automatic-room-allocation-contract).
 
-Keep pending requirements outside completed-history disclosures. Use retained
-child lifetimes for collapsible editors so collapsing is not an implicit Cancel.
-Size a disclosure's interactive target independently of its arrow artwork. Reuse
-the compact control contract, expose its expanded state, and measure the actual
-target and painted glyph on the affected page. A larger parent or darker parent
-text does not fix a small button or an icon with its own color override.
-Test applied versus queued outcomes, cancellation without writes, failed drafts,
-permission changes and keyboard focus in addition to visual layout.
-
-Do not put cache invalidation inside `useActionReview`'s `commit` callback. A
-mutation rejection and a successful mutation followed by a failed read must stay
-distinguishable. Use `invalidateAndReport` and, for multiple query families,
-`settleRefreshes` in its `refresh` callback. An accepted record stays disabled for
-the page instance, including when stale cached data still displays it. Closing a
-failed-refresh review leaves an inline read-only retry; another deletion cannot
-replace that recovery until it succeeds. This shared composition does not replace
-timed confirmation tickets, password confirmation, profile versions or assignment
-review. The gallery demonstrates rejected write, accepted write and read recovery.
+Keep pending requirements outside completed-history disclosures, use `retained` child lifetimes for collapsible editors so collapsing never acts as Cancel, and size disclosure buttons independently of their arrow icons (checking painted glyph contrast).
 
 ### Add an action or feature
 
-Initial application name corrections compose the configured name fields and
-existing dialog/recovery contract. Their save scope is four names and a reason;
-Admin/Head apply and Coordinator proposes. Eligibility, immutable submitted evidence,
-correction revision and receipt belong to the application domain. Do not reuse
-the account-profile writer: a request-local correction must never replace a
-verified account or retained roster identity. Invalidity, interview completion
-and promotion remain separate decisions.
-
-Start here for a new entry point, then use the inventory above and the
-[extension boundaries](../reference/technical-report.md#ui-extension-boundaries). Reuse a
-current caller with the same consequence and lifetime; an old issue's unchecked
-list is not proof that its implementation is still missing. Inspect the current components and domain tests before extending them.
+Start here for a new entry point, using the inventory above and
+[extension boundaries](../reference/technical-report.md#ui-extension-boundaries).
+Reuse an existing caller with the same consequence and lifetime, and inspect current
+components and domain tests before extending them.
 
 1. **Define the operation in the feature.** Record the actor, affected record,
    intent, direct/request-only/read-only audiences, version or ticket requirements,
@@ -133,41 +109,37 @@ const action = {
 review.open(action); // Only from the authorized entry's deliberate activation.
 ```
 
-Use a stable key for the operation and record; include the operation kind when one
-controller handles multiple actions on the same record. The default prevents an
-accepted action from being replayed while stale rows remain. Set `repeatAfterRefresh`
-only when the domain permits a new deliberate action after successful refresh,
-as with reversible crew status changes. Use `renderError` only for the feature's
-known server error vocabulary. The owner must keep `{review.dialog}` mounted,
-including its inline recovery after Close. For several refresh families, follow
-`settleRefreshes` so one rejection cannot release controls before sibling reads settle.
+Keep cache invalidation out of `commit` — put `invalidateAndReport` (wrapped in
+`settleRefreshes` for multiple query families) inside `refresh` so rejected writes
+stay distinct from accepted writes whose refresh fails. Use a stable key (include
+operation kind when one controller handles multiple actions on the same record); an
+accepted key stays disabled for the page instance, and closing a failed-refresh
+review leaves an inline read-only retry. Set `repeatAfterRefresh` only when the
+domain permits another deliberate action after refresh (e.g., reversible crew
+status). Use `renderError` only for known server error codes, keep `{review.dialog}`
+mounted in the owner, and supply `successMessage` / `renderResult` when a write
+queues a separate review (such as tutor opt-out) rather than applying immediately.
+`useActionReview` does not replace timed tickets, password step-up, profile versions
+or assignment reviews.
 
-For a successful request whose eventual effect still needs review, supply the
-feature-owned `successMessage` receipt rather than reporting that the change was
-applied. Tutor Account Settings demonstrates this distinction with `renderResult` for the
-membership review date. Approval IDs still use the queued-proposal result, and a
-failed post-write refresh still uses read-only recovery; the custom receipt changes
-neither admission nor domain authority.
-
-The minimum behavior cases follow the operation, not the button's appearance:
-Cancel/Escape before commit writes nothing; same-turn double activation admits one
-write; rejected writes preserve drafts; queued proposals say queued; accepted writes
-with failed synchronization offer reads only, including after Close; successful
-recovery permits only the domain's intended next action. Also check conflict Reload,
-removal of the original row, permission changes, nested-dialog focus and pending
-dismissal where applicable. Pair focused component/domain tests with EN/ZH and
-desktop/mobile screenshots; do not count a mocked response as a database write.
+Verify Cancel/Escape without writes, same-turn deduplication, rejected draft
+retention, queued vs. applied receipts, failed-refresh read-only recovery and role
+changes per the [UI verification matrix](verification.md#ui-verification-matrix).
 
 ## English peer-tutoring wording
 
 Use **tutor** and **tutee** for the two participant roles in English interface copy,
-notifications and documentation. Use the same terms in English fallback text in
-other catalogs. Display wording does not rename message keys, identifiers or role
-enums, and repository edits do not rewrite stored content or acceptance evidence.
+notifications and documentation (and English fallback text in other catalogs).
+Display wording never renames message keys, identifiers or role enums, and repo
+edits do not rewrite stored content or acceptance evidence.
 
 ## Chinese peer-tutoring wording
 
-Use **辅导伙伴** for Tutor and **学习伙伴** for Tutee in role labels, participant workflows, notifications and policy drafts. Both are fellow students; these names describe their roles in a particular tutoring relationship, not a teacher/student hierarchy. Use **辅导** for tutoring and **参与中** for active participation, rather than 授课 or 在职. Keep genuine school references such as 学生家长、数学教师 and the calendar's 上课日. Follow the shared Chinese UI register and glossary in [Writing UI copy](design.md#writing-ui-copy) (**你**, **账号**, **加载**, **巡查队**/**巡查成员**, **服务时数**, and Chinese role names rather than raw `HEAD`/`Admin`). Keep message keys, ICU arguments/plural branches, role enums and permission rules unchanged when editing display text.
+Use **辅导伙伴** (Tutor), **学习伙伴** (Tutee), **辅导** (tutoring) and **参与中**
+(active participation) — not 授课 or 在职 — while keeping genuine school terms
+(学生家长, 数学教师, 上课日). Follow the shared EN/ZH glossary and register in
+[Writing UI copy](design.md#writing-ui-copy) and keep message keys, ICU arguments
+and permission rules unchanged.
 
 The homepage introduction and role cards use `messages/en.json` and `messages/zh.json` defaults. Environment message overrides take precedence over bundled messages, and published database message overrides take precedence over both. A locale-specific `HomeContent` override wins over the resolved homepage message; clearing that override restores the resolved default. Review existing overrides through localization and landing editors to adopt new wording. Repository edits do not overwrite them.
 

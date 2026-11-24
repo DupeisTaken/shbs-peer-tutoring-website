@@ -13,18 +13,16 @@ the [shared capacity budget](verification.md#ci-capacity-and-queue-discipline).
 
 ## Pull request size labels
 
-The [PR Size workflow](../../.github/workflows/pr-size.yml) automatically maintains one
-`code:` size label when a PR is opened, reopened, updated, edited (including a new base),
-or switched between draft and ready. It applies to all target branches and forks.
-It becomes active after the workflow is merged into the default branch; existing
-PRs receive labels on their next matching event.
+The [PR Size workflow](../../.github/workflows/pr-size.yml) maintains one `code:`
+label and at most one `docs:` label whenever a PR is opened, reopened, updated,
+edited (including base changes), or switched between draft and ready, across all
+target branches and forks.
 
 Size counts added plus deleted lines from the PR's merge base, ignoring whitespace
-and blank-line changes. Binary files contribute zero lines. Tests, documentation
-and bundled translation files are always excluded, including when they are the
-only changes: those PRs receive `code:XS`. There is no fallback to the total diff.
-The thresholds and colors follow t3code's original sizing convention; the label
-measures code/configuration churn, not total review effort or risk.
+and blank lines. Binary files count as zero. Tests, documentation and bundled
+translation catalogs (`messages/*.json`) are excluded from `code:` size, so a
+docs-only or test-only PR receives `code:XS` (never falling back to total diff).
+Thresholds measure code/config churn, not review effort or risk.
 
 | Label      | Effective changed lines |
 | ---------- | ----------------------- |
@@ -35,18 +33,14 @@ measures code/configuration churn, not total review effort or risk.
 | `code:XL`  | 500–999                 |
 | `code:XXL` | 1,000+                  |
 
-Test paths include `test/`, `tests/`, `__tests__/`, files containing `.test.`,
-`.spec.`, `.browser.` or `.integration.`, and `scripts/test-*` / `scripts/smoke-*`.
-Documentation exclusions cover `docs/**` and `README.md` / `AGENTS.md` at any depth.
-Translation exclusions cover the bundled `messages/*.json` catalogs. Runtime
-localization code, `prisma/policies/` Markdown inputs, other JSON/Markdown files and
-lockfiles still count. Keep the workflow's exclusions aligned with new test
-entrypoints and documentation/translation locations.
+- **Test exclusions:** `test/`, `tests/`, `__tests__/`, `*.test.*`, `*.spec.*`, `*.browser.*`, `*.integration.*`, `scripts/test-*`, `scripts/smoke-*`.
+- **Documentation exclusions:** `docs/**`, plus `README.md` and `AGENTS.md` at any depth.
+- **Translation exclusions:** `messages/*.json` (contribute to neither `code:` nor `docs:`).
+- **Counted as code/config:** runtime localization code, `prisma/policies/` Markdown inputs, other JSON/Markdown files and lockfiles. Keep exclusions aligned when adding new test or doc paths.
 
-An independent `docs:` label measures documentation changes in `docs/**` or
-`README.md` / `AGENTS.md` at any depth. It uses the same merge-base diff and
-whitespace/blank-line adjustments as code size, counting additions plus deletions.
-Documentation labels share the corresponding code-size label colors:
+An independent `docs:` label counts additions plus deletions in `docs/**` and
+`README.md` / `AGENTS.md` at any depth (0 lines = no `docs:` label; there is no
+`docs:XS`):
 
 | Label      | Documentation changed lines |
 | ---------- | --------------------------- |
@@ -56,38 +50,14 @@ Documentation labels share the corresponding code-size label colors:
 | `docs:XL`  | 500–999                     |
 | `docs:XXL` | 1,000+                      |
 
-Zero documentation lines receive no `docs:` label; there is no `docs:XS`.
-Translation catalogs contribute to neither code size nor documentation size.
-Runtime policy inputs in `prisma/policies/` still count as code/configuration,
-except `README.md` / `AGENTS.md` guidance, which counts as documentation.
-A documentation-only PR can therefore have both `code:XS` and `docs:XL`, for
-example. A mixed PR keeps its code-size label alongside its documentation size.
-The workflow replaces documentation labels as the count changes, maintaining
-exactly one code size label and at most one documentation size label. It preserves
-manual labels such as `documentation` and custom labels outside these families.
-Workflow logs show total, excluded, effective and documentation line counts plus
-the selected labels. Existing closed PR labels are not backfilled by a rule
-change; open PRs are reconciled on their next matching event.
+A docs-only PR can therefore carry `code:XS` + `docs:XL`, while a mixed PR carries
+both sizes. The workflow creates missing label definitions, keeps colors and
+descriptions in sync, removes any remaining legacy `size:XS`–`size:XXL` labels,
+and preserves manual labels (such as `documentation` or custom `size:*` labels).
 
-The former `size:XS` through `size:XXL` labels are now named `code:XS` through
-`code:XXL`. Rename existing repository labels in place to preserve their associations
-with open, merged and closed PRs. The workflow removes any remaining legacy size
-labels from the PR after adding its code label; custom labels such as `size:custom`
-are preserved. Thresholds, exclusions and the `docs:` labels are unchanged.
-
-Missing label definitions are created automatically; colors and descriptions stay
-synchronized while unrelated PR labels are preserved. The workflow uses the
-built-in GitHub token. Its `pull_request_target` job reads PR commits only as Git
-data: never add PR checkouts, dependency installation, builds or cache restores.
-If fetching GitHub's synthetic `refs/pull/<number>/head` fails, the job makes one
-fallback fetch of the API-reported immutable head SHA from the base repository's
-`origin`. It verifies the fetched SHA before sizing; it never substitutes a branch
-tip, merge ref or head-repository URL. An unavailable exact commit or mismatched
-fallback fails the job without label writes. A moving PR ref skips the stale run,
-and fresh PR metadata must still match the measured head/base and open state before
-label writes. This repair must reach the trusted default branch before it can fix
-existing PR runs; editing an unmerged PR cannot change its privileged workflow.
-Run `npm run test:pr-size` to verify sizing and label updates locally; CI also runs
-these tests in the build workflow's `checks` job, which gates required `verify`.
-Automatic `code:` and `docs:` label updates run in the separate PR Size workflow
-so ordinary PR build jobs do not need label-write permissions.
+The `pull_request_target` job uses the built-in GitHub token and reads PR commits
+strictly as Git data (never checkouts, installs, builds or cache restores). If
+fetching `refs/pull/<number>/head` fails, it falls back once to the API-reported
+immutable head SHA from `origin` and verifies the exact SHA before sizing; a
+missing commit, SHA mismatch or stale moving ref aborts without writing labels.
+Run `npm run test:pr-size` locally to verify sizing logic (also run in CI `checks`).

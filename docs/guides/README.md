@@ -6,7 +6,7 @@ implementation contracts belong in [reference](../reference/README.md).
 
 | Task                                                                        | Guide                                                                     |
 | --------------------------------------------------------------------------- | ------------------------------------------------------------------------- |
-| Follow illustrated task walkthroughs or download role handbooks             | [Help & how-to catalogue](help/README.md)                                  |
+| Follow illustrated task walkthroughs (`/help`) or download role PDF handbooks (`/admin/help`) | [Help & how-to catalogue](help/README.md)                                  |
 | Use tutee, tutor, crew, staff, viewer or translation features               | [User guide](user-guide.md)                                               |
 | Configure periods, schedules, timezones, fields, modules and public content | [Program configuration](program-configuration.md)                         |
 | Deploy, configure email, back up or recover                                 | [Deployment runbook](deployment.md)                                       |
