@@ -3394,7 +3394,13 @@ existing native row. Preview rolls this evidence back with the source inserts.
 Financial reporting uses that boundary as described in the
 [school-hours reference](school-hours.md); a full deployment backup/recovery
 retains the metadata. Older imports have no reliable per-row origin evidence and
-are not inferred from names, dates, inactive terms or table-wide audit counts.
+are not inferred from names, dates, inactive terms or table-wide audit counts;
+when exact candidate keys exist from original import files or retained evidence,
+operators reconcile provenance through the reviewed host CLI documented in the
+[recovery reference](recovery.md#archive-provenance-reconciliation-boundary) and
+[recovery guide](../guides/recovery.md#reconcile-pretracking-archive-provenance),
+with typed composite recovery references and durable `ArchiveProvenanceReceipt`
+records.
 
 Native interview completion cannot rewrite imported applications or panel rows,
 and initial-admission reconciliation and the grant writer both reject imported
