@@ -2631,7 +2631,8 @@
       "recall": "撤回申请",
       "statusNote": "你的辅导伙伴状态为「{status}」，仅供查看——如需变更请联系管理员。",
       "profileSyncFailed": "已保存，但重新加载失败，请点击重试。",
-      "pwTooLong": "请勿超过 {max} 个字符。"
+      "pwTooLong": "请勿超过 {max} 个字符。",
+      "backToDashboard": "返回主页"
     },
     "dashboard": {
       "pending": {
@@ -3015,6 +3016,14 @@
       "resend": "重新发送",
       "cancel": "取消",
       "deliveryFailed": "邮件发送失败，请稍后重试。"
+    },
+    "tutorSettings": "辅导伙伴设置",
+    "sections": {
+      "profile": "个人资料",
+      "security": "安全与邮箱",
+      "notifications": "通知",
+      "access": "角色与权限",
+      "membership": "成员资格与权限"
     }
   },
   "crew": {

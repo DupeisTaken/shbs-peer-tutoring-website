@@ -2631,7 +2631,8 @@
       "recall": "Cancelar solicitud",
       "statusNote": "Tu estado como tutor es {status}. Este es acceso de solo lectura — contacta a un administrador para realizar cambios.",
       "profileSyncFailed": "Tu perfil se guardó, pero no se pudo actualizar la vista. Reintenta la actualización sin volver a enviarlo.",
-      "pwTooLong": "Use no more than {max} characters."
+      "pwTooLong": "Use no more than {max} characters.",
+      "backToDashboard": "Volver al panel"
     },
     "dashboard": {
       "pending": {
@@ -3015,6 +3016,14 @@
       "resend": "Reenviar código",
       "cancel": "Cancelar",
       "deliveryFailed": "No se pudo enviar el correo. Inténtalo de nuevo más tarde."
+    },
+    "tutorSettings": "Configuración de tutor",
+    "sections": {
+      "profile": "Perfil",
+      "security": "Seguridad y correos",
+      "notifications": "Notificaciones",
+      "access": "Roles y acceso",
+      "membership": "Membresía y acceso"
     }
   },
   "crew": {

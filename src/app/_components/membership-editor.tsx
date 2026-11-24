@@ -72,7 +72,13 @@ export function MembershipEditor({
     request.error ??
     makeHead.error;
   return (
-    <section className="mt-5 space-y-4 border-t border-slate-200 pt-5">
+    <section
+      className={
+        selfService
+          ? "card space-y-4 p-5 sm:p-6"
+          : "mt-5 space-y-4 border-t border-slate-200 pt-5"
+      }
+    >
       <h3 className="section-title">{t("title")}</h3>
       <p className="muted text-sm">
         {t(canApply && !selfService ? "headHelp" : "requestHelp")}

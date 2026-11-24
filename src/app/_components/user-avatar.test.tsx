@@ -53,9 +53,12 @@ it("groups links into Workspaces, Tools and Account and keeps Help in the header
   expect(
     screen.getByRole("link", { name: "Messages" }).getAttribute("href"),
   ).toBe("/admin/messages");
+  // Invitation redemption lives in Account Settings rather than cluttering the avatar menu.
   expect(
-    screen.getByRole("link", { name: "Add Access" }).getAttribute("href"),
-  ).toBe("/register");
+    screen
+      .getAllByRole("link")
+      .some((link) => link.getAttribute("href") === "/register"),
+  ).toBe(false);
   // Deduplicates by href while preserving the first label.
   expect(screen.getAllByRole("link", { name: /History/ })).toHaveLength(1);
   // Help Center now lives directly in the shared header bar, not inside the avatar menu.

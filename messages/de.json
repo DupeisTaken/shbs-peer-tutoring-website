@@ -2639,7 +2639,8 @@
       "recall": "Antrag zurückziehen",
       "statusNote": "Ihr Tutor-Status ist {status}. Dies ist nur Lesezugriff — für Änderungen einen Administrator kontaktieren.",
       "profileSyncFailed": "Dein Profil wurde gespeichert, konnte aber nicht neu geladen werden. Lade es erneut, ohne die Änderung nochmals abzusenden.",
-      "pwTooLong": "Use no more than {max} characters."
+      "pwTooLong": "Use no more than {max} characters.",
+      "backToDashboard": "Zurück zur Übersicht"
     },
     "dashboard": {
       "pending": {
@@ -3015,6 +3016,14 @@
       "resend": "Code erneut senden",
       "cancel": "Abbrechen",
       "deliveryFailed": "E-Mail-Zustellung fehlgeschlagen. Bitte versuchen Sie es später erneut."
+    },
+    "tutorSettings": "Tutor-Einstellungen",
+    "sections": {
+      "profile": "Profil",
+      "security": "Sicherheit & E-Mails",
+      "notifications": "Benachrichtigungen",
+      "access": "Rollen & Zugriff",
+      "membership": "Mitgliedschaft & Zugriff"
     }
   },
   "crew": {

@@ -57,18 +57,21 @@ export default async function LocalizationLayout({
     currentArea: "translations",
     labels: workspaceNavLabels(t),
   });
-  const accountHref = elevated ? "/admin/account" : "/my-account";
+  const canTutor =
+    !me.tutorAccessRevoked &&
+    Boolean(me.tutorId ?? me.tutor) &&
+    (!elevated || me.tutor?.status !== "ARCHIVED");
+  const accountHref = elevated
+    ? "/admin/account"
+    : canTutor
+      ? "/settings"
+      : "/my-account";
   const accountItems = [
-    {
-      href: elevated ? "/admin/messages" : "/messages",
-      label: t("workflows.messages"),
-      group: "tools" as const,
-    },
-    ...(elevated
+    ...(!elevated
       ? [
           {
-            href: "/admin/student-support",
-            label: t("workflows.support"),
+            href: "/messages",
+            label: t("workflows.messages"),
             group: "tools" as const,
           },
         ]
@@ -104,9 +107,11 @@ export default async function LocalizationLayout({
           <Link
             href={accountHref}
             className="hidden shrink-0 rounded-md px-2 py-0.5 text-right leading-tight hover:bg-slate-100 lg:block"
-            title={t("account.title")}
+            title={t(elevated ? "account.title" : "components.userMenu.settings")}
           >
-            <p className="text-[13px] font-medium text-slate-900">{displayName}</p>
+            <p className="max-w-44 truncate text-[13px] font-medium text-slate-900">
+              {displayName}
+            </p>
             <p className="muted text-[11px]">
               {username ? `@${username} · ` : ""}
               {t(`admin.users.roles.${me.role}`)}

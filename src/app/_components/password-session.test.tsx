@@ -196,6 +196,9 @@ it.each([AccountSettings, TutorSettings])(
         </NextIntlClientProvider>
       </QueryClientProvider>,
     );
+    fireEvent.click(
+      screen.getByRole("tab", { name: en.account.sections.security }),
+    );
     fireEvent.change(screen.getByLabelText(en.tutor.settings.currentPassword), {
       target: { value: "CurrentPassword123!" },
     });
@@ -246,6 +249,9 @@ it.each([AccountSettings, TutorSettings])(
         </NextIntlClientProvider>
       </QueryClientProvider>,
     );
+    fireEvent.click(
+      screen.getByRole("tab", { name: en.account.sections.security }),
+    );
     const next = screen.getByLabelText<HTMLInputElement>(
       new RegExp(`^${en.tutor.settings.newPassword}`),
     );
@@ -292,6 +298,9 @@ it.each([
           <Component />
         </NextIntlClientProvider>
       </QueryClientProvider>,
+    );
+    fireEvent.click(
+      screen.getByRole("tab", { name: messages.account.sections.security }),
     );
     const alert = screen.getByRole("alert");
     expect(alert.textContent).toBe(messages.account.password.deliveryFailed);

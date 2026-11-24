@@ -23,6 +23,7 @@ import { getQueryKey } from "@trpc/react-query";
 
 import { Button } from "./ui/button";
 import { FormSection, InlineNotice, StatePanel } from "./ui/patterns";
+import { SectionTabs } from "./ui/section-tabs";
 import { QueryFeedback } from "./ui/query-feedback";
 import { MembershipEditor } from "./membership-editor";
 import { SchoolDepartureAction } from "~/app/_components/school-departure";
@@ -56,6 +57,26 @@ function initialsOf(
   return handle.slice(0, 2).toUpperCase() || "··";
 }
 
+type AccountSection = "profile" | "security" | "notifications" | "access";
+
+function sectionForAccountHash(hash: string): AccountSection | null {
+  switch (hash.replace(/^#/, "")) {
+    case "notification-preferences":
+      return "notifications";
+    case "account-password":
+    case "associated-emails":
+    case "account-twofactor":
+      return "security";
+    case "account-access":
+    case "account-roles":
+      return "access";
+    case "academic-details":
+      return "profile";
+    default:
+      return null;
+  }
+}
+
 /**
  * Shared self-service account controls for every role. Reachable
  * by clicking your name in the top bar. Edit your display name and change your password; for an
@@ -66,7 +87,26 @@ export function AccountSettings({ embedded = false }: { embedded?: boolean }) {
   const router = useRouter();
   const queryClient = useQueryClient();
   const recovery = useTranslations("participantRecovery");
+  const [section, setSection] = useState<AccountSection>("profile");
   const [identityDenied, setIdentityDenied] = useState(false);
+
+  useEffect(() => {
+    const syncHash = () => {
+      const hash = window.location.hash;
+      const target = sectionForAccountHash(hash);
+      if (!target) return;
+      setSection(target);
+      const id = hash.slice(1);
+      if (id) {
+        requestAnimationFrame(() => {
+          document.getElementById(id)?.scrollIntoView?.({ block: "start" });
+        });
+      }
+    };
+    syncHash();
+    window.addEventListener("hashchange", syncHash);
+    return () => window.removeEventListener("hashchange", syncHash);
+  }, []);
   const me = api.account.me.useQuery(undefined, { enabled: !identityDenied });
   const features = api.program.features.useQuery();
   const email2fa = features.data?.EMAIL_2FA;
@@ -294,34 +334,33 @@ export function AccountSettings({ embedded = false }: { embedded?: boolean }) {
     // A VIEWER may still manage their OWN login here — this self-service page is intentionally
     // interactive for everyone (the read-only treatment hides cross-program mutation panels, not
     // your own account controls).
-    <div
-      className={
-        embedded ? "max-w-3xl space-y-6" : "mx-auto max-w-2xl space-y-6"
-      }
-    >
+    <div className="max-w-3xl space-y-6">
       {/* Embedded workspaces own the page title and navigation; the security flows are shared. */}
       {!embedded && (
-        <div className="flex items-start justify-between gap-3">
-          <div>
-            <h1 className="page-title">{t("account.title")}</h1>
-            <p className="muted mt-1">{t("account.subtitle")}</p>
-          </div>
-          <button
-            type="button"
-            onClick={() => router.back()}
-            aria-label={t("common.close")}
-            title={t("common.close")}
-            className="switch-control -mr-1 p-1.5 text-slate-600 transition hover:bg-slate-100 hover:text-slate-700"
-          >
-            <span aria-hidden className="text-lg leading-none">
-              {SYMBOLS.close}
-            </span>
-          </button>
+        <div>
+          <h1 className="page-title">{t("account.title")}</h1>
+          <p className="muted mt-1">{t("account.subtitle")}</p>
         </div>
       )}
 
-      {/* Identity pass — the account's monogram, name, @handle (its call-sign) and role. */}
-      <section className="card overflow-hidden">
+      <SectionTabs
+        label={t("account.title")}
+        value={section}
+        onChange={setSection}
+        items={[
+          { value: "profile", label: t("account.sections.profile") },
+          { value: "security", label: t("account.sections.security") },
+          {
+            value: "notifications",
+            label: t("account.sections.notifications"),
+          },
+          { value: "access", label: t("account.sections.access") },
+        ]}
+      >
+        {/* Hidden panels stay mounted so switching sections never discards unsaved drafts. */}
+        <div hidden={section !== "profile"} className="space-y-6">
+          {/* Identity pass — the account's monogram, name, @handle (its call-sign) and role. */}
+          <section className="card overflow-hidden">
         {(identityDenied || deniedNow || !me.data || me.error) && (
           <div className="px-5 py-5 sm:px-6">
             {identityDenied || deniedNow ? (
@@ -521,13 +560,15 @@ export function AccountSettings({ embedded = false }: { embedded?: boolean }) {
         )}
       </section>
 
-      <AcademicPanel actions={<SchoolDepartureAction />} />
+          <AcademicPanel actions={<SchoolDepartureAction />} />
+        </div>
 
-      {/* Password — two-step: verify current password to email a code, then submit code + new pw. */}
-      <section
-        id="account-password"
-        className="card scroll-mt-24 space-y-4 p-5 sm:p-6"
-      >
+        <div hidden={section !== "security"} className="space-y-6">
+          {/* Password — two-step: verify current password to email a code, then submit code + new pw. */}
+          <section
+            id="account-password"
+            className="card scroll-mt-24 space-y-4 p-5 sm:p-6"
+          >
         <div>
           <h2 className="section-title">
             {t("tutor.settings.passwordHeading")}
@@ -697,27 +738,43 @@ export function AccountSettings({ embedded = false }: { embedded?: boolean }) {
         </fieldset>
       </section>
 
-      {/* Participant badge requests cannot carry a management rank. Staff edits use Users & Roles. */}
-      {me.data &&
-        !identityDenied &&
-        !deniedNow &&
-        accountMembership(me.data).rank === "NONE" && (
-          <MembershipEditor
-            userId={me.data.id}
-            initial={accountMembership(me.data)}
-            selfService
-          />
-        )}
-      <AccountEmails />
-      <section className="card space-y-3 p-5">
-        <h2 className="section-title">{t("accountInvitation.addAccess")}</h2>
-        <p className="muted text-sm">{t("accountInvitation.addAccessHelp")}</p>
-        <Link className="btn-secondary" href="/register">
-          {t("accountInvitation.code")}
-        </Link>
-      </section>
-      <EmailPreferences />
-      <TwoFactorSettings />
+          <AccountEmails />
+          <TwoFactorSettings />
+        </div>
+
+        <div hidden={section !== "notifications"} className="space-y-6">
+          <EmailPreferences />
+        </div>
+
+        <div
+          id="account-access"
+          hidden={section !== "access"}
+          className="scroll-mt-24 space-y-6"
+        >
+          {/* Participant badge requests cannot carry a management rank. Staff edits use Users & Roles. */}
+          {me.data &&
+            !identityDenied &&
+            !deniedNow &&
+            accountMembership(me.data).rank === "NONE" && (
+              <MembershipEditor
+                userId={me.data.id}
+                initial={accountMembership(me.data)}
+                selfService
+              />
+            )}
+          <section className="card space-y-3 p-5 sm:p-6">
+            <h2 className="section-title">
+              {t("accountInvitation.addAccess")}
+            </h2>
+            <p className="muted text-sm">
+              {t("accountInvitation.addAccessHelp")}
+            </p>
+            <Link className="btn-secondary" href="/register">
+              {t("accountInvitation.code")}
+            </Link>
+          </section>
+        </div>
+      </SectionTabs>
     </div>
   );
 }

@@ -39,7 +39,6 @@ export async function WorkflowShell({
   ]);
   const t = (key: string) => rootT(`workflows.${key}`);
   const common = (key: string) => rootT(`common.${key}`);
-  const account = (key: string) => rootT(`components.userMenu.${key}`);
   const elevated = staff || user.role === "VIEWER";
   // Match participant-shell entry semantics; an archived elevated link preserves history only.
   const canTutor =
@@ -58,6 +57,24 @@ export async function WorkflowShell({
     { href: "/messages", label: t("messages") },
     ...(staff ? [{ href: "/student-support", label: t("support") }] : []),
   ];
+  // Messages and Tutee Support are already in SectionLinks; keep the avatar menu focused on account destinations.
+  const avatarItems = [
+    {
+      href: "/my-account",
+      label: t("settings"),
+      group: "account" as const,
+    },
+    ...(canTutor
+      ? [
+          {
+            href: "/settings",
+            label: rootT("account.tutorSettings"),
+            group: "account" as const,
+          },
+        ]
+      : []),
+  ];
+  const handle = user.username;
   return (
     <div className="min-h-screen">
       <WorkspaceHeader
@@ -70,9 +87,16 @@ export async function WorkflowShell({
         identity={
           <Link
             href="/my-account"
-            className="hidden max-w-48 truncate rounded-md px-2 py-0.5 text-[13px] font-medium hover:bg-slate-100 lg:block"
+            className="hidden shrink-0 rounded-md px-2 py-0.5 text-right leading-tight hover:bg-slate-100 lg:block"
+            title={t("settings")}
           >
-            {user.name ?? user.username}
+            <p className="max-w-44 truncate text-[13px] font-medium text-slate-900">
+              {user.name ?? user.username}
+            </p>
+            <p className="muted text-[11px]">
+              {handle ? `@${handle} · ` : ""}
+              {rootT(`admin.users.roles.${user.role}`)}
+            </p>
           </Link>
         }
         account={await UserAvatar({
@@ -81,36 +105,7 @@ export async function WorkflowShell({
           email: user.email,
           role: user.role,
           compactAtDesktop: true,
-          items: [
-            {
-              href: "/messages",
-              label: t("messages"),
-              group: "tools" as const,
-            },
-            ...(staff
-              ? [
-                  {
-                    href: "/student-support",
-                    label: t("support"),
-                    group: "tools" as const,
-                  },
-                ]
-              : []),
-            {
-              href: "/my-account",
-              label: t("settings"),
-              group: "account" as const,
-            },
-            ...(canTutor
-              ? [
-                  {
-                    href: "/settings",
-                    label: account("settings"),
-                    group: "account" as const,
-                  },
-                ]
-              : []),
-          ],
+          items: avatarItems,
         })}
       />
       <main

@@ -9,7 +9,6 @@ const mocks = vi.hoisted(() => ({
   auth: vi.fn(),
   me: vi.fn(),
   total: vi.fn(),
-  crew: vi.fn(),
   rooms: vi.fn(),
   features: vi.fn(),
   schedule: vi.fn(),
@@ -26,7 +25,6 @@ vi.mock("~/trpc/server", () => ({
     tutor: {
       me: mocks.me,
       myMonthlyTotal: mocks.total,
-      myCrew: mocks.crew,
       schedule: mocks.rooms,
     },
   },
@@ -142,7 +140,6 @@ beforeEach(() => {
     extras: 0,
     punishments: 0,
   });
-  mocks.crew.mockResolvedValue({ isCrew: false });
   mocks.features.mockResolvedValue({ INTERVIEWS: true, MEETINGS: true });
 });
 afterEach(cleanup);
@@ -287,24 +284,18 @@ it("keeps zero hours visible without inventing a missing reporting period", asyn
 });
 
 it.each([
-  { service: false, crew: false, member: true },
-  { service: true, crew: false, member: true },
-  { service: false, crew: true, member: true },
-  { service: true, crew: true, member: false },
-  { service: true, crew: true, member: true },
+  { service: false, crew: false },
+  { service: true, crew: false },
+  { service: false, crew: true },
+  { service: true, crew: true },
 ])(
-  "keeps service and Crew summaries independently gated for %j",
-  async ({ service, crew, member }) => {
+  "gates the tutoring service-hours card without rendering a crew hours card for %j",
+  async ({ service, crew }) => {
     mocks.features.mockResolvedValue({ SERVICE_HOURS: service, CREW: crew });
-    mocks.crew.mockResolvedValue({ isCrew: member, hours: 4.5, patrols: 9 });
     render(await TutorDashboard());
     expect(
       !!screen.queryByRole("region", { name: messages.dashboard.hours.title }),
     ).toBe(service);
-    expect(!!screen.queryByText(messages.tutor.dashboard.crew.title)).toBe(
-      crew && member,
-    );
-    expect(!!screen.queryByText("9 patrols")).toBe(crew && member);
-    expect(!!screen.queryByText("4.5", { exact: false })).toBe(crew && member);
+    expect(screen.queryByText(messages.tutor.dashboard.crew.title)).toBeNull();
   },
 );

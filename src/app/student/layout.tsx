@@ -117,9 +117,16 @@ export default async function TuteeLayout({
         identity={
           <Link
             href="/student?view=account"
-            className="hidden max-w-48 truncate rounded-md px-2 py-0.5 text-[13px] font-medium hover:bg-slate-100 lg:block"
+            className="hidden shrink-0 rounded-md px-2 py-0.5 text-right leading-tight hover:bg-slate-100 lg:block"
+            title={t("tuteePortal.account")}
           >
-            {me.name ?? me.username}
+            <p className="max-w-44 truncate text-[13px] font-medium text-slate-900">
+              {me.name ?? me.username}
+            </p>
+            <p className="muted text-[11px]">
+              {me.username ? `@${me.username} · ` : ""}
+              {t(`admin.users.roles.${me.role}`)}
+            </p>
           </Link>
         }
         account={

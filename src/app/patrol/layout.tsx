@@ -77,25 +77,27 @@ export default async function PatrolLayout({
     currentArea: "crew",
     labels: workspaceNavLabels(t),
   });
-  const accountHref = elevated ? "/admin/account" : "/my-account";
+  const canTutor =
+    !me?.tutorAccessRevoked &&
+    !!me?.tutor &&
+    (!elevated || me.tutor.status !== "ARCHIVED");
+  const accountHref = elevated
+    ? "/admin/account"
+    : canTutor
+      ? "/settings"
+      : "/my-account";
+  const accountLabel = t(
+    elevated ? "account.title" : "components.userMenu.settings",
+  );
   const accountItems = [
     {
       href: elevated ? "/admin/messages" : "/messages",
       label: t("workflows.messages"),
       group: "tools" as const,
     },
-    ...(elevated
-      ? [
-          {
-            href: "/admin/student-support",
-            label: t("workflows.support"),
-            group: "tools" as const,
-          },
-        ]
-      : []),
     {
       href: accountHref,
-      label: t(elevated ? "account.title" : "components.userMenu.settings"),
+      label: accountLabel,
       group: "account" as const,
     },
   ];
@@ -110,14 +112,16 @@ export default async function PatrolLayout({
         switcherItems={nav.items}
         switcherLabels={workspaceSwitcherLabels(t)}
         skipLabel={t("common.skipToContent")}
-        containerClassName="mx-auto max-w-6xl"
+        containerClassName="mx-auto max-w-5xl"
         identity={
           <Link
             href={accountHref}
             className="hidden shrink-0 rounded-md px-2 py-0.5 text-right leading-tight hover:bg-slate-100 lg:block"
-            title={t("account.title")}
+            title={accountLabel}
           >
-            <p className="text-[13px] font-medium text-slate-900">{displayName}</p>
+            <p className="max-w-44 truncate text-[13px] font-medium text-slate-900">
+              {displayName}
+            </p>
             <p className="muted text-[11px]">
               {username ? `@${username} · ` : ""}
               {t("crew.role")}
@@ -136,7 +140,7 @@ export default async function PatrolLayout({
         }
       />
 
-      <main id="main-content" className="mx-auto max-w-3xl px-4 py-8">
+      <main id="main-content" className="mx-auto max-w-5xl px-4 py-5 sm:py-6">
         {children}
       </main>
     </div>

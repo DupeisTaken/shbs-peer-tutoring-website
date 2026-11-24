@@ -122,11 +122,6 @@ export default async function TutorLayout({
       group: "tools" as const,
     },
     {
-      href: isElevated ? "/admin/student-support" : "/student?view=support",
-      label: t("workflows.support"),
-      group: "tools" as const,
-    },
-    {
       href: "/handbook",
       label: t("tutor.nav.handbook"),
       group: "tools" as const,

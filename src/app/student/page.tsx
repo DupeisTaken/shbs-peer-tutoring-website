@@ -89,16 +89,18 @@ export default async function StudentPage({
             {t("title")}
           </p>
           <h1 className="page-title mt-1">{t(view)}</h1>
-          {period && (
+          {view !== "account" && period && (
             <p className="badge-slate mt-2">
               {signup(period.kind, { period: period.label })}
             </p>
           )}
         </div>
-        <StudentSignupAction
-          initiallyBlocked={restriction?.blocked ?? false}
-          departed={access?.departed ?? false}
-        />
+        {view !== "account" && (
+          <StudentSignupAction
+            initiallyBlocked={restriction?.blocked ?? false}
+            departed={access?.departed ?? false}
+          />
+        )}
       </div>
       <StudentSignupRestrictionFeedback />
       {(view === "dashboard" || view === "requests") && !access?.departed && (

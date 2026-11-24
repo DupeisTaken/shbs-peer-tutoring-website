@@ -57,11 +57,6 @@ export async function UserAvatar({
       label: t("tuteeHistory.myHistory"),
       group: "account" as const,
     },
-    {
-      href: "/register",
-      label: t("accountInvitation.addAccess"),
-      group: "account" as const,
-    },
   ].filter(
     (item, index, all) =>
       all.findIndex((other) => other.href === item.href) === index,

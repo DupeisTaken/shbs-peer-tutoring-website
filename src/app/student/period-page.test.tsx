@@ -124,7 +124,8 @@ it.each(["messages", "account"])(
     expect(html).not.toContain(
       view === "messages" ? 'data-testid="settings"' : 'data-testid="inbox"',
     );
-    expect(html).toContain('href="/tutee"');
+    if (view === "account") expect(html).not.toContain('href="/tutee"');
+    else expect(html).toContain('href="/tutee"');
   },
 );
 

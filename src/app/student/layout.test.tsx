@@ -222,6 +222,8 @@ it("admits a departed tutor to read-only Program Overview and retains the Tutor 
       .getByRole("link", { name: "components.workspaceTitles.tutor" })
       .getAttribute("href"),
   ).toBe("/dashboard");
+  navigateTo("/admin/account");
+  expect(screen.queryByText("admin.readOnly.banner")).toBeNull();
 });
 // Management membership does not grant tutoring; tutee access stays independent.
 it.each(["HEAD", "ADMIN", "COORDINATOR"])(
@@ -574,7 +576,7 @@ it("follows the rendered identity and account-menu links as the cached layout's 
   expect(screen.getByText("workflow.policyTitle")).toBeTruthy();
   const menu = screen.getByRole("navigation", { name: "Account destinations" });
   const identity = [...container.querySelectorAll("header a")].find(
-    (link) => !menu.contains(link) && link.textContent === "Synthetic Head",
+    (link) => !menu.contains(link) && link.textContent?.includes("Synthetic Head"),
   );
   expect(identity).toBeTruthy();
   expect(identity!.getAttribute("href")).toBe("/student?view=account");
