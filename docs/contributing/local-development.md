@@ -481,6 +481,14 @@ rollback. Lock waits remain capped at 1 second. The global Vitest timeouts and
 ordinary test-body limits stay unchanged. Synthetic trigger installation/cleanup
 uses separate bounded transactions; the three failure/delay controls have
 50-second case limits for multiple resets and cleanup.
+[Room-allocation fixtures](../../src/server/api/routers/room-allocation.test.ts)
+use the same bounded-hook discipline: a 20-second fixture-specific `beforeEach`
+enclosing a 2-second acquisition wait, 10-second transaction, 1-second
+`lock_timeout`, and 6-second `statement_timeout`, preserving the single
+schema-wide `TRUNCATE`, triggers, and concurrency coverage. CI emits non-sensitive
+per-phase timings (`acquire`, `configure`, `catalog`, `truncate`, `seed`, `commit`,
+`settled`) after each reset; set `SHBS_PROFILE_ROOM_ALLOCATION_FIXTURE=1` locally
+for the same diagnostics.
 
 Keep the single schema-wide `TRUNCATE`: scheduling and calendar policy triggers
 also run on empty tables, so skipping empty tables, substituting `DELETE` or
@@ -507,8 +515,14 @@ the same migration and test commands. Use credentials and a loopback port belong
 to your test PostgreSQL instance, then restore the environment before demo work.
 
 Use a separate loopback database named `shbs_shipping_test` for the complete suite. The shared
-[guard](../../src/test/database-guard.ts) requires a local `_test` database, and individual integration suites apply narrower name
-allowlists; an arbitrary `_test` name does not satisfy every suite. Create the database, set
+[guard](../../src/test/database-guard.ts) (backed by [`src/server/database-test-safety.ts`](../../src/server/database-test-safety.ts))
+requires a local `*_test` database and rejects URL query-parameter target overrides.
+Under Vitest / `NODE_ENV=test`, [`src/server/db.ts`](../../src/server/db.ts) refuses
+to construct a Prisma/pg pool or run any query, write, or `afterAll` cleanup against
+a rejected target while keeping `$disconnect()` safe and allowing unit tests with
+mocked or unused database imports to run without PostgreSQL. Individual integration
+suites still guard their setup and cleanup hooks explicitly and may apply narrower
+name allowlists; an arbitrary `_test` name does not satisfy every suite. Create the database, set
 `DATABASE_URL` for both `npm run db:migrate` and `npm test -- --maxWorkers=1`, and never point these
 destructive fixtures at a development site or production database.
 

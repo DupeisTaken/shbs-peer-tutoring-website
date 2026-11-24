@@ -33,6 +33,7 @@ test("image context omits GitHub help derivatives while retaining CI-baked captu
     "docs/guides/help/assets/example-step-1.en.jpg",
     "docs/guides/help/captures.json",
     "public/fonts/help/noto-sans-sc.otf",
+    "public/fonts/public-qr/shbs-public-qr.otf",
   ])) {
     for (const rule of rules.filter((value) => !value.startsWith("!"))) {
       const pattern = rule.replace(/^\//, "").replace(/\/$/, "");
@@ -47,6 +48,9 @@ test("image context omits GitHub help derivatives while retaining CI-baked captu
   assert.match(config, /["']\.\/node_modules\/geist\/dist\/fonts\/geist-sans\/Geist-Regular\.ttf["']/);
   assert.match(config, /["']\.\/node_modules\/geist\/dist\/fonts\/geist-sans\/Geist-Bold\.ttf["']/);
   assert.match(config, /["']\.\/node_modules\/geist\/dist\/fonts\/geist-mono\/GeistMono-Regular\.ttf["']/);
+  const qrIncludes = /["']\/api\/public-qr["']\s*:\s*\[([^\]]*)\]/.exec(config)?.[1] ?? "";
+  assert.match(qrIncludes, /["']\.\/node_modules\/geist\/dist\/fonts\/geist-sans\/Geist-Regular\.ttf["']/);
+  assert.match(qrIncludes, /["']\.\/public\/fonts\/public-qr\/shbs-public-qr\.otf["']/);
 });
 
 function runtimeSourceCopies(dockerfile = readFileSync(path.join(root, "Dockerfile"), "utf8")) {

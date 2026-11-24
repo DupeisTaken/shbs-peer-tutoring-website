@@ -831,6 +831,38 @@ shared-schema measurements. The original-schema cold control still measures
 the roster-corrected source on its historical database. Preserve separate
 pre-repair measurements when discussing the cost of the catalog correction.
 
+### Reviewed non-scheduling dependency admission
+
+Before clock deferral or Docker pulls, the matrix job checks out the selected
+immutable control(s) and runs `scripts/scheduling-profile/evaluate-admission.mjs`.
+When `package-lock.json` differs from the control, comparison inputs still fail
+closed: lockfiles are never normalized, comparison checks are never bypassed, and
+the candidate is never substituted for its own control.
+
+- **Measurement required (`BLOCKED`):** if any scheduling trigger path, runtime
+  config file, file in the static import graph of `scripts/profile-scheduling-requests.ts`
+  or `scripts/scheduling-profile/**`, non-dependency `package.json` field, or any
+  package inside the transitive `package-lock.json` scheduling closure changed,
+  measurement is required against an independently reviewed immutable control
+  with compatible locked dependencies.
+- **Reviewed non-scheduling dependency disposition (`NOT_APPLICABLE`):** when
+  programmatic inspection proves zero scheduling-relevant files and zero packages
+  in the transitive scheduling dependency closure changed, a pull request may
+  commit a PR-scoped `.github/scheduling-profile-manifests/pr-<number>-admission.json`
+  (or pass `admission-manifest` on manual dispatch) pinning `version: 1`,
+  `disposition: "NOT_APPLICABLE_NON_SCHEDULING_DEPENDENCY"`, `baselineRevision`,
+  baseline/candidate `package.json` and `package-lock.json` SHA-256 digests,
+  sorted `changedPackages`, and a concise `reason`. It cannot coexist with
+  PR-scoped baseline/schema manifests and is rejected if lockfiles are already
+  identical.
+- **Distinct reporting and clean gating:** `NOT_APPLICABLE` and `BLOCKED` each
+  upload `scheduling-profile-admission-<attempt>` (`scheduling-profile-admission.json`,
+  with `measured: false`, `samplingComplete: false`, and
+  `latencyComparisonEligible: false`) and write a step summary explicitly stating
+  that no benchmark ran and that `NOT_APPLICABLE` is not a measured `PASS`.
+  `preflight`, `profile`, and `aggregate` run only when `matrix` succeeds with
+  `admission == 'ADMITTED'`, preventing downstream `Missing PROFILE_CAMPAIGN` noise.
+
 PR #568 uses the same two source controls with its own ten-addition reviewed manifest. Its catalog-specific pin is `pr-568-catalog-baseline.txt`. Non-catalog workloads keep `pr-568-baseline.txt`. PR #569 uses its separate two-addition manifest. Unrelated pull requests without a scoped pair use their own base. The combined identity/recovery v3 projections and native-original contract are verified separately in PR #570.
 
 Artifacts retain source hashes, overlay paths, migration checksums, runtime,

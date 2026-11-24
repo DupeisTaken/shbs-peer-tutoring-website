@@ -124,7 +124,15 @@ async function blockAll(except: string[] = []) {
 const shortages = () =>
   db.notification.findMany({ where: { title: "Pairing needs a room" } });
 
-beforeEach(async () => {
+const fixtureHookTimeout = 20_000;
+const fixtureControlTimeout = 30_000;
+let fixtureResetCount = 0;
+
+/** Reset and seed the allocation fixture inside one bounded transaction so a
+ * slow cold start or active lock always rolls back and drains before Vitest's
+ * hook deadline can advance to the next test. */
+async function resetFixture(statementTimeoutMs = 6_000) {
+  assertIsolatedTestDatabase(process.env.DATABASE_URL);
   termId = "allocation-term";
   tutorId = "allocation-tutor-01";
   otherTutorId = "allocation-tutor-02";
@@ -137,96 +145,183 @@ beforeEach(async () => {
   otherSlotId = "allocation-slot-04";
   learners = ["allocation-learner-01", "allocation-learner-02"];
 
+  const resetIndex = ++fixtureResetCount;
+  const started = performance.now();
+  let phaseStarted = started;
+  let phase = "acquire";
+  let tableCount = 0;
+  let committed = false;
+  let sqlState: string | null = null;
+  const timings: Record<string, number> = {};
+  const nextPhase = (next: string) => {
+    const now = performance.now();
+    timings[phase] = Math.round(now - phaseStarted);
+    phase = next;
+    phaseStarted = now;
+  };
+
   // Only fixture construction shares a transaction. Its real commit completes
   // before root callers run; test-owned commits, concurrency and triggers stay real.
-  await db.$transaction(async (tx) => {
-    const tables = await tx.$queryRaw<
-      { tablename: string }[]
-    >`SELECT tablename FROM pg_tables WHERE schemaname='public' AND tablename <> '_prisma_migrations'`;
-    await tx.$executeRawUnsafe(
-      "TRUNCATE " +
-        tables
-          .map((t) => '"' + t.tablename.replaceAll('"', '""') + '"')
-          .join(",") +
-        " CASCADE",
-    );
-    await tx.term.create({
-      data: {
-        id: termId,
-        name: "Allocation 26-27 Q1",
-        schoolYear: "26-27",
-        quarter: "Q1",
-        active: true,
+  // Keep the single schema-wide TRUNCATE: scheduling and calendar triggers also
+  // fire on empty tables. 2s acquisition + 10s transaction + up to 6s active
+  // statement drain leaves rollback headroom inside this fixture's 20s hook.
+  try {
+    await db.$transaction(
+      async (tx) => {
+        nextPhase("configure");
+        await tx.$executeRawUnsafe("SET LOCAL lock_timeout = '1s'");
+        await tx.$executeRawUnsafe(
+          `SET LOCAL statement_timeout = '${statementTimeoutMs}ms'`,
+        );
+        nextPhase("catalog");
+        const tables = await tx.$queryRaw<
+          { tablename: string }[]
+        >`SELECT tablename FROM pg_tables WHERE schemaname='public' AND tablename <> '_prisma_migrations'`;
+        tableCount = tables.length;
+        nextPhase("truncate");
+        await tx.$executeRawUnsafe(
+          "TRUNCATE " +
+            tables
+              .map((t) => '"' + t.tablename.replaceAll('"', '""') + '"')
+              .join(",") +
+            " CASCADE",
+        );
+        nextPhase("seed");
+        await tx.term.create({
+          data: {
+            id: termId,
+            name: "Allocation 26-27 Q1",
+            schoolYear: "26-27",
+            quarter: "Q1",
+            active: true,
+          },
+        });
+        await tx.tutor.createMany({
+          data: [
+            { id: tutorId, englishName: "Allocation Tutor", status: "ACTIVE" },
+            {
+              id: otherTutorId,
+              englishName: "Evidence Tutor",
+              status: "ACTIVE",
+            },
+            {
+              id: thirdTutorId,
+              englishName: "Independent blocker tutor",
+              status: "ACTIVE",
+            },
+          ],
+        });
+        await tx.user.createMany({
+          data: (
+            ["HEAD", "ADMIN", "COORDINATOR", "TUTOR", "VIEWER"] as const
+          ).map((role) => ({
+            id: `allocation-${role}`,
+            name: `Allocation ${role}`,
+            email: `allocation-${role}@example.test`,
+            role,
+            tutorId: role === "TUTOR" ? tutorId : null,
+          })),
+        });
+        await tx.subject.create({ data: { id: subjectId, name: subject } });
+        await tx.tutorQualification.createMany({
+          data: [tutorId, otherTutorId, thirdTutorId].map((id) => ({
+            tutorId: id,
+            subjectId,
+            approvedById: "allocation-ADMIN",
+          })),
+        });
+        await tx.qualificationGrant.createMany({
+          data: [tutorId, otherTutorId, thirdTutorId].map((id) => ({
+            tutorId: id,
+            sourceSubjectId: subjectId,
+            subjectId,
+          })),
+        });
+        await tx.room.createMany({
+          data: ["Allocation A", "Allocation B", "Allocation C"].map(
+            (name, index) => ({
+              id: rooms[index]!,
+              name,
+            }),
+          ),
+        });
+        await tx.timeSlot.createMany({
+          data: [
+            {
+              id: slotId,
+              label: "Sunday primary",
+              dayOfWeek: 7,
+              startMin: 600,
+              endMin: 660,
+            },
+            {
+              id: overlapId,
+              label: "Sunday overlap",
+              dayOfWeek: 7,
+              startMin: 630,
+              endMin: 690,
+            },
+            {
+              id: adjacentId,
+              label: "Sunday adjacent",
+              dayOfWeek: 7,
+              startMin: 660,
+              endMin: 720,
+            },
+            {
+              id: otherSlotId,
+              label: "Monday primary",
+              dayOfWeek: 1,
+              startMin: 600,
+              endMin: 660,
+            },
+          ],
+        });
+        await tx.tutee.createMany({
+          data: ["Allocation Learner A", "Allocation Learner B"].map(
+            (englishName, index) => ({
+              id: learners[index]!,
+              englishName,
+            }),
+          ),
+        });
+        nextPhase("commit");
       },
-    });
-    await tx.tutor.createMany({
-      data: [
-        { id: tutorId, englishName: "Allocation Tutor", status: "ACTIVE" },
-        { id: otherTutorId, englishName: "Evidence Tutor", status: "ACTIVE" },
-        { id: thirdTutorId, englishName: "Independent blocker tutor", status: "ACTIVE" },
-      ],
-    });
-    await tx.user.createMany({
-      data: (["HEAD", "ADMIN", "COORDINATOR", "TUTOR", "VIEWER"] as const).map((role) => ({
-        id: `allocation-${role}`,
-        name: `Allocation ${role}`,
-        email: `allocation-${role}@example.test`,
-        role,
-        tutorId: role === "TUTOR" ? tutorId : null,
-      })),
-    });
-    await tx.subject.create({ data: { id: subjectId, name: subject } });
-    await tx.tutorQualification.createMany({
-      data: [tutorId, otherTutorId, thirdTutorId].map((id) => ({
-        tutorId: id, subjectId, approvedById: "allocation-ADMIN",
-      })),
-    });
-    await tx.qualificationGrant.createMany({
-      data: [tutorId, otherTutorId, thirdTutorId].map((id) => ({
-        tutorId: id,
-        sourceSubjectId: subjectId,
-        subjectId,
-      })),
-    });
-    await tx.room.createMany({
-      data: ["Allocation A", "Allocation B", "Allocation C"].map((name, index) => ({
-        id: rooms[index]!, name,
-      })),
-    });
-    await tx.timeSlot.createMany({
-      data: [{
-        id: slotId,
-        label: "Sunday primary",
-        dayOfWeek: 7,
-        startMin: 600,
-        endMin: 660,
-      }, {
-        id: overlapId,
-        label: "Sunday overlap",
-        dayOfWeek: 7,
-        startMin: 630,
-        endMin: 690,
-      }, {
-        id: adjacentId,
-        label: "Sunday adjacent",
-        dayOfWeek: 7,
-        startMin: 660,
-        endMin: 720,
-      }, {
-        id: otherSlotId,
-        label: "Monday primary",
-        dayOfWeek: 1,
-        startMin: 600,
-        endMin: 660,
-      }],
-    });
-    await tx.tutee.createMany({
-      data: ["Allocation Learner A", "Allocation Learner B"].map((englishName, index) => ({
-        id: learners[index]!, englishName,
-      })),
-    });
-  }, { timeout: 20_000 });
-});
+      { maxWait: 2_000, timeout: 10_000 },
+    );
+    committed = true;
+  } catch (error: unknown) {
+    // Log only the stable SQLSTATE, never a connection string or fixture rows.
+    if (error instanceof Error)
+      sqlState = /Code: `([A-Z0-9]{5})`/.exec(error.message)?.[1] ?? null;
+    throw error instanceof Error
+      ? error
+      : new Error("Room-allocation fixture reset failed", { cause: error });
+  } finally {
+    const settledPhase = phase;
+    nextPhase("settled");
+    if (
+      process.env.CI ||
+      process.env.SHBS_PROFILE_ROOM_ALLOCATION_FIXTURE === "1"
+    ) {
+      console.info(
+        "[room-allocation fixture reset]",
+        JSON.stringify({
+          resetIndex,
+          committed,
+          phase: settledPhase,
+          sqlState,
+          tableCount,
+          statementTimeoutMs,
+          timings,
+          totalMs: Math.round(performance.now() - started),
+        }),
+      );
+    }
+  }
+}
+
+beforeEach(() => resetFixture(), fixtureHookTimeout);
 
 afterAll(() => db.$disconnect());
 
@@ -1944,3 +2039,40 @@ it("validates reactivated retained group coverage but allows unrelated edits to 
     status: "INACTIVE", notes: "Unrelated profile correction",
   });
 });
+
+it(
+  "bounded fixture reset rolls back before the hook deadline on an active table lock and leaves the next reset clean",
+  async () => {
+    let releaseLock!: () => void;
+    let lockAcquired!: () => void;
+    const released = new Promise<void>((resolve) => {
+      releaseLock = resolve;
+    });
+    const acquired = new Promise<void>((resolve) => {
+      lockAcquired = resolve;
+    });
+    const holder = db.$transaction(
+      async (tx) => {
+        await tx.$queryRaw`SELECT id FROM "Room" LIMIT 1 FOR UPDATE`;
+        lockAcquired();
+        await released;
+      },
+      { maxWait: 2_000, timeout: 10_000 },
+    );
+    try {
+      await acquired;
+      const started = performance.now();
+      await expect(resetFixture()).rejects.toThrow(/55P03|lock timeout/i);
+      expect(performance.now() - started).toBeLessThan(fixtureHookTimeout);
+    } finally {
+      releaseLock();
+      await holder;
+    }
+    await resetFixture();
+    expect(await db.room.count()).toBe(3);
+    expect(await db.timeSlot.count()).toBe(4);
+    expect(await db.tutor.count()).toBe(3);
+    expect(await db.tutee.count()).toBe(2);
+  },
+  fixtureControlTimeout,
+);

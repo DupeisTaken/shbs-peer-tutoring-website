@@ -99,9 +99,16 @@ work. Provider-visible prepare/partition steps preserve per-partition execution
 history and authenticated retries inside a grouped check. Lowering `max-parallel`
 reduces peak demand without changing the 11 checks. Narrower triggers
 or manual-only profiling save work but remove automatic comparison coverage and
-need an explicit policy decision. [Issue #744](https://github.com/DupeisTaken/shbs-peer-tutoring-website/issues/744)
-tracks reviewed admission for unrelated dependency changes; a skipped or
-inapplicable comparison must remain distinct from a measured PASS.
+need an explicit policy decision. Reviewed non-scheduling dependency changes can
+commit a PR-scoped `.github/scheduling-profile-manifests/pr-<number>-admission.json`
+manifest (or pass `admission-manifest` on manual dispatch): early matrix admission
+independently verifies that zero scheduling-relevant files and zero packages in the
+transitive scheduling dependency closure changed, emitting a `NOT_APPLICABLE`
+receipt (`measured: false`) distinct from a measured `PASS` and skipping workers
+and aggregation. Any scheduling-relevant dependency or code change fails closed at
+admission (`BLOCKED`) without downstream `Missing PROFILE_CAMPAIGN` noise and
+requires an independently reviewed immutable control with compatible locked
+dependencies.
 
 - Use subagents extensively for independent investigation, implementation and
   review. Give each agent a distinct scope and acceptance criteria. The lead

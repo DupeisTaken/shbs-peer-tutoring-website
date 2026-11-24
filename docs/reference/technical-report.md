@@ -260,7 +260,10 @@ final PNG over white and pale backgrounds before full/half-size decoding.
 Latin labels and URLs use the website's Geist Sans from the installed `geist`
 package; locally packaged Noto Sans SC supplies the Chinese glyph fallback.
 Both font files are traced into standalone output, avoiding runtime font downloads
-or host font dependencies. The 44 px title and 26 px URL establish a clear type
+or host font dependencies. `src/server/public-qr/render.tsx` reads each packaged
+font via a direct static literal `process.cwd()` path so Turbopack and NFT trace
+only those two files instead of broadening to local ignored evidence directories.
+The 44 px title and 26 px URL establish a clear type
 hierarchy; compact gaps outside the embedded quiet zone connect the footer to
 the code. Long URLs wrap without changing the
 encoded URL. The Program recruitment panel's native download links are outside

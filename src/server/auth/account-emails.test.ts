@@ -28,6 +28,7 @@ import {
 } from "./password-reset";
 import { requestEmailChange, confirmEmailChange } from "./email-change";
 import { deliverNotifications } from "~/server/email/notification-delivery";
+import { assertIsolatedTestDatabase } from "~/test/database-guard";
 import {
   startViewerSignup,
   verifyViewerCode,
@@ -63,11 +64,8 @@ async function verifiedAlias() {
 }
 
 beforeEach(async () => {
-  const url = new URL(process.env.DATABASE_URL!);
-  if (
-    !["localhost", "127.0.0.1"].includes(url.hostname) ||
-    url.pathname !== "/shbs_shipping_test"
-  )
+  assertIsolatedTestDatabase(process.env.DATABASE_URL);
+  if (new URL(process.env.DATABASE_URL!).pathname !== "/shbs_shipping_test")
     throw new Error("Use the isolated local shbs_shipping_test database.");
   userId = `email54-${++serial}`;
   headId = `${userId}-admin`;
@@ -107,35 +105,41 @@ beforeEach(async () => {
   });
 });
 afterAll(async () => {
-  await db.$transaction(async (tx) => {
-    const fixtureUsers = { id: { startsWith: "email54-" } };
-    const fixturePeople = await tx.person.findMany({
-      where: { primaryUserId: { startsWith: "email54-" } },
-      select: { id: true },
+  try {
+    assertIsolatedTestDatabase(process.env.DATABASE_URL);
+    if (new URL(process.env.DATABASE_URL!).pathname !== "/shbs_shipping_test")
+      throw new Error("Use the isolated local shbs_shipping_test database.");
+    await db.$transaction(async (tx) => {
+      const fixtureUsers = { id: { startsWith: "email54-" } };
+      const fixturePeople = await tx.person.findMany({
+        where: { primaryUserId: { startsWith: "email54-" } },
+        select: { id: true },
+      });
+      const personIds = fixturePeople.map(({ id }) => id);
+      // Profile writes create a restricted primary-account FK. Release only this
+      // suite's references; production deletion must retain its RESTRICT boundary.
+      await tx.person.updateMany({
+        where: { id: { in: personIds } },
+        data: { primaryUserId: null },
+      });
+      await tx.user.deleteMany({ where: fixtureUsers });
+      // Delete only exclusive fixture metadata after its accounts are gone. Any
+      // surviving participant, receipt or grouped identity keeps its Person row.
+      await tx.person.deleteMany({
+        where: {
+          id: { in: personIds },
+          users: { none: {} },
+          tutors: { none: {} },
+          tutees: { none: {} },
+          receipts: { none: {} },
+          mergedGroups: { none: {} },
+          mergedIntoId: null,
+        },
+      });
     });
-    const personIds = fixturePeople.map(({ id }) => id);
-    // Profile writes create a restricted primary-account FK. Release only this
-    // suite's references; production deletion must retain its RESTRICT boundary.
-    await tx.person.updateMany({
-      where: { id: { in: personIds } },
-      data: { primaryUserId: null },
-    });
-    await tx.user.deleteMany({ where: fixtureUsers });
-    // Delete only exclusive fixture metadata after its accounts are gone. Any
-    // surviving participant, receipt or grouped identity keeps its Person row.
-    await tx.person.deleteMany({
-      where: {
-        id: { in: personIds },
-        users: { none: {} },
-        tutors: { none: {} },
-        tutees: { none: {} },
-        receipts: { none: {} },
-        mergedGroups: { none: {} },
-        mergedIntoId: null,
-      },
-    });
-  });
-  await db.$disconnect();
+  } finally {
+    await db.$disconnect();
+  }
 });
 
 it.each(["en", "zh"] as const)("uses the authenticated account's %s preference for secondary proof and both recovery destinations", async (locale) => {

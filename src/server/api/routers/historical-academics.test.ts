@@ -3,6 +3,7 @@ import type { Session } from "next-auth";
 vi.mock("~/server/auth", () => ({ auth: async () => null }));
 import { createCaller } from "../root";
 import { db } from "~/server/db";
+import { assertIsolatedTestDatabase } from "~/test/database-guard";
 import { recordCsv } from "~/lib/record-transfer";
 import { applyUndo } from "~/server/audit/log";
 import {
@@ -65,11 +66,8 @@ const file = (name: string, rows: Record<string, unknown>[]) => ({
 });
 
 async function reset() {
-  const url = new URL(process.env.DATABASE_URL!);
-  if (
-    !["localhost", "127.0.0.1"].includes(url.hostname) ||
-    url.pathname !== "/shbs_shipping_test"
-  )
+  assertIsolatedTestDatabase(process.env.DATABASE_URL);
+  if (new URL(process.env.DATABASE_URL!).pathname !== "/shbs_shipping_test")
     throw new Error(
       "Historical correction tests require isolated loopback shbs_shipping_test",
     );
