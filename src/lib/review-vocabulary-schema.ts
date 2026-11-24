@@ -7,6 +7,23 @@ export const reviewSchema = {
     enums: {},
     fields: ["entity", "recordId", "importedAt"],
   },
+  ArchiveProvenanceReceipt: {
+    references: {},
+    enums: {},
+    fields: [
+      "id",
+      "actorId",
+      "clientKey",
+      "inputHash",
+      "planHash",
+      "fingerprint",
+      "reason",
+      "channel",
+      "evidence",
+      "subjects",
+      "createdAt",
+    ],
+  },
   SchedulingMaintenanceState: {
     references: {},
     enums: {},

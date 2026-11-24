@@ -4066,6 +4066,7 @@
       },
       "entities": {
         "ImportedRecordProvenance": "インポートした過去の記録の来歴",
+        "ArchiveProvenanceReceipt": "アーカイブ来歴照合の受領記録",
         "SchedulingMaintenanceState": "スケジュール保守状態",
         "SchedulingDirtyEvent": "スケジュール無効化イベント",
         "PersonPartitionReceipt": "本人情報の分離記録",

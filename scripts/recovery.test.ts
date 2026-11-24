@@ -29,6 +29,13 @@ import {
   type SiteDependencies,
   type ToolRequest,
 } from "../src/server/recovery/operator-site";
+import {
+  extractProvenanceCandidatesFromFiles,
+  extractProvenanceCandidatesFromPath,
+  computeSelectedColumnsHash,
+} from "../src/server/recovery/operator-provenance";
+import { createRecordArchive } from "../src/lib/record-transfer-archive";
+import { recordCsv } from "../src/lib/record-transfer";
 
 const hash = "a".repeat(64);
 const sourceUrl = "postgresql://site:secret-source@127.0.0.1:5432/current_site";
@@ -920,5 +927,285 @@ void test("real subprocess adapter executes a fake pg tool with literal argv and
     ),
     (error) =>
       error instanceof Error && error.message === "POSTGRES_TOOL_FAILED",
+  );
+});
+
+void test("provenance CLI commands require strict flags, hashes, and UUID retry keys without role impersonation", () => {
+  assert.match(RECOVERY_HELP, /provenance extract --input/);
+  assert.match(RECOVERY_HELP, /provenance preview --candidates/);
+  assert.match(RECOVERY_HELP, /provenance compare --plan/);
+  assert.match(RECOVERY_HELP, /provenance apply --plan/);
+  assert.match(RECOVERY_HELP, /provenance receipt --receipt-id/);
+
+  assert.deepEqual(
+    parseRecoveryCommand([
+      "provenance",
+      "extract",
+      "--input",
+      "archive.zip",
+      "--out",
+      "candidates.json",
+      "--evidence-label",
+      "synthetic-pretracking-2024",
+      "--revision",
+      "d0d6d00d",
+    ]),
+    {
+      kind: "provenance.extract",
+      input: "archive.zip",
+      out: "candidates.json",
+      evidenceLabel: "synthetic-pretracking-2024",
+      revision: "d0d6d00d",
+    },
+  );
+  assert.deepEqual(
+    parseRecoveryCommand([
+      "provenance",
+      "preview",
+      "--candidates",
+      "candidates.json",
+      "--candidates-hash",
+      hash,
+      "--actor-id",
+      "head_1",
+      "--revision",
+      "d0d6d00d",
+      "--out",
+      "plan.json",
+    ]),
+    {
+      kind: "provenance.preview",
+      candidates: "candidates.json",
+      candidatesHash: hash,
+      actorId: "head_1",
+      revision: "d0d6d00d",
+      out: "plan.json",
+    },
+  );
+  assert.deepEqual(
+    parseRecoveryCommand([
+      "provenance",
+      "compare",
+      "--plan",
+      "plan.json",
+      "--plan-hash",
+      hash,
+      "--actor-id",
+      "head_1",
+    ]),
+    {
+      kind: "provenance.compare",
+      plan: "plan.json",
+      planHash: hash,
+      actorId: "head_1",
+    },
+  );
+  const clientKey = "11111111-1111-4111-8111-111111111111";
+  assert.deepEqual(
+    parseRecoveryCommand([
+      "provenance",
+      "apply",
+      "--plan",
+      "plan.json",
+      "--plan-hash",
+      hash,
+      "--actor-id",
+      "head_1",
+      "--reason",
+      "Reviewed synthetic pretracking archive",
+      "--client-key",
+      clientKey,
+    ]),
+    {
+      kind: "provenance.apply",
+      plan: "plan.json",
+      planHash: hash,
+      actorId: "head_1",
+      reason: "Reviewed synthetic pretracking archive",
+      clientKey,
+    },
+  );
+  assert.deepEqual(
+    parseRecoveryCommand([
+      "provenance",
+      "receipt",
+      "--receipt-id",
+      "apr_1",
+      "--actor-id",
+      "head_1",
+    ]),
+    {
+      kind: "provenance.receipt",
+      receiptId: "apr_1",
+      actorId: "head_1",
+    },
+  );
+
+  for (const [argv, expected] of [
+    [
+      [
+        "provenance",
+        "preview",
+        "--candidates",
+        "c.json",
+        "--candidates-hash",
+        "short",
+        "--actor-id",
+        "head_1",
+      ],
+      "INVALID_CANDIDATES_HASH",
+    ],
+    [
+      [
+        "provenance",
+        "apply",
+        "--plan",
+        "p.json",
+        "--plan-hash",
+        hash,
+        "--actor-id",
+        "head_1",
+        "--role",
+        "HEAD",
+        "--reason",
+        "x",
+        "--client-key",
+        clientKey,
+      ],
+      "INVALID_OR_DUPLICATE_OPTION",
+    ],
+    [
+      [
+        "provenance",
+        "apply",
+        "--plan",
+        "p.json",
+        "--plan-hash",
+        hash,
+        "--actor-id",
+        "head_1",
+        "--reason",
+        "x",
+        "--client-key",
+        "not-a-uuid",
+      ],
+      "INVALID_CLIENT_KEY",
+    ],
+  ] as const) {
+    assert.throws(
+      () => parseRecoveryCommand(argv),
+      (error) => error instanceof Error && error.message === expected,
+    );
+  }
+});
+
+void test("offline provenance extraction builds privacy-preserving exact scalar and composite candidates from ZIP/CSV", async (t) => {
+  const dir = await temporary(t);
+  const zipBytes = createRecordArchive([
+    {
+      name: "User.csv",
+      text: recordCsv(
+        ["id", "email", "name"],
+        [{ id: "u1", email: "private-user@example.test", name: "Private Name" }],
+      ),
+    },
+    {
+      name: "Session.csv",
+      text: recordCsv(
+        ["id", "tutorId", "shCount", "comments"],
+        [
+          {
+            id: "sess_1",
+            tutorId: "tut_1",
+            shCount: 1.5,
+            comments: "SENSITIVE-SESSION-NOTE",
+          },
+        ],
+      ),
+    },
+    {
+      name: "SessionTutee.csv",
+      text: recordCsv(
+        ["sessionId", "tuteeId", "status"],
+        [{ sessionId: "sess_1", tuteeId: "tutee_1", status: "PRESENT" }],
+      ),
+    },
+    {
+      name: "PatrolCreditWindow.csv",
+      text: recordCsv(
+        ["crewUserId", "windowStart", "patrolId"],
+        [
+          {
+            crewUserId: "crew_1",
+            windowStart: "2024-10-01T10:00:00Z",
+            patrolId: "pat_1",
+          },
+        ],
+      ),
+    },
+  ]);
+  const zipPath = join(dir, "pretracking.zip");
+  await writeFile(zipPath, zipBytes);
+
+  const extracted = await extractProvenanceCandidatesFromPath(zipPath, {
+    evidenceLabel: "synthetic-2024-fall-zip",
+    sourceRevision: "d0d6d00d",
+  });
+  assert.equal(extracted.evidenceLabel, "synthetic-2024-fall-zip");
+  assert.equal(extracted.sourceRevision, "d0d6d00d");
+  assert.deepEqual(extracted.extractedFrom, {
+    format: "zip",
+    fileCount: 4,
+    skippedTables: ["User"],
+  });
+  assert.equal(extracted.candidates.length, 3);
+  // Zero PII leaks from CSV cells into the extracted candidate artifact.
+  const serialized = JSON.stringify(extracted);
+  assert.ok(!serialized.includes("SENSITIVE-SESSION-NOTE"));
+  assert.ok(!serialized.includes("private-user@example.test"));
+  assert.ok(!serialized.includes("Private Name"));
+
+  const sessionCandidate = extracted.candidates.find(
+    (c) => c.entity === "Session",
+  )!;
+  assert.deepEqual(sessionCandidate.key, { id: "sess_1" });
+  assert.equal(
+    sessionCandidate.expectedRowHash,
+    computeSelectedColumnsHash(
+      "Session",
+      {
+        id: "sess_1",
+        tutorId: "tut_1",
+        shCount: 1.5,
+        comments: "SENSITIVE-SESSION-NOTE",
+      },
+      ["comments", "id", "shCount", "tutorId"],
+    ),
+  );
+  const windowCandidate = extracted.candidates.find(
+    (c) => c.entity === "PatrolCreditWindow",
+  )!;
+  assert.deepEqual(windowCandidate.key, {
+    crewUserId: "crew_1",
+    windowStart: "2024-10-01T10:00:00.000Z",
+  });
+
+  // Rejects unsupported/metadata tables such as ImportedRecordProvenance.csv.
+  assert.throws(
+    () =>
+      extractProvenanceCandidatesFromFiles(
+        [
+          {
+            name: "ImportedRecordProvenance.csv",
+            text: recordCsv(
+              ["entity", "recordId"],
+              [{ entity: "Session", recordId: "sess_1" }],
+            ),
+          },
+        ],
+        { format: "csv", evidenceLabel: "bad" },
+      ),
+    (error) =>
+      error instanceof Error && error.message === "UNSUPPORTED_IMPORT_TABLE",
   );
 });

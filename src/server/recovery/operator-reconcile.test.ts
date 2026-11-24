@@ -204,6 +204,89 @@ describe("operator security reconciliation evidence", () => {
     ).toBe(false);
     expect(JSON.stringify(current.state)).not.toContain("archived-session");
   });
+  it("fingerprints archive provenance receipts without exposing retry keys and refuses divergence", async () => {
+    const snapshot = async (
+      known: boolean,
+      records: Record<string, unknown>[],
+    ) => {
+      const queries: string[] = [];
+      const db: OperatorSql = {
+        async query(sql) {
+          queries.push(sql);
+          if (sql.includes("information_schema"))
+            return {
+              rows: [
+                ...reviewedRecoverySchemaMetadata.identityColumns,
+                ...(known
+                  ? [
+                      ...reviewedRecoverySchemaMetadata.importProvenanceColumns,
+                      ...reviewedRecoverySchemaMetadata.archiveProvenanceReceiptColumns,
+                    ]
+                  : []),
+              ],
+            };
+          if (sql.includes("pg_enum"))
+            return { rows: reviewedRecoverySchemaMetadata.enums };
+          if (sql.includes("pg_trigger"))
+            return {
+              rows: [
+                {
+                  tgenabled: "O",
+                  tgtype: 19,
+                  proname: "advance_account_session_version",
+                },
+              ],
+            };
+          if (sql.includes('FROM public."ArchiveProvenanceReceipt"'))
+            return { rows: records.map((row) => ({ row })) };
+          if (sql.includes("count(*)")) return { rows: [{ count: "0" }] };
+          return { rows: [] };
+        },
+        async close() {
+          throw new Error("Caller owns the SQL connection");
+        },
+      };
+      return { state: await readReconciliationSnapshot(db), queries };
+    };
+    const baseRow = {
+      id: "apr_1",
+      actorId: "head_1",
+      clientKey: "11111111-1111-4111-8111-111111111111",
+      inputHash: "a".repeat(64),
+      planHash: "b".repeat(64),
+      fingerprint: "c".repeat(64),
+      reason: "Synthetic archive reconciliation",
+      channel: "OPERATOR",
+      evidence: { version: 1 },
+      subjects: [{ entity: "Session", recordId: "sess_1" }],
+      createdAt: "2026-11-24T00:00:00Z",
+    };
+    const current = await snapshot(true, [baseRow]);
+    const sameAuthorityDifferentRetryKey = await snapshot(true, [
+      {
+        ...baseRow,
+        clientKey: "22222222-2222-4222-8222-222222222222",
+        inputHash: "d".repeat(64),
+      },
+    ]);
+    const restoredMissing = await snapshot(true, []);
+    expect(current.state.authorityFingerprints).toEqual(
+      sameAuthorityDifferentRetryKey.state.authorityFingerprints,
+    );
+    expect(current.state.authorityFingerprints).not.toEqual(
+      restoredMissing.state.authorityFingerprints,
+    );
+    expect(() =>
+      validateSecurityIdentityClosure(current.state, restoredMissing.state),
+    ).toThrow("CURRENT_AUTHORITY_REQUIRES_DOMAIN_RECONCILIATION");
+    const old = await snapshot(false, []);
+    expect(
+      old.queries.some((sql) =>
+        sql.includes('FROM public."ArchiveProvenanceReceipt"'),
+      ),
+    ).toBe(false);
+    expect(JSON.stringify(current.state)).not.toContain("apr_1");
+  });
   it("fingerprints retained decline authority and reads reviewed older backups without a nonexistent table", async () => {
     const snapshot = async (
       known: boolean,
