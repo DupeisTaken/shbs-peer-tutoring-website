@@ -3025,7 +3025,17 @@
     "newer": "Más recientes",
     "older": "Anteriores",
     "details": "Detalles del cambio",
-    "patrolChanged": "Patrol changed. Reload before correcting it."
+    "patrolChanged": "Patrol changed. Reload before correcting it.",
+    "patrolRooms": "las opciones de salas de patrulla",
+    "reloadPatrol": "Recargar borrador de patrulla",
+    "patrolReloadFailed": "No se pudieron cargar la patrulla ni las opciones de salas más recientes. Tu borrador sigue aquí.",
+    "patrolUnavailable": "Esta patrulla ya no aparece en esta página del historial. Tu borrador sigue aquí.",
+    "patrolSaved": "Corrección guardada. Actualizando el historial de patrullas…",
+    "patrolSavedRefreshFailed": "La corrección se guardó, pero no se pudo actualizar el historial de patrullas. Intenta actualizar.",
+    "patrolQueuedRefreshFailed": "La corrección se envió a revisión, pero no se pudo actualizar el historial de patrullas. Intenta actualizar.",
+    "invalidPatrolTime": "Introduce una hora de observación válida.",
+    "patrolRoomUnavailable": "{room} (no disponible)",
+    "patrolRoomRequired": "Elige una sala disponible para cada observación antes de guardar."
   },
   "emailChange": {
     "title": "Cambiar correo de la cuenta",
@@ -4916,7 +4926,13 @@
       "ATTEMPT": "Intento sin aplicar cambios"
     },
     "unnamedAccount": "Unnamed account",
-    "formerAccount": "Former account"
+    "formerAccount": "Former account",
+    "filterOptions": "las opciones de filtro",
+    "retryReads": "Reintentar lecturas de auditoría",
+    "loadingReads": "Cargando el historial de auditoría y las opciones de filtro…",
+    "loadFailed": "No se pudo cargar el historial de auditoría ni las opciones de filtro.",
+    "refreshFailed": "No se pudo actualizar el historial de auditoría ni las opciones de filtro. Se conservan los filtros sin aplicar.",
+    "accessDenied": "Ya no tienes acceso al historial de auditoría."
   },
   "userMultiFilters": {
     "all": "All",
@@ -5325,7 +5341,13 @@
     "importTooLarge": "Elige un archivo de hasta 1 MB.",
     "importEmpty": "El archivo no contiene materias.",
     "importFileType": "Elige un archivo .json o .csv.",
-    "importInvalid": "No se pudo importar el archivo: {detail}"
+    "importInvalid": "No se pudo importar el archivo: {detail}",
+    "retry": "Reintentar lecturas del catálogo",
+    "loadFailed": "No se pudo cargar el catálogo de materias.",
+    "refreshFailed": "No se pudo actualizar el catálogo de materias. Tus borradores se conservan; reintenta antes de hacer cambios.",
+    "accessDenied": "Ya no tienes acceso al catálogo de materias.",
+    "savedRefreshing": "Cambios guardados. Actualizando el catálogo…",
+    "savedRefreshFailed": "Cambios guardados, pero no se pudo actualizar el catálogo de materias. Intenta actualizar."
   },
   "recruitment": {
     "preview": "Vista previa de solo lectura",

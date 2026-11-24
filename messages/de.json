@@ -3025,7 +3025,17 @@
     "newer": "Neuere",
     "older": "Ältere",
     "details": "Änderungsdetails",
-    "patrolChanged": "Patrol changed. Reload before correcting it."
+    "patrolChanged": "Patrol changed. Reload before correcting it.",
+    "patrolRooms": "die Kontrollraum-Auswahl",
+    "reloadPatrol": "Kontrollentwurf neu laden",
+    "patrolReloadFailed": "Aktuelle Kontrolle und Raumauswahl konnten nicht geladen werden. Dein Entwurf bleibt erhalten.",
+    "patrolUnavailable": "Diese Kontrolle befindet sich nicht mehr auf dieser Verlaufsseite. Dein Entwurf bleibt erhalten.",
+    "patrolSaved": "Korrektur gespeichert. Kontrollverlauf wird aktualisiert…",
+    "patrolSavedRefreshFailed": "Korrektur gespeichert, aber der Kontrollverlauf konnte nicht aktualisiert werden. Versuche es erneut.",
+    "patrolQueuedRefreshFailed": "Korrektur zur Prüfung eingereicht, aber der Kontrollverlauf konnte nicht aktualisiert werden. Versuche es erneut.",
+    "invalidPatrolTime": "Gib eine gültige Beobachtungszeit ein.",
+    "patrolRoomUnavailable": "{room} (nicht verfügbar)",
+    "patrolRoomRequired": "Wähle vor dem Speichern für jede Beobachtung einen verfügbaren Raum aus."
   },
   "emailChange": {
     "title": "Konto-E-Mail ändern",
@@ -4916,7 +4926,13 @@
       "ATTEMPT": "Nicht angewendeter Versuch"
     },
     "unnamedAccount": "Unnamed account",
-    "formerAccount": "Former account"
+    "formerAccount": "Former account",
+    "filterOptions": "die Filteroptionen",
+    "retryReads": "Prüfprotokoll erneut laden",
+    "loadingReads": "Prüfprotokoll und Filteroptionen werden geladen…",
+    "loadFailed": "Prüfprotokoll oder Filteroptionen konnten nicht geladen werden.",
+    "refreshFailed": "Prüfprotokoll oder Filteroptionen konnten nicht aktualisiert werden. Nicht angewendete Filter bleiben erhalten.",
+    "accessDenied": "Du hast keinen Zugriff mehr auf das Prüfprotokoll."
   },
   "userMultiFilters": {
     "all": "All",
@@ -5325,7 +5341,13 @@
     "importTooLarge": "Choose a file smaller than 1 MB.",
     "importEmpty": "The file contains no subjects.",
     "importFileType": "Choose a .json or .csv file.",
-    "importInvalid": "Could not import file: {detail}"
+    "importInvalid": "Could not import file: {detail}",
+    "retry": "Katalog erneut laden",
+    "loadFailed": "Der Fächerkatalog konnte nicht geladen werden.",
+    "refreshFailed": "Der Fächerkatalog konnte nicht aktualisiert werden. Deine Entwürfe bleiben erhalten; lade vor Änderungen neu.",
+    "accessDenied": "Du hast keinen Zugriff mehr auf den Fächerkatalog.",
+    "savedRefreshing": "Änderungen gespeichert. Katalog wird aktualisiert…",
+    "savedRefreshFailed": "Änderungen gespeichert, aber der Fächerkatalog konnte nicht aktualisiert werden. Versuche es erneut."
   },
   "recruitment": {
     "preview": "Schreibgeschützte Formularvorschau",

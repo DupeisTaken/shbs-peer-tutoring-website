@@ -983,7 +983,9 @@ what was recorded for that event, rather than today's live record.
 Known fields and states use localized labels, with technical paths available below
 them. Added and removed records remain distinct from edits. Attempt records show
 failed or denied outcomes without implying a successful change; the kind filter
-also supports attempts and reversals.
+also supports attempts and reversals. If the audit list or filter options fail to
+load or refresh, use their separate read-only Retry controls without losing active
+filters or drafts.
 
 ## Administrators
 
@@ -1915,7 +1917,7 @@ Disabling notifications at program level preserves preferences and cancels queue
 
 ## Renewed policy acceptance
 
-On the tutor dashboard, select **current policy** in the accepted-policy message to reopen the latest published policy in a read-only popup. It refreshes on every opening and displays your selected translation, falling back to English. Close it with the close button, Escape, or the backdrop. Viewing does not record acceptance; a newly published revision still requires the usual consent flow.
+On the tutor dashboard, select **current policy** in the accepted-policy message to reopen the latest published policy in a read-only popup. It refreshes on every opening and displays your selected translation, falling back to English. Close it with the close button, Escape, or the backdrop. Viewing does not record acceptance; a newly published revision still requires the usual consent flow. If the policy status cannot be loaded or refreshed, use **Refresh** to retry reading without accepting or losing a typed signature.
 
 For both tutor and tutee policies, scroll to the bottom inside the policy text box before checking the agreement. The checkbox is disabled and its label stays gray until you reach the end; it never checks itself. You can scroll using a mouse, touch, or the keyboard after focusing the policy box. A short policy that is fully visible unlocks immediately. Scrolling back up keeps agreement available during that review. Retry, reopening the popup, or switching to another policy revision or translation starts a fresh review.
 

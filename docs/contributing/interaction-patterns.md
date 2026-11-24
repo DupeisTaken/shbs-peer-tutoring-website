@@ -182,13 +182,14 @@ the owned reads succeed again. Denial decisions reconcile before children commit
 cache eviction and review revocation remain effects owned by the feature. Hide
 cached denied content in that same owner, and drive eviction from the retained
 latch if clearing a filter can change the failed query key before commit.
-When denial resets query inputs, opt that read into a stable named slot, for example
-`useSessionAccessDenied({ ...query, denialKey: "audit-log" }, options)`. Keep the
-name fixed across filter changes and independent of query-array position. With
-query timestamps available, only a success newer than that slot's denial can
-release it; an older cached default scope cannot. Unrelated successful reads need
-no extra refresh, and callers without a named slot retain the ordinary recovery
-contract. The helper never grants permission or replaces server checks.
+Pass a stable `denialKey` and `queryKey` (via `trpcQueryKey`) so denial recovery
+tracks monotonic `QueryClient` read receipts (`installSessionReadReceipts`) rather
+than wall-clock timestamps: backward clock skew, equal timestamps, older cached
+default scopes, local `setQueryData` writes, and pre-denial in-flight fetches
+cannot release an active denial latch, while a genuine fresh read recovers cleanly.
+Unrelated successful reads need no extra refresh, and callers without a named slot
+retain the ordinary recovery contract. The helper never grants permission or
+replaces server checks.
 
 Apply-only filters save their committed read criteria, not the unfinished input.
 Audit reconstructs timezone-aware query dates from date-control strings; its form

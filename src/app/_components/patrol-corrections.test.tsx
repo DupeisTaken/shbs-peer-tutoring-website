@@ -1,6 +1,12 @@
 /** @vitest-environment jsdom */
 import { afterEach, expect, it, vi } from "vitest";
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import {
+  act,
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+} from "@testing-library/react";
 import { NextIntlClientProvider } from "next-intl";
 import messages from "../../../messages/en.json";
 import { PatrolCorrections } from "./patrol-corrections";
@@ -34,7 +40,20 @@ const { mutate, row, state } = vi.hoisted(() => ({
 }));
 vi.mock("~/trpc/react", () => ({
   api: {
-    useUtils: () => ({}),
+    useUtils: () => ({
+      admin: {
+        rooms: {
+          fetch: async () => [{ id: "room", name: "Synthetic room" }],
+        },
+      },
+      corrections: {
+        patrols: { invalidate: async () => undefined },
+        patrolById: {
+          invalidate: async () => undefined,
+          fetch: async () => row,
+        },
+      },
+    }),
     admin: {
       rooms: {
         useQuery: () => ({ data: [{ id: "room", name: "Synthetic room" }] }),
@@ -59,7 +78,9 @@ vi.mock("~/trpc/react", () => ({
           };
         },
       },
-      correctPatrol: { useMutation: () => ({ mutate, isPending: false }) },
+      correctPatrol: {
+        useMutation: () => ({ mutate, mutateAsync: mutate, isPending: false }),
+      },
     },
   },
 }));
@@ -97,7 +118,7 @@ it.each([
   },
 );
 
-it("labels a stored repeated-hour instant correctly and updates the offset when editing its date", () => {
+it("labels a stored repeated-hour instant correctly and updates the offset when editing its date", async () => {
   const { container } = render(
     <NextIntlClientProvider
       locale="en"
@@ -112,7 +133,9 @@ it("labels a stored repeated-hour instant correctly and updates the offset when 
   fireEvent(details, new Event("toggle"));
   const input = screen.getByLabelText<HTMLInputElement>(/EST \(GMT-05:00\)/);
   expect(input.value).toBe("2026-11-01T01:30");
-  fireEvent.submit(container.querySelector("form")!);
+  await act(async () => {
+    fireEvent.submit(container.querySelector("form")!);
+  });
   expect(mutate).toHaveBeenLastCalledWith(
     expect.objectContaining({
       observations: [
@@ -122,9 +145,15 @@ it("labels a stored repeated-hour instant correctly and updates the offset when 
       ],
     }),
   );
-  fireEvent.change(input, { target: { value: "2026-07-15T09:00" } });
-  expect(screen.getByLabelText(/EDT \(GMT-04:00\)/)).toBe(input);
-  fireEvent.submit(container.querySelector("form")!);
+  details.open = true;
+  fireEvent(details, new Event("toggle"));
+  const reloadedInput =
+    screen.getByLabelText<HTMLInputElement>(/EST \(GMT-05:00\)/);
+  fireEvent.change(reloadedInput, { target: { value: "2026-07-15T09:00" } });
+  expect(screen.getByLabelText(/EDT \(GMT-04:00\)/)).toBe(reloadedInput);
+  await act(async () => {
+    fireEvent.submit(container.querySelector("form")!);
+  });
   expect(mutate).toHaveBeenLastCalledWith(
     expect.objectContaining({
       observations: [
