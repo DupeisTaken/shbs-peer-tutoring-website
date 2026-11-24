@@ -23,11 +23,13 @@ const state = vi.hoisted(() => ({
   error: "",
   success: false,
   excused: false,
+  status: null as null | "PRESENT" | "EXCUSED_ABSENT" | "UNEXCUSED_ABSENT" | "EXEMPT",
   cancelError: "",
   canExcuse: true,
   meetingDate: new Date("2026-10-10T00:00:00Z"),
   serverNow: undefined as Date | undefined,
   onSuccess: async (): Promise<void> => undefined,
+  onError: (_err?: { data?: { code?: string } }): void => undefined,
 }));
 vi.mock("~/trpc/react", () => ({
   api: {
@@ -75,7 +77,7 @@ vi.mock("~/trpc/react", () => ({
                       excused: state.excused,
                       canExcuse: state.canExcuse,
                       upcoming: true,
-                      status: null,
+                      status: state.status,
                       serverNow: state.serverNow,
                     },
                   ],
@@ -83,8 +85,12 @@ vi.mock("~/trpc/react", () => ({
         },
       },
       excuseMeeting: {
-        useMutation: (options: { onSuccess: () => Promise<void> }) => {
+        useMutation: (options: {
+          onSuccess: () => Promise<void>;
+          onError?: (err: { data?: { code?: string } }) => void;
+        }) => {
           state.onSuccess = options.onSuccess;
+          state.onError = (err) => options.onError?.(err ?? {});
           return {
             mutate: state.mutate,
             isPending: state.pending,
@@ -112,6 +118,7 @@ afterEach(() => {
   state.error = "";
   state.success = false;
   state.excused = false;
+  state.status = null;
   state.cancelError = "";
   state.canExcuse = true;
   state.meetingDate = new Date("2026-10-10T00:00:00Z");
@@ -351,3 +358,34 @@ it.each([
     expect(state.cancel).not.toHaveBeenCalled();
   },
 );
+
+it("renders staff-recorded attendance on an upcoming meeting as a read-only status badge and refreshes on CONFLICT", async () => {
+  state.status = "PRESENT";
+  state.excused = false;
+  state.canExcuse = false;
+  const view = render(element());
+  expect(screen.getByText(messages.admin.meetings.status.present)).toBeTruthy();
+  expect(
+    screen.queryByRole("button", { name: messages.tutor.meetings.excuseBtn }),
+  ).toBeNull();
+  expect(
+    screen.queryByRole("button", { name: messages.tutor.meetings.cancelExcuse }),
+  ).toBeNull();
+  expect(screen.queryByText(messages.tutor.meetings.tooLate)).toBeNull();
+
+  view.unmount();
+  state.status = null;
+  state.canExcuse = true;
+  const formView = start();
+  fireEvent.click(
+    screen.getByRole("button", { name: messages.tutor.meetings.submitExcuse }),
+  );
+  state.error = "Staff recorded attendance for this meeting. Ask staff to correct it.";
+  await act(async () => {
+    state.onError({ data: { code: "CONFLICT" } });
+  });
+  formView.rerender(element());
+  expect(screen.queryByRole("textbox")).toBeNull();
+  expect(state.refresh).toHaveBeenCalledOnce();
+  expect(screen.getByRole("alert").textContent).toContain("Staff recorded attendance");
+});

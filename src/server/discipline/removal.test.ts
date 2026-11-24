@@ -37,7 +37,7 @@ type State = {
 
 /** Only checkpoint bookkeeping is mocked; the writer, source wrapper and audience
  * query execute against a rollback-capable, database-free transaction adapter. */
-function fixture(role: "ADMIN" | "HEAD", overlap = true) {
+function fixture(role: "ADMIN" | "HEAD", overlap = true, raceClaim = false) {
   const users = [
     {
       id: "dual",
@@ -114,6 +114,27 @@ function fixture(role: "ADMIN" | "HEAD", overlap = true) {
         findUnique: async () => ({ ...current.request }),
         update: async ({ data }: { data: { state: string } }) =>
           Object.assign(current.request, data),
+        updateMany: async ({
+          where,
+          data,
+        }: {
+          where: { id?: string; tuteeId?: string; state?: string };
+          data: { state: string };
+        }) => {
+          if (raceClaim && current.request.state === "PENDING") {
+            current.request.state = "RECALLED";
+            return { count: 0 };
+          }
+          if (
+            (where.id && where.id !== current.request.id) ||
+            (where.tuteeId && where.tuteeId !== current.request.tuteeId) ||
+            (where.state && where.state !== current.request.state)
+          ) {
+            return { count: 0 };
+          }
+          Object.assign(current.request, data);
+          return { count: 1 };
+        },
       },
       notification: {
         createMany: async ({ data }: { data: Notice[] }) => {
@@ -217,6 +238,17 @@ describe("removal notification audience", () => {
     );
     expect(f.state.status).toBe("ACTIVE");
     expect(f.state.request.state).toBe("PENDING");
+    expect(f.state.links).toHaveLength(4);
+    expect(f.state.notices).toEqual([]);
+  });
+
+  it("does not overwrite a recalled removal or detach pairings when the request is no longer PENDING", async () => {
+    // Simulate a concurrent tutor recall committing after the initial due scan
+    // but before finalizeRemoval claims the request conditionally.
+    const f = fixture("HEAD", true, true);
+    expect(await finalizeDueOptOuts(f.db)).toBe(0);
+    expect(f.state.request.state).toBe("RECALLED");
+    expect(f.state.status).toBe("ACTIVE");
     expect(f.state.links).toHaveLength(4);
     expect(f.state.notices).toEqual([]);
   });

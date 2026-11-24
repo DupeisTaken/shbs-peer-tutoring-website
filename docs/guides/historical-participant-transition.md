@@ -121,9 +121,12 @@ Later group additions never expand its scope. Group membership, ownership or sou
 changes invalidate the old review, including changes that are later reversed. The
 recipient sees the same exact list before claiming. Original Tutee invitations and
 in-flight deliveries continue through their existing adapter; their tokens retain
-their original purpose, expiry and proof requirements. A lost new invitation response
-is recovered using **Check delivery receipt**, which reads the actor's original
-attempt even if another invitation has since replaced it. It never resends email.
+their original purpose, expiry and proof requirements. A lost new invitation response is first recovered using **Check delivery receipt**,
+which reads the actor's original attempt even if another invitation has since replaced
+it. If no receipt is recorded yet because the request may have been lost before
+reaching the server, choose **Retry this invitation** to resend the exact reviewed
+invitation under the same operation reference without duplicating an already-admitted
+delivery.
 
 New displayed invitation codes contain five characters, mixing letters and numbers,
 in a box with a green background. The separate email verification code contains four

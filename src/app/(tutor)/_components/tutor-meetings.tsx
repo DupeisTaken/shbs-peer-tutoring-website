@@ -204,14 +204,25 @@ export function useTutorMeetingController() {
       if (id) setDrafts((current) => ({ ...current, [id]: "" }));
       await synchronize();
     },
-    onError: () => {
+    onError: (err) => {
       admitted.current = null;
+      if (err.data?.code === "CONFLICT") {
+        setOpenId(null);
+        void refresh().catch(() => {
+          setSyncFailed(true);
+        });
+      }
     },
   });
   const cancel = api.tutor.cancelMeetingExcuse.useMutation({
     onSuccess: synchronize,
-    onError: () => {
+    onError: (err) => {
       admitted.current = null;
+      if (err.data?.code === "CONFLICT") {
+        void refresh().catch(() => {
+          setSyncFailed(true);
+        });
+      }
     },
   });
   const pending = !!excuse.isPending || !!cancel.isPending || syncing;
@@ -261,7 +272,8 @@ export function useTutorMeetingController() {
                 </div>
 
                 <div className="min-w-0 sm:shrink-0">
-                  {history || !upcoming ? (
+                  {/* Staff attendance stays read-only even before the excuse cutoff. */}
+                  {history || !upcoming || (!!m.status && !m.excused) ? (
                     <span className="badge-slate">
                       {m.status
                         ? t(

@@ -2,7 +2,7 @@
 
 import { useEffect, useId, useRef, useState } from "react";
 import { useFormatter, useTranslations } from "next-intl";
-import { api, type RouterOutputs } from "~/trpc/react";
+import { api, type RouterInputs, type RouterOutputs } from "~/trpc/react";
 import { Button } from "./ui/button";
 import { ChangeReview, FormSection, InlineNotice, StatePanel } from "./ui/patterns";
 import { QueryFeedback } from "./ui/query-feedback";
@@ -12,6 +12,7 @@ import { useActionReview } from "./ui/action-review";
 import { HistoryError } from "./tutee-history";
 
 export type HistoricalInvitationSource = { kind: "TUTOR" | "TUTEE"; id: string };
+type ExactInviteIntent = RouterInputs["tuteeHistory"]["inviteExact"];
 type Preview = RouterOutputs["tuteeHistory"]["previewExactInvitation"];
 type Receipt = RouterOutputs["tuteeHistory"]["inviteExact"];
 function denied(error: unknown) {
@@ -56,9 +57,11 @@ export function HistoricalRecordInvitation({
   const [uncertainRevision, setUncertainRevision] = useState<string | null>(null);
   const [missingReceipt, setMissingReceipt] = useState(false);
   const [accessLost, setAccessLost] = useState(false);
+  const [frozenIntent, setFrozenIntent] = useState<ExactInviteIntent | null>(null);
   const admitted = useRef(false);
   const readAdmission = useRef(false);
   const operation = useRef<string | null>(null);
+  const retryingExact = useRef(false);
   const status = api.tuteeHistory.exactInvitationStatus.useQuery(
     { sources },
     { refetchOnMount: "always", gcTime: 0, enabled: !accessDenied },
@@ -96,7 +99,7 @@ export function HistoricalRecordInvitation({
     setAccessLost(false);
   };
   const recover = async () => {
-    if (readAdmission.current) return;
+    if (readAdmission.current || admitted.current) return;
     readAdmission.current = true;
     setReading(true);
     try {
@@ -114,8 +117,13 @@ export function HistoricalRecordInvitation({
         }
         setReceipt(saved);
         knownReceipt = saved;
-        setUncertain(saved.status === "UNCERTAIN");
+        const stillUncertain = saved.status === "UNCERTAIN";
+        setUncertain(stillUncertain);
         setMissingReceipt(false);
+        if (!stillUncertain) {
+          setFrozenIntent(null);
+          operation.current = null;
+        }
       }
       await refresh(knownReceipt);
       setError(null);
@@ -130,9 +138,15 @@ export function HistoricalRecordInvitation({
   };
   const send = api.tuteeHistory.inviteExact.useMutation({
     onSuccess: async (saved) => {
+      const stillUncertain = saved.status === "UNCERTAIN";
       setReceipt(saved);
-      setUncertain(saved.status === "UNCERTAIN");
+      setUncertain(stillUncertain);
       setUncertainRevision(null);
+      setMissingReceipt(false);
+      if (!stillUncertain) {
+        setFrozenIntent(null);
+        operation.current = null;
+      }
       setPreview(null);
       setAcknowledged(false);
       setRefreshRequired(true);
@@ -141,16 +155,35 @@ export function HistoricalRecordInvitation({
       }
     },
     onError: (failure) => {
-      const rejected = ["BAD_REQUEST", "CONFLICT", "PRECONDITION_FAILED", "FORBIDDEN", "UNAUTHORIZED", "NOT_FOUND", "TOO_MANY_REQUESTS"].includes(failure.data?.code ?? "");
+      // Rate-limiting an exact retry cannot prove the original request never
+      // arrived; keep the frozen operation so receipt checks remain available.
+      const rejectedCodes = [
+        "BAD_REQUEST",
+        "CONFLICT",
+        "PRECONDITION_FAILED",
+        "FORBIDDEN",
+        "UNAUTHORIZED",
+        "NOT_FOUND",
+        ...(retryingExact.current ? [] : ["TOO_MANY_REQUESTS"]),
+      ];
+      const rejected = rejectedCodes.includes(failure.data?.code ?? "");
       setUncertain(!rejected);
       setUncertainRevision(null);
+      setMissingReceipt(false);
+      if (rejected) {
+        setFrozenIntent(null);
+        operation.current = null;
+      }
       setRefreshRequired(true);
       setPreview(null);
       setAcknowledged(false);
       setError(failure.message);
       if (denied(failure)) setAccessLost(true);
     },
-    onSettled: () => { admitted.current = false; },
+    onSettled: () => {
+      admitted.current = false;
+      retryingExact.current = false;
+    },
   });
   const cancel = api.tuteeHistory.cancelExactInvitation.useMutation();
   const cancelDenied = denied(cancel.error);
@@ -186,8 +219,29 @@ export function HistoricalRecordInvitation({
     setPreview(null);
     setAcknowledged(false);
     operation.current = null;
+    setFrozenIntent(null);
+    setMissingReceipt(false);
+    retryingExact.current = false;
     setUncertainRevision(null);
     setError(null);
+  };
+  // Exact same-operation retry must remain reachable even when parent status
+  // is stale or temporarily unavailable, so a pre-admission drop cannot trap the dialog.
+  const canRetryExact =
+    uncertain &&
+    missingReceipt &&
+    !!frozenIntent &&
+    !concealed &&
+    !ownPending &&
+    !cancellation.busy &&
+    !reading;
+  const retryExact = () => {
+    if (!canRetryExact || !frozenIntent || admitted.current || readAdmission.current) return;
+    admitted.current = true;
+    retryingExact.current = true;
+    setMissingReceipt(false);
+    setError(null);
+    send.mutate(frozenIntent);
   };
 
   return (
@@ -204,10 +258,30 @@ export function HistoricalRecordInvitation({
         retryLabel={uncertain ? t("checkReceipt") : history("refreshInvitation")}
         onRetry={() => void recover()}
       />
-      {uncertain && <InlineNotice tone="warning" announcement="status">
-        <p>{t("uncertain")}</p>
-        {missingReceipt && <p className="mt-2">{t("notRecorded")}</p>}
-      </InlineNotice>}
+      {uncertain && (
+        <InlineNotice
+          tone="warning"
+          announcement="status"
+          action={
+            uncertain && missingReceipt && frozenIntent && !concealed ? (
+              <Button disabled={!canRetryExact} onClick={retryExact}>
+                {t("retryExact")}
+              </Button>
+            ) : undefined
+          }
+        >
+          <p>{t("uncertain")}</p>
+          {frozenIntent && (
+            <p className="mt-1 break-all">
+              {records("operationReference", { id: frozenIntent.operationId })}
+            </p>
+          )}
+          {missingReceipt && <p className="mt-2">{t("notRecorded")}</p>}
+          {missingReceipt && frozenIntent && !concealed && (
+            <p className="mt-2">{t("exactRetryHelp")}</p>
+          )}
+        </InlineNotice>
+      )}
       {!concealed && <>
         {receipt && <InlineNotice tone={receipt.status === "PUBLISHED" ? "success" : "warning"} announcement="status">
           {history(`invitation_${receipt.status}`)}
@@ -292,8 +366,18 @@ export function HistoricalRecordInvitation({
               if (disabled || !ready || !preview.canInvite || !acknowledged || admitted.current || readAdmission.current) return;
               admitted.current = true;
               operation.current ??= crypto.randomUUID();
+              retryingExact.current = false;
+              const intent: ExactInviteIntent = {
+                sources: sources.map((source) => ({ ...source })),
+                email,
+                reason,
+                fingerprint: preview.fingerprint,
+                operationId: operation.current,
+              };
+              setFrozenIntent(intent);
+              setMissingReceipt(false);
               setError(null);
-              send.mutate({ sources, email, reason, fingerprint: preview.fingerprint, operationId: operation.current });
+              send.mutate(intent);
             }}
           >{history("sendInvitation")}</Button>}
         />}

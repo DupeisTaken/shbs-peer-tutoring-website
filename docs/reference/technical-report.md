@@ -1237,7 +1237,12 @@ action slot. The self-report opens the existing `SchoolDeparturePanel` in a
 editors. Academic drafts and departure revisions remain independent. A confirmed
 departure keeps the entry available for return requests and history.
 The shared departure editor stacks Change and Reason for review in full-width
-rows at every viewport, keeping self-service and staff forms aligned.
+rows at every viewport, keeping self-service and staff forms aligned. When a
+background change causes a revision conflict or mismatch, the editor preserves
+the drafted reason and original expected revision and provides an explicit
+**Reload current status** read without silently rebasing. After an accepted save
+or queued approval proposal, failed related refreshes keep write controls locked
+while allowing dismissal and read-only **Retry refresh** without replaying the write.
 
 Confirmed school departures are stored separately in `SchoolDeparture`, with versioned
 `SchoolDepartureEvent` records. [Portal access](../../src/lib/portal-access.ts) derives
@@ -2104,9 +2109,15 @@ tutees awaiting a tutor's attendance record keep a gray rail. These colors stay
 independent of accent selection. Yellow Needs Action identifies
 missing tutoring attendance or the assigned tutor's missing INTERVIEW vote; a
 recorded vote on an open interview shows Vote recorded / Awaiting decision rather
-than Completed. Meetings do not create tutor attendance duties. Excused for Absence
-uses EXCUSED_ABSENT status, including staff-recorded excuses without excusedAt;
-excusedAt continues to govern the separate self-excuse cancellation workflow.
+than Completed. Meetings do not create tutor attendance duties. Excused for Absence uses EXCUSED_ABSENT status, including staff-recorded excuses
+without `excusedAt`; `excusedAt` continues to govern the separate tutor self-excuse
+ownership and cancellation workflow. Every staff write through
+`admin.recordMeetingAttendance` clears `excusedAt` (and any superseded self-excuse
+reason) even when the status stays `EXCUSED_ABSENT`. Tutor `excuseMeeting` and
+`cancelMeetingExcuse` serialize under `program:period`, the account profile lock,
+`meeting-record:<id>` and `meeting-hours:<tutorId>`, and reject with `CONFLICT`
+whenever staff already own the attendance row. Upcoming meetings with staff-recorded
+attendance render their read-only status badge instead of self-excuse controls.
 
 Panelist detail opens lazily into one retained controller and reuses the existing
 vote operation. Each deliberately opened interview keeps its draft across Close and
@@ -2396,7 +2407,7 @@ recovery; browsing history and changing the displayed period remain reads.
 Existing unclassified rows retain their previous behavior: migration does not
 guess which old records came from an import.
 
-[Disciplinary standing](../../src/lib/discipline.ts) counts valid cards: three yellows contribute one effective red. With discipline enabled, an unexcused tutee absence produces a valid red; tutor-requested cards await review. At two effective reds, [removal synchronization](../../src/server/discipline/removal.ts) immediately inactivates an active tutee and detaches current-term pairings without another approval. Pending appeals do not invalidate cards. Appeals close at the end of the fifth subsequent school day using the program timezone and calendar overrides. Invalidating a card recalculates standing; restoration requires the removal's status snapshot to remain current and eligible pairings to remain valid.
+[Disciplinary standing](../../src/lib/discipline.ts) counts valid cards: three yellows contribute one effective red. With discipline enabled, an unexcused tutee absence produces a valid red; tutor-requested cards await review. At two effective reds, [removal synchronization](../../src/server/discipline/removal.ts) immediately inactivates an active tutee and detaches current-term pairings without another approval. Automatic voluntary opt-out finalization, tutor `recallTuteeRemoval` and staff `cancelTuteeOptOut` share `program:period` and `tutee:<id>` locks plus conditional `PENDING` transitions so neither recall/cancellation nor automatic finalization can overwrite the other. Pending appeals do not invalidate cards. Appeals close at the end of the fifth subsequent school day using the program timezone and calendar overrides. Invalidating a card recalculates standing; [punishment restoration](../../src/server/discipline/punishment-restoration.ts) verifies prospective removal provenance and later lifecycle decisions instead of equating generic `Tutee.updatedAt` with `resolvedAt`, so harmless roster notes/profile edits still allow reinstatement while genuine later status transitions (including away-and-back edits), departures, withdrawals, quarter rollovers and ineligible/conflicting pairings remain blocked.
 
 A catalog time-slot edit releases movable room reservations by reviewed unit, in pairing ID order within each unit. A grouped room update detaches members in their authoritative member
 order. Each member update consumes the preceding update's returned row in the same

@@ -293,9 +293,13 @@ the explicit adapter in [history-account-setup](../../src/server/history-account
 Delivery commits an inert `HistoricalRecordInvitationAttempt` before SMTP, then
 rechecks authority, scope and predecessor setup/envelope progress before publication.
 A failed or superseded candidate retains the predecessor. The actor-bound operation
-receipt remains readable after later replacements; a lost response is reconciled by
-read, never by sending again. Credentials still require the separate mailbox challenge
-and shared account invitation review. Creating a neutral login does not claim sources.
+receipt remains readable after later replacements; a lost response is first reconciled
+by reading that receipt. When no receipt is recorded yet, the dialog keeps the frozen
+operation ID and reviewed input and allows an explicit exact same-operation retry,
+which returns any already-admitted receipt read-only without re-sending SMTP or admits
+the reviewed attempt once if the original request never arrived. Credentials still
+require the separate mailbox challenge and shared account invitation review. Creating
+a neutral login does not claim sources.
 
 Both legacy and exact claims atomically write `HistoricalRecordClaimReceipt` with
 ownership and audit. It stores a token digest, exact source IDs and the receiving
