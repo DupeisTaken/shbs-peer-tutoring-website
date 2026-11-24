@@ -230,7 +230,7 @@ export default function SummaryPage() {
               <label className="min-w-0 space-y-1 text-sm">
                 <span className="block">{t("admin.summary.statusLabel")}</span>
                 <select
-                  className="input control-compact w-full lg:min-h-8 lg:py-1"
+                  className="select control-compact w-full lg:min-h-8 lg:py-1"
                   value={view.status}
                   onChange={(event) =>
                     updateView({
@@ -252,7 +252,7 @@ export default function SummaryPage() {
                   {t("admin.summary.activityLabel")}
                 </span>
                 <select
-                  className="input control-compact w-full lg:min-h-8 lg:py-1"
+                  className="select control-compact w-full lg:min-h-8 lg:py-1"
                   aria-describedby="hours-activity-help"
                   value={view.activity}
                   onChange={(event) =>

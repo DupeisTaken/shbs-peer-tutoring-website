@@ -265,7 +265,7 @@ export function ManagementReviewRecipe() {
       <label className="block">
         <span className="label">{t.scenario}</span>
         <select
-          className="input mt-1 w-full"
+          className="select mt-1 w-full"
           value={example}
           disabled={pending}
           onChange={(event) => setExample(event.target.value as Example)}

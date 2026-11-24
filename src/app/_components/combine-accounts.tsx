@@ -216,7 +216,7 @@ export function CombineAccounts({
               <label key={kind} className="space-y-1 text-sm font-medium">
                 <span>{t(kind)}</span>
                 <select
-                  className="input min-h-11 w-full"
+                  className="select min-h-11 w-full"
                   aria-label={t(kind)}
                   value={
                     pairVisible

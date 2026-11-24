@@ -43,46 +43,30 @@ export function LanguageSwitcher({
         : "h-11 text-[13px]";
 
   const select = (
-    <div
-      className={`relative inline-flex items-center ${embedded ? "w-full" : "w-auto"}`}
+    <select
+      aria-label={t("language")}
+      className={`select py-0 font-medium text-slate-700 disabled:cursor-wait ${
+        embedded
+          ? "h-11 w-full text-sm"
+          : `control-compact field-auto rounded-full border-slate-200/90 bg-slate-50/90 ps-3 shadow-none enabled:hover:border-slate-300 enabled:hover:bg-slate-100 ${heightClass}`
+      }`}
+      value={locale}
+      disabled={pending}
+      onChange={(e) => {
+        const next = e.target.value;
+        closeHeaderMenu();
+        startTransition(async () => {
+          await setLocale(next);
+          router.refresh();
+        });
+      }}
     >
-      <select
-        aria-label={t("language")}
-        className={`focus:border-accent-500 focus:ring-accent-500 cursor-pointer appearance-none border border-slate-200/90 py-0 font-medium text-slate-700 transition hover:border-slate-300 focus:ring-1 focus:outline-hidden disabled:cursor-wait disabled:opacity-60 ${
-          embedded
-            ? "rounded-md bg-white pr-8 pl-3 hover:bg-slate-50"
-            : "field-auto rounded-full bg-slate-50/90 pr-7 pl-3 hover:bg-slate-100"
-        } ${heightClass}`}
-        value={locale}
-        disabled={pending}
-        onChange={(e) => {
-          const next = e.target.value;
-          closeHeaderMenu();
-          startTransition(async () => {
-            await setLocale(next);
-            router.refresh();
-          });
-        }}
-      >
-        {options.map((l) => (
-          <option key={l.code} value={l.code}>
-            {l.label}
-          </option>
-        ))}
-      </select>
-      <svg
-        aria-hidden="true"
-        viewBox="0 0 16 16"
-        className="pointer-events-none absolute right-2 h-3.5 w-3.5 text-slate-400"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="1.8"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      >
-        <path d="M4.5 6.25 8 9.75l3.5-3.5" />
-      </svg>
-    </div>
+      {options.map((l) => (
+        <option key={l.code} value={l.code}>
+          {l.label}
+        </option>
+      ))}
+    </select>
   );
 
   if (embedded) {

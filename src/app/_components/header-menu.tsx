@@ -12,7 +12,7 @@ import {
   useState,
 } from "react";
 
-import { DisclosureIcon } from "~/app/_components/icons";
+import { ChevronDownIcon } from "~/app/_components/icons";
 import { useClampedPopover } from "~/app/_components/use-clamped-popover";
 
 export type HeaderMenuItem = {
@@ -147,7 +147,13 @@ export function HeaderMenu({
         }`}
       >
         <span className="min-w-0 break-words">{label}</span>
-        {showDisclosure ? <DisclosureIcon open={open} /> : null}
+        {showDisclosure ? (
+          <ChevronDownIcon
+            className={`h-3.5 w-3.5 shrink-0 transition-transform duration-150 ${
+              tone === "primary" ? "text-white/80" : "text-slate-500"
+            } ${open ? "rotate-180" : ""}`}
+          />
+        ) : null}
       </button>
 
       {open ? (
@@ -156,7 +162,7 @@ export function HeaderMenu({
           id={panelId}
           role="dialog"
           aria-label={label}
-          className={`absolute z-30 mt-2 max-h-[calc(100vh-4.5rem)] max-w-[calc(100vw-2rem)] min-w-56 overflow-y-auto rounded-lg border border-slate-200 bg-white p-2 shadow-lg ${
+          className={`popover-surface absolute z-30 mt-2 max-h-[calc(100vh-4.5rem)] max-w-[calc(100vw-2rem)] min-w-56 overflow-y-auto p-1.5 ${
             panelWidth === "wide" ? "w-72" : "w-max"
           } ${align === "right" ? "right-0" : "left-0"}`}
         >

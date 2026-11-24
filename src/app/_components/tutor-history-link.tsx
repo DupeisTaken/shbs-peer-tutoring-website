@@ -290,7 +290,7 @@ export function TutorHistoryLinkForm({
             </span>
             <select
               aria-labelledby={accountLabelId}
-              className="input min-h-11 w-full lg:min-h-10"
+              className="select min-h-11 w-full lg:min-h-10"
               value={userId}
               disabled={!candidates.data?.length || !!candidates.error}
               onChange={(event) => {

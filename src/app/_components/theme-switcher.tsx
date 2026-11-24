@@ -178,7 +178,7 @@ export function ThemeSwitcher({
           ref={panelRef}
           role="dialog"
           aria-label={t("components.theme.label")}
-          className="absolute right-0 z-30 mt-2 w-44 rounded-lg border border-slate-200 bg-white p-3 shadow-lg"
+          className="popover-surface absolute right-0 z-30 mt-2 w-44 p-3"
         >
           <p className="pb-2 text-xs font-medium text-slate-500">
             {t("components.theme.label")}

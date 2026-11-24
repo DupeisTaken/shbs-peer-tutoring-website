@@ -7,6 +7,7 @@ import type {
 } from "~/lib/workspace-navigation";
 import { BrandMark } from "./brand-mark";
 import { DetailsAutoClose } from "./details-auto-close";
+import { ChevronDownIcon } from "./icons";
 
 function AreaIcon({ id }: { id: WorkspaceArea }): ReactNode {
   const cls = "h-4 w-4 shrink-0";
@@ -197,23 +198,12 @@ export function WorkspaceSwitcher({
       >
         <BrandMark className="h-8 w-8" />
         {!hideTitle ? <span className="min-w-0 truncate">{title}</span> : null}
-        <svg
-          aria-hidden="true"
-          viewBox="0 0 16 16"
-          className="group-open:text-accent-600 h-4 w-4 shrink-0 text-slate-400 transition-transform duration-150 group-open:rotate-180"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="1.8"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        >
-          <path d="M4.5 6.25 8 9.75l3.5-3.5" />
-        </svg>
+        <ChevronDownIcon className="group-open:text-accent-600 h-4 w-4 shrink-0 text-slate-500 transition-transform duration-150 group-open:rotate-180" />
       </summary>
 
       <nav
         aria-label={menuLabel}
-        className="absolute left-0 z-30 mt-2 max-h-[calc(100dvh-5rem)] w-[min(15.5rem,calc(100vw-2rem))] overflow-y-auto rounded-xl border border-slate-200/90 bg-white p-1.5 shadow-xl shadow-slate-900/10 ring-1 ring-slate-900/5"
+        className="popover-surface absolute left-0 z-30 mt-2 max-h-[calc(100dvh-5rem)] w-[min(15.5rem,calc(100vw-2rem))] overflow-y-auto p-1.5"
       >
         <div className="divide-y divide-slate-100">
           {sections.map((section) => (

@@ -54,7 +54,7 @@ export function NavigationRecipes({ locale }: { locale: "en" | "zh" }) {
             key={locale}
             aria-label={zh ? "示例标题栏语言" : "Example header language"}
             defaultValue={locale}
-            className="select h-11 py-0 lg:h-8"
+            className="select control-compact field-auto h-11 py-0 text-[13px] font-medium text-slate-700 lg:h-8"
           >
             <option value="en">English</option>
             <option value="zh">中文</option>

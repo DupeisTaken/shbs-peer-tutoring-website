@@ -234,6 +234,46 @@ weight, not an arbitrary height difference.
 - When changing shared header sizing, verify management, tutor and tutee pages at
   desktop and mobile widths against the language selector's rendered height.
 
+## Selectors and dropdown menus
+
+Keep native `<select>` elements across single-value forms, dialogs and filter toolbars
+so keyboard navigation, screen-reader announcements and OS mobile pickers stay intact.
+
+- **Single-value `.select`:** Always give `<select>` controls the `.select` class
+  (never `.input`). In [global styles](../../src/styles/globals.css), single-value
+  `.select` controls (`:not([multiple]):not([size])` and `[size="1"]`) use
+  `appearance-none`, a 14 px `slate-500` SVG chevron (4.76:1 contrast on white),
+  and logical inline padding (`ps-3 pe-8`, chevron `0.625rem` from the trailing edge)
+  so long translated option labels never collide with the indicator.
+- **Compact & inline selects:** Pair `.select.control-compact` with `field-auto`
+  (or `field-auto-bounded` with `[--field-min-width:...]` in wrapping forms) for
+  headers, filter toolbars and inline row selectors. `.select.control-compact` tightens
+  padding to `ps-2.5 pe-7` with the chevron `0.5rem` from the trailing edge while
+  preserving 44 px narrow-screen targets and a 32 px desktop baseline. Full-width form
+  selects keep `w-full` and standard `ps-3 pe-8` padding.
+- **Multi-select listboxes (avoid raw `<select multiple>`):** Do not use native
+  `<select multiple>` (ambiguous `Ctrl`/`Cmd`-click gestures, unfocused gray row bars
+  and cramped touch targets). Use `CheckboxListbox`
+  (`src/app/_components/ui/checkbox-listbox.tsx`) for multi-select forms, `ChoiceButton`
+  groups for small 2–6 option filter toggles, and `MultiFilter` when explicit
+  Include/Exclude filtering is needed. For long option sets (8+ items), `CheckboxListbox`
+  keeps a bounded scroll container (`max-h-60`) with sticky group headers, local search
+  filtering that preserves hidden selections, a `Selected only` view, and a capped
+  removable summary strip (`+N more`) so very long lists stay scannable and never expand
+  the page unboundedly.
+- **States and accessibility exceptions:** Disabled selects use a quiet `slate-50`
+  surface with readable `slate-500` text and `cursor-not-allowed`; invalid selects
+  (`aria-invalid="true"`) show semantic red borders and focus rings; `:dir(rtl)` flips
+  the chevron to the left edge; and `@media (forced-colors: active)` restores the native
+  OS indicator.
+- **Floating menus vs. inline disclosures:** Floating header/picker menus (`HeaderMenu`,
+  `UserAvatar`, `ThemeSwitcher`, `NotificationBell` and workspace switchers) share the
+  sculpted `.popover-surface` card (`rounded-xl border border-slate-200/90 bg-white
+  shadow-xl shadow-slate-900/10 ring-1 ring-slate-900/5`) and rotating `ChevronDownIcon`
+  triggers with `DetailsAutoClose` or Escape/outside-click handling. Keep in-flow
+  collapsible sections (`DisclosureSection` / `DisclosureIcon`) visually distinct from
+  floating menus.
+
 ## Mobile header hierarchy
 
 - Pair the official PT `BrandMark` logo with a bold franchise-style wordmark (`text-xl font-bold tracking-tight lg:text-lg`) inside the `(Logo) Title ⌄` workspace switcher across signed-in workspaces (`Management` for staff, `Program Overview` for Viewers/read-only observers, `Tutor`, `Tutee`, `Crew`, `Translations`, `Help Center`, and the configured site title on signed-in Program Home). Clicking opens an access-gated selector for the user's other authorized areas plus `Program Home` and `Help Center`, omitting whichever area is currently open.
