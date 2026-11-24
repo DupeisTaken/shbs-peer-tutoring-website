@@ -1,36 +1,81 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useContext, useEffect, useMemo, useState } from "react";
+import { QueryClientContext } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
 import { useLocale, useTranslations } from "next-intl";
-import { FormActions, InlineNotice } from "./ui/patterns";
+import { trpcProcedureKey, trpcQueryKey } from "~/lib/trpc-query-key";
+import { FormActions, InlineNotice, StatePanel } from "./ui/patterns";
 import { Button } from "./ui/button";
 import { api } from "~/trpc/react";
 import { isProgramTimeZone, programDateTimeInput } from "~/lib/program-time";
 import { programTimeZoneLabel } from "~/lib/program-time-zone-label";
 import { useProgramWriteAdmission } from "./program-write-admission";
+import { useSessionAccessDenied } from "./session-view-state";
+import { invalidateAndReport } from "~/lib/invalidate-refresh";
+import { settleRefreshes } from "~/lib/settle-refreshes";
 
 export function ProgramTimeZoneSettings() {
-  const settings = api.program.timeZoneSettings.useQuery();
+  const [accessDenied, setAccessDenied] = useState(false);
+  const settings = api.program.timeZoneSettings.useQuery(undefined, {
+    enabled: !accessDenied,
+  });
+  const queryClient = useContext(QueryClientContext);
   const t = useTranslations("programTimeZone");
   const common = useTranslations("uiPatterns");
   const [generation, setGeneration] = useState(0);
-  if (settings.error && !settings.data)
-    return <p role="alert">{settings.error.message}</p>;
-  if (!settings.data) return <p className="muted">{t("loading")}</p>;
+  const [saveRefreshFailed, setSaveRefreshFailed] = useState(false);
+  const denied = useSessionAccessDenied({
+    ...settings,
+    isSuccess: settings.isSuccess && settings.data != null,
+    queryKey: trpcQueryKey(api.program.timeZoneSettings, [
+      "program",
+      "timeZoneSettings",
+    ]),
+  });
+  if (accessDenied !== denied) setAccessDenied(denied);
+  useEffect(() => {
+    if (!denied || !queryClient) return;
+    queryClient.removeQueries({
+      queryKey: trpcProcedureKey(api.program.timeZoneSettings, [
+        "program",
+        "timeZoneSettings",
+      ]),
+      exact: false,
+    });
+  }, [denied, queryClient]);
+  if (denied || ((settings.error || settings.isSuccess) && !settings.data))
+    return (
+      <StatePanel
+        kind={denied ? "denied" : "error"}
+        title={t("title")}
+        action={
+          <Button
+            disabled={settings.isFetching}
+            onClick={() => void settings.refetch()}
+          >
+            {common("retry")}
+          </Button>
+        }
+      >
+        {settings.error?.message ?? common("loadFailed")}
+      </StatePanel>
+    );
+  if (!settings.data) return <StatePanel kind="loading" title={t("loading")} />;
   return (
     <div className="space-y-3">
-      {settings.error && (
+      {settings.error && !saveRefreshFailed && (
         <InlineNotice
           tone="error"
           announcement="alert"
           action={
-            <button
-              className="btn-secondary"
+            <Button
+              size="compact"
+              disabled={settings.isFetching}
               onClick={() => void settings.refetch()}
             >
               {common("retry")}
-            </button>
+            </Button>
           }
         >
           {settings.error.message}
@@ -41,6 +86,7 @@ export function ProgramTimeZoneSettings() {
         key={generation}
         {...settings.data}
         readFailed={!!settings.error}
+        onRefreshFailedChange={setSaveRefreshFailed}
         onReload={async () => {
           const result = await settings.refetch();
           if (result.isSuccess) setGeneration((value) => value + 1);
@@ -57,6 +103,7 @@ export function TimeZoneEditor({
   readFailed = false,
   timeZoneOptions,
   onReload,
+  onRefreshFailedChange,
 }: {
   timeZone: string;
   canEdit: boolean;
@@ -64,16 +111,21 @@ export function TimeZoneEditor({
   readFailed?: boolean;
   timeZoneOptions: string[];
   onReload?: () => Promise<void>;
+  onRefreshFailedChange?: (failed: boolean) => void;
 }) {
   const t = useTranslations("programTimeZone");
   const approvals = useTranslations("approvals");
   const profile = useTranslations("profilePolicy");
+  const common = useTranslations("uiPatterns");
+  const recovery = useTranslations("managementRecovery");
   const router = useRouter();
   const locale = useLocale();
   const utils = api.useUtils();
   const [timeZone, setTimeZone] = useState(initialTimeZone);
   const [zone, setZone] = useState(initialTimeZone);
   const [reloading, setReloading] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
+  const [refreshFailed, setRefreshFailed] = useState(false);
   const [confirmed, setConfirmed] = useState(false);
   const [saved, setSaved] = useState(false);
   const [example, setExample] = useState(
@@ -90,19 +142,34 @@ export function TimeZoneEditor({
     [timeZone, timeZoneOptions, example, locale],
   );
   const valid = isProgramTimeZone(zone);
-  const admission = useProgramWriteAdmission(canEdit && !readFailed);
+  const admission = useProgramWriteAdmission(
+    canEdit && !readFailed && !refreshFailed,
+  );
+  const syncSaved = async () => {
+    setRefreshing(true);
+    try {
+      // Mark conversion evidence stale immediately; next-period editors retain
+      // their draft and require Reload before adopting a changed program zone.
+      await settleRefreshes([
+        () => invalidateAndReport(utils.program.timeZoneSettings),
+        () => invalidateAndReport(utils.program.nextRecruitment),
+      ]);
+      setRefreshFailed(false);
+      onRefreshFailedChange?.(false);
+      // Reload server i18n context so client and server render the same new zone.
+      router.refresh();
+    } catch {
+      setRefreshFailed(true);
+      onRefreshFailedChange?.(true);
+    } finally {
+      setRefreshing(false);
+    }
+  };
   const save = api.program.setTimeZone.useMutation({
     onSuccess: async () => {
       setSaved(true);
       setTimeZone(zone);
-      // Mark conversion evidence stale immediately; next-period editors retain
-      // their draft and require Reload before adopting a changed program zone.
-      await Promise.all([
-        utils.program.timeZoneSettings.invalidate(),
-        utils.program.nextRecruitment.invalidate(),
-      ]);
-      // Reload server i18n context so client and server render the same new zone.
-      router.refresh();
+      await syncSaved();
     },
   });
   return (
@@ -211,7 +278,11 @@ export function TimeZoneEditor({
               checked={confirmed}
               onChange={(e) => setConfirmed(e.target.checked)}
               disabled={
-                !admission.allowed || zone === timeZone || !valid || save.isPending || reloading
+                !admission.allowed ||
+                zone === timeZone ||
+                !valid ||
+                save.isPending ||
+                reloading
               }
               className="mt-1"
             />
@@ -229,7 +300,15 @@ export function TimeZoneEditor({
                 reloading
               }
               onClick={() => {
-                if (!admission.isAllowed() || save.isPending || reloading || !valid || !confirmed || zone === timeZone) return;
+                if (
+                  !admission.isAllowed() ||
+                  save.isPending ||
+                  reloading ||
+                  !valid ||
+                  !confirmed ||
+                  zone === timeZone
+                )
+                  return;
                 save.mutate({ timeZone: zone, expectedTimeZone: timeZone });
               }}
             >
@@ -241,7 +320,9 @@ export function TimeZoneEditor({
             </Button>
             {onReload && (
               <Button
-                disabled={save.isPending || reloading}
+                disabled={
+                  save.isPending || reloading || refreshing || refreshFailed
+                }
                 onClick={async () => {
                   setReloading(true);
                   try {
@@ -273,6 +354,23 @@ export function TimeZoneEditor({
         <p role="status" className="text-sm text-green-700">
           {t("saved")}
         </p>
+      )}
+      {refreshFailed && (
+        <InlineNotice
+          tone="error"
+          announcement="alert"
+          action={
+            <Button
+              size="compact"
+              disabled={refreshing}
+              onClick={() => void syncSaved()}
+            >
+              {common("retry")}
+            </Button>
+          }
+        >
+          {recovery("refreshFailed", { section: t("title") })}
+        </InlineNotice>
       )}
     </section>
   );

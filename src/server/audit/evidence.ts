@@ -27,6 +27,9 @@ const safeFields = new Set([
   "roomNeedsAssignment",
   "roomVersion",
   "programOrder",
+  // Numeric patrol ranks are nonprivate Room evidence, including submitted writes.
+  // Keep missing legacy ranks absent; never reconstruct them from today's rooms.
+  "patrolOrder",
   "preferredAssignedBlocks",
   "workloadPreferenceVersion",
   "version",

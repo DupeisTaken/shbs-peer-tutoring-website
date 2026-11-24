@@ -2,12 +2,16 @@ import { redirect } from "next/navigation";
 import { getTranslations } from "next-intl/server";
 import { auth } from "~/server/auth";
 import { db } from "~/server/db";
+import { getFeatures } from "~/server/program/features";
 import { WorkspaceHeader } from "./workspace-header";
 import { SectionLinks } from "./section-links";
-import { APP_TITLE } from "~/lib/branding";
 import { UserAvatar } from "./user-avatar";
 import Link from "next/link";
-import { portalAccess } from "~/lib/portal-access";
+import {
+  resolveWorkspaceNavigation,
+  workspaceNavLabels,
+  workspaceSwitcherLabels,
+} from "~/lib/workspace-navigation";
 
 /** Shared, small shell for participant and management workflows; APIs enforce data ownership. */
 export async function WorkflowShell({
@@ -29,32 +33,25 @@ export async function WorkflowShell({
   if (user.suspendedAt) redirect("/suspended");
   const staff = ["HEAD", "ADMIN", "COORDINATOR"].includes(user.role);
   if (management && !staff) redirect("/");
-  const t = await getTranslations("workflows");
-  const common = await getTranslations("common");
-  const account = await getTranslations("components.userMenu");
-  const access = portalAccess(user);
+  const [rootT, features] = await Promise.all([
+    getTranslations(),
+    getFeatures(db),
+  ]);
+  const t = (key: string) => rootT(`workflows.${key}`);
+  const common = (key: string) => rootT(`common.${key}`);
+  const account = (key: string) => rootT(`components.userMenu.${key}`);
   const elevated = staff || user.role === "VIEWER";
   // Match participant-shell entry semantics; an archived elevated link preserves history only.
   const canTutor =
     !user.tutorAccessRevoked &&
     !!user.tutor &&
     (!elevated || user.tutor.status !== "ARCHIVED");
-  const workspaceItems = [
-    ...(access.canReadManagement
-      ? [
-          {
-            href: "/admin",
-            label: access.managementReadOnly
-              ? (await getTranslations("schoolDeparture"))("enter")
-              : account("backToManagement"),
-          },
-        ]
-      : []),
-    ...(canTutor ? [{ href: "/dashboard", label: account("enterTutor") }] : []),
-    ...(user.role !== "VIEWER" && (access.canParticipate || access.departed)
-      ? [{ href: "/student", label: account("enterTutee") }]
-      : []),
-  ];
+  const nav = resolveWorkspaceNavigation({
+    account: user,
+    crewEnabled: features.CREW,
+    currentArea: null,
+    labels: workspaceNavLabels(rootT),
+  });
   const taskItems = [
     { href: "/my-account", label: t("settings") },
     { href: "/", label: t("home") },
@@ -65,14 +62,15 @@ export async function WorkflowShell({
     <div className="min-h-screen">
       <WorkspaceHeader
         href="/"
-        title={APP_TITLE}
+        title={title}
+        switcherItems={nav.items}
+        switcherLabels={workspaceSwitcherLabels(rootT)}
         skipLabel={common("skipToContent")}
         containerClassName="mx-auto max-w-5xl"
-        items={workspaceItems}
         identity={
           <Link
             href="/my-account"
-            className="hidden max-w-48 truncate rounded-md px-2 py-1 text-sm font-medium hover:bg-slate-100 lg:block"
+            className="hidden max-w-48 truncate rounded-md px-2 py-0.5 text-[13px] font-medium hover:bg-slate-100 lg:block"
           >
             {user.name ?? user.username}
           </Link>
@@ -84,10 +82,33 @@ export async function WorkflowShell({
           role: user.role,
           compactAtDesktop: true,
           items: [
-            ...workspaceItems,
-            ...taskItems,
+            {
+              href: "/messages",
+              label: t("messages"),
+              group: "tools" as const,
+            },
+            ...(staff
+              ? [
+                  {
+                    href: "/student-support",
+                    label: t("support"),
+                    group: "tools" as const,
+                  },
+                ]
+              : []),
+            {
+              href: "/my-account",
+              label: t("settings"),
+              group: "account" as const,
+            },
             ...(canTutor
-              ? [{ href: "/settings", label: account("settings") }]
+              ? [
+                  {
+                    href: "/settings",
+                    label: account("settings"),
+                    group: "account" as const,
+                  },
+                ]
               : []),
           ],
         })}

@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { getQueryKey } from "@trpc/react-query";
+import { trpcProcedureKey, trpcQueryKey } from "~/lib/trpc-query-key";
 import { useFormatter, useTranslations } from "next-intl";
 import Link from "next/link";
 import { api, type RouterOutputs } from "~/trpc/react";
@@ -102,6 +102,9 @@ export function SessionFlagBoard() {
   const denied = useSessionAccessDenied({
     ...flags,
     denialKey: "session-flags",
+    queryKey: trpcQueryKey(api.admin.sessionFlags, ["admin", "sessionFlags"], {
+      state: filter,
+    }),
   });
   if (accessDenied !== denied) setAccessDenied(denied);
   useEffect(() => {
@@ -109,7 +112,10 @@ export function SessionFlagBoard() {
     // the latched outcome so an older cached default cannot skip revocation.
     if (denied) {
       queryClient.removeQueries({
-        queryKey: getQueryKey(api.admin.sessionFlags),
+        queryKey: trpcProcedureKey(api.admin.sessionFlags, [
+          "admin",
+          "sessionFlags",
+        ]),
         exact: false,
       });
     }

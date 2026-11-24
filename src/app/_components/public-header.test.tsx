@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
 import { cleanup, render, screen } from "@testing-library/react";
+import Link from "next/link";
 import { afterEach, expect, it, vi } from "vitest";
 import { PublicHeader } from "./public-header";
 import { BrandingProvider } from "./branding-provider";
@@ -9,6 +10,9 @@ import NotFound from "../not-found";
 import en from "../../../messages/en.json";
 import zh from "../../../messages/zh.json";
 const state = vi.hoisted(() => ({ locale: "en" }));
+vi.mock("./help-link", () => ({
+  HelpLink: () => <Link href="/help">Help Center</Link>,
+}));
 vi.mock("./language-switcher", () => ({
   LanguageSwitcher: ({ compactAtDesktop }: { compactAtDesktop: boolean }) => (
     <select aria-label="Language" data-compact={compactAtDesktop}>
@@ -51,6 +55,9 @@ it("renders one set of compact utilities with a wrapping configured brand", () =
   ).toBe("/icon.png");
   expect(screen.getAllByRole("combobox", { name: "Language" })).toHaveLength(1);
   expect(screen.getAllByRole("button", { name: "Theme" })).toHaveLength(1);
+  expect(
+    screen.getByRole("link", { name: "Help Center" }).getAttribute("href"),
+  ).toBe("/help");
   expect(screen.getByRole("combobox").getAttribute("data-compact")).toBe(
     "true",
   );

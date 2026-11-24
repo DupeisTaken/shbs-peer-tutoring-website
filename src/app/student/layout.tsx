@@ -1,5 +1,10 @@
 import { Suspense } from "react";
 import { portalAccess } from "~/lib/portal-access";
+import {
+  resolveWorkspaceNavigation,
+  workspaceNavLabels,
+  workspaceSwitcherLabels,
+} from "~/lib/workspace-navigation";
 import { DepartureBanner } from "~/app/_components/school-departure";
 import { TRPCError } from "@trpc/server";
 import { currentPolicy, findAccountPolicy } from "~/server/policy-acceptance";
@@ -10,7 +15,6 @@ import { getMessages, getTranslations } from "next-intl/server";
 import { NextIntlClientProvider } from "next-intl";
 import { auth } from "~/server/auth";
 import { db } from "~/server/db";
-import { APP_TITLE } from "~/lib/branding";
 import { UserAvatar } from "~/app/_components/user-avatar";
 import { TuteeNavigation } from "./navigation";
 import { getFeatures } from "~/server/program/features";
@@ -38,6 +42,7 @@ export default async function TuteeLayout({
         tutorAccessRevoked: true,
         canTranslate: true,
         suspendedAt: true,
+        mergedIntoId: true,
         schoolDeparture: true,
         tutor: { select: { status: true } },
       },
@@ -74,38 +79,23 @@ export default async function TuteeLayout({
   const access = portalAccess(me);
   const hasAccess =
     access.departed || (me.tuteeMember && (!me.tutor || !!pastAcceptance));
-  const elevated = ["HEAD", "ADMIN", "COORDINATOR", "VIEWER"].includes(me.role);
-  const canTutor =
-    !me.tutorAccessRevoked &&
-    !!me.tutor &&
-    (!elevated || me.tutor.status !== "ARCHIVED");
-  const workspaceItems = [
-    ...(canTutor
-      ? [{ href: "/dashboard", label: t("components.userMenu.enterTutor") }]
-      : []),
-    ...(access.canReadManagement
-      ? [
-          {
-            href: "/admin",
-            label: t(
-              access.managementReadOnly
-                ? "schoolDeparture.enter"
-                : "components.userMenu.backToManagement",
-            ),
-          },
-        ]
-      : []),
-  ];
+  const nav = resolveWorkspaceNavigation({
+    account: me,
+    crewEnabled: features.CREW,
+    currentArea: "tutee",
+    labels: workspaceNavLabels(t),
+  });
   const items = [
-    ...workspaceItems,
-    { href: "/student?view=account", label: t("tuteePortal.account") },
-    { href: "/student?view=messages", label: t("tuteePortal.messages") },
-    ...(me.crewStatus === "ACTIVE" && features.CREW
-      ? [{ href: "/patrol", label: t("crew.nav.patrol") }]
-      : []),
-    ...(me.canTranslate
-      ? [{ href: "/localization", label: t("localization.navLabel") }]
-      : []),
+    {
+      href: "/student?view=messages",
+      label: t("tuteePortal.messages"),
+      group: "tools" as const,
+    },
+    {
+      href: "/student?view=account",
+      label: t("tuteePortal.account"),
+      group: "account" as const,
+    },
   ];
   const participationNotice = (
     <section className="card space-y-3 p-5">
@@ -119,14 +109,15 @@ export default async function TuteeLayout({
     <div className="min-h-screen">
       <WorkspaceHeader
         href="/student"
-        title={APP_TITLE}
-        items={workspaceItems}
+        title={t("components.workspaceTitles.tutee")}
+        switcherItems={nav.items}
+        switcherLabels={workspaceSwitcherLabels(t)}
         skipLabel={t("common.skipToContent")}
         containerClassName="mx-auto max-w-6xl"
         identity={
           <Link
             href="/student?view=account"
-            className="hidden max-w-48 truncate rounded-md px-2 py-1 text-sm font-medium hover:bg-slate-100 lg:block"
+            className="hidden max-w-48 truncate rounded-md px-2 py-0.5 text-[13px] font-medium hover:bg-slate-100 lg:block"
           >
             {me.name ?? me.username}
           </Link>

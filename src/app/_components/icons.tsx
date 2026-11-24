@@ -129,6 +129,29 @@ export function LayersIcon({ className = "h-5 w-5" }: { className?: string }) {
   );
 }
 
+export function HelpCircleIcon({
+  className = "h-5 w-5",
+}: {
+  className?: string;
+}) {
+  return (
+    <svg
+      aria-hidden="true"
+      viewBox="0 0 24 24"
+      className={className}
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.75"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <circle cx="12" cy="12" r="10" />
+      <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3" />
+      <path d="M12 17h.01" />
+    </svg>
+  );
+}
+
 export function ArrowRightIcon({ className = "h-4 w-4" }: { className?: string }) {
   return (
     <svg

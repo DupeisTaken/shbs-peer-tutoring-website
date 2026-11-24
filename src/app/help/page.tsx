@@ -9,6 +9,7 @@ import {
 import { getHelpAccess } from "~/server/help/access";
 import { HelpCatalogue, type HelpCatalogueEntry } from "./catalogue";
 import { helpCategory, helpCopy } from "./copy";
+import { HelpHandbookDownloads } from "./handbook-downloads";
 
 export function toHelpCatalogueEntry(
   article: HelpArticle,
@@ -63,8 +64,12 @@ export default async function HelpPage() {
       )
       .map((audience) => [audience, helpAudienceTitles[audience][locale]]),
   );
+  const downloadableAudiences = access.downloadableAudiences.filter((audience) =>
+    helpArticles.some((article) => article.audience === audience),
+  );
   return (
     <main
+      id="main-content"
       lang={locale}
       className="mx-auto max-w-6xl space-y-6 px-4 py-6 sm:py-10"
     >
@@ -77,16 +82,19 @@ export default async function HelpPage() {
         <p className="mt-3 max-w-3xl text-sm leading-6 text-slate-600">
           {access.audiences.includes("account") ? copy.access : copy.guest}
         </p>
-        <div className="mt-4 flex flex-wrap gap-3">
+        <div className="mt-5 flex flex-wrap items-center gap-3">
           {!access.audiences.includes("account") && (
-            <Link href="/signin?callbackUrl=%2Fhelp" className="btn-primary min-h-11">
+            <Link
+              href="/signin?callbackUrl=%2Fhelp"
+              className="btn-primary min-h-11"
+            >
               {copy.signIn}
             </Link>
           )}
-          {access.canDownload && (
-            <Link href="/admin/help" className="btn-secondary min-h-11">
+          {downloadableAudiences.length > 0 && (
+            <a href="#handbooks" className="btn-secondary min-h-11">
               {copy.downloads}
-            </Link>
+            </a>
           )}
           <a
             href="https://github.com/DupeisTaken/shbs-peer-tutoring-website/tree/main/docs/guides/help"
@@ -109,6 +117,27 @@ export default async function HelpPage() {
         audienceTitles={audienceTitles}
         locale={locale}
       />
+      {downloadableAudiences.length > 0 && (
+        <section
+          id="handbooks"
+          aria-labelledby="help-handbooks-title"
+          className="scroll-mt-28 space-y-4 border-t border-slate-200 pt-6"
+        >
+          <header className="space-y-1.5">
+            <h2 id="help-handbooks-title" className="section-title">
+              {copy.downloads}
+            </h2>
+            <p className="max-w-3xl text-sm leading-6 text-slate-600">
+              {copy.downloadsHelp}
+            </p>
+          </header>
+          <HelpHandbookDownloads
+            audiences={downloadableAudiences}
+            locale={locale}
+            headingLevel="h3"
+          />
+        </section>
+      )}
     </main>
   );
 }

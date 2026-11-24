@@ -4,6 +4,7 @@ import { useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 
 import { PASSWORD_MAX_LENGTH } from "~/lib/password-contract";
+import { trpcQueryKey } from "~/lib/trpc-query-key";
 import { api } from "~/trpc/react";
 import { useSessionAccessDenied } from "./session-view-state";
 import { Button } from "./ui/button";
@@ -68,8 +69,16 @@ export function TwoFactorSettings() {
   });
 
   const denied = useSessionAccessDenied(
-    { ...me, denialKey: "two-factor-account" },
-    { ...features, denialKey: "two-factor-program" },
+    {
+      ...me,
+      denialKey: "two-factor-account",
+      queryKey: trpcQueryKey(api.account.me, ["account", "me"]),
+    },
+    {
+      ...features,
+      denialKey: "two-factor-program",
+      queryKey: trpcQueryKey(api.program.features, ["program", "features"]),
+    },
     {
       error: update.error,
       isSuccess: !update.error,

@@ -1,6 +1,6 @@
 {
   "helpNav": {
-    "title": "ヘルプと操作ガイド",
+    "title": "ヘルプセンター",
     "downloads": "PDF マニュアル"
   },
   "recoveryWorkflow": {
@@ -689,7 +689,8 @@
       "teamSignin": "サインイン",
       "becomeCrew": "巡回班に参加",
       "viewerSignup": "プログラムをフォロー",
-      "landmark": "サイトナビゲーション"
+      "landmark": "サイトナビゲーション",
+      "signInAndJoin": "ログイン・参加"
     },
     "tagline": "ピアチュータリングプログラム",
     "heroTitle": "一緒に学ぼう。一緒に成長しよう。",
@@ -2928,7 +2929,12 @@
       "enterTutor": "チューターページへ",
       "enterAdmin": "管理者エリアへ",
       "enterTutee": "学習者ページへ",
-      "backToManagement": "管理ページに戻る"
+      "backToManagement": "管理ページに戻る",
+      "groups": {
+        "workspaces": "ワークスペース",
+        "tools": "ツール",
+        "account": "アカウント"
+      }
     },
     "theme": {
       "label": "テーマ",
@@ -2940,6 +2946,20 @@
         "amber": "アンバー",
         "sky": "スカイ"
       }
+    },
+    "workspaceTitles": {
+      "management": "管理",
+      "viewer": "プログラム概要",
+      "tutor": "チューター",
+      "tutee": "受講者",
+      "patrol": "巡回チーム",
+      "translations": "翻訳",
+      "programHome": "プログラムホーム"
+    },
+    "workspaceSwitcher": {
+      "label": "ページを切り替え",
+      "workspaces": "ワークスペース",
+      "general": "一般"
     }
   },
   "localization": {
@@ -3080,7 +3100,17 @@
     "newer": "新しい記録",
     "older": "古い記録",
     "details": "変更の詳細",
-    "patrolChanged": "Patrol changed. Reload before correcting it."
+    "patrolChanged": "Patrol changed. Reload before correcting it.",
+    "patrolRooms": "巡回教室の選択肢",
+    "reloadPatrol": "巡回下書きを再読み込み",
+    "patrolReloadFailed": "最新の巡回記録と教室の選択肢を読み込めませんでした。下書きは保持されています。",
+    "patrolUnavailable": "この巡回記録は現在の履歴ページに表示されなくなりました。下書きは保持されています。",
+    "patrolSaved": "修正を保存しました。巡回履歴を更新しています…",
+    "patrolSavedRefreshFailed": "修正は保存されましたが、巡回履歴を更新できませんでした。更新を試してください。",
+    "patrolQueuedRefreshFailed": "修正を承認待ちとして送信しましたが、巡回履歴を更新できませんでした。更新を試してください。",
+    "invalidPatrolTime": "有効な確認時刻を入力してください。",
+    "patrolRoomUnavailable": "{room}（利用不可）",
+    "patrolRoomRequired": "保存前に各記録で利用可能な教室を選択してください。"
   },
   "emailChange": {
     "title": "アカウントのメールを変更",
@@ -4975,7 +5005,13 @@
       "ATTEMPT": "未適用の試行"
     },
     "unnamedAccount": "Unnamed account",
-    "formerAccount": "Former account"
+    "formerAccount": "Former account",
+    "filterOptions": "フィルター選択肢",
+    "retryReads": "監査ログを再読み込み",
+    "loadingReads": "監査履歴とフィルター選択肢を読み込んでいます…",
+    "loadFailed": "監査履歴またはフィルター選択肢を読み込めませんでした。",
+    "refreshFailed": "監査履歴またはフィルター選択肢を更新できませんでした。未適用のフィルターは保持されています。",
+    "accessDenied": "監査履歴へのアクセス権がなくなりました。"
   },
   "userMultiFilters": {
     "all": "All",
@@ -5384,7 +5420,13 @@
     "importTooLarge": "Choose a file smaller than 1 MB.",
     "importEmpty": "The file contains no subjects.",
     "importFileType": "Choose a .json or .csv file.",
-    "importInvalid": "Could not import file: {detail}"
+    "importInvalid": "Could not import file: {detail}",
+    "retry": "カタログを再読み込み",
+    "loadFailed": "科目カタログを読み込めませんでした。",
+    "refreshFailed": "科目カタログを更新できませんでした。下書きは保持されています。変更前に再試行してください。",
+    "accessDenied": "科目カタログへのアクセス権がなくなりました。",
+    "savedRefreshing": "変更を保存しました。カタログを更新しています…",
+    "savedRefreshFailed": "変更は保存されましたが、科目カタログを更新できませんでした。更新を試してください。"
   },
   "recruitment": {
     "preview": "読み取り専用のフォームプレビュー",

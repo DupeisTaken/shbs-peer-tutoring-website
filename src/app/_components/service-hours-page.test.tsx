@@ -6,43 +6,70 @@ import {
   fireEvent,
   render,
   screen,
+  waitFor,
   within,
 } from "@testing-library/react";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import {
+  QueryClientProvider,
+  useQuery,
+  type QueryClient,
+} from "@tanstack/react-query";
 import { NextIntlClientProvider } from "next-intl";
 import en from "../../../messages/en.json";
 import zh from "../../../messages/zh.json";
 import ServiceHoursPage from "../(admin)/admin/service-hours/(roster)/page";
 import { SessionViewProvider } from "./session-view-state";
 import type { ServiceHoursRow } from "~/lib/service-hours-view";
+import { createQueryClient } from "~/trpc/query-client";
 
 vi.mock("./school-hours-panel", () => ({ SchoolHoursPanel: () => null }));
 
 const query = vi.hoisted(() => ({
+  real: false,
   error: null as null | { data: { code: string } },
   retry: vi.fn(),
   loaded: true,
   rows: [] as ServiceHoursRow[],
   totals: { earned: 8, extras: 0, punishments: 3, total: 5 },
 }));
-vi.mock("@trpc/react-query", () => ({ getQueryKey: () => ["summary"] }));
+vi.mock("@trpc/react-query", () => ({
+  getQueryKey: (_procedure: unknown, input: unknown) =>
+    input === undefined ? ["summary"] : ["summary", input],
+}));
 vi.mock("~/trpc/react", () => ({
   api: {
     admin: {
       periodSummary: {
-        useQuery: () => ({
-          data: query.loaded
-            ? {
+        useQuery: (input: unknown, options?: { enabled?: boolean }) => {
+          const live = useQuery({
+            queryKey: input === undefined ? ["summary"] : ["summary", input],
+            queryFn: async () => {
+              query.retry();
+              if (query.error)
+                throw Object.assign(new Error("Summary error"), query.error);
+              return {
                 scope: { label: "Synthetic semester" },
                 rows: query.rows,
                 totals: query.totals,
-              }
-            : undefined,
-          error: query.error,
-          isSuccess: !query.error && query.loaded,
-          isFetching: false,
-          refetch: query.retry,
-        }),
+              };
+            },
+            enabled: query.real && options?.enabled !== false,
+          });
+          if (query.real) return live;
+          return {
+            data: query.loaded
+              ? {
+                  scope: { label: "Synthetic semester" },
+                  rows: query.rows,
+                  totals: query.totals,
+                }
+              : undefined,
+            error: query.error,
+            isSuccess: !query.error && query.loaded,
+            isFetching: false,
+            refetch: query.retry,
+          };
+        },
       },
     },
   },
@@ -64,8 +91,21 @@ const row = (
   ...overrides,
 });
 beforeEach(() => {
-  client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  client = createQueryClient();
+  const defaults = client.getDefaultOptions();
+  client.setDefaultOptions({
+    ...defaults,
+    queries: {
+      ...defaults.queries,
+      retry: false,
+      staleTime: 30_000,
+      gcTime: Infinity,
+      refetchOnWindowFocus: false,
+      refetchOnReconnect: false,
+    },
+  });
   sessionStorage.clear();
+  query.real = false;
   query.error = null;
   query.loaded = true;
   query.retry.mockClear();
@@ -326,18 +366,30 @@ it("distinguishes no matches, an empty roster and an initial read failure", () =
   ).toBeTruthy();
 });
 
-it("retains filters and totals through refresh failure, but conceals them and clears session choices after denial", () => {
-  const view = render(show());
+it("retains filters and totals through refresh failure, but conceals them and clears session choices after denial", async () => {
+  query.real = true;
+  let now = Date.UTC(2026, 10, 9, 12, 10);
+  vi.spyOn(Date, "now").mockImplementation(() => now);
+  render(show());
+  await waitFor(() => expect(rosterNames()).toHaveLength(5));
   fireEvent.change(
     screen.getByRole("searchbox", { name: en.admin.summary.searchLabel }),
     { target: { value: "Same" } },
   );
+  expect(rosterNames()).toHaveLength(2);
+
   query.error = { data: { code: "INTERNAL_SERVER_ERROR" } };
-  view.rerender(show());
+  await act(async () => {
+    await client.refetchQueries({ queryKey: ["summary"] });
+  });
+  await waitFor(() => expect(screen.getByRole("alert")).toBeTruthy());
   expect(rosterNames()).toHaveLength(2);
   expect(
     screen.getByRole("region", { name: en.admin.summary.programTotals }),
   ).toBeTruthy();
+
+  now = Date.UTC(2026, 10, 9, 12, 0);
+  query.error = { data: { code: "FORBIDDEN" } };
   fireEvent.click(
     screen.getByRole("button", {
       name: en.managementRecovery.retry.replace(
@@ -346,10 +398,7 @@ it("retains filters and totals through refresh failure, but conceals them and cl
       ),
     }),
   );
-  expect(query.retry).toHaveBeenCalledOnce();
-  query.error = { data: { code: "FORBIDDEN" } };
-  view.rerender(show());
-  expect(screen.queryByRole("table")).toBeNull();
+  await waitFor(() => expect(screen.queryByRole("table")).toBeNull());
   expect(
     screen.queryByRole("region", { name: en.admin.summary.programTotals }),
   ).toBeNull();
@@ -359,14 +408,35 @@ it("retains filters and totals through refresh failure, but conceals them and cl
       sessionStorage.key(i),
     ).some((key) => key?.includes("service-hours-roster")),
   ).toBe(false);
+
   query.error = { data: { code: "INTERNAL_SERVER_ERROR" } };
-  view.rerender(show());
-  expect(screen.queryByText("Same Name")).toBeNull();
+  fireEvent.click(
+    screen.getByRole("button", {
+      name: en.managementRecovery.retry.replace(
+        "{section}",
+        en.admin.summary.title,
+      ),
+    }),
+  );
+  await waitFor(() => expect(screen.queryByText("Same Name")).toBeNull());
+
+  // Fresh authorized read recovers even with backward clock skew.
+  now = Date.UTC(2026, 10, 9, 11, 50);
   query.error = null;
-  view.rerender(show());
-  expect(
-    screen.getByRole<HTMLInputElement>("searchbox", {
-      name: en.admin.summary.searchLabel,
-    }).value,
-  ).toBe("");
+  fireEvent.click(
+    screen.getByRole("button", {
+      name: en.managementRecovery.retry.replace(
+        "{section}",
+        en.admin.summary.title,
+      ),
+    }),
+  );
+  await waitFor(() =>
+    expect(
+      screen.getByRole<HTMLInputElement>("searchbox", {
+        name: en.admin.summary.searchLabel,
+      }).value,
+    ).toBe(""),
+  );
+  vi.restoreAllMocks();
 });

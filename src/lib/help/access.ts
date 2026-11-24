@@ -17,20 +17,50 @@ export type HelpAccessAccount = {
   } | null;
 };
 
-export type HelpAccess = { audiences: HelpAudience[]; canDownload: boolean };
+export type HelpAccess = {
+  audiences: HelpAudience[];
+  /** Audiences this visitor or account may download as PDF handbooks. */
+  downloadableAudiences: HelpAudience[];
+  /** Staff handbook distribution page (/admin/help) remains staff-only. */
+  canDownload: boolean;
+};
+
+const ALL_AUDIENCES: readonly HelpAudience[] = [
+  "public",
+  "account",
+  "student",
+  "tutor",
+  "crew",
+  "observer",
+  "staff",
+  "admin",
+  "head",
+  "translator",
+];
 
 /** Guidance follows current capabilities, not a stale session role. Memberships
- * stay independent: management does not imply a tutor or crew assignment. */
+ * stay independent: management does not imply a tutor or crew assignment. Everyone
+ * may download PDF handbooks for their authorized audiences; staff may also
+ * distribute participant training handbooks while keeping admin/Head gated. */
 export function helpAccess(
   account: HelpAccessAccount | null,
   crewEnabled = true,
 ): HelpAccess {
   const audiences: HelpAudience[] = ["public"];
   if (!account || account.mergedIntoId)
-    return { audiences, canDownload: false };
+    return {
+      audiences,
+      downloadableAudiences: [...audiences],
+      canDownload: false,
+    };
   audiences.push("account");
   // Recovery guidance remains readable while the account's workspaces are suspended.
-  if (account.suspendedAt) return { audiences, canDownload: false };
+  if (account.suspendedAt)
+    return {
+      audiences,
+      downloadableAudiences: [...audiences],
+      canDownload: false,
+    };
 
   const access = portalAccess(account);
   const staff = ["HEAD", "ADMIN", "COORDINATOR"].includes(account.role);
@@ -51,5 +81,14 @@ export function helpAccess(
     audiences.push("admin");
   if (account.role === "HEAD") audiences.push("head");
   if (translationAccess(account).enter) audiences.push("translator");
-  return { audiences, canDownload: staff };
+
+  const downloadableAudiences = staff
+    ? ALL_AUDIENCES.filter(
+        (audience) =>
+          (audience !== "admin" && audience !== "head") ||
+          audiences.includes(audience),
+      )
+    : [...audiences];
+
+  return { audiences, downloadableAudiences, canDownload: staff };
 }

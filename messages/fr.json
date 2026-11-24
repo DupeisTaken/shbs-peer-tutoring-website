@@ -1,6 +1,6 @@
 {
   "helpNav": {
-    "title": "Aide et guides",
+    "title": "Centre d'aide",
     "downloads": "Manuels PDF"
   },
   "recoveryWorkflow": {
@@ -689,7 +689,8 @@
       "teamSignin": "Connexion",
       "becomeCrew": "Rejoindre la ronde",
       "viewerSignup": "Suivre le Programme",
-      "landmark": "Navigation du site"
+      "landmark": "Navigation du site",
+      "signInAndJoin": "Connexion et inscription"
     },
     "tagline": "Programme de tutorat par les pairs",
     "heroTitle": "Apprendre ensemble. Progresser ensemble.",
@@ -2928,7 +2929,12 @@
       "enterTutor": "Accéder à la page tuteur",
       "enterAdmin": "Accéder à l'espace administrateur",
       "enterTutee": "Accéder à la page élève",
-      "backToManagement": "Retour à la gestion"
+      "backToManagement": "Retour à la gestion",
+      "groups": {
+        "workspaces": "Espaces de travail",
+        "tools": "Outils",
+        "account": "Compte"
+      }
     },
     "theme": {
       "label": "Thème",
@@ -2940,6 +2946,20 @@
         "amber": "Ambre",
         "sky": "Ciel"
       }
+    },
+    "workspaceTitles": {
+      "management": "Gestion",
+      "viewer": "Aperçu du programme",
+      "tutor": "Tuteur",
+      "tutee": "Élève",
+      "patrol": "Équipe de ronde",
+      "translations": "Traductions",
+      "programHome": "Accueil du programme"
+    },
+    "workspaceSwitcher": {
+      "label": "Changer de page",
+      "workspaces": "Espaces",
+      "general": "Général"
     }
   },
   "localization": {
@@ -3080,7 +3100,17 @@
     "newer": "Plus récents",
     "older": "Plus anciens",
     "details": "Détails du changement",
-    "patrolChanged": "Patrol changed. Reload before correcting it."
+    "patrolChanged": "Patrol changed. Reload before correcting it.",
+    "patrolRooms": "les salles de patrouille",
+    "reloadPatrol": "Recharger le brouillon de patrouille",
+    "patrolReloadFailed": "Impossible de charger la dernière patrouille et les salles. Votre brouillon est conservé.",
+    "patrolUnavailable": "Cette patrouille ne figure plus sur cette page de l’historique. Votre brouillon est conservé.",
+    "patrolSaved": "Correction enregistrée. Actualisation de l’historique des patrouilles…",
+    "patrolSavedRefreshFailed": "Correction enregistrée, mais l’historique des patrouilles n’a pas pu s’actualiser. Essayez d’actualiser.",
+    "patrolQueuedRefreshFailed": "Correction envoyée pour validation, mais l’historique des patrouilles n’a pas pu s’actualiser. Essayez d’actualiser.",
+    "invalidPatrolTime": "Saisissez une heure d’observation valide.",
+    "patrolRoomUnavailable": "{room} (indisponible)",
+    "patrolRoomRequired": "Choisissez une salle disponible pour chaque observation avant d’enregistrer."
   },
   "emailChange": {
     "title": "Modifier l’adresse du compte",
@@ -4975,7 +5005,13 @@
       "ATTEMPT": "Tentative sans modification appliquée"
     },
     "unnamedAccount": "Unnamed account",
-    "formerAccount": "Former account"
+    "formerAccount": "Former account",
+    "filterOptions": "les options de filtre",
+    "retryReads": "Réessayer les lectures d’audit",
+    "loadingReads": "Chargement de l’historique d’audit et des options de filtre…",
+    "loadFailed": "Impossible de charger l’historique d’audit ou les options de filtre.",
+    "refreshFailed": "Impossible d’actualiser l’historique d’audit ou les options de filtre. Les filtres non appliqués sont conservés.",
+    "accessDenied": "Vous n’avez plus accès à l’historique d’audit."
   },
   "userMultiFilters": {
     "all": "All",
@@ -5384,7 +5420,13 @@
     "importTooLarge": "Choose a file smaller than 1 MB.",
     "importEmpty": "The file contains no subjects.",
     "importFileType": "Choose a .json or .csv file.",
-    "importInvalid": "Could not import file: {detail}"
+    "importInvalid": "Could not import file: {detail}",
+    "retry": "Réessayer le chargement du catalogue",
+    "loadFailed": "Impossible de charger le catalogue des matières.",
+    "refreshFailed": "Impossible d’actualiser le catalogue des matières. Vos brouillons sont conservés ; réessayez avant de modifier.",
+    "accessDenied": "Vous n’avez plus accès au catalogue des matières.",
+    "savedRefreshing": "Modifications enregistrées. Actualisation du catalogue…",
+    "savedRefreshFailed": "Modifications enregistrées, mais le catalogue des matières n’a pas pu s’actualiser. Essayez d’actualiser."
   },
   "recruitment": {
     "preview": "Aperçu du formulaire en lecture seule",

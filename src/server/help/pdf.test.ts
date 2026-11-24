@@ -7,7 +7,12 @@ import type * as ScreenshotsModule from "~/lib/help/screenshots";
 import type { HelpScreenshot } from "~/lib/help/screenshots";
 import { getHelpScreenshot, getScreenshotSource } from "~/lib/help/screenshots";
 import type { HelpLocale } from "~/lib/help/types";
-import { pdfImageHeight, renderHelpPdf } from "./pdf";
+import {
+  formatDownloadFilenameStamp,
+  formatDownloadTimestamp,
+  pdfImageHeight,
+  renderHelpPdf,
+} from "./pdf";
 
 const primary = "observe-program-step-1";
 const supplemental = "observe-program-step-2";
@@ -236,7 +241,7 @@ it("includes every supplemental screenshot within the same numbered instruction"
   expect(pdf).toContain("/FontFile2");
 });
 
-async function traceRendering(locale: HelpLocale) {
+async function traceRendering(locale: HelpLocale, downloadedAt?: Date) {
   const text: { value: string; page: number; finishPage: number }[] = [];
   const images: { page: number; sha256: string }[] = [];
   const prototype = PDFDocument.prototype as Pick<
@@ -268,7 +273,7 @@ async function traceRendering(locale: HelpLocale) {
     return Reflect.apply(drawImage, this, args);
   });
   try {
-    await renderHelpPdf("observer", locale);
+    await renderHelpPdf("observer", locale, downloadedAt);
     return {
       images,
       text,
@@ -360,3 +365,28 @@ it("gives tall full-page screenshots full-page vertical height instead of micros
   expect(fullPage).toBeGreaterThan(600);
   expect((fullPage * 1265) / 2835).toBeGreaterThan(260);
 });
+
+it.each(["en", "zh"] as const)(
+  "stamps the download date and time into %s PDF cover metadata and footers",
+  async (locale) => {
+    const downloadedAt = new Date("2026-11-24T04:55:00Z"); // 2026-11-24 12:55 UTC+8
+    expect(formatDownloadTimestamp(downloadedAt)).toBe("2026-11-24 12:55 UTC+8");
+    expect(formatDownloadFilenameStamp(downloadedAt)).toBe("2026-11-24-1255");
+    const rendered = await traceRendering(locale, downloadedAt);
+    const label = locale === "zh" ? "下载时间" : "Downloaded";
+    expect(
+      rendered.text.some(
+        (row) =>
+          row.value.includes(label) &&
+          row.value.includes("2026-11-24 12:55 UTC+8"),
+      ),
+    ).toBe(true);
+    expect(
+      rendered.text.some(
+        (row) =>
+          row.value.startsWith("2026-11-24 12:55 UTC+8 ·") &&
+          row.value.includes("01 /"),
+      ),
+    ).toBe(true);
+  },
+);

@@ -1,20 +1,29 @@
-import Link from "next/link";
 import type { ReactNode } from "react";
-import { BrandMark } from "./brand-mark";
+
+import type { WorkspaceSwitcherItem } from "~/lib/workspace-navigation";
+import { HelpLink } from "./help-link";
 import { LanguageSwitcher } from "./language-switcher";
 import { NotificationBell } from "./notification-bell";
 import { ThemeSwitcher } from "./theme-switcher";
-import { WorkspaceLinks, type WorkspaceLink } from "./workspace-links";
 import { WorkspaceHeaderFrame } from "./workspace-header-frame";
+import { WorkspaceSwitcher } from "./workspace-switcher";
 
-/** One responsive header for all workspaces. DOM order follows desktop left-to-right
- * visual/Tab reading order; mobile grid placement keeps language beside the brand,
- * menu opposite global controls, and workspace switches together below with 44px targets.
+/**
+ * One balanced, calm header for all signed-in workspaces and signed-in Program Home.
+ *
+ * Desktop (`lg+`, single 56px row):
+ *   `[(PT Logo) Title ⌄]   ...   [Bell] [?] [Theme]  [Language]  |  [User & Portrait]`
+ *
+ * Mobile (`<lg`, compact 2 rows with full 44px touch targets & zero title truncation):
+ *   Row 1: `[☰?] [(PT Logo) Title ⌄]`
+ *   Row 2: `[Bell] [?] [Theme]   ...   [Language] [Avatar]`
  */
 export function WorkspaceHeader({
   href,
   title,
-  items,
+  hideTitle = false,
+  switcherItems = [],
+  switcherLabels,
   identity,
   account,
   navigation,
@@ -23,8 +32,17 @@ export function WorkspaceHeader({
   containerClassName = "mx-auto max-w-7xl",
 }: {
   href: string;
+  /** Short current-area title shown beside the PT logo (e.g. "Management", "Program Overview", "Tutor"). */
   title: string;
-  items: WorkspaceLink[];
+  /** Hide visible title text beside the logo (used on Program Home while keeping the switcher menu). */
+  hideTitle?: boolean;
+  /** Authorized other destinations for the `(Logo) Title ⌄` dropdown (current area already excluded). */
+  switcherItems?: WorkspaceSwitcherItem[];
+  switcherLabels?: {
+    menuLabel: string;
+    workspacesGroupLabel: string;
+    generalGroupLabel: string;
+  };
   identity: ReactNode;
   account: ReactNode;
   navigation?: ReactNode;
@@ -33,6 +51,12 @@ export function WorkspaceHeader({
   /** Align desktop header edges with the host workspace frame (7xl admin, 6xl participant, etc.). */
   containerClassName?: string;
 }) {
+  const labels = switcherLabels ?? {
+    menuLabel: "Switch workspace",
+    workspacesGroupLabel: "Workspaces",
+    generalGroupLabel: "General",
+  };
+
   return (
     <WorkspaceHeaderFrame>
       {skipLabel ? (
@@ -41,41 +65,62 @@ export function WorkspaceHeader({
         </a>
       ) : null}
       <div
-        className={`grid min-w-0 grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-x-2 gap-y-2 px-4 py-2.5 lg:flex lg:gap-2 lg:px-6 lg:py-3 ${containerClassName}`}
+        className={`flex min-w-0 flex-col gap-1.5 px-3 py-2 sm:px-4 lg:flex-row lg:items-center lg:gap-1.5 lg:px-6 lg:py-2.5 ${containerClassName}`}
       >
-        <Link
-          href={href}
-          title={title}
-          className="col-span-2 col-start-1 row-start-1 flex min-h-11 min-w-0 items-center gap-2.5 text-xl font-bold break-words text-slate-900 lg:mr-auto lg:min-h-8 lg:text-lg"
-        >
-          <BrandMark />
-          <span className="min-w-0">{title}</span>
-        </Link>
-        {navigation ? (
-          <div className="col-start-1 row-start-2 justify-self-start lg:hidden">
-            {navigation}
-          </div>
-        ) : null}
-        {items.length > 0 ? (
-          <div className="col-span-3 col-start-1 row-start-3 min-w-0 border-t border-slate-100 pt-2 lg:border-0 lg:pt-0">
-            <WorkspaceLinks items={items} />
-          </div>
-        ) : null}
-        <div className="hidden shrink-0 lg:block">{identity}</div>
-        {/* Enlarged touch targets may outgrow these two mobile grid columns.
-            Wrap within their area instead of overflowing left onto navigation;
-            desktop still places the same controls directly in its flex row. */}
-        <div className="col-span-2 col-start-2 row-start-2 flex min-w-0 flex-wrap items-center justify-end gap-2 lg:contents">
-          <div className="shrink-0">
-            <ThemeSwitcher compactAtDesktop />
-          </div>
-          <div className="shrink-0">
-            <NotificationBell />
-          </div>
-          <div className="shrink-0 lg:order-2">{account}</div>
+        {/* Left: optional mobile drawer trigger + (PT Logo) Title v workspace switcher */}
+        <div className="flex min-w-0 items-center gap-1.5 lg:contents">
+          {navigation ? (
+            <div className="shrink-0 lg:hidden">{navigation}</div>
+          ) : null}
+          <WorkspaceSwitcher
+            href={href}
+            title={title}
+            hideTitle={hideTitle}
+            items={switcherItems}
+            menuLabel={labels.menuLabel}
+            workspacesGroupLabel={labels.workspacesGroupLabel}
+            generalGroupLabel={labels.generalGroupLabel}
+          />
         </div>
-        <div className="col-start-3 row-start-1 justify-self-end lg:order-1">
-          <LanguageSwitcher compactAtDesktop />
+
+        {/* Mobile row divider */}
+        <div
+          aria-hidden="true"
+          className="h-px bg-slate-100 lg:hidden"
+        />
+
+        {/* Desktop flexible spacer */}
+        <div aria-hidden="true" className="hidden lg:block lg:flex-1" />
+
+        {/* Right utilities in exact order: soft circular Bell, ?, Theme, pill Language | Name [Avatar] */}
+        <div className="flex min-w-0 flex-wrap items-center justify-between gap-2 lg:contents">
+          <div className="flex shrink-0 items-center gap-1 lg:gap-1.5">
+            <div className="shrink-0">
+              <NotificationBell />
+            </div>
+            <div className="shrink-0">
+              <HelpLink />
+            </div>
+            <div className="shrink-0">
+              <ThemeSwitcher compactAtDesktop />
+            </div>
+          </div>
+
+          <div className="flex shrink-0 items-center gap-2 lg:contents">
+            <div className="shrink-0 lg:ml-1.5">
+              <LanguageSwitcher compactAtDesktop />
+            </div>
+
+            <span
+              aria-hidden="true"
+              className="mx-2 hidden h-5 w-px shrink-0 bg-slate-200 lg:block"
+            />
+
+            <div className="flex shrink-0 items-center gap-2">
+              <div className="hidden shrink-0 lg:block">{identity}</div>
+              <div className="shrink-0">{account}</div>
+            </div>
+          </div>
         </div>
       </div>
     </WorkspaceHeaderFrame>

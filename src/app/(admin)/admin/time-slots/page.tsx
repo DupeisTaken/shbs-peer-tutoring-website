@@ -113,6 +113,10 @@ export default function TimeSlotsPage() {
       () => invalidateAndReport(utils.notification.unreadCount),
       () => invalidateAndReport(utils.studentWorkflow.mine),
       () => invalidateAndReport(utils.pairingGroups.mine),
+      () =>
+        utils.sessionPlanning?.agenda
+          ? invalidateAndReport(utils.sessionPlanning.agenda)
+          : Promise.resolve(),
       () => invalidateWorkloads(utils, true),
     ]);
   // Catalogue edits can allocate several rooms. An accepted write must never
