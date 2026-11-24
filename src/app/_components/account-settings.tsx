@@ -688,7 +688,9 @@ export function AccountSettings({ embedded = false }: { embedded?: boolean }) {
               >
                 {pwError ??
                   changePassword.error?.message ??
-                  requestCode.error?.message}
+                  (requestCode.error?.data?.emailDeliveryFailed
+                    ? t("account.password.deliveryFailed")
+                    : requestCode.error?.message)}
               </span>
             )}
           </div>

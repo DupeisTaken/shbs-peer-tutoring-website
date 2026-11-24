@@ -144,8 +144,13 @@ the existing queue order. An in-flight SMTP attempt can finish beyond that budge
 slow transport or a prolonged outage can still exhaust a reminder's lateness window.
 
 Tutoring reminders require an active term, confirmed schedule and active participants.
-Optional term bounds, active inclusive **No tutoring** date ranges and explicit
-non-school days suppress occurrences. Recorded tutor or assigned-tutee absence
+Ordinary recurring occurrences respect optional term bounds and are suppressed by
+active inclusive **No tutoring** date ranges and explicit non-school days. Confirmed
+dated exceptions admitted through [affirmative agreement](session-planning.md#tutoring-pauses-and-affirmative-exceptions)
+from the tutor and every participating tutee may receive reminders during
+**Pause regular tutoring** or on non-school days (already-confirmed extras retained
+across a tutoring pause also remain eligible on school days); an overlapping legacy
+**Notice only** (`NOTICE`) range still suppresses them. Recorded tutor or assigned-tutee absence
 suppresses the whole tutoring occurrence, including queued reminders. Missing
 attendance is not absence; future absence cannot be inferred from an unrecorded plan.
 These rules affect reminders only, never attendance or appeal-school-day calculations.

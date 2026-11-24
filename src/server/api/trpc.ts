@@ -2,6 +2,7 @@ import { portalAccess } from "~/lib/portal-access";
 import { assertHistoryAccessGeneration } from "~/server/history-access-generation";
 import { projectManagementRead } from "~/server/management-read-models";
 import { SignupRetry } from "~/server/signup-admission";
+import { EmailDeliveryError } from "~/server/email/sender";
 import { accountPolicyIds } from "~/server/policy-acceptance";
 import { ApprovalQueued, queueProposal, proposalAuthority } from "~/server/approvals";
 import {
@@ -81,6 +82,7 @@ export function formatTRPCErrorShape<
       zodError: zodError ? zodError.flatten() : null,
       validationSummary: summary,
       retryAfterSeconds: error.cause instanceof SignupRetry ? error.cause.retryAfterSeconds : null,
+      emailDeliveryFailed: error.cause instanceof EmailDeliveryError,
     },
   };
 }

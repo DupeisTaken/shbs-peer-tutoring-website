@@ -4,6 +4,7 @@ import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { NextIntlClientProvider } from "next-intl";
 import en from "../../../messages/en.json";
+import zh from "../../../messages/zh.json";
 import { PASSWORD_MAX_LENGTH } from "~/lib/password-contract";
 
 const mocks = vi.hoisted(() => ({
@@ -12,6 +13,10 @@ const mocks = vi.hoisted(() => ({
   requestCode: vi.fn(),
   updateName: vi.fn(),
   succeed: true,
+  requestCodeError: null as null | {
+    message: string;
+    data?: { emailDeliveryFailed?: boolean };
+  },
   account: null as null | {
     id: string;
     name: string;
@@ -53,10 +58,13 @@ vi.mock("~/trpc/react", async () => {
     }) => ({
       mutate: (input: unknown) => {
         mocks.requestCode(input);
-        options.onSuccess({ email: "s***@example.test" });
+        if (!mocks.requestCodeError) {
+          options.onSuccess({ email: "s***@example.test" });
+        }
         options.onSettled?.();
       },
       isPending: false,
+      error: mocks.requestCodeError,
     }),
   };
   const change = {
@@ -122,6 +130,7 @@ beforeEach(() => {
   mocks.requestCode.mockReset();
   mocks.updateName.mockReset();
   mocks.succeed = true;
+  mocks.requestCodeError = null;
   mocks.account = null;
 });
 afterEach(cleanup);
@@ -258,5 +267,56 @@ it.each([AccountSettings, TutorSettings])(
     expect(screen.getByText(/no more than 1024 characters/)).toBeTruthy();
     expect(mocks.requestCode).not.toHaveBeenCalled();
     expect(mocks.change).not.toHaveBeenCalled();
+  },
+);
+
+it.each([
+  ["AccountSettings", AccountSettings, "en", en],
+  ["AccountSettings", AccountSettings, "zh", zh],
+  ["TutorSettings", TutorSettings, "en", en],
+  ["TutorSettings", TutorSettings, "zh", zh],
+] as const)(
+  "localizes typed email delivery failure feedback on %s in %s without matching English text (#749)",
+  (_name, Component, locale, messages) => {
+    mocks.requestCodeError = {
+      message: "Opaque upstream delivery failure",
+      data: { emailDeliveryFailed: true },
+    };
+    const { rerender } = render(
+      <QueryClientProvider
+        client={
+          new QueryClient({ defaultOptions: { queries: { retry: false } } })
+        }
+      >
+        <NextIntlClientProvider locale={locale} messages={messages}>
+          <Component />
+        </NextIntlClientProvider>
+      </QueryClientProvider>,
+    );
+    const alert = screen.getByRole("alert");
+    expect(alert.textContent).toBe(messages.account.password.deliveryFailed);
+    expect(
+      document.querySelector('input[autocomplete="one-time-code"]'),
+    ).toBeNull();
+
+    // Non-delivery errors fall back safely to the server message.
+    mocks.requestCodeError = {
+      message: "Current password is incorrect.",
+      data: { emailDeliveryFailed: false },
+    };
+    rerender(
+      <QueryClientProvider
+        client={
+          new QueryClient({ defaultOptions: { queries: { retry: false } } })
+        }
+      >
+        <NextIntlClientProvider locale={locale} messages={messages}>
+          <Component />
+        </NextIntlClientProvider>
+      </QueryClientProvider>,
+    );
+    expect(screen.getByRole("alert").textContent).toBe(
+      "Current password is incorrect.",
+    );
   },
 );
