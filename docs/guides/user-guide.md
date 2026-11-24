@@ -1650,7 +1650,8 @@ opening-review work. Imports made before archive tracking began still require
 the original opening reconciliation. If historical hours genuinely remain unposted,
 reconcile them with the school operator rather than importing or reporting them
 again. A restored archive that overlaps previously reviewed school evidence blocks
-issuance until its reporting boundary is reconciled.
+issuance until its reporting boundary is reconciled through the operator
+[archive provenance workflow](recovery.md#reconcile-pretracking-archive-provenance).
 
 Automation starts off. Use **Add recipient** to add each school email address and
 an optional label, such as School office or Principal. Labels appear as tags beside
