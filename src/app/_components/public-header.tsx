@@ -106,15 +106,15 @@ export function PublicHeaderFrame({
           <div aria-hidden="true" className="h-px bg-slate-100 lg:hidden" />
           <div aria-hidden="true" className="hidden lg:block lg:flex-1" />
           <div className="flex min-w-0 flex-wrap items-center justify-between gap-2 lg:contents">
-            <div className="flex shrink-0 items-center gap-0.5 lg:contents">
+            <div className="flex shrink-0 items-center gap-1 lg:gap-1.5">
               {help ? <div className="shrink-0">{help}</div> : null}
               <div className="shrink-0">{theme}</div>
             </div>
-            <div className="flex shrink-0 items-center gap-1.5 lg:contents">
-              <div className="shrink-0 lg:ml-1">{language}</div>
+            <div className="flex shrink-0 items-center gap-2 lg:contents">
+              <div className="shrink-0 lg:ml-1.5">{language}</div>
               <span
                 aria-hidden="true"
-                className="mx-1.5 hidden h-4 w-px shrink-0 bg-slate-200 lg:block"
+                className="mx-2 hidden h-5 w-px shrink-0 bg-slate-200 lg:block"
               />
               <div className="shrink-0">{trailingAction}</div>
             </div>

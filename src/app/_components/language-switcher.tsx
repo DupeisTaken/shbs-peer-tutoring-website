@@ -48,8 +48,10 @@ export function LanguageSwitcher({
     >
       <select
         aria-label={t("language")}
-        className={`focus:border-accent-500 focus:ring-accent-500 cursor-pointer appearance-none rounded-md border border-slate-200/90 bg-white py-0 font-medium text-slate-700 transition hover:border-slate-300 hover:bg-slate-50 focus:ring-1 focus:outline-hidden disabled:cursor-wait disabled:opacity-60 ${
-          embedded ? "pr-8 pl-3" : "field-auto pr-7 pl-2.5"
+        className={`focus:border-accent-500 focus:ring-accent-500 cursor-pointer appearance-none border border-slate-200/90 py-0 font-medium text-slate-700 transition hover:border-slate-300 focus:ring-1 focus:outline-hidden disabled:cursor-wait disabled:opacity-60 ${
+          embedded
+            ? "rounded-md bg-white pr-8 pl-3 hover:bg-slate-50"
+            : "field-auto rounded-full bg-slate-50/90 pr-7 pl-3 hover:bg-slate-100"
         } ${heightClass}`}
         value={locale}
         disabled={pending}

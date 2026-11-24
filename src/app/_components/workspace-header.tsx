@@ -92,9 +92,9 @@ export function WorkspaceHeader({
         {/* Desktop flexible spacer */}
         <div aria-hidden="true" className="hidden lg:block lg:flex-1" />
 
-        {/* Right utilities in exact order: Bell, Question Mark, Theme, Language | User & Portrait (far right) */}
+        {/* Right utilities in exact order: soft circular Bell, ?, Theme, pill Language | Name [Avatar] */}
         <div className="flex min-w-0 flex-wrap items-center justify-between gap-2 lg:contents">
-          <div className="flex shrink-0 items-center gap-0.5 lg:contents">
+          <div className="flex shrink-0 items-center gap-1 lg:gap-1.5">
             <div className="shrink-0">
               <NotificationBell />
             </div>
@@ -106,17 +106,17 @@ export function WorkspaceHeader({
             </div>
           </div>
 
-          <div className="flex shrink-0 items-center gap-1.5 lg:contents">
-            <div className="shrink-0 lg:ml-1">
+          <div className="flex shrink-0 items-center gap-2 lg:contents">
+            <div className="shrink-0 lg:ml-1.5">
               <LanguageSwitcher compactAtDesktop />
             </div>
 
             <span
               aria-hidden="true"
-              className="mx-1.5 hidden h-4 w-px shrink-0 bg-slate-200 lg:block"
+              className="mx-2 hidden h-5 w-px shrink-0 bg-slate-200 lg:block"
             />
 
-            <div className="flex shrink-0 items-center gap-1.5">
+            <div className="flex shrink-0 items-center gap-2">
               <div className="hidden shrink-0 lg:block">{identity}</div>
               <div className="shrink-0">{account}</div>
             </div>
