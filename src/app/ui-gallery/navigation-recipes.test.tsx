@@ -37,7 +37,11 @@ it.each(["en", "zh"] as const)(
     });
     expect(skipLink.getAttribute("href")).toBe("#ui-gallery-main");
     expect(skipLink.className).toContain("skip-link");
-    expect(container.querySelector("header svg")).toBeTruthy();
+    const brandMark = container.querySelector<HTMLImageElement>(
+      "header [data-brand-mark] img",
+    );
+    expect(brandMark?.getAttribute("src")).toBe("/icon.png");
+    expect(brandMark?.getAttribute("alt")).toBe("");
 
     const themeButton = screen.getByRole("button", {
       name: locale === "zh" ? "示例主题" : "Example theme",
