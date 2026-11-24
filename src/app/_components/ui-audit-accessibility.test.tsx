@@ -61,7 +61,11 @@ describe("shared accessibility fixes (#843, #844, #845)", () => {
     );
     const skip = screen.getByRole("link", { name: en.common.skipToContent });
     expect(skip.getAttribute("href")).toBe("#admin-content");
-    expect(container.querySelector("header svg")).toBeTruthy();
+    const brandMark = container.querySelector<HTMLImageElement>(
+      "header [data-brand-mark] img",
+    );
+    expect(brandMark?.getAttribute("src")).toBe("/icon.png");
+    expect(brandMark?.getAttribute("alt")).toBe("");
     const controls = [
       ...container.querySelectorAll("header a, header button, header select"),
     ];

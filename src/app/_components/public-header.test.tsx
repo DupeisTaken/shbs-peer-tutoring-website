@@ -40,11 +40,15 @@ it("renders one set of compact utilities with a wrapping configured brand", () =
       <PublicHeader navigation={<a href="/signup">Apply</a>} />
     </BrandingProvider>,
   );
+  const brandLink = screen.getByRole("link", {
+    name: "Long translated programme title",
+  });
+  expect(brandLink.getAttribute("href")).toBe("/");
   expect(
-    screen
-      .getByRole("link", { name: "Long translated programme title" })
-      .getAttribute("href"),
-  ).toBe("/");
+    brandLink
+      .querySelector<HTMLImageElement>("[data-brand-mark] img")
+      ?.getAttribute("src"),
+  ).toBe("/icon.png");
   expect(screen.getAllByRole("combobox", { name: "Language" })).toHaveLength(1);
   expect(screen.getAllByRole("button", { name: "Theme" })).toHaveLength(1);
   expect(screen.getByRole("combobox").getAttribute("data-compact")).toBe(
