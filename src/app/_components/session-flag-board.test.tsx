@@ -5,14 +5,20 @@ import {
   fireEvent,
   render,
   screen,
+  waitFor,
   within,
 } from "@testing-library/react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { NextIntlClientProvider } from "next-intl";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import {
+  QueryClientProvider,
+  useQuery,
+  type QueryClient,
+} from "@tanstack/react-query";
 import en from "../../../messages/en.json";
 import { SessionFlagBoard } from "./session-flag-board";
 import { SessionViewProvider } from "./session-view-state";
+import { createQueryClient } from "~/trpc/query-client";
 
 const flag = {
   id: "flag",
@@ -30,6 +36,7 @@ const flag = {
   resolvedByName: null,
 };
 const mock = vi.hoisted(() => ({
+  real: false,
   input: ((): unknown => undefined)(),
   data: [] as unknown[],
   readOnly: false,
@@ -45,16 +52,8 @@ const mock = vi.hoisted(() => ({
   mutate: vi.fn(),
   refetch: vi.fn(),
   invalidate: vi.fn(),
-  readResult: undefined as
-    | undefined
-    | ((input: { state: string }) => {
-        data: unknown[];
-        error: null | { message: string; data?: { code?: string } };
-        isSuccess: boolean;
-        isFetching: boolean;
-        dataUpdatedAt: number;
-        errorUpdatedAt: number;
-      }),
+  queryFn: undefined as
+    undefined | ((input: { state: string }) => Promise<unknown[]>),
   success: undefined as
     | undefined
     | ((_result: unknown, input: { flagId: string }) => Promise<void>),
@@ -66,7 +65,10 @@ const mock = vi.hoisted(() => ({
       ) => void),
 }));
 vi.mock("./read-only", () => ({ useReadOnly: () => mock.readOnly }));
-vi.mock("@trpc/react-query", () => ({ getQueryKey: () => ["flags"] }));
+vi.mock("@trpc/react-query", () => ({
+  getQueryKey: (_procedure: unknown, input?: unknown) =>
+    input === undefined ? ["flags"] : ["flags", input],
+}));
 vi.mock("~/trpc/react", () => ({
   api: {
     useUtils: () => ({
@@ -74,15 +76,28 @@ vi.mock("~/trpc/react", () => ({
     }),
     admin: {
       sessionFlags: {
-        useQuery: (input: { state: string }) => {
+        useQuery: (
+          input: { state: string },
+          options?: { enabled?: boolean },
+        ) => {
           mock.input = input;
+          const live = useQuery({
+            queryKey: ["flags", input],
+            queryFn: async () => {
+              if (mock.queryFn) return mock.queryFn(input);
+              if (mock.error)
+                throw Object.assign(new Error(mock.error.message), mock.error);
+              return mock.data;
+            },
+            enabled: mock.real && options?.enabled !== false,
+          });
+          if (mock.real) return live;
           return {
             data: mock.data,
             error: mock.error,
             isSuccess: !mock.error,
             isFetching: false,
             refetch: mock.refetch,
-            ...mock.readResult?.(input),
           };
         },
       },
@@ -117,13 +132,26 @@ const show = () =>
   );
 beforeEach(() => {
   vi.clearAllMocks();
-  client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  client = createQueryClient();
+  const defaults = client.getDefaultOptions();
+  client.setDefaultOptions({
+    ...defaults,
+    queries: {
+      ...defaults.queries,
+      retry: false,
+      staleTime: 30_000,
+      gcTime: Infinity,
+      refetchOnWindowFocus: false,
+      refetchOnReconnect: false,
+    },
+  });
+  mock.real = false;
   mock.data = [flag];
   mock.error = null;
   mock.mutationError = null;
   mock.readOnly = false;
   mock.pending = false;
-  mock.readResult = undefined;
+  mock.queryFn = undefined;
   mock.invalidate.mockResolvedValue(undefined);
   Object.defineProperties(HTMLDialogElement.prototype, {
     showModal: {
@@ -274,22 +302,23 @@ it("keeps notes after rejection and protects pending dismissal", () => {
 });
 it.each([true, false])(
   "retains cached rows beside transport recovery and conceals denied evidence (read-only: %s)",
-  (readOnly) => {
+  async (readOnly) => {
+    mock.real = true;
     mock.readOnly = readOnly;
-    const view = show();
+    let now = Date.UTC(2026, 10, 9, 12, 10);
+    vi.spyOn(Date, "now").mockImplementation(() => now);
+    show();
+    await waitFor(() => expect(screen.getByText("Alex · Math")).toBeTruthy());
     if (readOnly) {
       expect(
         screen.queryByRole("button", { name: en.admin.sessionFlags.warn }),
       ).toBeNull();
     }
     mock.error = { message: "Offline" };
-    view.rerender(
-      <QueryClientProvider client={client}>
-        <NextIntlClientProvider locale="en" messages={en} timeZone="UTC">
-          <SessionFlagBoard />
-        </NextIntlClientProvider>
-      </QueryClientProvider>,
-    );
+    await act(async () => {
+      await client.refetchQueries({ queryKey: ["flags"] });
+    });
+    await waitFor(() => expect(screen.getByRole("alert")).toBeTruthy());
     expect(screen.getByText("Alex · Math")).toBeTruthy();
     expect(screen.queryByText(en.admin.sessionFlags.empty)).toBeNull();
     expect(screen.queryByText(en.common.loading)).toBeNull();
@@ -305,61 +334,51 @@ it.each([true, false])(
         }).disabled,
       ).toBe(true);
     }
+
+    now = Date.UTC(2026, 10, 9, 12, 0);
     mock.error = { message: "Denied", data: { code: "FORBIDDEN" } };
-    view.rerender(
-      <QueryClientProvider client={client}>
-        <NextIntlClientProvider locale="en" messages={en} timeZone="UTC">
-          <SessionFlagBoard />
-        </NextIntlClientProvider>
-      </QueryClientProvider>,
-    );
-    expect(screen.queryByText("Alex · Math")).toBeNull();
+    await act(async () => {
+      await client.refetchQueries({ queryKey: ["flags"] });
+    });
+    await waitFor(() => expect(screen.queryByText("Alex · Math")).toBeNull());
+
     mock.error = { message: "Offline again" };
-    view.rerender(
-      <QueryClientProvider client={client}>
-        <NextIntlClientProvider locale="en" messages={en} timeZone="UTC">
-          <SessionFlagBoard />
-        </NextIntlClientProvider>
-      </QueryClientProvider>,
-    );
-    expect(screen.queryByText("Alex · Math")).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: en.uiPatterns.retry }));
+    await waitFor(() => expect(screen.queryByText("Alex · Math")).toBeNull());
+
+    // Backward clock skew must not block fresh authorized recovery.
+    now = Date.UTC(2026, 10, 9, 11, 50);
     mock.error = null;
     mock.data = [{ ...flag, tutor: "Fresh authorized tutor" }];
-    view.rerender(
-      <QueryClientProvider client={client}>
-        <NextIntlClientProvider locale="en" messages={en} timeZone="UTC">
-          <SessionFlagBoard />
-        </NextIntlClientProvider>
-      </QueryClientProvider>,
+    fireEvent.click(screen.getByRole("button", { name: en.uiPatterns.retry }));
+    await waitFor(() =>
+      expect(screen.getByText("Fresh authorized tutor · Math")).toBeTruthy(),
     );
-    expect(screen.getByText("Fresh authorized tutor · Math")).toBeTruthy();
+    vi.restoreAllMocks();
   },
 );
 
-it("shows one idle denial status with unavailable filters through failed Retry and fresh Pending recovery", () => {
+it("shows one idle denial status with unavailable filters through failed Retry and fresh Pending recovery", async () => {
   window.sessionStorage.clear();
+  mock.real = true;
+  let now = Date.UTC(2026, 10, 9, 12, 10);
+  vi.spyOn(Date, "now").mockImplementation(() => now);
   const remove = vi.spyOn(client, "removeQueries");
-  let defaultRead = {
-    data: [{ ...flag, tutor: "Cached pending tutor" }],
-    error: null as null | { message: string; data?: { code?: string } },
-    isSuccess: true,
-    isFetching: false,
-    dataUpdatedAt: 100,
-    errorUpdatedAt: 0,
-  };
   let historyDenied = false;
-  mock.readResult = ({ state }) =>
-    state === "PENDING"
-      ? defaultRead
-      : {
-          ...defaultRead,
-          data: [{ ...flag, tutor: "Resolved tutor", state: "DISMISSED" }],
-          error: historyDenied
-            ? { message: "Denied", data: { code: "FORBIDDEN" } }
-            : null,
-          isSuccess: !historyDenied,
-          errorUpdatedAt: historyDenied ? 200 : 0,
-        };
+  let pendingOutcome: "cached" | "offline" | "fresh" = "cached";
+  const pendingCalls = vi.fn();
+  mock.queryFn = async ({ state }) => {
+    if (state === "PENDING") {
+      pendingCalls();
+      if (pendingOutcome === "offline") throw new Error("Offline");
+      if (pendingOutcome === "fresh")
+        return [{ ...flag, tutor: "Fresh authorized tutor" }];
+      return [{ ...flag, tutor: "Cached pending tutor" }];
+    }
+    if (historyDenied)
+      throw Object.assign(new Error("Denied"), { data: { code: "FORBIDDEN" } });
+    return [{ ...flag, tutor: "Resolved tutor", state: "DISMISSED" }];
+  };
   const tree = () => (
     <QueryClientProvider client={client}>
       <NextIntlClientProvider locale="en" messages={en} timeZone="UTC">
@@ -373,14 +392,26 @@ it("shows one idle denial status with unavailable filters through failed Retry a
       </NextIntlClientProvider>
     </QueryClientProvider>
   );
-  const view = render(tree());
+  render(tree());
+  await waitFor(() =>
+    expect(screen.getByText("Cached pending tutor · Math")).toBeTruthy(),
+  );
   fireEvent.click(screen.getByRole("button", { name: "All states" }));
-  expect(screen.getByText("Resolved tutor · Math")).toBeTruthy();
+  await waitFor(() =>
+    expect(screen.getByText("Resolved tutor · Math")).toBeTruthy(),
+  );
+
+  // Move wall clock backward before denying the filtered scope.
+  now = Date.UTC(2026, 10, 9, 12, 0);
   historyDenied = true;
-  view.rerender(tree());
-  expect(mock.input).toEqual({ state: "PENDING" });
-  expect(screen.queryByText("Resolved tutor · Math")).toBeNull();
-  expect(screen.queryByText("Cached pending tutor · Math")).toBeNull();
+  await act(async () => {
+    await client.refetchQueries({ queryKey: ["flags", { state: "ALL" }] });
+  });
+  await waitFor(() => {
+    expect(mock.input).toEqual({ state: "PENDING" });
+    expect(screen.queryByText("Resolved tutor · Math")).toBeNull();
+    expect(screen.queryByText("Cached pending tutor · Math")).toBeNull();
+  });
   expect(remove).toHaveBeenCalledWith({ queryKey: ["flags"], exact: false });
 
   const expectDeniedBoard = () => {
@@ -398,7 +429,9 @@ it("shows one idle denial status with unavailable filters through failed Retry a
     expect(choices.length).toBeGreaterThanOrEqual(4);
     for (const choice of choices) expect(choice.disabled).toBe(true);
     expect(
-      screen.getByRole("button", { name: "Pending" }).getAttribute("aria-pressed"),
+      screen
+        .getByRole("button", { name: "Pending" })
+        .getAttribute("aria-pressed"),
     ).toBe("true");
   };
   expectDeniedBoard();
@@ -417,30 +450,24 @@ it("shows one idle denial status with unavailable filters through failed Retry a
   expect(document.activeElement).toBe(retry);
   fireEvent.click(dismissed);
   expect(mock.input).toEqual({ state: "PENDING" });
-  expect(mock.refetch).not.toHaveBeenCalled();
 
-  defaultRead = {
-    ...defaultRead,
-    error: { message: "Offline" },
-    isSuccess: false,
-    errorUpdatedAt: 300,
-  };
-  view.rerender(tree());
-  expect(screen.queryByText("Cached pending tutor · Math")).toBeNull();
+  pendingOutcome = "offline";
+  const callsBeforeRetry = pendingCalls.mock.calls.length;
   fireEvent.click(retry);
-  expect(mock.refetch).toHaveBeenCalledTimes(1);
+  await waitFor(() =>
+    expect(pendingCalls.mock.calls.length).toBe(callsBeforeRetry + 1),
+  );
+  await waitFor(() => expect(retry.disabled).toBe(false));
   expectDeniedBoard();
 
+  // Fresh authorized read recovers even with backward clock skew.
+  now = Date.UTC(2026, 10, 9, 11, 50);
   historyDenied = false;
-  defaultRead = {
-    ...defaultRead,
-    data: [{ ...flag, tutor: "Fresh authorized tutor" }],
-    error: null,
-    isSuccess: true,
-    dataUpdatedAt: 400,
-  };
-  view.rerender(tree());
-  expect(screen.getByText("Fresh authorized tutor · Math")).toBeTruthy();
+  pendingOutcome = "fresh";
+  fireEvent.click(retry);
+  await waitFor(() =>
+    expect(screen.getByText("Fresh authorized tutor · Math")).toBeTruthy(),
+  );
   expect(screen.queryByRole("status")).toBeNull();
   expect(screen.queryByRole("alert")).toBeNull();
   for (const choice of within(
@@ -449,6 +476,7 @@ it("shows one idle denial status with unavailable filters through failed Retry a
     expect(choice.disabled).toBe(false);
   }
   fireEvent.click(dismissed);
-  expect(mock.input).toEqual({ state: "DISMISSED" });
+  await waitFor(() => expect(mock.input).toEqual({ state: "DISMISSED" }));
   expect(mock.mutate).not.toHaveBeenCalled();
+  vi.restoreAllMocks();
 });

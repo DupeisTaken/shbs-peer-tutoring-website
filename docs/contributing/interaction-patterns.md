@@ -146,8 +146,12 @@ changes always win.
   searches/selections stay transient.
 - **`useSessionAccessDenied(...ownedQueries)`:** Latches authoritative access
   denial across subsequent transport failures until owned reads succeed again. Pass
-  a stable `{ ...query, denialKey }` when denial resets query keys so only a success
-  newer than that slot's denial releases it. The helper never grants permission.
+  a stable `{ ...query, denialKey, queryKey: trpcQueryKey(...) }` so denial recovery
+  tracks monotonic `QueryClient` read receipts (`installSessionReadReceipts`) rather
+  than wall-clock timestamps — backward clock skew, equal timestamps, older cached
+  default scopes, local `setQueryData` writes, and pre-denial in-flight fetches
+  cannot release an active denial latch, while a genuine fresh read recovers cleanly.
+  The helper never grants permission or replaces server checks.
 - **`useSessionPageScroll({ id, scope, ready, enabled })` / `SessionPagePosition`:**
   Register once per authorized page. Restores `#admin-content` at `lg` (`>=1024 px`)
   for management and the document otherwise; excludes dialogs, tables and sidebars;

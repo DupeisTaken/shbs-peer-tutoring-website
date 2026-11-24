@@ -1,10 +1,34 @@
 // @vitest-environment jsdom
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import {
+  act,
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from "@testing-library/react";
+import {
+  QueryClientProvider,
+  useQuery,
+  type QueryClient,
+} from "@tanstack/react-query";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
+import { createQueryClient } from "~/trpc/query-client";
 
 const state = vi.hoisted(() => ({
-  appealsUseQuery: vi.fn(),
+  realQueries: false,
+  appealsUseQuery:
+    vi.fn<
+      (
+        input: { page: number; state: string },
+        options?: { enabled?: boolean },
+      ) => unknown
+    >(),
   feedbackUseQuery: vi.fn<(input: { page: number }) => unknown>(),
+  feedbackQueryFn: undefined as
+    undefined | ((input: { page: number }) => Promise<unknown>),
+  appealsQueryFn: undefined as
+    undefined | ((input: { page: number; state: string }) => Promise<unknown>),
   feedbackRefetch: vi.fn(),
   appealsRefetch: vi.fn(),
   refetch: vi.fn(),
@@ -12,8 +36,6 @@ const state = vi.hoisted(() => ({
   role: "HEAD",
   feedbackError: null as Error | null,
   feedbackBody: "",
-  feedbackUpdatedAt: 1,
-  feedbackErrorUpdatedAt: 0,
   saveError: null as { message: string; data?: { approvalId?: string } } | null,
   decideError: null as {
     message: string;
@@ -41,28 +63,86 @@ vi.mock("~/trpc/react", () => ({
     student: {
       feedbackSettings: { useQuery: state.settings },
       feedbackList: {
-        useQuery: (input: { page: number }) => state.feedbackUseQuery(input) ?? ({
-          data: state.feedbackBody
-            ? [
-                {
-                  id: "review",
-                  studentName: "Recorded learner",
-                  subject: "Math",
-                  rating: 5,
-                  body: state.feedbackBody,
-                  updatedAt: new Date("2026-10-01T00:00:00Z"),
-                },
-              ]
-            : [],
-          error: state.feedbackError,
-          dataUpdatedAt: state.feedbackUpdatedAt,
-          errorUpdatedAt: state.feedbackErrorUpdatedAt,
-          refetch: state.feedbackRefetch,
-          isSuccess: !state.feedbackError,
-          isFetching: false,
-        }),
+        useQuery: (
+          input: { page: number },
+          options?: { enabled?: boolean },
+        ) => {
+          const mockResult = state.realQueries
+            ? undefined
+            : state.feedbackUseQuery(input);
+          if (state.realQueries) state.feedbackUseQuery(input);
+          const live = useQuery(
+            {
+              queryKey: [["student", "feedbackList"], { input, type: "query" }],
+              queryFn: async () => {
+                state.feedbackRefetch();
+                if (state.feedbackQueryFn) return state.feedbackQueryFn(input);
+                if (state.feedbackError) throw state.feedbackError;
+                return state.feedbackBody
+                  ? [
+                      {
+                        id: "review",
+                        studentName: "Recorded learner",
+                        subject: "Math",
+                        rating: 5,
+                        body: state.feedbackBody,
+                        updatedAt: new Date("2026-10-01T00:00:00Z"),
+                      },
+                    ]
+                  : [];
+              },
+              enabled: state.realQueries && options?.enabled !== false,
+            },
+            queryClient,
+          );
+          if (state.realQueries) return live;
+          return (
+            mockResult ?? {
+              data: state.feedbackBody
+                ? [
+                    {
+                      id: "review",
+                      studentName: "Recorded learner",
+                      subject: "Math",
+                      rating: 5,
+                      body: state.feedbackBody,
+                      updatedAt: new Date("2026-10-01T00:00:00Z"),
+                    },
+                  ]
+                : [],
+              error: state.feedbackError,
+              refetch: state.feedbackRefetch,
+              isSuccess: !state.feedbackError,
+              isFetching: false,
+            }
+          );
+        },
       },
-      appeals: { useQuery: state.appealsUseQuery },
+      appeals: {
+        useQuery: (
+          input: { page: number; state: string },
+          options?: { enabled?: boolean },
+        ) => {
+          const mockResult = state.realQueries
+            ? undefined
+            : state.appealsUseQuery(input, options);
+          if (state.realQueries) state.appealsUseQuery(input, options);
+          const live = useQuery(
+            {
+              queryKey: [["student", "appeals"], { input, type: "query" }],
+              queryFn: async () => {
+                state.appealsRefetch();
+                if (state.appealsQueryFn) return state.appealsQueryFn(input);
+                return { rows: [], total: 0 };
+              },
+              enabled: state.realQueries && options?.enabled !== false,
+            },
+            queryClient,
+          );
+          if (state.realQueries) return live;
+          return mockResult;
+        },
+      },
       setFeedbackSettings: {
         useMutation: () => ({
           mutate: vi.fn(),
@@ -112,13 +192,32 @@ import { StudentSupport } from "./student-support";
 import { SessionViewProvider } from "./session-view-state";
 import { viewStateKey, writeViewState } from "~/lib/session-view-state";
 
+let queryClient: QueryClient;
+const withClient = (node: React.ReactNode) => (
+  <QueryClientProvider client={queryClient}>{node}</QueryClientProvider>
+);
+
 beforeEach(() => {
+  queryClient = createQueryClient();
+  const defaults = queryClient.getDefaultOptions();
+  queryClient.setDefaultOptions({
+    ...defaults,
+    queries: {
+      ...defaults.queries,
+      retry: false,
+      staleTime: 30_000,
+      gcTime: Infinity,
+      refetchOnWindowFocus: false,
+      refetchOnReconnect: false,
+    },
+  });
   window.sessionStorage.clear();
+  state.realQueries = false;
+  state.feedbackQueryFn = undefined;
+  state.appealsQueryFn = undefined;
   state.role = "HEAD";
   state.feedbackError = null;
   state.feedbackBody = "";
-  state.feedbackUpdatedAt = 1;
-  state.feedbackErrorUpdatedAt = 0;
   state.feedbackUseQuery.mockReset();
   state.saveError = null;
   state.decideError = null;
@@ -128,7 +227,10 @@ beforeEach(() => {
     refetch: state.appealsRefetch,
   });
 });
-it("clears a denied feed page and conceals cached private feedback instead of restoring it", () => {
+it("clears a denied feed page and conceals cached private feedback instead of restoring it", async () => {
+  state.realQueries = true;
+  let now = Date.UTC(2026, 10, 9, 12, 10);
+  vi.spyOn(Date, "now").mockImplementation(() => now);
   state.feedbackBody = "Sensitive review body";
   const key = viewStateKey(
     "head",
@@ -137,34 +239,54 @@ it("clears a denied feed page and conceals cached private feedback instead of re
     "",
   );
   writeViewState(window.sessionStorage, key, 2);
-  const content = () => (
-    <SessionViewProvider
-      identity="head"
-      pathname="/admin/student-support"
-      verified
-    >
-      <StudentSupport />
-    </SessionViewProvider>
+  render(
+    withClient(
+      <SessionViewProvider
+        identity="head"
+        pathname="/admin/student-support"
+        verified
+      >
+        <StudentSupport />
+      </SessionViewProvider>,
+    ),
   );
-  const rendered = render(content());
-  expect(screen.getByText("Sensitive review body")).toBeTruthy();
+  await waitFor(() =>
+    expect(screen.getByText("Sensitive review body")).toBeTruthy(),
+  );
   expect(screen.getByRole("button", { name: "next-2" })).toBeTruthy();
+
+  now = Date.UTC(2026, 10, 9, 12, 0);
   state.feedbackError = Object.assign(new Error("Denied"), {
     data: { code: "FORBIDDEN" },
   });
-  state.feedbackErrorUpdatedAt = 2;
-  rendered.rerender(content());
-  expect(screen.queryByText("Sensitive review body")).toBeNull();
+  await act(async () => {
+    await queryClient.refetchQueries({
+      queryKey: [
+        ["student", "feedbackList"],
+        { input: { page: 2 }, type: "query" },
+      ],
+    });
+  });
+  await waitFor(() =>
+    expect(screen.queryByText("Sensitive review body")).toBeNull(),
+  );
   expect(window.sessionStorage.getItem(key)).toBeNull();
   expect(screen.getByRole("button", { name: "next-0" })).toBeTruthy();
+
   state.feedbackError = new Error("Network unavailable");
-  rendered.rerender(content());
-  expect(screen.queryByText("Sensitive review body")).toBeNull();
+  fireEvent.click(screen.getByRole("button", { name: "feedback · retry" }));
+  await waitFor(() =>
+    expect(screen.queryByText("Sensitive review body")).toBeNull(),
+  );
+
+  now = Date.UTC(2026, 10, 9, 11, 50);
   state.feedbackError = null;
-  state.feedbackUpdatedAt = 3;
-  rendered.rerender(content());
-  expect(screen.getByText("Sensitive review body")).toBeTruthy();
+  fireEvent.click(screen.getByRole("button", { name: "feedback · retry" }));
+  await waitFor(() =>
+    expect(screen.getByText("Sensitive review body")).toBeTruthy(),
+  );
   expect(screen.getByRole("button", { name: "next-0" })).toBeTruthy();
+  vi.restoreAllMocks();
 });
 it("drops staff-only panel/filter choices when authoritative account role loses staff access", () => {
   const panelKey = viewStateKey(
@@ -337,162 +459,240 @@ it("keeps queued appeal approval feedback visible after leaving Appeals", () => 
   expect(screen.queryByRole("alert")).toBeNull();
 });
 
-
-it("keeps denied appeal evidence concealed through transport failures until a successful read", () => {
+it("keeps denied appeal evidence concealed through transport failures until a successful read", async () => {
+  state.realQueries = true;
+  let now = Date.UTC(2026, 10, 9, 12, 10);
+  vi.spyOn(Date, "now").mockImplementation(() => now);
   const data = {
-    rows: [{
-      id: "appeal",
-      studentName: "Synthetic student",
-      state: "RESOLVED",
-      cardReason: "Synthetic card reason",
-      body: "Private appeal evidence",
-    }],
+    rows: [
+      {
+        id: "appeal",
+        studentName: "Synthetic student",
+        state: "RESOLVED",
+        cardReason: "Synthetic card reason",
+        body: "Private appeal evidence",
+      },
+    ],
     total: 1,
   };
-  const result = {
-    data,
-    isSuccess: true,
-    isFetching: false,
-    error: null,
-    dataUpdatedAt: 1,
-    errorUpdatedAt: 0,
+  let error: Error | null = null;
+  state.appealsQueryFn = async () => {
+    if (error) throw error;
+    return data;
   };
-  state.appealsUseQuery.mockReturnValue(result);
-  const view = render(<StudentSupport />);
-  expect(screen.getByText("Private appeal evidence")).toBeTruthy();
-  state.appealsUseQuery.mockReturnValue({
-    ...result,
-    isSuccess: false,
-    error: { message: "Denied", data: { code: "FORBIDDEN" } },
-    errorUpdatedAt: 2,
+  render(withClient(<StudentSupport />));
+  await waitFor(() =>
+    expect(screen.getByText("Private appeal evidence")).toBeTruthy(),
+  );
+
+  now = Date.UTC(2026, 10, 9, 12, 0);
+  error = Object.assign(new Error("Denied"), { data: { code: "FORBIDDEN" } });
+  await act(async () => {
+    await queryClient.refetchQueries({
+      queryKey: [["student", "appeals"]],
+    });
   });
-  view.rerender(<StudentSupport />);
-  expect(screen.queryByText("Private appeal evidence")).toBeNull();
-  state.appealsUseQuery.mockReturnValue({
-    ...result,
-    isSuccess: false,
-    error: new Error("Network unavailable"),
-  });
-  view.rerender(<StudentSupport />);
-  expect(screen.queryByText("Private appeal evidence")).toBeNull();
-  state.appealsUseQuery.mockReturnValue({ ...result, dataUpdatedAt: 3 });
-  view.rerender(<StudentSupport />);
-  expect(screen.getByText("Private appeal evidence")).toBeTruthy();
+  await waitFor(() =>
+    expect(screen.queryByText("Private appeal evidence")).toBeNull(),
+  );
+
+  error = new Error("Network unavailable");
+  fireEvent.click(screen.getByRole("button", { name: "staffAppeals · retry" }));
+  await waitFor(() =>
+    expect(screen.queryByText("Private appeal evidence")).toBeNull(),
+  );
+
+  now = Date.UTC(2026, 10, 9, 11, 50);
+  error = null;
+  fireEvent.click(screen.getByRole("button", { name: "staffAppeals · retry" }));
+  await waitFor(() =>
+    expect(screen.getByText("Private appeal evidence")).toBeTruthy(),
+  );
+  vi.restoreAllMocks();
 });
 
-
-it("keeps feedback concealed when denial resets its page to an older successful cache entry", () => {
+it("keeps feedback concealed when denial resets its page to an older successful cache entry", async () => {
+  state.realQueries = true;
+  let now = Date.UTC(2026, 10, 9, 12, 10);
+  vi.spyOn(Date, "now").mockImplementation(() => now);
   let denyPageOne = false;
-  let firstPageUpdatedAt = 20;
-  let fetching = false;
-  state.feedbackUseQuery.mockImplementation(({ page }: { page: number }) => ({
-    data: [{
-      id: `feedback-${page}`,
+  let releaseFirstPage: (() => void) | undefined;
+  let holdFirstPage = false;
+  state.feedbackQueryFn = async ({ page }) => {
+    if (page === 1 && denyPageOne) {
+      throw Object.assign(new Error("Denied"), { data: { code: "FORBIDDEN" } });
+    }
+    if (page === 0 && holdFirstPage) {
+      await new Promise<void>((resolve) => {
+        releaseFirstPage = resolve;
+      });
+    }
+    return Array.from({ length: page === 0 ? 20 : 1 }, (_, index) => ({
+      id: `feedback-${page}-${index}`,
       studentName: "Synthetic learner",
       subject: "Math",
       rating: 5,
-      body: page === 1 ? "Second-page feedback" : "First-page feedback",
+      body:
+        index === 0
+          ? page === 1
+            ? "Second-page feedback"
+            : "First-page feedback"
+          : `Page ${page} item ${index}`,
       updatedAt: new Date("2026-10-01T00:00:00Z"),
-    }],
-    error: page === 1 && denyPageOne
-      ? { message: "Denied", data: { code: "FORBIDDEN" } }
-      : null,
-    isSuccess: !(page === 1 && denyPageOne),
-    isFetching: fetching,
-    dataUpdatedAt: page === 1 ? 10 : firstPageUpdatedAt,
-    errorUpdatedAt: page === 1 && denyPageOne ? 100 : 0,
-    refetch: state.feedbackRefetch,
-  }));
-  const key = viewStateKey("head", "/admin/student-support", "support-feedback-page-v1", "");
-  writeViewState(window.sessionStorage, key, 1);
-  const content = () => (
-    <SessionViewProvider identity="head" pathname="/admin/student-support" verified>
-      <StudentSupport />
-    </SessionViewProvider>
+    }));
+  };
+  const key = viewStateKey(
+    "head",
+    "/admin/student-support",
+    "support-feedback-page-v1",
+    "",
   );
-  const view = render(content());
-  expect(screen.getByText("Second-page feedback")).toBeTruthy();
+  // Seed page 0 first with a future-skewed timestamp, then navigate to page 1.
+  render(
+    withClient(
+      <SessionViewProvider
+        identity="head"
+        pathname="/admin/student-support"
+        verified
+      >
+        <StudentSupport />
+      </SessionViewProvider>,
+    ),
+  );
+  await waitFor(() =>
+    expect(screen.getByText("First-page feedback")).toBeTruthy(),
+  );
+  fireEvent.click(screen.getByRole("button", { name: "next-0" }));
+  await waitFor(() =>
+    expect(screen.getByText("Second-page feedback")).toBeTruthy(),
+  );
+
+  // Move clock backward and deny page 1; reset back to cached page 0 must stay concealed.
+  now = Date.UTC(2026, 10, 9, 12, 0);
   denyPageOne = true;
-  view.rerender(content());
-  expect(state.feedbackUseQuery).toHaveBeenLastCalledWith({ page: 0 });
-  expect(window.sessionStorage.getItem(key)).toBeNull();
-  expect(screen.queryByText("Second-page feedback")).toBeNull();
-  expect(screen.queryByText("First-page feedback")).toBeNull();
+  await act(async () => {
+    await queryClient.refetchQueries({
+      queryKey: [
+        ["student", "feedbackList"],
+        { input: { page: 1 }, type: "query" },
+      ],
+    });
+  });
+  await waitFor(() => {
+    expect(state.feedbackUseQuery).toHaveBeenLastCalledWith({ page: 0 });
+    expect(window.sessionStorage.getItem(key)).toBeNull();
+    expect(screen.queryByText("Second-page feedback")).toBeNull();
+    expect(screen.queryByText("First-page feedback")).toBeNull();
+  });
+
+  // Explicit Retry starts a fresh read on page 0; while fetching, retry is disabled
+  // and cached content remains concealed.
+  now = Date.UTC(2026, 10, 9, 11, 50);
+  holdFirstPage = true;
+  const callsBefore = state.feedbackRefetch.mock.calls.length;
+  const appealsBefore = state.appealsRefetch.mock.calls.length;
   fireEvent.click(screen.getByRole("button", { name: "feedback · retry" }));
-  expect(state.feedbackRefetch).toHaveBeenCalledOnce();
-  expect(state.appealsRefetch).not.toHaveBeenCalled();
+  await waitFor(() =>
+    expect(state.feedbackRefetch.mock.calls.length).toBe(callsBefore + 1),
+  );
+  expect(state.appealsRefetch.mock.calls.length).toBe(appealsBefore);
+  expect(
+    screen.getByRole<HTMLButtonElement>("button", { name: "feedback · retry" })
+      .disabled,
+  ).toBe(true);
   expect(screen.queryByText("First-page feedback")).toBeNull();
-  firstPageUpdatedAt = 100;
-  view.rerender(content());
-  expect(screen.queryByText("First-page feedback")).toBeNull();
-  firstPageUpdatedAt = 101;
-  fetching = true;
-  view.rerender(content());
-  expect(screen.queryByText("First-page feedback")).toBeNull();
-  expect(screen.getByRole<HTMLButtonElement>("button", {
-    name: "feedback · retry",
-  }).disabled).toBe(true);
-  fetching = false;
-  view.rerender(content());
-  expect(screen.getByText("First-page feedback")).toBeTruthy();
+
+  holdFirstPage = false;
+  releaseFirstPage?.();
+  await waitFor(() =>
+    expect(screen.getByText("First-page feedback")).toBeTruthy(),
+  );
   expect(state.feedbackUseQuery).toHaveBeenLastCalledWith({ page: 0 });
+  vi.restoreAllMocks();
 });
 
-it("keeps appeals concealed when denial resets page and filter to an older successful cache entry", () => {
+it("keeps appeals concealed when denial resets page and filter to an older successful cache entry", async () => {
+  state.realQueries = true;
+  let now = Date.UTC(2026, 10, 9, 12, 10);
+  vi.spyOn(Date, "now").mockImplementation(() => now);
   let denyResolvedPage = false;
-  let pendingUpdatedAt = 20;
-  state.appealsUseQuery.mockImplementation(({ page, state: filter }: { page: number; state: string }) => {
-    const denied = denyResolvedPage && page === 1 && filter === "RESOLVED";
+  state.appealsQueryFn = async ({ page, state: filter }) => {
+    if (denyResolvedPage && page === 1 && filter === "RESOLVED") {
+      throw Object.assign(new Error("Denied"), { data: { code: "FORBIDDEN" } });
+    }
     return {
-      data: {
-        rows: [{
+      rows: [
+        {
           id: `appeal-${filter}-${page}`,
           studentName: "Synthetic learner",
           state: filter,
           cardReason: "Synthetic card reason",
           body: `${filter} appeal evidence`,
-        }],
-        total: 21,
-      },
-      error: denied ? { message: "Denied", data: { code: "FORBIDDEN" } } : null,
-      isSuccess: !denied,
-      isFetching: false,
-      dataUpdatedAt: filter === "RESOLVED" ? 10 : pendingUpdatedAt,
-      errorUpdatedAt: denied ? 100 : 0,
-      refetch: state.appealsRefetch,
+        },
+      ],
+      total: 21,
     };
-  });
-  for (const [id, value] of [
-    ["support-panel-v1", "appeals"],
-    ["support-appeal-page-v1", 1],
-    ["support-appeal-filter-v1", "RESOLVED"],
-  ] as const)
-    writeViewState(window.sessionStorage, viewStateKey("head", "/admin/student-support", id, ""), value);
-  const content = () => (
-    <SessionViewProvider identity="head" pathname="/admin/student-support" verified>
-      <StudentSupport />
-    </SessionViewProvider>
+  };
+  render(
+    withClient(
+      <SessionViewProvider
+        identity="head"
+        pathname="/admin/student-support"
+        verified
+      >
+        <StudentSupport />
+      </SessionViewProvider>,
+    ),
   );
-  const view = render(content());
-  expect(screen.getByText("RESOLVED appeal evidence")).toBeTruthy();
+  // Seed default PENDING page 0 with a future-skewed timestamp.
+  fireEvent.click(screen.getByRole("tab", { name: "staffAppeals" }));
+  await waitFor(() =>
+    expect(screen.getByText("PENDING appeal evidence")).toBeTruthy(),
+  );
+  // Move to RESOLVED page 1.
+  fireEvent.click(screen.getByRole("button", { name: "resolvedAppeals" }));
+  await waitFor(() =>
+    expect(screen.getByText("RESOLVED appeal evidence")).toBeTruthy(),
+  );
+  fireEvent.click(screen.getByRole("button", { name: "next-0" }));
+  await waitFor(() =>
+    expect(state.appealsUseQuery).toHaveBeenLastCalledWith(
+      { page: 1, state: "RESOLVED" },
+      { enabled: true },
+    ),
+  );
+
+  // Deny RESOLVED page 1 under a backward wall clock.
+  now = Date.UTC(2026, 10, 9, 12, 0);
   denyResolvedPage = true;
-  view.rerender(content());
-  expect(state.appealsUseQuery).toHaveBeenLastCalledWith(
-    { page: 0, state: "PENDING" },
-    { enabled: true },
-  );
-  expect(screen.queryByText("RESOLVED appeal evidence")).toBeNull();
-  expect(screen.queryByText("PENDING appeal evidence")).toBeNull();
+  await act(async () => {
+    await queryClient.refetchQueries({
+      queryKey: [
+        ["student", "appeals"],
+        { input: { page: 1, state: "RESOLVED" }, type: "query" },
+      ],
+    });
+  });
+  await waitFor(() => {
+    expect(state.appealsUseQuery).toHaveBeenLastCalledWith(
+      { page: 0, state: "PENDING" },
+      { enabled: false },
+    );
+    expect(screen.queryByText("RESOLVED appeal evidence")).toBeNull();
+    expect(screen.queryByText("PENDING appeal evidence")).toBeNull();
+  });
+
   // The appeal panel has reset to Feedback, but this read-only recovery stays visible.
+  now = Date.UTC(2026, 10, 9, 11, 50);
+  const feedbackBefore = state.feedbackRefetch.mock.calls.length;
   fireEvent.click(screen.getByRole("button", { name: "staffAppeals · retry" }));
-  expect(state.appealsRefetch).toHaveBeenCalledOnce();
-  expect(state.feedbackRefetch).not.toHaveBeenCalled();
-  expect(screen.queryByText("PENDING appeal evidence")).toBeNull();
-  pendingUpdatedAt = 101;
-  view.rerender(content());
-  expect(screen.getByText("PENDING appeal evidence")).toBeTruthy();
+  await waitFor(() =>
+    expect(screen.getByText("PENDING appeal evidence")).toBeTruthy(),
+  );
+  expect(state.feedbackRefetch.mock.calls.length).toBe(feedbackBefore);
   expect(state.appealsUseQuery).toHaveBeenLastCalledWith(
     { page: 0, state: "PENDING" },
     { enabled: true },
   );
+  vi.restoreAllMocks();
 });
