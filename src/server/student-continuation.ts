@@ -25,6 +25,7 @@ import {
 } from "./request-invalidity";
 import {
   currentStudentSignupPayload,
+  nextStudentSignupEditedAt,
   studentSignupIntentDigest,
   studentSignupLocalAnswers,
 } from "./student-signup-answers";
@@ -715,6 +716,7 @@ export async function joinContinuation(
       });
     }
     const version = row.currentVersion + 1;
+    const localAnswers = studentSignupLocalAnswers(answers);
     await tx.studentSignupRevision.create({
       data: {
         surveyId: row.id,
@@ -724,7 +726,7 @@ export async function joinContinuation(
         actorUserName: ctx.user.name,
         clientKey: input.clientKey,
         inputHash,
-        answers: json(studentSignupLocalAnswers(answers)),
+        answers: json(localAnswers),
         policyRevision: policy.revision,
         policySnapshot: json(policy.documents),
         signatureName: input.signatureName,
@@ -737,8 +739,10 @@ export async function joinContinuation(
         tuteeId: student.id,
         confirmedAt: row.confirmedAt ?? now,
         currentVersion: version,
-        currentPayload: json(studentSignupLocalAnswers(answers)),
-        editedAt: ctx.request ? now : null,
+        currentPayload: json(localAnswers),
+        editedAt: ctx.request
+          ? nextStudentSignupEditedAt(ctx.request, localAnswers, now)
+          : null,
       },
     });
     await tx.policyAcceptance.upsert({

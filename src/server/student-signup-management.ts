@@ -349,12 +349,12 @@ export async function unassignStudentSignup(
             answers,
           },
         });
+        // Releasing an assignment bumps the version fence without altering signup answers or editedAt.
         await tx.studentSurvey.update({
           where: { id: row.id },
           data: {
             currentPayload: answers,
             currentVersion: version,
-            editedAt: new Date(),
           },
         });
         await recordDomainAudit(tx, {
