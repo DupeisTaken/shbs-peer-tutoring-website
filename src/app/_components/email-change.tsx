@@ -7,6 +7,7 @@ import { api } from "~/trpc/react";
 import { invalidateAndReport } from "~/lib/invalidate-refresh";
 import { PASSWORD_MAX_LENGTH } from "~/lib/password-contract";
 import { settleRefreshes } from "~/lib/settle-refreshes";
+import { trpcQueryKey } from "~/lib/trpc-query-key";
 import { CodeInput } from "./ui/code-field";
 import { Button } from "./ui/button";
 import { FormActions, InlineNotice, StatePanel } from "./ui/patterns";
@@ -94,7 +95,14 @@ export function EmailChange({ embedded = false }: { embedded?: boolean }) {
   });
 
   const denied = useSessionAccessDenied(
-    { ...settings, denialKey: "primary-email-settings" },
+    {
+      ...settings,
+      denialKey: "primary-email-settings",
+      queryKey: trpcQueryKey(api.account.emailSettings, [
+        "account",
+        "emailSettings",
+      ]),
+    },
     {
       error: request.error ?? confirm.error,
       isSuccess: !request.error && !confirm.error,

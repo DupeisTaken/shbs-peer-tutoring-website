@@ -3080,7 +3080,17 @@
     "newer": "Newer",
     "older": "Older",
     "details": "Change Details",
-    "patrolChanged": "Patrol changed. Reload before correcting it."
+    "patrolChanged": "Patrol changed. Reload before correcting it.",
+    "patrolRooms": "patrol room choices",
+    "reloadPatrol": "Reload patrol draft",
+    "patrolReloadFailed": "Could not load the latest patrol and room choices. Your draft is still here.",
+    "patrolUnavailable": "This patrol is no longer on this history page. Your draft is still here.",
+    "patrolSaved": "Correction saved. Refreshing patrol history…",
+    "patrolSavedRefreshFailed": "Correction saved, but patrol history could not refresh. Try refreshing.",
+    "patrolQueuedRefreshFailed": "Correction submitted for review, but patrol history could not refresh. Try refreshing.",
+    "invalidPatrolTime": "Enter a valid observation time.",
+    "patrolRoomUnavailable": "{room} (unavailable)",
+    "patrolRoomRequired": "Choose an available room for each observation before saving."
   },
   "emailChange": {
     "title": "Change Account Email",
@@ -4975,7 +4985,13 @@
       "ATTEMPT": "Unapplied attempt"
     },
     "unnamedAccount": "Unnamed account",
-    "formerAccount": "Former account"
+    "formerAccount": "Former account",
+    "filterOptions": "filter options",
+    "retryReads": "Retry audit reads",
+    "loadingReads": "Loading audit history and filter choices…",
+    "loadFailed": "Could not load audit history or filter choices.",
+    "refreshFailed": "Could not refresh audit history or filter choices. Your unfinished filters are retained.",
+    "accessDenied": "You no longer have access to audit history."
   },
   "userMultiFilters": {
     "all": "All",
@@ -5384,7 +5400,13 @@
     "importTooLarge": "Choose a file smaller than 1 MB.",
     "importEmpty": "The file contains no subjects.",
     "importFileType": "Choose a .json or .csv file.",
-    "importInvalid": "Could not import file: {detail}"
+    "importInvalid": "Could not import file: {detail}",
+    "retry": "Retry catalogue reads",
+    "loadFailed": "Could not load the subject catalogue.",
+    "refreshFailed": "Could not refresh the subject catalogue. Your drafts are retained; retry before making changes.",
+    "accessDenied": "You no longer have access to the subject catalogue.",
+    "savedRefreshing": "Changes saved. Refreshing the catalogue…",
+    "savedRefreshFailed": "Changes saved, but the subject catalogue could not refresh. Try refreshing."
   },
   "recruitment": {
     "preview": "Read-only form preview",

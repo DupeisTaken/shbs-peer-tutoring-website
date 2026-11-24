@@ -9,7 +9,8 @@ import {
   within,
 } from "@testing-library/react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { type QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { createQueryClient } from "~/trpc/query-client";
 import { NextIntlClientProvider } from "next-intl";
 import type { ReactElement } from "react";
 import type { RoomOutcome } from "~/lib/room-allocation";
@@ -218,8 +219,11 @@ const message = (
   section: string,
 ) => en.managementRecovery[key].replace("{section}", section);
 beforeEach(() => {
-  client = new QueryClient({
-    defaultOptions: { queries: { retry: false, staleTime: Infinity } },
+  client = createQueryClient();
+  const defaults = client.getDefaultOptions();
+  client.setDefaultOptions({
+    ...defaults,
+    queries: { ...defaults.queries, retry: false, staleTime: Infinity },
   });
   vi.clearAllMocks();
   remote.codes.mockResolvedValue([code]);
@@ -427,7 +431,9 @@ it("retains pairing edits, identifies the failed prerequisite and preserves an a
   expect(remote.write).toHaveBeenCalledWith(
     expect.objectContaining({ id: "pair", overrideTicket: "existing-ticket" }),
   );
-  expect(await screen.findByText(en.roomAllocation.outcome.RETAINED)).toBeTruthy();
+  expect(
+    await screen.findByText(en.roomAllocation.outcome.RETAINED),
+  ).toBeTruthy();
 });
 it("retains recorded service-hour totals beside background recovery", async () => {
   mount(<ServiceHoursPage />);

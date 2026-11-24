@@ -336,7 +336,7 @@ Coordinators handle permitted daily operations, settings proposals, profile edit
 - **At submission** and **Supporting records from submission** preserve frozen submission-time evidence (they never claim to show today's live record). Record IDs appear below names to distinguish people with identical names.
 - Reviewers enter a required decision note before choosing **Approve and Apply** (executing the requested action, including an underlying rejection) or **Reject with Feedback** (declining the proposal without applying). If live records changed while pending, reviewers reject and ask for a fresh proposal.
 - Use **Review details and decision** to collapse/expand a request without losing an unfinished decision note.
-- Audit entries show recorded before/after field diffs with localized labels and **View stored JSON** for raw types; attempt records show denied/failed outcomes separately from applied changes.
+- Audit entries show recorded before/after field diffs with localized labels and **View stored JSON** for raw types; attempt records show denied/failed outcomes separately from applied changes. If the audit list or filter options fail to load or refresh, use their independent read-only Retry controls without losing active filters or drafts.
 
 ## Administrators
 
@@ -564,7 +564,7 @@ Any verified address can sign in or trigger password recovery (recovery by usern
 
 ## Renewed policy acceptance
 
-- On the tutor workspace, click **current policy** in the accepted-policy banner to read the latest published policy in a read-only popup.
+- On the tutor workspace, click **current policy** in the accepted-policy banner to read the latest published policy in a read-only popup. If policy status fails to load or refresh, use **Refresh** to retry reading without accepting or losing a typed signature.
 - Whenever a published policy for your linked tutee or tutor profile changes, a renewal popup opens on your next visit or window focus. Scroll to the bottom of the policy box to unlock the checkbox (short fully visible policies unlock immediately), check agreement, and finish the 5-second confirmation.
 - Dismissing the popup still lets you access messages, account settings, personal history, feedback, appeals, email confirmation, and password recovery; new participation requires accepting the current revision.
 
