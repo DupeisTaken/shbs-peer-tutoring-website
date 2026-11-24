@@ -220,8 +220,74 @@ creates no owner-review draft or restoration receipt.
 Attendance restoration recalculates the complete merged block and requests fresh
 discrepancy review. Card restoration creates a new review. A closed signup produces
 an owner-review draft; the owner must submit it through normal intake, current
-policy agreement and mailbox verification. A recovery receipt can therefore mean
+policy agreement and mailbox verification. The recovery receipt can therefore mean
 that owner action is still required, rather than participation is already active.
+
+## Reconcile pretracking archive provenance
+
+Records imported before archive-provenance tracking began have no trustworthy
+per-row origin in the database. Never infer archive origin from names, dates,
+inactive status, aggregate totals or matching emails, and never assume balances
+were already posted to the school ledger.
+
+Keep private import files and retained origin evidence outside Git in a local
+operator-only directory. When reconciling from an original Program Records ZIP
+or CSV export, extract exact scalar and composite primary keys plus
+privacy-preserving row hashes offline without connecting to any database:
+
+```bash
+npm run recovery -- provenance extract --input local-operations/pretracking-archive.zip --out local-operations/provenance-candidates.json --evidence-label synthetic-pretracking-2024 --revision DEPLOYED_SHA
+```
+
+`provenance extract` skips reference-only `User.csv`, validates every column
+against the schema, stores only primary keys, column names and SHA-256 value
+hashes (no personal details), and prints `candidatesHash`. Alternatively, build
+a strict JSON candidate file directly from trustworthy retained evidence using
+exact scalar or composite primary keys (`action: "MARK_IMPORTED"` or
+`"RELEASE_IMPORTED"`).
+
+Run a read-only preview against the target `DATABASE_URL` with an active
+Admin/Head `--actor-id`. Preview writes nothing; it records the database scope,
+applied schema revision, current row hashes, scalar/composite keys, native late
+correction vs. current reference-configuration checks, typed recovery
+references, concrete automation effects and school-hours opening/committed
+overlap checks:
+
+```bash
+npm run recovery -- provenance preview --candidates local-operations/provenance-candidates.json --candidates-hash CANDIDATES_SHA256 --actor-id ADMIN_ID --revision DEPLOYED_SHA --out local-operations/provenance-plan.json
+npm run recovery -- provenance compare --plan local-operations/provenance-plan.json --plan-hash PLAN_SHA256 --actor-id ADMIN_ID
+```
+
+Inspect every blocker and warning before applying:
+- Active or live rows (`ACTIVE` tutor/tutee, active-term sessions/pairings,
+  pending workflows, upcoming meetings/patrols) and active reference
+  configuration (`Term`, `TimeSlot`, `Room`, `Subject`, `SchoolCalendarDay`)
+  are blocked.
+- Any row whose live values diverge from the original import file hash is
+  blocked as a possible native late correction.
+- Financial sources (`Session`, `ServiceHourAdjustment`, `Patrol`) that overlap
+  `SchoolHoursSchedule.openingBaseline` or a committed `SchoolHoursReport`
+  block `MARK_IMPORTED` so classification never manufactures a signed reversal,
+  re-reports old hours or erases a committed anchor.
+- `RELEASE_IMPORTED` on an unanchored archived financial source is blocked so
+  archives are never silently released into reportable school credit. Release
+  is allowed only when an anchored opening/committed source matches its exact
+  anchored owner, component and amount.
+
+Once the preview reports `applicable: true`, apply the exact reviewed plan with
+a fresh UUID `--client-key` and inspect the durable receipt:
+
+```bash
+npm run recovery -- provenance apply --plan local-operations/provenance-plan.json --plan-hash PLAN_SHA256 --actor-id ADMIN_ID --reason 'Reviewed pretracking archive provenance' --client-key 4a55f2c8-851c-4a5d-9b30-2a7e5c4e1201
+npm run recovery -- provenance receipt --receipt-id RECEIPT_ID --actor-id ADMIN_ID
+```
+
+Apply rechecks live Admin/Head authority, shared writer fences and every current
+source hash inside a `Serializable` transaction. It modifies only
+`ImportedRecordProvenance` (preserving all source amounts and current
+memberships) and commits an immutable `ArchiveProvenanceReceipt` alongside an
+`AuditLog` entry. Exact retries with the same `--actor-id` and `--client-key`
+replay idempotently; reusing a key with different intent fails.
 
 ## Stage a whole-site logical backup
 

@@ -120,20 +120,29 @@ If a restored imported source ID overlaps previously reviewed or committed schoo
 evidence, issuance blocks for reconciliation instead of generating an artificial
 negative reversal. The migration does not guess which older records came from an
 import: pretracking evidence retains the explicit school-ledger opening review.
-This release does not add a bulk archive-to-report release action. Intentionally
-unreported historical hours require operator reconciliation with the school
-ledger; importing them alone is not posting authority. Opening-balance review
-does not establish archive provenance. Older unclassified records retain their
-existing automation behavior until a separate operator review establishes their
-origin; this release adds no retrospective classification tool or automatic
-backfill. Normal imported source
-inserts are journaled through their original source references. Simple financial
-provenance keys also link boundary changes to tracked source IDs as unsupported
-recovery consequences. A security-overlay restore fingerprints all provenance and
-refuses divergence rather than dropping the boundary silently. Composite marker
-keys do not independently expand into parent recovery references: this release
-has no marker-release API, and a future standalone reclassification workflow must
-add typed recovery references before it can safely change those boundaries.
+Opening-balance review does not establish archive provenance, and there is no
+website bulk archive-to-report release action. Intentionally unreported
+historical hours require explicit school-ledger reconciliation; importing them
+alone is not posting authority.
+
+Pretracking records with exact primary keys from original import files or
+trustworthy retained evidence can be classified through the separate reviewed
+operator CLI (`npm run recovery -- provenance extract|preview|compare|apply|receipt`;
+see the [recovery guide](../guides/recovery.md#reconcile-pretracking-archive-provenance)
+and [recovery reference](recovery.md#archive-provenance-reconciliation-boundary)).
+Preview inspects current row hashes, scalar/composite keys, native late
+correction vs. current reference-configuration boundaries, typed recovery
+references and full before/after school-hours overlap without writing.
+Classification blocks any overlap with `openingBaseline` or committed
+`SchoolHoursReport` anchors (never manufacturing a signed reversal, re-reporting
+old hours or erasing a committed anchor), and releasing a financial archive
+marker is blocked unless the source matches an exact anchored opening/committed
+owner, component and amount (never silently releasing archives into reportable
+credit). Both scalar and composite `ImportedRecordProvenance` rows expand into
+typed parent recovery references through `recovery_capture_imported_provenance()`
+so boundary changes remain fenced as unsupported recovery consequences, and
+security-overlay restores fingerprint both `ImportedRecordProvenance` and
+`ArchiveProvenanceReceipt` to refuse divergence.
 
 Tutoring and Crew sources are attributed through explicit current/retained
 ownership and account-retirement history, never matching names, email or directory
