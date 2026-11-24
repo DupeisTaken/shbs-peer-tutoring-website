@@ -8,6 +8,7 @@ import { surveyInput } from "~/lib/student-signup";
 import type { z } from "zod";
 import type { recoveryDraftReference } from "~/lib/recovery-workflow";
 import {
+  nextStudentSignupEditedAt,
   studentSignupIntentDigest,
   studentSignupLocalAnswers,
 } from "./student-signup-answers";
@@ -520,7 +521,7 @@ export async function completeStudentSignupIntent(
         currentPayload: answers,
         emailLocale: intent.emailLocale,
         currentVersion: version,
-        editedAt: new Date(),
+        editedAt: nextStudentSignupEditedAt(row, answers),
       },
     });
   }

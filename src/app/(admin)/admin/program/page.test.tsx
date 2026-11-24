@@ -47,13 +47,15 @@ vi.mock("~/app/_components/next-recruitment-settings", () => ({
   NextRecruitmentSettings: access.privateChild,
   NextRecruitmentError: ({ message }: { message: string }) => message,
 }));
-// Scheduling owns its versioned query/write tests; keep this suite focused on
-// immediate refresh and the page's private-child admission boundary.
-vi.mock("~/app/_components/scheduled-program-refresh", () => ({
-  ScheduledProgramRefresh: access.privateChild,
-}));
 const target = { sourceTermId: "term-1", sourceSchoolYear: "26-27", sourceQuarter: "Q1", destinationSchoolYear: "26-27", destinationQuarter: "Q2", semesterMode: false, modeRevision: 0 };
 const nextRecruitment = { canEdit: true, canApply: true, target, currentName: "Current", nextName: "Next", timeZone: "Asia/Shanghai", preparations: { tutor: null, tutee: null }, refreshEvidence: { target, timeZone: "Asia/Shanghai", preparations: { tutor: null, tutee: null }, destination: null } };
+const refreshSchedule = () => ({
+  schedule: null,
+  activeSourceTermId: "term-1",
+  serverNow: new Date("2026-10-30T01:00:00Z"),
+  canEdit: ["HEAD", "ADMIN"].includes(access.role) && !access.readOnly,
+  canApply: access.role === "HEAD" && !access.readOnly,
+});
 // This suite owns refresh confirmation. Relocated settings own separate query tests.
 vi.mock("~/app/_components/program-calendar", () => ({
   ProgramCalendarSettings: access.privateChild,
@@ -88,7 +90,38 @@ vi.mock("~/trpc/react", () => ({
         }),
       },
     },
-    useUtils: () => ({ admin: { currentPeriod: { cancel: vi.fn().mockResolvedValue(undefined), fetch: vi.fn().mockResolvedValue({ termId: "term-2", schoolYear: "26-27", quarter: "Q2", recruitment: { tutor: {}, tutee: {} } }) } }, program: { nextRecruitment: { cancel: vi.fn().mockResolvedValue(undefined), fetch: vi.fn().mockResolvedValue({ ...nextRecruitment, target: { ...target, sourceTermId: "term-2" } }) } } }),
+    useUtils: () => ({
+      admin: {
+        currentPeriod: {
+          cancel: vi.fn().mockResolvedValue(undefined),
+          fetch: vi.fn().mockResolvedValue({
+            termId: "term-2",
+            schoolYear: "26-27",
+            quarter: "Q2",
+            recruitment: { tutor: {}, tutee: {} },
+          }),
+        },
+        refreshSchedule: {
+          cancel: vi.fn().mockResolvedValue(undefined),
+          fetch: vi.fn().mockResolvedValue({
+            ...refreshSchedule(),
+            activeSourceTermId: "term-2",
+          }),
+        },
+      },
+      program: {
+        nextRecruitment: {
+          cancel: vi.fn().mockResolvedValue(undefined),
+          fetch: vi.fn().mockResolvedValue({
+            ...nextRecruitment,
+            target: { ...target, sourceTermId: "term-2" },
+          }),
+        },
+      },
+      approval: {
+        list: { cancel: vi.fn(), fetch: vi.fn() },
+      },
+    }),
     admin: {
       currentPeriod: {
         useQuery: () => ({
@@ -107,6 +140,17 @@ vi.mock("~/trpc/react", () => ({
         }),
       },
       refresh: { useMutation: () => ({ mutateAsync: mutate, isPending: false }) },
+      refreshSchedule: {
+        useQuery: () => ({
+          data: refreshSchedule(),
+          error: null,
+          isFetching: false,
+          isSuccess: true,
+          refetch: vi.fn(),
+        }),
+      },
+      scheduleRefresh: { useMutation: () => ({ mutateAsync: vi.fn(), isPending: false }) },
+      cancelRefresh: { useMutation: () => ({ mutateAsync: vi.fn(), isPending: false }) },
     },
     program: {
       nextRecruitment: { useQuery: () => ({ data: nextRecruitment, refetch: vi.fn() }) },
@@ -142,6 +186,11 @@ it.each(["en", "zh"] as const)(
       <NextIntlClientProvider locale={locale} messages={messages}>
         <ProgramPage />
       </NextIntlClientProvider>,
+    );
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: messages.scheduledRefresh.modeImmediate,
+      }),
     );
     const input = screen.getByLabelText<HTMLInputElement>(
       messages.admin.program.confirmLabel,

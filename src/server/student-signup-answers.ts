@@ -85,3 +85,75 @@ export function studentSignupIntentDigest(intent: unknown): string {
     .update(canonicalJson(intent))
     .digest("hex");
 }
+
+const blankWhenEmpty = new Set<string>([
+  "preferredName",
+  "alternativeNames",
+  "gradeLevel",
+  "phone",
+  "preferredContact",
+  "secondChoiceId",
+]);
+
+function comparableStudentSignupAnswers(
+  payload: unknown,
+): Record<string, unknown> {
+  const answers = studentSignupLocalAnswers(payload);
+  const normalized: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(answers)) {
+    if (key === "slotIds") continue;
+    if (blankWhenEmpty.has(key) && (value === null || value === "")) continue;
+    normalized[key] = value;
+  }
+  normalized.slotIds = Array.isArray(answers.slotIds)
+    ? [
+        ...new Set(
+          answers.slotIds.filter((id): id is string => typeof id === "string"),
+        ),
+      ].sort()
+    : [];
+  return normalized;
+}
+
+/** Compare two signup answer snapshots for semantic equality, ignoring key order,
+ * availability slot order and absent/blank optional values so initial confirmations
+ * and no-op saves do not mark a request as edited. */
+export function studentSignupAnswersEqual(
+  left: unknown,
+  right: unknown,
+): boolean {
+  return (
+    studentSignupIntentDigest(comparableStudentSignupAnswers(left)) ===
+    studentSignupIntentDigest(comparableStudentSignupAnswers(right))
+  );
+}
+
+/** Compute the persisted edit marker after saving `nextAnswers`: null when the
+ * resulting answers match the original submission, unchanged on no-op saves, and
+ * `now` when the answers actually changed. */
+export function nextStudentSignupEditedAt(
+  row: { payload: unknown; currentPayload?: unknown; editedAt: Date | null },
+  nextAnswers: unknown,
+  now = new Date(),
+): Date | null {
+  if (studentSignupAnswersEqual(row.payload, nextAnswers)) return null;
+  if (studentSignupAnswersEqual(currentStudentSignupPayload(row), nextAnswers))
+    return row.editedAt;
+  return now;
+}
+
+/** Effective edit timestamp for badges and triage. Suppresses historical rows
+ * where confirmation, unassignment or no-op saves stamped editedAt without
+ * changing answers away from the original submission, while preserving legacy
+ * pre-revision rows (`currentPayload == null`). */
+export function effectiveStudentSignupEditedAt(row: {
+  payload: unknown;
+  currentPayload?: unknown;
+  editedAt: Date | null;
+}): Date | null {
+  if (!row.editedAt) return null;
+  if (row.currentPayload == null) return row.editedAt;
+  return studentSignupAnswersEqual(row.payload, row.currentPayload)
+    ? null
+    : row.editedAt;
+}
