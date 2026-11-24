@@ -2589,7 +2589,10 @@
       "panel": "Panel: {members}",
       "headSuffix": "(Chair)",
       "scheduled": "Scheduled: {time}",
-      "awaitingSchedule": "Awaiting the chair to schedule a time."
+      "awaitingSchedule": "Awaiting the chair to schedule a time.",
+      "chairHelp": "Interviews you chair. Schedule times, review panel votes, and record final decisions here. Cast your own vote from the interview event in Schedule.",
+      "voteInSchedule": "Vote in Schedule",
+      "updateVoteInSchedule": "Update vote in Schedule"
     },
     "announcements": {
       "label": "Announcements",
@@ -2695,7 +2698,8 @@
       "schedule": "Schedule",
       "pairings": "Pairings",
       "preferences": "Preferences",
-      "history": "History & hours"
+      "history": "History & hours",
+      "chair": "Interview chair"
     }
   },
   "public": {
@@ -7193,6 +7197,9 @@
     "historyFollowups": "{count, plural, one {# finalized interview still needs} other {# finalized interviews still need}} management to record completion and hours.",
     "accessDenied": "Interview access is no longer available. Reload to check your current permissions.",
     "chairNeedsUpdate": "This panel needs an Admin or Head chair. Ask management to update the panel.",
+    "noChairInterviews": "No interviews assigned to you as chair.",
+    "refresh": "Refresh",
+    "refreshing": "Refreshing…",
     "correctionEvidence": {
       "readUnavailable": "Current interview evidence must load successfully before you review or submit. Your draft is retained.",
       "missingEvidence": "Load the recorded interview participants and current source credits before reviewing this change.",
@@ -7915,7 +7922,7 @@
     "denied": "Access to this planning source is no longer available.",
     "retry": "Retry",
     "interviewAttention": "These interviews still need attention, even when they have no upcoming date.",
-    "interviewHelp": "Assigned interview dates appear in your agenda. Your chair workspace remains on the dashboard.",
+    "interviewHelp": "Assigned interview dates appear in your agenda. Open any interview to cast your vote; chair duties live in the Interview chair tab.",
     "meetingHelp": "Upcoming dates appear in your agenda. Open meetings for absence excuses and personal history.",
     "calendarScope": "Calendar subscriptions currently include tutoring sessions only. Interviews and meetings appear here in the portal.",
     "task": {

@@ -5,13 +5,30 @@ import { useTranslations } from "next-intl";
 import { SectionTabs } from "~/app/_components/ui/section-tabs";
 import { focusVisibleContext } from "~/app/_components/focus-visible-context";
 
-const panels = ["schedule", "pairings", "preferences", "history"] as const;
-type Panel = (typeof panels)[number];
-export function tutorWorkspacePanel(hash: string): Panel {
+const basePanels = ["schedule", "pairings", "preferences", "history"] as const;
+const allPanels = [
+  "schedule",
+  "pairings",
+  "preferences",
+  "history",
+  "chair",
+] as const;
+type Panel = (typeof allPanels)[number];
+export function tutorWorkspacePanel(
+  hash: string,
+  hasChair = false,
+  pathname = "",
+): Panel {
   if (hash === "#tutor-pairings") return "pairings";
   if (hash === "#tutor-preferences" || hash === "#qualification-requests")
     return "preferences";
   if (hash === "#tutor-history") return "history";
+  if (
+    hasChair &&
+    (hash === "#chair-interviews" ||
+      (hash === "#tutor-interviews" && pathname !== "/schedule"))
+  )
+    return "chair";
   return "schedule";
 }
 const targets: Record<Panel, string> = {
@@ -19,6 +36,7 @@ const targets: Record<Panel, string> = {
   pairings: "tutor-pairings",
   preferences: "tutor-preferences",
   history: "tutor-history",
+  chair: "chair-interviews",
 };
 
 /** Both legacy routes render this owner. Panels mount on first access and stay
@@ -28,19 +46,28 @@ export function TutorWorkspace({
   pairings,
   preferences,
   history,
+  chair,
   attention,
-}: Record<Panel, ReactNode> & { attention?: ReactNode }) {
+}: Omit<Record<Panel, ReactNode>, "chair"> & {
+  chair?: ReactNode;
+  attention?: ReactNode;
+}) {
   const t = useTranslations("tutor.workspace");
+  const hasChair = chair !== undefined;
+  const visiblePanels: readonly Panel[] = hasChair ? allPanels : basePanels;
   const [selected, setSelected] = useState<Panel>("schedule");
+  const activePanel: Panel = visiblePanels.includes(selected)
+    ? selected
+    : "schedule";
   const [visited, setVisited] = useState<Panel[]>(["schedule"]);
-  if (!visited.includes(selected)) setVisited([...visited, selected]);
+  if (!visited.includes(activePanel)) setVisited([...visited, activePanel]);
   useEffect(() => {
     let frame: number | undefined;
     const arrive = () => {
       // A native dialog owns focus until deliberately dismissed.
       if (document.querySelector("dialog[open]")) return;
       const hash = window.location.hash;
-      setSelected(tutorWorkspacePanel(hash));
+      setSelected(tutorWorkspacePanel(hash, hasChair, window.location.pathname));
       if (frame !== undefined) cancelAnimationFrame(frame);
       frame = requestAnimationFrame(() => {
         if (
@@ -58,7 +85,14 @@ export function TutorWorkspace({
       window.removeEventListener("hashchange", arrive);
       window.removeEventListener("popstate", arrive);
     };
-  }, []);
+  }, [hasChair]);
+  const panelContent: Record<Panel, ReactNode> = {
+    schedule,
+    pairings,
+    preferences,
+    history,
+    chair,
+  };
   return (
     <div
       className="space-y-4"
@@ -76,7 +110,8 @@ export function TutorWorkspace({
         if (
           !(anchor instanceof HTMLAnchorElement) ||
           anchor.target ||
-          anchor.hasAttribute("download")
+          anchor.hasAttribute("download") ||
+          anchor.closest("dialog[open]")
         )
           return;
         const url = new URL(anchor.href);
@@ -92,7 +127,11 @@ export function TutorWorkspace({
         const hash =
           url.pathname === "/schedule" && url.hash === "#tutor-interviews"
             ? "#tutor-appointments"
-            : url.hash;
+            : url.pathname === "/dashboard" && url.hash === "#tutor-interviews"
+              ? hasChair
+                ? "#chair-interviews"
+                : "#tutor-appointments"
+              : url.hash;
         window.history.pushState(null, "", hash);
         window.dispatchEvent(new HashChangeEvent("hashchange"));
       }}
@@ -100,18 +139,18 @@ export function TutorWorkspace({
       {attention}
       <SectionTabs
         label={t("label")}
-        items={panels.map((value) => ({ value, label: t(value) }))}
-        value={selected}
+        items={visiblePanels.map((value) => ({ value, label: t(value) }))}
+        value={activePanel}
         onChange={(value) => {
           setSelected(value);
           // Keep native Back/Forward and existing notification fragments meaningful.
           window.history.pushState(null, "", `#${targets[value]}`);
         }}
       >
-        {panels.map((panel) => (
-          <div key={panel} hidden={panel !== selected}>
-            {visited.includes(panel) || selected === panel
-              ? { schedule, pairings, preferences, history }[panel]
+        {visiblePanels.map((panel) => (
+          <div key={panel} hidden={panel !== activePanel}>
+            {visited.includes(panel) || activePanel === panel
+              ? panelContent[panel]
               : null}
           </div>
         ))}

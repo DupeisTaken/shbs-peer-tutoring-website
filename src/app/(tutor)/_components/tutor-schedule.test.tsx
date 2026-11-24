@@ -17,6 +17,15 @@ import { TutorSchedule } from "./tutor-schedule";
 const state = vi.hoisted(() => ({
   completionTask: false,
   chairTask: false,
+  actionableTasks: [] as {
+    id: string;
+    name: string;
+    isHead: boolean;
+    canChair: boolean;
+    action: "vote" | "schedule" | "decision" | "completion";
+    sortAt: Date;
+    startsAt: Date | null;
+  }[],
   interviewStatus: "INTERVIEW",
   ownVoteRecorded: false,
   completionState: "pending",
@@ -58,19 +67,22 @@ vi.mock("~/trpc/react", () => {
             state.interviewOptions(options);
             return {
               data: {
-                actionableTasks: state.completionTask
-                  ? [
-                      {
-                        id: "completion",
-                        name: "Completion example",
-                        isHead: false,
-                        canChair: false,
-                        action: "completion",
-                        sortAt: new Date(),
-                        startsAt: null,
-                      },
-                    ]
-                  : [],
+                actionableTasks:
+                  state.actionableTasks.length > 0
+                    ? state.actionableTasks
+                    : state.completionTask
+                      ? [
+                          {
+                            id: "completion",
+                            name: "Completion example",
+                            isHead: false,
+                            canChair: false,
+                            action: "completion",
+                            sortAt: new Date(),
+                            startsAt: null,
+                          },
+                        ]
+                      : [],
                 appointments: [
                   {
                     id: "panel",
@@ -247,6 +259,7 @@ vi.mock("./schedule-meeting-details", () => ({
 }));
 beforeEach(() => {
   state.chairTask = false;
+  state.actionableTasks = [];
   state.completionTask = false;
   state.interviewStatus = "INTERVIEW";
   state.ownVoteRecorded = false;
@@ -468,21 +481,38 @@ it.each(locales)(
   },
 );
 
-it("opens one panelist controller and keeps chair navigation in its owning workspace", () => {
+it("opens member voting from calendar events for both panelists and chairs while linking chair duties to the chair tab", () => {
   render(ui());
   expect(screen.queryByRole("dialog")).toBeNull();
   expect(
     screen
       .getAllByRole("link", { name: en.unifiedSchedule.openChair })[0]!
       .getAttribute("href"),
-  ).toBe("/dashboard#tutor-interviews");
+  ).toBe("/dashboard#chair-interviews");
+  // Ordinary panelist card opens its vote dialog without a chair workspace link.
+  const panelCard = eventCard("interview-panel");
+  expect(
+    panelCard.queryByRole("link", { name: en.unifiedSchedule.openChair }),
+  ).toBeNull();
   fireEvent.click(
-    screen.getAllByRole("button", {
-      name: en.unifiedSchedule.openInterview,
-    })[1]!,
+    panelCard.getByRole("button", { name: en.unifiedSchedule.openInterview }),
   );
   expect(screen.getByRole("dialog").textContent).toContain("Interview panel");
   fireEvent.click(screen.getByText("Close interview"));
+
+  // Chair calendar card ALSO opens member voting directly AND links to the chair workspace.
+  const chairCard = eventCard("interview-chair");
+  expect(
+    chairCard
+      .getByRole("link", { name: en.unifiedSchedule.openChair })
+      .getAttribute("href"),
+  ).toBe("/dashboard#chair-interviews");
+  fireEvent.click(
+    chairCard.getByRole("button", { name: en.unifiedSchedule.openInterview }),
+  );
+  expect(screen.getByRole("dialog").textContent).toContain("Interview chair");
+  fireEvent.click(screen.getByText("Close interview"));
+
   fireEvent.click(
     screen.getByRole("button", { name: en.unifiedSchedule.interviewWork }),
   );
@@ -497,9 +527,60 @@ it("uses native chair return links for appointments and outstanding work", () =>
   });
   expect(links).toHaveLength(3);
   for (const link of links) {
-    expect(link.getAttribute("href")).toBe("/dashboard#tutor-interviews");
+    expect(link.getAttribute("href")).toBe("/dashboard#chair-interviews");
     expect(link.hasAttribute("data-client-navigation")).toBe(false);
     expect(link.getAttribute("target")).toBeNull();
+  }
+});
+it("routes chair vote tasks to the member vote dialog and schedule/decision tasks to the chair workspace tab", () => {
+  state.actionableTasks = [
+    {
+      id: "chair-vote",
+      name: "Chair Vote Needed",
+      isHead: true,
+      canChair: true,
+      action: "vote",
+      sortAt: new Date("2026-10-27T07:00:00Z"),
+      startsAt: new Date("2026-10-27T07:00:00Z"),
+    },
+    {
+      id: "chair-schedule",
+      name: "Chair Schedule Needed",
+      isHead: true,
+      canChair: true,
+      action: "schedule",
+      sortAt: new Date("2026-10-26T07:00:00Z"),
+      startsAt: null,
+    },
+    {
+      id: "chair-decision",
+      name: "Chair Decision Needed",
+      isHead: true,
+      canChair: true,
+      action: "decision",
+      sortAt: new Date("2026-10-25T07:00:00Z"),
+      startsAt: new Date("2026-10-25T07:00:00Z"),
+    },
+  ];
+  render(ui(true, true, true, "en", true));
+  const voteItem = screen.getByText("Chair Vote Needed").closest("li")!;
+  fireEvent.click(
+    within(voteItem).getByRole("button", {
+      name: en.unifiedSchedule.openInterview,
+    }),
+  );
+  expect(screen.getByRole("dialog").textContent).toContain(
+    "Interview chair-vote",
+  );
+  fireEvent.click(screen.getByText("Close interview"));
+
+  for (const label of ["Chair Schedule Needed", "Chair Decision Needed"]) {
+    const item = screen.getByText(label).closest("li")!;
+    expect(
+      within(item)
+        .getByRole("link", { name: en.unifiedSchedule.openChair })
+        .getAttribute("href"),
+    ).toBe("#chair-interviews");
   }
 });
 it("keeps tutoring and meetings when interview access is revoked, including cached summaries", () => {
@@ -515,9 +596,9 @@ it("keeps tutoring and meetings when interview access is revoked, including cach
 it("retains the detail owner while revoked summaries conceal its private UI", () => {
   const view = render(ui());
   fireEvent.click(
-    screen.getAllByRole("button", {
+    eventCard("interview-panel").getByRole("button", {
       name: en.unifiedSchedule.openInterview,
-    })[1]!,
+    }),
   );
   expect(screen.getByRole("dialog")).toBeTruthy();
   state.interviewError = { data: { code: "FORBIDDEN" } };
@@ -533,9 +614,9 @@ it("admits an initially disabled owner once and retains it across feature toggle
   expect(state.interviewMounted).not.toHaveBeenCalled();
   view.rerender(ui(true, true, false));
   fireEvent.click(
-    screen.getAllByRole("button", {
+    eventCard("interview-panel").getByRole("button", {
       name: en.unifiedSchedule.openInterview,
-    })[1]!,
+    }),
   );
   expect(screen.getByRole("dialog").textContent).toContain("Interview panel");
   view.rerender(ui(true, false, false));
@@ -590,9 +671,9 @@ it("defaults dated events to Upcoming and changes filters without resetting the 
     includeSummary: false,
   });
   fireEvent.click(
-    screen.getAllByRole("button", {
+    eventCard("interview-panel").getByRole("button", {
       name: en.unifiedSchedule.openInterview,
-    })[1]!,
+    }),
   );
   const detail = screen.getByRole("dialog");
   fireEvent.click(screen.getByRole("button", { name: "History filter" }));

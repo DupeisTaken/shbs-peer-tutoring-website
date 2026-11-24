@@ -209,11 +209,12 @@ See the [tutee policy draft](../../prisma/policies/tutee-policy.en.md) or [中�
 
 ## Tutors
 
-`/dashboard` and `/schedule` open the same tabbed **Tutor Workspace**, starting on **Schedule** with four local tabs:
+`/dashboard` and `/schedule` open the same tabbed **Tutor Workspace**, starting on **Schedule** with four local tabs (plus **Interview chair** when chairing):
 
 | Tab | What it holds |
 | --- | --- |
-| **Schedule** | **My agenda** (dated tutoring, assigned interviews, personal meetings), **Needs attention** summary, chair **Interviews to Conduct** (when chairing), and collapsed **Room Schedule** disclosure |
+| **Schedule** | **My agenda** (dated tutoring, assigned interviews, personal meetings), **Needs attention** summary, and collapsed **Room Schedule** disclosure |
+| **Interview chair** *(when chairing)* | Chair **Interviews to Conduct** (scheduling times, reviewing panel votes, manual **Refresh**, final decisions, links back to **Schedule** to cast your own vote, and collapsed **Completed interviews**) |
 | **Pairings** | **My Pairings** recurring assignment cards, schedule setup, tutee **Details**, and **Combine groups** / **Split this group** |
 | **Preferences** | Entrance cards (**Edit availability ↗**, **Edit willingness ↗**, **Request qualification ↗**) opening modal editors that retain drafts across close/reopen |
 | **History & hours** | **Service Hours** period totals and breakdowns, **Crew Hours** (separate if applicable), **Meeting history**, and past records |
@@ -235,9 +236,10 @@ Pending tutors must confirm whether to participate before tutoring actions appea
   - **Other Time Slots**: non-conflicting slots not selected by everyone.
   - **Unavailable**: disabled slots overlapping another independent teaching block (overrides shared availability; back-to-back slots are allowed).
 
-**Interviews (Schedule tab & Tutor Applications):**
+**Interviews (Schedule tab, Interview chair tab & Tutor Applications):**
 
-- Ordinary panelists view assigned interviews in **Schedule** (**Interview work**); chairs manage scheduling and decisions in **Interviews to Conduct** (expanded by default, earliest/overdue first, with a collapsed **Completed interviews** section).
+- Every assigned panelist—including the chair—casts and updates their own vote from the interview event in **Schedule** (or via **Interviews & history** for unscheduled or past interviews).
+- Chairs manage scheduling, panel-vote review (with a manual **Refresh** button), and final decisions in the separate **Interview chair** tab (expanded by default, earliest/overdue first, with a collapsed **Completed interviews** section and links back to **Schedule** to vote; drafts survive tab switches and refreshes).
 - Panels require **3–8** active distinct tutors (at least one qualified in a requested subject) and an **Admin** or **Head** chair (Coordinators may vote but cannot chair). Collapsed and expanded application cards display `{accepts} accept · {rejects} reject` once votes exist.
 - Every panelist must vote before a final decision; majority decides, with the chair breaking ties.
 - **Approving an initial application** does not restore tutoring access previously revoked by management—Admin/Head must restore access in **Users & Roles** first. Ordinary archived tutors without a restriction can return normally.

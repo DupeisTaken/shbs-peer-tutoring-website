@@ -2589,7 +2589,10 @@
       "panel": "패널: {members}",
       "headSuffix": "(대표)",
       "scheduled": "일정: {time}",
-      "awaitingSchedule": "대표가 시간을 설정하기를 기다리는 중입니다."
+      "awaitingSchedule": "대표가 시간을 설정하기를 기다리는 중입니다.",
+      "chairHelp": "대표로 맡은 면접입니다. 여기에서 일정을 잡으시고 패널 투표를 확인한 뒤 최종 결정을 기록하세요. 본인 투표는 일정 탭의 면접 이벤트에서 제출합니다.",
+      "voteInSchedule": "일정에서 투표하기",
+      "updateVoteInSchedule": "일정에서 투표 수정하기"
     },
     "announcements": {
       "label": "공지사항",
@@ -2695,7 +2698,8 @@
       "schedule": "일정",
       "pairings": "매칭",
       "preferences": "환경설정",
-      "history": "기록 및 시간"
+      "history": "기록 및 시간",
+      "chair": "면접 대표"
     }
   },
   "public": {
@@ -7193,6 +7197,9 @@
     "historyFollowups": "{count, plural, one {종료된 면접 #건에 대해} other {종료된 면접 #건에 대해}} 관리 담당자가 아직 완료 기록과 봉사 시간 부여를 해야 합니다.",
     "accessDenied": "더 이상 면접에 접근할 수 없습니다. 다시 불러와 현재 권한을 확인하세요.",
     "chairNeedsUpdate": "This panel needs an Admin or Head chair. Ask management to update the panel.",
+    "noChairInterviews": "대표로 배정된 면접이 없습니다.",
+    "refresh": "새로고침",
+    "refreshing": "새로고침 중…",
     "correctionEvidence": {
       "readUnavailable": "검토하거나 제출하기 전에 현재 면접 근거를 정상적으로 불러와야 합니다. 초안은 유지됩니다.",
       "missingEvidence": "이 변경을 검토하기 전에 기록된 면접 참여자와 현재 원본 인정 시간을 불러오세요.",
@@ -7915,7 +7922,7 @@
     "denied": "Access to this planning source is no longer available.",
     "retry": "Retry",
     "interviewAttention": "These interviews still need attention, even when they have no upcoming date.",
-    "interviewHelp": "Assigned interview dates appear in your agenda. Your chair workspace remains on the dashboard.",
+    "interviewHelp": "배정된 면접 일정이 내 일정에 표시됩니다. 면접을 열어 본인 투표를 제출하고, 대표 업무는 면접 대표 탭에서 진행하세요.",
     "meetingHelp": "예정된 날짜는 일정에 표시됩니다. 회의를 열어 불참 사유를 제출하고 개인 내역을 확인하세요.",
     "calendarScope": "Calendar subscriptions currently include tutoring sessions only. Interviews and meetings appear here in the portal.",
     "task": {
