@@ -8,7 +8,10 @@ import { preserveHistoricalAcademics } from "~/server/historical-academics";
 import { requireStudentSchoolParticipation } from "./school-departure";
 import { executionParticipantId, executionPairingId, supersededPairingIds } from "./participant-execution";
 import { admitStudentRequestExecution, releaseStudentRequestExecution, studentRequestExecutionAssignments } from "./student-request-execution";
-import { currentStudentSignupPayload } from "./student-signup-answers";
+import {
+  currentStudentSignupPayload,
+  effectiveStudentSignupEditedAt,
+} from "./student-signup-answers";
 import { synchronizeStudentSignupAnswers } from "./student-signup-revisions";
 import { lockCatalogue } from "./qualifications";
 import { withRecoveryDeliverySource, type RecoveryDeliverySource } from "./recovery/delivery-effects";
@@ -393,11 +396,7 @@ export async function editStudentAvailability(
     await tx.tuteeAvailability.createMany({
       data: ids.map((slotId) => ({ tuteeId: row.tuteeId!, slotId })),
     });
-    // Original survey evidence stays untouched; only the current availability and edit marker change.
-    await tx.studentSurvey.update({
-      where: { id },
-      data: { editedAt: new Date() },
-    });
+    // Original survey evidence stays untouched; synchronizeStudentSignupAnswers updates currentPayload, currentVersion and editedAt.
     await synchronizeStudentSignupAnswers(tx, row, userId, { slotIds: ids });
     const slots = await tx.timeSlot.findMany({
       where: {
@@ -619,7 +618,7 @@ export async function studentScheduleRequestSources(db: DomainDb, tutorId: strin
     const payload = currentStudentSignupPayload(row);
     let pending = false;
     for (const review of row.reviews) if (review.pairingId && await executionPairingId(db, review.pairingId) === pairingId) pending = true;
-    sources.push({ surveyId: row.id, sourceTuteeId: row.tuteeId!, name: typeof payload.englishName === "string" ? payload.englishName : "—", termId: row.intakeTermId, termName: term.name, submittedAt: row.submittedAt, pending, verified: !!row.confirmedAt, verificationDueAt: row.verificationDueAt, editedAt: row.editedAt });
+    sources.push({ surveyId: row.id, sourceTuteeId: row.tuteeId!, name: typeof payload.englishName === "string" ? payload.englishName : "—", termId: row.intakeTermId, termName: term.name, submittedAt: row.submittedAt, pending, verified: !!row.confirmedAt, verificationDueAt: row.verificationDueAt, editedAt: effectiveStudentSignupEditedAt(row) });
   }
   // A released or closed survey never turns into a new legacy request.
   return { sources, legacy: !maps.length && !direct };
@@ -1106,7 +1105,7 @@ export async function studentRequestRows(
       submittedAt: row.submittedAt,
       state: row.state,
       confirmedAt: row.confirmedAt,
-      editedAt: row.editedAt,
+      editedAt: effectiveStudentSignupEditedAt(row),
       currentVersion: row.currentVersion,
       firstAssignedAt: row.firstAssignedAt,
       verificationDueAt: row.verificationDueAt,
