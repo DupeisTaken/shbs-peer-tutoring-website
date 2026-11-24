@@ -65,6 +65,27 @@ const checkpointFileSchema = admissionFileSchema
     checkpointId: z.string().min(1).max(200),
   })
   .strict();
+const provenancePlanFileSchema = z
+  .object({
+    version: z.literal(1),
+    kind: z.literal("archive-provenance-reconciliation"),
+    createdAt: z.iso.datetime(),
+    source: z
+      .object({
+        host: z.string(),
+        port: z.string(),
+        database: z.string(),
+        user: z.string(),
+      })
+      .strict(),
+    actorId: z.string().min(1).max(100),
+    candidatesHash: z.string().regex(/^[a-f0-9]{64}$/),
+    candidates: z.unknown(),
+    sourceRevision: z.string().min(1).max(120).nullable(),
+    fingerprint: z.string().regex(/^[a-f0-9]{64}$/),
+    preview: z.unknown(),
+  })
+  .strict();
 
 function requiredEnvironment(name: string) {
   const value = process.env[name];
@@ -274,6 +295,35 @@ async function main() {
     console.info(RECOVERY_HELP);
     return;
   }
+  if (command.kind === "provenance.extract") {
+    const { extractProvenanceCandidatesFromPath } =
+      await import("../src/server/recovery/operator-provenance");
+    const candidates = await extractProvenanceCandidatesFromPath(
+      command.input,
+      {
+        evidenceLabel: command.evidenceLabel,
+        sourceRevision: command.revision,
+      },
+    );
+    await writeOperatorJson(command.out, candidates);
+    console.info(
+      JSON.stringify(
+        {
+          version: 1,
+          kind: "archive-provenance-candidates",
+          candidatesFile: command.out,
+          candidatesHash: planHash(candidates),
+          evidenceLabel: candidates.evidenceLabel,
+          sourceRevision: candidates.sourceRevision ?? null,
+          candidateCount: candidates.candidates.length,
+          extractedFrom: candidates.extractedFrom ?? null,
+        },
+        null,
+        2,
+      ),
+    );
+    return;
+  }
   const sourceUrl = requiredEnvironment("DATABASE_URL");
   switch (command.kind) {
     case "site.reconcile-plan":
@@ -382,6 +432,155 @@ async function main() {
         "FORBIDDEN",
       );
     };
+    if (
+      command.kind === "provenance.preview" ||
+      command.kind === "provenance.compare" ||
+      command.kind === "provenance.apply" ||
+      command.kind === "provenance.receipt"
+    ) {
+      const provenance = await import(
+        "../src/server/recovery/operator-provenance"
+      );
+      if (command.kind === "provenance.receipt") {
+        const receipt = await db.$transaction(
+          async (tx) => {
+            await tx.$executeRaw`SET TRANSACTION READ ONLY`;
+            return provenance.readArchiveProvenanceReceipt(
+              tx,
+              command.receiptId,
+              command.actorId,
+            );
+          },
+          { isolationLevel: "RepeatableRead", timeout: 60_000 },
+        );
+        operatorAssert(receipt, "RECEIPT_NOT_FOUND");
+        console.info(
+          JSON.stringify(
+            { version: 1, kind: "archive-provenance-receipt", receipt },
+            null,
+            2,
+          ),
+        );
+        return;
+      }
+      if (command.kind === "provenance.preview") {
+        const rawCandidates = await readOperatorPlan(
+          command.candidates,
+          command.candidatesHash,
+        );
+        const parsedCandidates =
+          provenance.provenanceCandidateFileSchema.safeParse(rawCandidates);
+        operatorAssert(parsedCandidates.success, "INVALID_CANDIDATES_FILE");
+        const preview = await db.$transaction(
+          async (tx) => {
+            await tx.$executeRaw`SET TRANSACTION READ ONLY`;
+            return provenance.previewArchiveProvenance(
+              tx,
+              parsedCandidates.data,
+              {
+                actorId: command.actorId,
+                sourceRevision: command.revision,
+              },
+            );
+          },
+          { isolationLevel: "RepeatableRead", timeout: 60_000 },
+        );
+        const plan = provenancePlanFileSchema.parse({
+          version: 1,
+          kind: "archive-provenance-reconciliation",
+          createdAt: new Date().toISOString(),
+          source: databaseIdentity(sourceUrl),
+          actorId: command.actorId,
+          candidatesHash: command.candidatesHash,
+          candidates: parsedCandidates.data,
+          sourceRevision: preview.sourceRevision,
+          fingerprint: preview.fingerprint,
+          preview,
+        });
+        if (command.out) await writeOperatorJson(command.out, plan);
+        console.info(
+          JSON.stringify(
+            {
+              plan,
+              planHash: planHash(plan),
+              ...(command.out ? { planFile: command.out } : {}),
+            },
+            null,
+            2,
+          ),
+        );
+        return;
+      }
+      const parsedPlan = provenancePlanFileSchema.safeParse(
+        await readOperatorPlan(command.plan, command.planHash),
+      );
+      operatorAssert(parsedPlan.success, "INVALID_PROVENANCE_PLAN");
+      const plan = parsedPlan.data;
+      operatorAssert(
+        planHash(plan.source) === planHash(databaseIdentity(sourceUrl)),
+        "WRONG_DATABASE",
+      );
+      operatorAssert(plan.actorId === command.actorId, "PLAN_ACTOR_MISMATCH");
+      const parsedCandidates =
+        provenance.provenanceCandidateFileSchema.safeParse(plan.candidates);
+      operatorAssert(parsedCandidates.success, "INVALID_PROVENANCE_PLAN");
+      operatorAssert(
+        planHash(parsedCandidates.data) === plan.candidatesHash,
+        "CANDIDATES_HASH_MISMATCH",
+      );
+      if (command.kind === "provenance.compare") {
+        const current = await db.$transaction(
+          async (tx) => {
+            await tx.$executeRaw`SET TRANSACTION READ ONLY`;
+            return provenance.previewArchiveProvenance(
+              tx,
+              parsedCandidates.data,
+              {
+                actorId: command.actorId,
+                sourceRevision: plan.sourceRevision ?? undefined,
+              },
+            );
+          },
+          { isolationLevel: "RepeatableRead", timeout: 60_000 },
+        );
+        console.info(
+          JSON.stringify(
+            {
+              version: 1,
+              kind: "archive-provenance-comparison",
+              changed: current.fingerprint !== plan.fingerprint,
+              planFingerprint: plan.fingerprint,
+              currentFingerprint: current.fingerprint,
+              reviewed: plan.preview,
+              current,
+            },
+            null,
+            2,
+          ),
+        );
+        return;
+      }
+      const receipt = await provenance.applyArchiveProvenanceFromOperator(
+        db,
+        {
+          candidates: parsedCandidates.data,
+          planHash: command.planHash,
+          expectedFingerprint: plan.fingerprint,
+          sourceRevision: plan.sourceRevision ?? undefined,
+          reason: command.reason,
+          clientKey: command.clientKey,
+        },
+        { id: command.actorId },
+      );
+      console.info(
+        JSON.stringify(
+          { version: 1, kind: "archive-provenance-receipt", receipt },
+          null,
+          2,
+        ),
+      );
+      return;
+    }
     if (
       command.kind === "admission.receipt" ||
       command.kind === "checkpoint.receipt"

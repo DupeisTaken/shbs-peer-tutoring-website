@@ -569,7 +569,9 @@ correction. Original records imported before origin tracking remain unclassified
 their history is not automatically labelled or declared already reported.
 The new automation exclusions apply only to records with established archive
 provenance. Reviewing school opening balances does not classify older records;
-their existing automation remains until a separate operator origin review.
+their existing automation remains until an operator completes the reviewed
+[archive provenance reconciliation](recovery.md#reconcile-pretracking-archive-provenance)
+workflow using exact keys from original import files or retained evidence.
 
 Imported attendance blocks, flags and crew observations stay separate from
 automatic catalogue and patrol comparisons. Changing a current catalogue slot

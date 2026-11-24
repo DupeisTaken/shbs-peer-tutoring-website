@@ -53,7 +53,37 @@ export type RecoveryCommand =
   | { kind: "site.stage"; plan: string; planHash: string; reason: string }
   | { kind: "site.reconcile-plan" | "site.acceptance-plan" | "site.cutover-plan" | "site.rollback-plan";
       plan: string; planHash: string; receipt: string; receiptHash: string; out: string; actorId?: string; pointerPath?: string }
-  | { kind: "site.reconcile" | "site.acceptance" | "site.cutover" | "site.rollback"; plan: string; planHash: string; reason: string };
+  | { kind: "site.reconcile" | "site.acceptance" | "site.cutover" | "site.rollback"; plan: string; planHash: string; reason: string }
+  | {
+      kind: "provenance.extract";
+      input: string;
+      out: string;
+      evidenceLabel?: string;
+      revision?: string;
+    }
+  | {
+      kind: "provenance.preview";
+      candidates: string;
+      candidatesHash: string;
+      actorId: string;
+      revision?: string;
+      out?: string;
+    }
+  | {
+      kind: "provenance.compare";
+      plan: string;
+      planHash: string;
+      actorId: string;
+    }
+  | {
+      kind: "provenance.apply";
+      plan: string;
+      planHash: string;
+      actorId: string;
+      reason: string;
+      clientKey: string;
+    }
+  | { kind: "provenance.receipt"; receiptId: string; actorId: string };
 
 export class OperatorError extends Error {
   constructor(public readonly code: string) {
@@ -150,6 +180,23 @@ export function parseRecoveryCommand(argv: readonly string[]): RecoveryCommand {
     "site.acceptance": ["plan", "plan-hash", "reason"],
     "site.cutover": ["plan", "plan-hash", "reason"],
     "site.rollback": ["plan", "plan-hash", "reason"],
+    "provenance.extract": ["input", "out", "evidence-label", "revision"],
+    "provenance.preview": [
+      "candidates",
+      "candidates-hash",
+      "actor-id",
+      "revision",
+      "out",
+    ],
+    "provenance.compare": ["plan", "plan-hash", "actor-id"],
+    "provenance.apply": [
+      "plan",
+      "plan-hash",
+      "actor-id",
+      "reason",
+      "client-key",
+    ],
+    "provenance.receipt": ["receipt-id", "actor-id"],
   };
   const flags = allowed[name];
   operatorAssert(flags, "UNKNOWN_COMMAND");
@@ -286,6 +333,61 @@ export function parseRecoveryCommand(argv: readonly string[]): RecoveryCommand {
         ...(name === "site.acceptance-plan" ? { actorId: get("actor-id", 200) } : {}),
         ...(name === "site.cutover-plan" ? { pointerPath: get("pointer-path") } : {}) };
     }
+    case "provenance.extract":
+      return {
+        kind: "provenance.extract",
+        input: get("input"),
+        out: get("out"),
+        ...(values.has("evidence-label")
+          ? { evidenceLabel: get("evidence-label", 200) }
+          : {}),
+        ...(values.has("revision") ? { revision: get("revision", 120) } : {}),
+      };
+    case "provenance.preview": {
+      const candidatesHash = get("candidates-hash", 64);
+      operatorAssert(
+        /^[a-f0-9]{64}$/.test(candidatesHash),
+        "INVALID_CANDIDATES_HASH",
+      );
+      return {
+        kind: "provenance.preview",
+        candidates: get("candidates"),
+        candidatesHash,
+        actorId: get("actor-id", 100),
+        ...(values.has("revision") ? { revision: get("revision", 120) } : {}),
+        ...(values.has("out") ? { out: get("out") } : {}),
+      };
+    }
+    case "provenance.compare":
+      return {
+        kind: "provenance.compare",
+        plan: get("plan"),
+        planHash: planHash(),
+        actorId: get("actor-id", 100),
+      };
+    case "provenance.apply": {
+      const clientKey = get("client-key", 100);
+      operatorAssert(
+        /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+          clientKey,
+        ),
+        "INVALID_CLIENT_KEY",
+      );
+      return {
+        kind: "provenance.apply",
+        plan: get("plan"),
+        planHash: planHash(),
+        actorId: get("actor-id", 100),
+        reason: get("reason", 1000),
+        clientKey,
+      };
+    }
+    case "provenance.receipt":
+      return {
+        kind: "provenance.receipt",
+        receiptId: get("receipt-id", 100),
+        actorId: get("actor-id", 100),
+      };
     default:
       throw new OperatorError("UNKNOWN_COMMAND");
   }
@@ -313,6 +415,11 @@ site stage --plan PLAN.json --plan-hash SHA256 --reason TEXT
 site reconcile-plan|acceptance-plan|cutover-plan|rollback-plan --plan PREVIOUS_PLAN.json --plan-hash SHA256 --receipt PREVIOUS_RECEIPT.json --receipt-hash SHA256 --out PLAN.json
   acceptance-plan also requires --actor-id SYNTHETIC_USER; cutover-plan requires --pointer-path FILE.
 site reconcile|acceptance|cutover|rollback --plan PLAN.json --plan-hash SHA256 --reason TEXT
+provenance extract --input FILE.zip|FILE.csv --out CANDIDATES.json [--evidence-label LABEL] [--revision REF]
+provenance preview --candidates FILE.json --candidates-hash SHA256 --actor-id USER [--revision REF] [--out PLAN.json]
+provenance compare --plan PLAN.json --plan-hash SHA256 --actor-id USER
+provenance apply --plan PLAN.json --plan-hash SHA256 --actor-id USER --reason TEXT --client-key UUID
+provenance receipt --receipt-id ID --actor-id USER
 DATABASE_URL names the current site. RECOVERY_DATABASE_URL names a separate loopback
 PostgreSQL maintenance connection. Site stage creates a fresh database, then freezes
 it against connections. Later phases require separate reviewed plans and current fingerprints.
