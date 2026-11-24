@@ -97,10 +97,7 @@ must not introduce a new computed next-session feature or domain rule.
 Render recurring weekday labels with `formatWeekday(dayOfWeek, locale)` using the
 active `next-intl` locale, including availability group names exposed to assistive
 technology. Keep stored ISO weekday numbers, group order, slot IDs and minute
-values unchanged. A translated label must not change an availability Save or
-schedule-review request payload.
-Use a feature-specific final action label in the meeting absence-reason editor
-(“Submit absence excuse”), while preserving its cutoff, reason and request rules.
+values unchanged; translated labels must not change Save or schedule-review payloads.
 
 ## Align controls to their visual row
 
@@ -126,41 +123,31 @@ not grow to fill the row. Translated or enlarged text may grow beyond that minim
 Show each subject as a brief row with its name, level badge, qualification and
 willingness. Do not repeat a Qualification heading beside a Qualified badge.
 Order qualified and willing subjects first, qualified and unwilling next, then
-qualified subjects whose willingness is not recorded, then unqualified subjects.
-Keep the current catalog order within a group. Unknown willingness is a distinct
-state, not an inferred No. Put editing behind a rightmost Edit action and retain
-the feature's independent mutation, approval and failed-save recovery rules.
-
-Bulk selection is a deliberate exception to the trailing-action rule: a checkbox
-column goes at the far left, with a named select-all control. Details and editors
-remain in the rightmost Actions column. Selection remains stable while filtering;
-subject catalogs use the same default order as signup forms.
+qualified subjects whose willingness is not recorded, then unqualified subjects
+(preserving catalog order within each group). Unknown willingness is a distinct
+state, not an inferred No. Put editing behind a rightmost Edit action.
 
 Use one compact warning for an academic value needing review rather than an
 unknown-value sentence followed by the same review instruction. Put full reasons,
 self-excused absences, comments, evaluations and recorded service hours in named
-detail readers. Attendance abbreviations such as P, EA and UA require a visible
+detail readers. Attendance abbreviations (`P`, `EA`, `UA`) require a visible
 legend and accessible expanded column names. Keep all columns and trailing actions
 reachable on narrow screens; avoid side-by-side tables that compress either table
 below its useful width.
 
-In a record action group, put ordinary text links on the left, boxed decision
-buttons next, and Delete last. For example, Set Up Account precedes Flag invalid
-and the other decision buttons. Keep this DOM order and keyboard order consistent
-when the group wraps on a narrow screen; do not reorder unrelated form actions.
+In a record action group, place ordinary text links first, boxed decision buttons
+next, and Delete last (for example, `Set Up Account` before `Flag invalid` and
+other decision buttons). Keep DOM and keyboard order aligned when wrapped on
+narrow screens.
 
-Delete and Decline labels are red at rest, including when their control is boxed.
-Assign destructive styling explicitly in the owning component rather than matching
-translated label text. All in-table link actions, including destructive actions
-and semantic buttons that open details, remain unboxed at rest and on hover: no
-border or filled hover surface. Preserve their readable text, underline affordance,
-visible keyboard focus, disabled behavior and existing desktop/touch target sizes.
-Shared table text actions use a 3 px underline with a 4 px offset for keyboard
-focus, rather than a surrounding ring that looks like a boxed action. Keep this
-indicator distinct from the ordinary hover underline; mouse focus adds no box.
-Boxed consequential buttons keep their boundary and interaction treatment; the red
-label must not depend on hover. Confirmation, approval, authorization, action
-tickets and pending-dismissal rules remain owned by the existing feature.
+Delete and Decline labels are red at rest, including when boxed — assign
+destructive styling explicitly in the owning component rather than matching
+translated text. Keep in-table actions unboxed at rest and on hover (no border or
+filled hover surface), using a 3 px underline with a 4 px offset for keyboard
+focus so it stays distinct from hover underline without adding a box on mouse
+focus. Boxed consequential buttons keep their boundary and red rest label;
+confirmation, approval, authorization and pending-dismissal rules stay with the
+owning feature.
 
 ## Room and participant composition
 
@@ -244,10 +231,8 @@ weight, not an arbitrary height difference.
 - Let groups wrap on narrow screens. Long translations or enlarged text may
   grow beyond the baseline height to avoid clipping; never hide text or reduce
   accessibility just to force a fixed height.
-- When changing shared header sizing, verify management, tutor and tutee pages
-  on the complete running site at desktop and mobile widths. Capture screenshots
-  and compare the entry/return button heights with the language selector. Keep
-  browser/server work serial and stop temporary processes after verification.
+- When changing shared header sizing, verify management, tutor and tutee pages at
+  desktop and mobile widths against the language selector's rendered height.
 
 ## Mobile header hierarchy
 
@@ -330,10 +315,9 @@ Display labels use neutral `slate-600` text to meet normal-text contrast on both
 purpose backgrounds; retain the same readable label treatment for each purpose.
 Email keeps the legacy single code panel's layout, typography and border, with dark
 green (`#18342C`) or blue (`#172F49`) backgrounds and no added label/guidance wrapper.
-Never infer authorization from this presentation metadata. Include old-format
-acceptance, purpose confusion, attempt limits, resend and failed delivery in tests;
-capture both site and email panels at desktop/mobile widths and verify that stripping
-email styles preserves readable instructions, full codes and contrast.
+Never infer authorization from presentation metadata. See
+[verification](verification.md#ui-verification-matrix) for code-field and email
+testing requirements.
 
 ## Writing UI copy
 

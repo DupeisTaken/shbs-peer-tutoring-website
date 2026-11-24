@@ -65,11 +65,11 @@ Open: `/dashboard#tutor-preferences`
 
 ### Walkthrough
 
-1. **Edit My Time Availability** Open Preferences → My Availability → Edit My Time Availability. Select the catalogue weekday/time slots you can teach and choose Save Availability. Cancel restores the last loaded time selection.
+1. **Open Edit availability** Open Preferences → My Time Availability and choose Edit availability to open the editor dialog. Select the catalogue weekday/time slots you can teach and choose Save Availability. Cancel restores the last loaded time selection; closing and reopening the dialog retains unsaved drafts.
 
    Look for: Weekday time choices and Save Availability
 
-2. **Save Preferred Sessions separately** Under the time choices choose one of 0–4, or clear the preference, then use its own Save. Zero means prefer no assignments; an unset preference is different. Saving availability does not save this separate draft.
+2. **Save Preferred Sessions separately** In the same dialog under Preferred Sessions, choose 0–4 or clear the preference, then use its own Save. Zero means prefer no assignments; an unset preference is different. Saving availability does not save this separate draft.
 
 3. **Check the saved workload context** Compare assigned session-block count with the saved preference. Group changes refresh this count without replacing an unsaved preference. After an accepted save with failed synchronization use Retry refresh.
 
@@ -101,7 +101,7 @@ Open: `/dashboard#tutor-preferences`
 
    Look for: Subject Willingness and Subject Qualifications
 
-2. **Request a new subject or higher level** In Subject Qualifications choose the subject/level, explain your qualifications and submit. Under Your Requests use Pending, Approved, Rejected or Recalled filters and expand history to read decision notes and granted subjects.
+2. **Request a new subject or higher level** In Subject Qualifications choose Request qualification to open the dialog, pick the subject/level, explain your qualifications and submit (closing and reopening keeps your unsaved draft). Under Your Requests use Pending, Approved, Rejected or Recalled filters and expand history to read decision notes and granted subjects.
 
 3. **Recall an eligible pending request** Choose Recall request while Pending or Interview, review the named subject and confirm. A recalled request cannot be reopened or approved; submit a fresh request later when ready.
 
@@ -163,7 +163,7 @@ Open: `/dashboard#tutor-pairings`
 
 ### Walkthrough
 
-1. **Select groups to combine** Every pairing starts as its own group in My Pairings. Choose Combine groups, select two or more populated groups, and choose Combine selected. Every student in the combined group must already have every selected subject; combining never creates a missing assignment.
+1. **Select groups to combine** Every pairing starts as its own group in My Pairings. Choose Combine groups, select two or more populated groups, and choose Combine selected. Incompatible cards dim and disable automatically; choosing a card along a shared student or subject axis automatically selects required companion cards (with a status notice) so every student in the combined group has every selected subject.
 
    Look for: Unified pairing group cards with inline combine selection and split controls
 
@@ -341,7 +341,7 @@ Open: `/dashboard#sessions`
 
    Look for: Meeting card and excuse state
 
-2. **Submit or cancel your excuse** Use the excuse action, supply the requested reason and confirm at least 60 minutes before the meeting starts. You may cancel your own eligible excuse before that same deadline. Staff-recorded statuses require staff correction.
+2. **Submit or cancel your excuse** Use the excuse action, supply the requested reason and confirm at least 45 minutes before the meeting starts. You may cancel your own eligible excuse before that same deadline; excuse controls hide automatically once the 45-minute cutoff passes. Staff-recorded statuses require staff correction.
 
 3. **Read Meeting history** Open Meeting history, then a school-year/quarter group for recorded attendance. Semester mode groups both constituent quarters. Period not recorded remains explicit; future meetings recorded under other periods appear separately.
 

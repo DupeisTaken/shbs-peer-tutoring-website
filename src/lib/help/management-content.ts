@@ -408,8 +408,8 @@ export const managementArticles: HelpArticle[] = [
       [
         t("Continue the proper workflow", "继续对应流程"),
         t(
-          "Use panel assignment and interview review for qualification decisions. Use the offered account-setup action only when the source is eligible; a roster or accepted application is not itself a usable login.",
-          "资格决定使用评委分配和面试审核流程。只有来源符合条件时才使用账号设置操作；名册或已接受申请本身不代表可登录账号。",
+          "Use panel assignment and interview review for qualification decisions. On an accepted initial application, Set up account opens a live status dialog showing the auto-issued invitation code, linked account and contextual links to Users & Roles and Registration Codes; a roster or accepted application is not itself a usable login.",
+          "资格决定使用评委分配和面试审核流程。已接受的初次申请上，设置账号会打开实时状态对话框，显示自动发放的邀请码、已关联账号以及前往用户与角色和注册码的快捷链接；名册或已接受申请本身不代表可登录账号。",
         ),
       ],
     ],
@@ -437,6 +437,7 @@ export const managementArticles: HelpArticle[] = [
     ],
     sources: [
       "src/app/(admin)/admin/applications/page.tsx",
+      "src/app/_components/application-account-setup.tsx",
       "src/app/_components/application-identity-correction.tsx",
       "src/app/_components/application-filters.tsx",
     ],
@@ -2632,8 +2633,8 @@ export const managementArticles: HelpArticle[] = [
       [
         t("Check binding and issue", "核对绑定并发放"),
         t(
-          "Select Kind, enter Label and optional Email, then check the role and recipient binding. For Admin/Head, Issue submits directly. Read the resulting expiry and Active status on the card or list. A Coordinator's issuance request remains pending until approved.",
-          "选择类型，填写标签及可选邮箱，再核对角色和收件人绑定。管理员或负责人选择发放即直接提交。随后在邀请卡或列表中查看有效期及有效状态。协调员的发放申请在批准前保持待审。",
+          "Select Kind, enter Label and optional Email, then check the role and recipient binding. For Admin/Head, Issue submits directly and emails any bound recipient best-effort when security mail is configured. Read the resulting expiry and Active status on the card or list. A Coordinator's issuance request remains pending until approved.",
+          "选择类型，填写标签及可选邮箱，再核对角色和收件人绑定。管理员或负责人选择发放即直接提交，并在配置安全邮件时自动尝试向绑定邮箱发送邀请。随后在邀请卡或列表中查看有效期及有效状态。协调员的发放申请在批准前保持待审。",
         ),
       ],
       [
@@ -2644,10 +2645,10 @@ export const managementArticles: HelpArticle[] = [
         ),
       ],
       [
-        t("Inspect use or revoke", "检查使用或撤销"),
+        t("Inspect status, source or revoke", "检查状态、来源或撤销"),
         t(
-          "Read used/expired cards as retained evidence; they show a crossed-out code without sharing actions. Admin/Head can revoke an eligible invitation through the named review action.",
-          "已使用或过期卡作为保留证据阅读；其代码划线且无分享操作。管理员或负责人可通过明确审阅操作撤销符合条件邀请。",
+          "The list also shows auto-issued codes with source badges (Interview, Accepted application, Crew application), Issued by, bound email, a View application link and Unavailable reason annotations (failed attempts, invalid or inactive application). Used/expired cards stay readable without sharing actions; Admin/Head can revoke an eligible code through the named review.",
+          "列表同时显示自动发放的代码及其来源标签（面试、已通过申请、巡查申请）、发放人、绑定邮箱、查看申请链接及不可用原因说明（失败次数过多、申请无效或非活跃）。已使用或过期卡保留证据且无分享操作；管理员或负责人可通过明确审阅撤销符合条件代码。",
         ),
       ],
     ],
@@ -4074,8 +4075,8 @@ export const managementArticles: HelpArticle[] = [
       [
         t("Inspect the calendar", "检查日历"),
         t(
-          "Open Program Settings → Recruitment and Refresh and the school-calendar controls. Read the program timezone and existing school-day/non-school-day overrides before editing an individual date.",
-          "打开项目设置→招募及换期中的学校日历控件。编辑单日之前先阅读项目时区及已有上课日、非上课日覆盖。",
+          "Open Program Settings → Recruitment and Refresh. Holidays & Tutoring Pauses combines school-holiday ranges and tutoring pauses/notices in one sortable table alongside individual date overrides in the program timezone.",
+          "打开项目设置→招募及换期。假期与辅导暂停将学校假期范围和辅导暂停或通知整合在同一可排序表格中，并与项目时区下的单日覆盖一并管理。",
         ),
       ],
       [
@@ -4095,15 +4096,15 @@ export const managementArticles: HelpArticle[] = [
       [
         t("Create a notice or pause", "创建通知或暂停"),
         t(
-          "Enter the starting date, inclusive ending date and reason. A new range defaults to Pause regular tutoring, which suppresses future ordinary sessions. Choose Notice only when the range should provide information without changing the schedule. New dated exceptions during a pause require explicit agreement.",
-          "填写开始日期、含当天的结束日期及原因。新范围默认选择暂停固定辅导，会停止未来普通课程。若只提供说明而不改变课表，请改选仅通知。暂停期间的新日期例外须明确同意。",
+          "Choose Add tutoring pause or notice and enter the starting date, inclusive ending date and participant-visible reason. A new range defaults to Pause regular tutoring, suppressing future ordinary sessions and clearing pending 24-hour automatic-acceptance deadlines; tutors use Arrange exception for explicit-agreement exceptions. Choose Notice only to inform without changing the schedule.",
+          "选择添加辅导暂停或通知，填写开始日期、含当天的结束日期及对参与者可见的原因。新范围默认选择暂停固定辅导，会停止未来普通课程并清除待处理的24小时自动接受期限；辅导伙伴需使用安排例外经明确同意安排课次。若只提供说明而不改变课表，请改选仅通知。",
         ),
       ],
       [
         t("Review existing commitments", "审核现有约定"),
         t(
-          "Read affected published commitments before applying/lifting a pause. Already confirmed extra lessons and agreed reschedules remain; inspect the impact review rather than assuming every lesson is cancelled. Edit an existing notice to change its ending date/reason; to change its identifying start date, remove it and create a new notice. View details shows the full reason.",
-          "应用或解除暂停前阅读受影响已发布约定。已确认加课及已同意改期会保留；应检查影响审核，不要假定所有课程均取消。变更结束日期、原因可编辑现有通知；变更用于标识的开始日期，须移除后新建。查看详情可读完整原因。",
+          "Use Review impact to inspect affected published commitments before applying or removing a pause. Already confirmed extra lessons and agreed reschedules remain; inspect the impact review rather than assuming every lesson is cancelled. Edit an existing notice to change its ending date/reason; to change its identifying start date, remove it and create a new notice. View details shows the full reason.",
+          "应用或移除暂停前先使用查看影响检查受影响的已发布约定。已确认加课及已同意改期会保留；应检查影响审核，不要假定所有课程均取消。变更结束日期、原因可编辑现有通知；变更用于标识的开始日期，须移除后新建。查看详情可读完整原因。",
         ),
       ],
     ],
@@ -4263,8 +4264,8 @@ export const managementArticles: HelpArticle[] = [
       [
         t("Inspect delivery before changing policy", "变更政策前检查投递"),
         t(
-          "Open Program Settings → Deployment Configurations → Email Notifications. Read Email Delivery Status for security and program mail. Open School Report Email Preview and check Email HTML or Plain Text. A preview sends nothing. Operators configure SMTP on the host.",
-          "打开“项目设置”→“部署配置”→“邮件通知”。在“邮件投递状态”查看安全邮件和项目邮件。打开学校报表邮件预览，查看 HTML 或纯文本。预览不会发送邮件。SMTP 由技术操作员在主机上配置。",
+          "Open Program Settings → Deployment Configurations → Email Notifications. Read Email Delivery Status for security and program mail; when Aliyun Direct Mail quota keys are configured, Admin/Head also see the Email Quota card (daily 200-email free usage and remaining balance) here and on the Overview dashboard. Open School Report Email Preview and check Email HTML or Plain Text. A preview sends nothing. Operators configure SMTP on the host.",
+          "打开“项目设置”→“部署配置”→“邮件通知”。在“邮件投递状态”查看安全邮件和项目邮件；配置邮件推送额度密钥后，管理员或负责人还可在该处与概览首页查看邮件额度卡片（每日200封基础额度及剩余余额）。打开学校报表邮件预览，查看 HTML 或纯文本。预览不会发送邮件。SMTP 由技术操作员在主机上配置。",
         ),
       ],
       [
@@ -4312,6 +4313,7 @@ export const managementArticles: HelpArticle[] = [
       },
     ],
     sources: [
+      "src/app/(admin)/admin/email-quota-card.tsx",
       "src/app/_components/program-email-settings.tsx",
       "src/app/_components/program-notification-locks.tsx",
       "src/app/_components/program-captcha-settings.tsx",
@@ -4615,8 +4617,8 @@ export const managementArticles: HelpArticle[] = [
       [
         t("Check screenshot provenance", "检查截图来源"),
         t(
-          "Read the guide's screenshot source details for capture revision, date and route. In the GitHub catalogue open captures.json for role, viewport and crop receipts. Chinese guides label English fallback images. This set is labelled latest main, without claiming that revision is deployed.",
-          "查看指南截图来源详情中的版本、日期及路径。在GitHub目录打开captures.json，查看角色、视口及裁剪记录。中文指南会标明英文回退截图。本组截图标为最新主分支，不声称该版本已经部署。",
+          "Read the guide's screenshot source details for capture revision, date and route. Screenshots are baked in GitHub Actions from production builds using synthetic demo data and packaged via the help-assets-latest release; captures.json in Git records the lightweight baseline.",
+          "查看指南截图来源详情中的版本、日期及路径。截图由 GitHub Actions 基于生产构建及虚构示例数据自动生成，并通过 help-assets-latest 发布包提供；Git 中的 captures.json 仅保存基础基线信息。",
         ),
       ],
       [
@@ -4633,8 +4635,8 @@ export const managementArticles: HelpArticle[] = [
     ),
     explanation: [
       t(
-        "The website, GitHub manual and PDFs derive from the same maintained article records. Real dev-server screenshots use synthetic data to illustrate controls; they do not grant permission to enter a restricted workflow.",
-        "网站、GitHub手册及PDF来自同一维护文章记录。真实开发服务器截图使用虚构数据展示控件，不授权进入受限流程。",
+        "The website, GitHub manual and PDFs derive from the same maintained article records. CI-baked production-build screenshots use synthetic demo data to illustrate controls; they do not grant permission to enter a restricted workflow.",
+        "网站、GitHub手册及PDF来自同一维护文章记录。CI 生产构建截图使用虚构示例数据展示控件，不授权进入受限流程。",
       ),
     ],
     troubleshooting: [

@@ -1,224 +1,118 @@
 # Check the production network settings in Aliyun
 
-Use this guide to answer: **which Internet connections can reach the production
-server, through which addresses, and under which cloud rules?** It is the operator
-handoff for [issue #242](https://github.com/DupeisTaken/shbs-peer-tutoring-website/issues/242).
-Official Aliyun references were checked on 10 October 2026. Console labels can
-vary by language; Chinese labels are included where useful.
+Use this read-only runbook to verify which Internet connections can reach the
+production server, through which addresses, and under which cloud rules. Console
+labels vary by language; Chinese labels are included where helpful.
+
+> [!IMPORTANT]
+> **Guardrails for every step:**
+> - **Read-only only:** Do not click Edit, Add, Modify, Authorize, Create, Bind,
+>   Unbind, Enable, or Release. Preserve current SSH, HTTP/HTTPS, volumes and settings.
+> - **Do not extrapolate from timeouts:** An external timeout or empty page without
+>   permissions does not prove a cloud deny rule — record **unknown** instead.
+> - **Protect secrets:** Keep raw exports, IPs and account IDs in private storage;
+>   never post credentials, AccessKeys or cookies in GitHub or chat.
+> - **Issue #242 handoff:** Closing [#242](https://github.com/DupeisTaken/shbs-peer-tutoring-website/issues/242)
+>   handed these checks to the cloud account owner and does **not** certify that
+>   cloud verification has passed.
 
 ## Status and access needed
 
-The [archived 9 October evidence record](https://github.com/DupeisTaken/shbs-peer-tutoring-website/blob/6357007373d1efd177e36140d9e0ba7c80d2f237/docs/continuation/issue-242.md#production-inspection--9-october-2026)
-records the host inspection and independent external observations.
-The application and database had no host port publications, and Caddy's admin
-listener was container-local. SSH, HTTP and HTTPS responded externally; the tested
-private-service ports timed out. These are dated observations, not a guarantee
-about today's configuration or every possible public address.
+Host inspection and independent external observations confirmed that the app and
+database had no host port publications and Caddy's admin listener was
+container-local, while SSH, HTTP and HTTPS responded externally (see the
+[archived baseline record](https://github.com/DupeisTaken/shbs-peer-tutoring-website/blob/6357007373d1efd177e36140d9e0ba7c80d2f237/docs/continuation/issue-242.md#production-inspection--9-october-2026)).
+Those are dated point-in-time observations, not proof of today's cloud rules.
 
-The unresolved handoff is the effective security-group attachments, complete
-public IPv4/IPv6 address inventory, NAT/forwarding paths and applicable ingress
-rules. No cloud-account evidence was collected for the documentation handoff.
-Correlate the cloud inventory with current host and independent external
-observations before making a perimeter conclusion; timeouts alone do not prove
-that a cloud rule denies traffic.
+The unresolved evidence lives in the **Alibaba Cloud account** (SSH/root access
+on the Linux host does not grant cloud-console access): effective security-group
+attachments, full public IPv4/IPv6 inventory, NAT/forwarding paths and ingress
+rules. Ask the account owner to perform these steps or provide a read-only
+console session.
 
-The remaining evidence is in the **Alibaba Cloud account**, not on the Linux
-server. Ask the account owner to perform the checks below or provide an authorized
-read-only console session covering the relevant resources. SSH/root access does
-not grant cloud-console access. Do not send passwords, AccessKeys or session
-cookies through GitHub or chat. No new key is needed for this console procedure.
+## 1. Identify the instance and its network interfaces
 
-This guide records existing settings. Do not click controls that create, replace,
-bind, unbind, enable, delete or edit resources. Preserve current root/password SSH
-access, HTTP/HTTPS, database volumes and deployment settings. Record discrepancies
-for a separate operator decision.
-
-On 10 October 2026, the maintainer requested documentation and closure of #242.
-That closure hands the checks to the cloud owner; it does **not** certify that
-cloud verification has passed. Cloud evidence remains unknown until collected.
-
-## 1. Identify the right instance and all its interfaces
-
-1. In the Aliyun console, open **ECS / 云服务器 ECS → Instances / 实例**.
-   Select the production region and confirm the account/resource-group scope.
-   Have the operator identify the production instance; do not rely only on a
-   similar display name or an old IP address.
-2. Open its details. Privately record the instance ID, region, VPC, vSwitch,
-   primary private IP and displayed public addresses. Match these to the host
-   record and current production DNS. Resolve any mismatch before proceeding.
-3. Open its **Security Groups / 安全组** tab and record every associated group ID
-   and type. Then inspect **Elastic Network Interfaces / 弹性网卡** attached to
-   this instance, including secondary interfaces, private/secondary addresses,
-   IPv6 addresses and their security groups.
-4. Save evidence that connects **instance → interface → group**. A screenshot
-   of a rule alone cannot show that it applies to production.
-
-Aliyun explains that instance associations apply to the primary interface and
-secondary interfaces can have different groups in
-[使用安全组 / Use security groups](https://help.aliyun.com/zh/ecs/user-guide/start-using-security-groups).
-Use its navigation for inspection only; this task does not require its change steps.
-
-**Save:** a complete interface/group list with observation time and private
-evidence references. If access is denied, a list is filtered, or some pages are
-unavailable, record **unknown**, not “none.”
+- **Console path:** **ECS / 云服务器 ECS → Instances / 实例** (select the production
+  region and resource group), then **Security Groups / 安全组** and **Elastic
+  Network Interfaces / 弹性网卡** ([Aliyun security groups guide](https://help.aliyun.com/zh/ecs/user-guide/start-using-security-groups)).
+- **Record:** Instance ID, region, VPC, vSwitch, primary/secondary private IPs,
+  displayed public IPv4/IPv6 addresses, and every ENI → security group binding
+  (secondary ENIs can carry different groups). Reconcile against host records and
+  current DNS before continuing.
+- **Leave out:** Unverified assumptions from display names or old IPs; if access
+  is denied or filtered, record **unknown**.
 
 ## 2. Read all effective inbound rules
 
-For each group identified above, open its details and **Inbound / 入方向** rules.
-Capture every page, not just a port-filtered view. Record group/rule ID, allow or
-deny, priority, protocol, destination port/range, source IPv4/IPv6 range and any
-referenced security group or prefix list. Resolve referenced objects privately.
-Include broad port ranges and all-protocol rules that cover the ports below.
-
-Aliyun's [安全组规则 / Security group rules](https://help.aliyun.com/zh/ecs/user-guide/security-group-rules)
-describes how rules from multiple groups combine: lower priority numbers are
-evaluated first; at equal priority, deny takes precedence over allow. Account for
-the group type's default rules and any extra source/destination conditions.
-Do not judge one group in isolation or assume every allow overrides every deny.
-
-Use this project worksheet for each interface/address path:
+- **Console path:** Open each attached security group → **Inbound / 入方向** (capture
+  every page, not a port-filtered view; [Aliyun rule evaluation](https://help.aliyun.com/zh/ecs/user-guide/security-group-rules)
+  — lower priority numbers evaluate first, deny beats allow at equal priority).
+- **Record:** Group/rule ID, allow/deny, priority, protocol, destination port/range,
+  source IPv4/IPv6 (`0.0.0.0/0` / `::/0` literally), referenced groups/prefix lists
+  and broad all-protocol rules covering:
 
 | Destination | What to establish |
 | --- | --- |
-| TCP 80 and 443 | Intended public website path; explain any intermediate proxy. |
-| TCP 22, plus any actual administrative ports | Exact permitted source ranges: trusted addresses/VPN, unrestricted, or unknown. Compare with the operator-confirmed current policy. |
-| TCP 3000, 5432, 2019, 5555 and 8080 | Whether cloud rules allow traffic toward these private-service destinations; correlate with host/container routing. |
-| Other ports/protocols | Explain broad allowances, UDP and any other discovered service. The supplied Compose publishes TCP web ports only. |
+| TCP 80 and 443 | Intended public web path and any intermediate proxy |
+| TCP 22 (and any admin ports) | Exact permitted source ranges vs. confirmed operator policy |
+| TCP 3000, 5432, 2019, 5555, 8080 | Whether cloud rules permit traffic toward private service ports |
+| Other ports/protocols | Explain any broad allowances, UDP or additional services |
 
-`0.0.0.0/0` means any IPv4 source; `::/0` means any IPv6 source. Record these
-literally in the private worksheet. Aliyun recommends limiting management access
-to trusted sources in its security-group guide, but this review must preserve and
-report the current policy. A recommendation is not authorization to change SSH.
-
-**Save:** the complete rules plus a short explanation of the matching result for
-each path. An allowed cloud port is not proof of a listening service; an external
-timeout is not proof of a cloud deny rule.
+- **Leave out:** Unrequested SSH edits (Aliyun's guide recommends tightening SSH,
+  which requires a separate operator decision).
 
 ## 3. Find every public address and forwarding path
 
-### Public IPv4 and Elastic IP addresses
-
-Open **Elastic IP Address / 弹性公网 IP**, in the relevant region and account
-scope. Inspect the bound-resource details. Reconcile the instance's fixed public
-address and any EIPs bound to its interfaces or to gateways/load balancers that
-forward to it. Record unresolvable relationships as unknown.
-
-Aliyun's [EIP resource binding guide](https://help.aliyun.com/zh/eip/bind-an-eip-to-a-cloud-resource/)
-lists supported destinations, including ECS, ENIs, load balancers and Internet
-NAT gateways. EIPs can be translated upstream, so absence from Linux's interface
-address list does not establish absence of a public route.
-
-**Save:** public-address alias → bound resource → production destination.
-Compare current DNS A/AAAA records with this inventory; an address need not have
-a DNS record to be reachable.
-
-### Internet NAT gateways and DNAT
-
-Open **NAT Gateway / NAT网关 → Internet NAT Gateway / 公网NAT网关**. Inspect
-gateways serving the production VPC and their **DNAT / DNAT管理** entries. Match
-destinations against every production private address, including secondary ENIs.
-Record the external EIP, protocol, external port/range, internal destination and
-internal port/range. Include **Any Port / 任意端口** mappings.
-
-Aliyun's [Internet NAT access guide](https://help.aliyun.com/zh/nat-gateway/user-guide/use-internet-nat-gateway-for-public-network-access)
-explains incoming DNAT and outgoing SNAT. Inspect associated route tables as part
-of tracing the path. A SNAT entry alone does not establish inbound forwarding.
-For example, external TCP 15432 mapped to internal 5432 would need review even
-if an external test of port 5432 timed out.
-
-**Save:** every matching DNAT path, or evidence of no matching entries across the
-relevant gateways. An empty page with insufficient permissions is not evidence.
-
-### Load balancers and other front doors
-
-If public ALB, NLB or CLB resources can reach this instance, open their listeners,
-forwarding rules and backend server groups. Match ECS/ENI identities and private
-addresses to the inventory. Record each public endpoint and listener port,
-destination port, and applicable access controls. Ask the owner to account for
-any other proxy, CDN/WAF origin or cross-account forwarding path.
-
-Aliyun documents the relationship between listeners and destinations in its
-[ALB server-group guide](https://help.aliyun.com/zh/slb/application-load-balancer/create-and-manage-a-server-group),
-[NLB server-group guide](https://help.aliyun.com/zh/slb/network-load-balancer/user-guide/create-and-manage-a-server-group)
-and [CLB server-group guide](https://help.aliyun.com/zh/slb/classic-load-balancer/user-guide/backend-server-overview).
-Follow the guide for the product actually present; do not create a load balancer.
-
-**Save:** a public-to-backend path list, or owner-reviewed evidence that no such
-resources serve this deployment. Scope the conclusion to the inspected accounts
-and regions.
-
-### IPv6
-
-Check interface IPv6 addresses and the VPC's **IPv6 Gateway / IPv6网关**. Inspect
-**IPv6 Internet Bandwidth / IPv6公网带宽** and any **egress-only / 仅主动出** rules
-for those addresses, then correlate with IPv6 security-group and host rules.
-
-See Aliyun's [IPv6 gateway overview](https://help.aliyun.com/zh/ipv6-gateway/) and
-[IPv6 public-bandwidth guide](https://help.aliyun.com/zh/ipv6-gateway/user-guide/enable-and-manage-ipv6-internet-bandwidth).
-Do not enable bandwidth to perform this check. “DNS has no AAAA record” and
-“the host had no global IPv6 address on 9 October” do not replace this inventory.
-
-**Save:** the actual IPv6 path and controls, or evidence-backed absence.
+- **Elastic IPs:** **Elastic IP Address / 弹性公网 IP** ([binding guide](https://help.aliyun.com/zh/eip/bind-an-eip-to-a-cloud-resource/)).
+  Record every public-IP/EIP → bound resource → production destination and compare
+  with DNS A/AAAA (an IP without DNS can still be reachable).
+- **Internet NAT / DNAT:** **NAT Gateway / NAT网关 → Internet NAT Gateway / 公网NAT网关 → DNAT / DNAT管理**
+  ([NAT guide](https://help.aliyun.com/zh/nat-gateway/user-guide/use-internet-nat-gateway-for-public-network-access)).
+  Record every DNAT entry targeting any production private IP (including **Any Port / 任意端口**
+  and non-standard port translations such as external `15432 → 5432`) alongside
+  associated route tables. SNAT alone is not inbound forwarding.
+- **Load balancers / front doors:** Inspect any public ALB/NLB/CLB listeners,
+  forwarding rules and backend server groups ([ALB](https://help.aliyun.com/zh/slb/application-load-balancer/create-and-manage-a-server-group) ·
+  [NLB](https://help.aliyun.com/zh/slb/network-load-balancer/user-guide/create-and-manage-a-server-group) ·
+  [CLB](https://help.aliyun.com/zh/slb/classic-load-balancer/user-guide/backend-server-overview))
+  plus any CDN/WAF or cross-account proxy; record owner-confirmed absence where
+  none apply.
+- **IPv6:** Check ENI IPv6 addresses, **IPv6 Gateway / IPv6网关**, **IPv6 Internet
+  Bandwidth / IPv6公网带宽** and **egress-only / 仅主动出** rules ([gateway](https://help.aliyun.com/zh/ipv6-gateway/) ·
+  [bandwidth](https://help.aliyun.com/zh/ipv6-gateway/user-guide/enable-and-manage-ipv6-internet-bandwidth)).
+  Absence of a DNS AAAA record does not prove IPv6 is unreachable.
 
 ## 4. Check additional cloud controls and reconcile with the host
 
-In **VPC / 专有网络**, inspect whether each relevant vSwitch has a network ACL.
-Where attached, record its inbound/outbound rules, ordering and address-family
-scope. Aliyun's [network ACL guide](https://help.aliyun.com/zh/vpc/network-acl-overview)
-explains this separate vSwitch-level control, including exceptions to its scope.
-ACLs are stateless, so inspect return-traffic rules too. If Cloud Firewall or another managed
-control is deployed on the path, have its owner supply the effective policy too.
-Do not assume a product is enabled merely because it appears in the console menu.
-
-Build one path record for each public endpoint:
-
-```text
-Public endpoint and protocol/port
-  -> EIP / NAT / load-balancer mapping (or direct instance path)
-  -> destination ENI and applicable cloud controls
-  -> host firewall and Docker forwarding
-  -> actual service listener and namespace
-```
-
-Compare with the [host verification worksheet](deployment.md#complete-the-effective-policy-worksheet).
-Reuse dated host evidence only when the operator confirms it still describes the
-deployment. If containers, addresses or rules changed, refresh the relevant
-read-only evidence. Keep running image digest/source revision and observation
-time with the record. Do not deploy or restart services to perform verification.
+- **Console path:** **VPC / 专有网络** vSwitch **Network ACLs** (stateless — inspect
+  both inbound and return rules; [ACL guide](https://help.aliyun.com/zh/vpc/network-acl-overview))
+  plus Cloud Firewall if actively deployed.
+- **Reconcile each public path:**
+  `Public endpoint/port -> EIP / NAT / LB (or direct) -> ENI & cloud rules -> host firewall & Docker -> service listener`
+- Compare against the [host verification worksheet](deployment.md#complete-the-effective-policy-worksheet).
+  Refresh host evidence if containers, addresses or rules changed; keep running
+  image digest, revision and UTC time.
 
 ## 5. Corroborate from an independent network
 
-After the owner confirms the targets and intended policy, follow
-[independent external verification](deployment.md#independent-external-verification).
-Use an external network outside the server/VPC and any local interception proxy.
-Test serially with bounded timeouts, preserving HTTPS hostname/certificate checks.
-No credentials, login attempts or broad port scans are needed.
+Follow [independent external verification](deployment.md#independent-external-verification)
+from an external network outside the VPC.
 
-The existing [Production network observation workflow](../../.github/workflows/production-network-observation.yml)
-can be run through **GitHub Actions → Production network observation → Run workflow**
-on the reviewed branch. It checks only the canonical DNS addresses (at most four)
-and its fixed eight TCP ports. It does not cover undiscovered EIPs, translated
-ports, every IPv6 path or trusted-source behavior. Review its coverage before use;
-additional owner-confirmed endpoints need a separately bounded test matrix.
+The [Production network observation workflow](../../.github/workflows/production-network-observation.yml)
+(`workflow_dispatch`) probes canonical DNS addresses (up to 4) across 8 fixed TCP
+ports (`22, 80, 443, 3000, 5432, 2019, 5555, 8080`) and retains artifacts for 7
+days. Note that [`scripts/observe-production-network.mjs`](../../scripts/observe-production-network.mjs)
+defaults to `HOST = "pt.shbs.org.cn"` (adjust it for a different domain) and does
+not cover undiscovered EIPs, translated ports or trusted-source restrictions.
 
-Save the run URL, tested revision, UTC time, vantage/address family and sanitized
-protocol results. Download the artifact before its seven-day retention expires.
-Where a restricted-source policy is intended, compare permitted and outside
-sources. A timeout/refusal stays inconclusive; explain it alongside the actual
-rules. Unexpected responses require investigation, not an automatic firewall edit.
+## 6. Record the worksheet handoff
 
-## 6. Save the handoff and distinguish unknown from verified
+Store raw exports in private storage; use consistent aliases (`production-eni-1`,
+`admin-range-A`) in GitHub. Classify each row per
+[effective-policy worksheet](deployment.md#complete-the-effective-policy-worksheet)
+(`verified`, `mismatch`, or `unknown`):
 
-Keep raw console exports/screenshots and exact account IDs, addresses and operator
-identities in private operational storage. For GitHub, use consistent aliases
-such as `production-eni-1` and `admin-range-A`; preserve relationships and whether
-sources are unrestricted. Exclude credentials, cookies and participant data.
-
-Copy this worksheet into the private record and fill every row. Use **verified**
-for supported observations consistent with the confirmed policy, **mismatch** for
-a demonstrated policy difference, and **unknown** for missing or ambiguous evidence.
-
-| Check | Observation and intended policy | Private evidence reference and UTC time | Reviewer and result |
+| Check | Observation and intended policy | Private evidence & UTC time | Reviewer and result |
 | --- | --- | --- | --- |
 | Account/region/instance and every ENI | Pending | Pending | Unknown |
 | Attached groups and effective IPv4/IPv6 ingress | Pending | Pending | Unknown |
@@ -229,10 +123,7 @@ a demonstrated policy difference, and **unknown** for missing or ambiguous evide
 | Current host/container/SSH and image identity | Link dated evidence; refresh if changed | Pending | Unknown |
 | Independent external results and coverage gaps | Pending | Pending | Unknown |
 
-A complete technical review needs evidence for all applicable paths and an
-explanation of absent resources. Identify an owner for each remaining unknown or
-mismatch. Closing #242 on the maintainer's documentation request does not change
-those results. Any later access-policy change needs its own reviewed procedure,
-operator-access recovery plan and validation.
+Assign an owner to every remaining `unknown` or `mismatch`. Any future firewall or
+SSH policy change requires its own reviewed procedure and access-recovery plan.
 
 [Deployment runbook](deployment.md) · [Documentation home](../README.md)

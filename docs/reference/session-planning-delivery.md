@@ -4,7 +4,7 @@
 
 ## Essential session notices
 
-`SessionNotice` is a dedicated, high-priority PROGRAM queue. Scheduling suggestions,
+`SessionNotice` ([session-planning-delivery.ts](../../src/server/session-planning-delivery.ts)) is a dedicated, high-priority PROGRAM queue. Scheduling suggestions,
 offers, alternatives, agreements, automatic agreements, split requests, splits,
 cancellations and expiries commit their delivery intent with the domain transition.
 These service notices ignore optional information-email preferences, optional

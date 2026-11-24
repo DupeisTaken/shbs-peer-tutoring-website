@@ -6,7 +6,7 @@ The bundled English and Chinese documents are **policy review drafts**, not appr
 
 | Audience | English | 中文 |
 | --- | --- | --- |
-| Students | [Tutee policy draft](../../../prisma/policies/tutee-policy.en.md) | [学习伙伴政策草案](../../../prisma/policies/tutee-policy.zh.md) |
+| Tutees | [Tutee policy draft](../../../prisma/policies/tutee-policy.en.md) | [学习伙伴政策草案](../../../prisma/policies/tutee-policy.zh.md) |
 | Tutors | [Tutor policy draft](../../../prisma/policies/tutor-policy.en.md) | [辅导伙伴政策草案](../../../prisma/policies/tutor-policy.zh.md) |
 
 The development seed loads these four sources. Missing policy languages fall back to English; UI language availability is configured separately. The current [user guide](../user-guide.md) and [program reference](../program-configuration.md) describe the behavior policies must match.
@@ -15,9 +15,9 @@ The development seed loads these four sources. Missing policy languages fall bac
 
 1. School management adapts both policy drafts and confirms the effective date, contact routes, calendar, enabled modules, intake configuration and school-specific expectations. Check automatic disciplinary removal, the distinct withdrawal routes, hour calculations and messaging supervision against the implemented behavior. Resolve differences between languages before publication; use an approved school title and revision for the published text.
 2. Retain the currently published policy records and compare the new wording. Preserve historical acceptance snapshots. Do not run the development seed against a production database.
-3. In **Policies** (`/admin/policies`), start with the **Student policy** and **Tutor policy** editors. On a fresh installation these are blank; enter the reviewed title, revision and content and save English first. Add Chinese and every other language intended to remain published with the same reviewed revision. Archive old language content externally and remove its obsolete live translation through the editor so English fallback can apply. Removing a file from Git does not remove a database translation.
+3. In **Administration → Policy Documents** (`/admin/policies`), start with the **Tutee Policy** and **Tutor Policy** editors. On a fresh installation these are blank; enter the reviewed title, revision and content and save English first. Add Chinese and every other language intended to remain published with the same reviewed revision. Archive old language content externally and remove its obsolete live translation through the editor so English fallback can apply. Removing a file from Git does not remove a database translation.
 4. Admin and Head apply publication or removal directly; Coordinators submit permitted changes for Admin approval. A submitted proposal has not changed the published policy. Keep intake closed and schedule a maintenance window while updating multiple translations; each committed content change can trigger renewed consent.
-5. Preview student and tutor policies in English, Chinese and one language using fallback. Check the visible text, not just the version label.
+5. Preview tutee and tutor policies in English, Chinese and one language using fallback. Check the visible text, not just the version label.
 6. With test participant accounts, exercise renewed consent, the five-second confirmation, retained acceptance evidence and continued access to history, feedback, appeals, messages and account settings. Reopen intake after policy and delivery setup are ready.
 
 Before English publication (including an empty English body), signed-in participants see a setup notice rather than a retry error. Managers with participant memberships get a **Policy Documents** link; management-only accounts and viewers are not prompted. A missing policy never grants consent or participation. Published, unaccepted policies for other memberships still receive review. Database or network failures remain retryable errors.
