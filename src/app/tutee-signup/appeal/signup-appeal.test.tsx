@@ -1,4 +1,5 @@
 /** @vitest-environment jsdom */
+import { StrictMode } from "react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import {
   act,
@@ -163,4 +164,34 @@ it("does not let a previous capability's pending write accept or unlock the curr
   expect(screen.queryByText(en.signupAppeal.submitted)).toBeNull();
   expect(screen.getByRole("textbox")).toBeTruthy();
   expect(mocks.query).toHaveBeenCalledTimes(2);
+});
+
+it("preserves a valid fragment capability across React Strict Mode effect replay (#781)", async () => {
+  window.history.replaceState(null, "", "/tutee-signup/appeal#token=" + token);
+  render(
+    <StrictMode>
+      <NextIntlClientProvider locale="en" messages={en}>
+        <SignupAppeal token="" />
+      </NextIntlClientProvider>
+    </StrictMode>,
+  );
+  await screen.findByRole("textbox");
+  expect(window.location.hash).toBe("");
+  expect(window.location.search).toBe("");
+  expect(screen.queryByText(en.signupAppeal.invalid)).toBeNull();
+  expect(mocks.query).toHaveBeenCalledWith({ token });
+});
+
+it("still treats a link without a capability fragment as invalid under React Strict Mode (#781)", async () => {
+  window.history.replaceState(null, "", "/tutee-signup/appeal");
+  render(
+    <StrictMode>
+      <NextIntlClientProvider locale="en" messages={en}>
+        <SignupAppeal token="" />
+      </NextIntlClientProvider>
+    </StrictMode>,
+  );
+  await screen.findByText(en.signupAppeal.invalid);
+  expect(screen.queryByRole("textbox")).toBeNull();
+  expect(mocks.query).not.toHaveBeenCalled();
 });
