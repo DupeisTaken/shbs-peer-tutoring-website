@@ -32,6 +32,7 @@
     "calendarCreate": "Créer un lien privé",
     "calendarRevoke": "Révoquer le lien privé",
     "calendarUnavailable": "Un abonnement nécessite une participation actuelle admissible.",
+    "calendarCreateHelp": "Crée un lien privé en lecture seule pour votre calendrier de tutorat. Gardez-le confidentiel ; toute personne disposant du lien peut consulter votre emploi du temps.",
     "calendarRotateHelp": "Créer un lien révoque tous les anciens. Les abonnements utilisant les anciens liens ne seront plus actualisés.",
     "calendarRevokeHelp": "Le lien privé sera révoqué. Les abonnements existants ne recevront plus de mises à jour. Les séances restent inchangées.",
     "publicationUnavailable": "{count} disposition(s) hebdomadaire(s) doivent être vérifiées et n’ont pas pu devenir des séances datées.",
@@ -1126,7 +1127,7 @@
       "programTotals": "Totaux du programme pour la période sélectionnée",
       "programTotalsHelp": "Tous les tuteurs, y compris les inactifs ; les filtres ne modifient pas ces totaux.",
       "filteredSubtotal": "Sous-total filtré · {count} tuteurs",
-      "hiddenInactive": "Le filtre de statut masque {count} tuteurs inactifs ayant des entrées.",
+      "hiddenInactive": "{count, plural, one {Le filtre de statut masque # tuteur inactif ayant des entrées.} other {Le filtre de statut masque # tuteurs inactifs ayant des entrées.}}",
       "viewInactive": "Voir les contributeurs inactifs",
       "viewLabel": "Vue des tuteurs",
       "viewSummary": "Résumé",
@@ -1417,7 +1418,7 @@
     },
     "tutorRequests": {
       "title": "Demandes de statut de tuteur",
-      "help": "Demandes de changement d'adhésion initiées par les tuteurs. Les demandes de retrait ne peuvent être approuvées qu'après une semaine de délai de réflexion ; la réintégration est immédiate.",
+      "help": "Demandes de changement d'adhésion initiées par les tuteurs. Les demandes de retrait ne peuvent être approuvées qu'après une semaine de délai de réflexion ; les demandes de réintégration peuvent être examinées immédiatement et prennent effet après approbation.",
       "kind": {
         "OPT_OUT": "Retrait",
         "REENTRY": "Réintégration"
@@ -2940,7 +2941,8 @@
       "codeSent": "Nous avons envoyé un code à {email}. Saisissez-le ci-dessous pour terminer.",
       "codeLabel": "Code de vérification par e-mail",
       "resend": "Renvoyer le code",
-      "cancel": "Annuler"
+      "cancel": "Annuler",
+      "deliveryFailed": "L'envoi de l'e-mail a échoué. Veuillez réessayer plus tard."
     }
   },
   "crew": {

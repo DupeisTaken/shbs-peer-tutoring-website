@@ -11,11 +11,20 @@ import { LandingView } from "./landing-view";
 
 const mocks = vi.hoisted(() => ({
   locale: "en",
-  blocks: [] as { id: string; type: "HERO" }[],
+  timeZone: "Asia/Shanghai",
+  blocks: [] as { id: string; type: "HERO" | "NEWS" }[],
+  news: [] as {
+    id: string;
+    title: string;
+    body: string;
+    date: string | null;
+    published: boolean;
+  }[],
   navPages: [] as { slug: string; label: string; labelLocale: string }[],
 }));
 vi.mock("next-intl/server", () => ({
   getLocale: async () => mocks.locale,
+  getTimeZone: async () => mocks.timeZone,
   getTranslations: async () => (key: string) => key,
 }));
 vi.mock("~/server/db", () => ({ db: {} }));
@@ -24,7 +33,9 @@ vi.mock("~/server/home/content", () => ({
   getHomeOverrides: async () => ({}),
   applyHomeVars: (text: string) => text,
 }));
-vi.mock("~/server/home/news", () => ({ getLandingNews: async () => [] }));
+vi.mock("~/server/home/news", () => ({
+  getLandingNews: async () => mocks.news,
+}));
 vi.mock("~/server/home/sections", () => ({
   getLandingSections: async () => [],
 }));
@@ -51,7 +62,10 @@ vi.mock("~/app/_components/page-blocks", () => ({
 }));
 afterEach(() => {
   cleanup();
+  mocks.locale = "en";
+  mocks.timeZone = "Asia/Shanghai";
   mocks.blocks = [];
+  mocks.news = [];
   mocks.navPages = [];
 });
 
@@ -112,5 +126,36 @@ it.each([0, 1, 2])(
     }));
     render(await LandingView({}));
     expect(screen.getAllByRole("heading", { level: 1 })).toHaveLength(1);
+  },
+);
+
+it.each([
+  {
+    timeZone: "Asia/Shanghai",
+    date: "2026-11-20T16:30:00.000Z",
+    expected: "Nov 21, 2026",
+  },
+  {
+    timeZone: "America/Los_Angeles",
+    date: "2026-11-22T07:30:00.000Z",
+    expected: "Nov 21, 2026",
+  },
+])(
+  "formats public Program News dates in the configured program timezone ($timeZone, #788)",
+  async ({ timeZone, date, expected }) => {
+    mocks.locale = "en";
+    mocks.timeZone = timeZone;
+    mocks.blocks = [{ id: "news-1", type: "NEWS" }];
+    mocks.news = [
+      {
+        id: "post-1",
+        title: "Fall Update",
+        body: "Welcome back.",
+        date,
+        published: true,
+      },
+    ];
+    render(await LandingView({}));
+    expect(screen.getByText(expected)).toBeTruthy();
   },
 );

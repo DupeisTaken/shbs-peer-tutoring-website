@@ -1623,6 +1623,20 @@ describe("student request lifecycle", () => {
     expect(edited.editedAt).not.toBeNull();
     expect(await db.pairingTutee.count()).toBe(1);
     expect((await studentRequestRows(db))[0]?.editedAt).not.toBeNull();
+    // Reverting availability back to the original slot clears editedAt.
+    await editStudentAvailability(db, user.id, row.id, ["survey-slot"]);
+    expect(
+      (await db.studentSurvey.findUniqueOrThrow({ where: { id: row.id } }))
+        .editedAt,
+    ).toBeNull();
+    expect((await studentRequestRows(db))[0]?.editedAt).toBeNull();
+    // Historical rows falsely stamped with editedAt despite matching original answers are hidden on read.
+    await db.studentSurvey.update({
+      where: { id: row.id },
+      data: { editedAt: new Date("2026-10-20T00:00:00Z") },
+    });
+    expect((await studentRequestRows(db))[0]?.editedAt).toBeNull();
+    await editStudentAvailability(db, user.id, row.id, ["other-slot"]);
     const caller = createCallerFactory(studentWorkflowRouter)({
       db,
       headers: new Headers(),
