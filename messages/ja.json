@@ -2638,7 +2638,8 @@
       "recall": "申請を取り消す",
       "statusNote": "チューターのステータスは {status} です。読み取り専用アクセスです — 変更は管理者にお問い合わせください。",
       "profileSyncFailed": "プロフィールは保存されましたが、再読み込みに失敗しました。再送信せずに、もう一度読み込んでください。",
-      "pwTooLong": "Use no more than {max} characters."
+      "pwTooLong": "Use no more than {max} characters.",
+      "backToDashboard": "ダッシュボードに戻る"
     },
     "dashboard": {
       "pending": {
@@ -2995,6 +2996,14 @@
       "resend": "コードを再送",
       "cancel": "キャンセル",
       "deliveryFailed": "メールの送信に失敗しました。しばらくしてからもう一度お試しください。"
+    },
+    "tutorSettings": "チューター設定",
+    "sections": {
+      "profile": "プロフィール",
+      "security": "セキュリティとメール",
+      "notifications": "通知",
+      "access": "役割とアクセス",
+      "membership": "メンバーシップとアクセス"
     }
   },
   "crew": {

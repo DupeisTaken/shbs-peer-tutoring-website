@@ -32,6 +32,8 @@ export async function WorkflowShell({
   const t = await getTranslations("workflows");
   const common = await getTranslations("common");
   const account = await getTranslations("components.userMenu");
+  const accountCopy = await getTranslations("account");
+  const roles = await getTranslations("admin.users.roles");
   const access = portalAccess(user);
   const elevated = staff || user.role === "VIEWER";
   // Match participant-shell entry semantics; an archived elevated link preserves history only.
@@ -61,20 +63,34 @@ export async function WorkflowShell({
     { href: "/messages", label: t("messages") },
     ...(staff ? [{ href: "/student-support", label: t("support") }] : []),
   ];
+  const avatarItems = [
+    { href: "/my-account", label: t("settings") },
+    ...(canTutor
+      ? [{ href: "/settings", label: accountCopy("tutorSettings") }]
+      : []),
+  ];
+  const handle = user.username;
   return (
     <div className="min-h-screen">
       <WorkspaceHeader
         href="/"
         title={APP_TITLE}
         skipLabel={common("skipToContent")}
-        containerClassName="mx-auto max-w-5xl"
+        containerClassName="mx-auto max-w-6xl"
         items={workspaceItems}
         identity={
           <Link
             href="/my-account"
-            className="hidden max-w-48 truncate rounded-md px-2 py-1 text-sm font-medium hover:bg-slate-100 lg:block"
+            className="hidden shrink-0 rounded-md px-2 py-1 text-right leading-tight hover:bg-slate-100 lg:block"
+            title={t("settings")}
           >
-            {user.name ?? user.username}
+            <p className="max-w-44 truncate text-sm font-medium text-slate-900">
+              {user.name ?? user.username}
+            </p>
+            <p className="muted text-xs">
+              {handle ? `@${handle} · ` : ""}
+              {roles(user.role)}
+            </p>
           </Link>
         }
         account={await UserAvatar({
@@ -83,13 +99,7 @@ export async function WorkflowShell({
           email: user.email,
           role: user.role,
           compactAtDesktop: true,
-          items: [
-            ...workspaceItems,
-            ...taskItems,
-            ...(canTutor
-              ? [{ href: "/settings", label: account("settings") }]
-              : []),
-          ],
+          items: avatarItems,
         })}
       />
       <main

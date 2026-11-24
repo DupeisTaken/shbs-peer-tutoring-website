@@ -2638,7 +2638,8 @@
       "recall": "Recall Request",
       "statusNote": "Your tutor status is {status}. This is read-only access — contact an admin for changes.",
       "profileSyncFailed": "Saved, but we could not reload your profile. Try refreshing.",
-      "pwTooLong": "Use no more than {max} characters."
+      "pwTooLong": "Use no more than {max} characters.",
+      "backToDashboard": "Back to Dashboard"
     },
     "dashboard": {
       "pending": {
@@ -2995,6 +2996,14 @@
       "resend": "Resend Code",
       "cancel": "Cancel",
       "deliveryFailed": "Email delivery failed. Please try again later."
+    },
+    "tutorSettings": "Tutor Settings",
+    "sections": {
+      "profile": "Profile",
+      "security": "Security & Emails",
+      "notifications": "Notifications",
+      "access": "Roles & Access",
+      "membership": "Membership & Access"
     }
   },
   "crew": {

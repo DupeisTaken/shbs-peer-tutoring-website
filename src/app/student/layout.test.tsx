@@ -191,7 +191,7 @@ it.each(["GRADUATED", "TRANSFERRED"])(
     expect(screen.getByText("Personal history")).toBeTruthy();
     expect(
       screen.getAllByRole("link", { name: "schoolDeparture.enter" }),
-    ).toHaveLength(2);
+    ).toHaveLength(1);
   },
 );
 it("admits a departed tutor to read-only management and retains the return link", async () => {
@@ -213,7 +213,9 @@ it("admits a departed tutor to read-only management and retains the return link"
   expect(screen.getByText("admin.readOnly.banner")).toBeTruthy();
   expect(
     screen.getAllByRole("link", { name: "components.userMenu.enterTutor" }),
-  ).toHaveLength(2);
+  ).toHaveLength(1);
+  navigateTo("/admin/account");
+  expect(screen.queryByText("admin.readOnly.banner")).toBeNull();
 });
 // Management membership does not grant tutoring; tutee access stays independent.
 it.each(["HEAD", "ADMIN", "COORDINATOR"])(
@@ -230,7 +232,7 @@ it.each(["HEAD", "ADMIN", "COORDINATOR"])(
     );
     expect(
       screen.getAllByRole("link", { name: "components.userMenu.enterTutee" }),
-    ).toHaveLength(2);
+    ).toHaveLength(1);
     expect(
       screen.queryByRole("link", { name: "components.userMenu.enterTutor" }),
     ).toBeNull();
@@ -241,7 +243,7 @@ it.each(["HEAD", "ADMIN", "COORDINATOR"])(
       screen.getAllByRole("link", {
         name: "components.userMenu.backToManagement",
       }),
-    ).toHaveLength(2);
+    ).toHaveLength(1);
     expect(
       screen.queryByRole("link", { name: "components.userMenu.enterTutor" }),
     ).toBeNull();
@@ -559,7 +561,7 @@ it("follows the rendered identity and account-menu links as the cached layout's 
   expect(screen.getByText("workflow.policyTitle")).toBeTruthy();
   const menu = screen.getByRole("navigation", { name: "Account destinations" });
   const identity = [...container.querySelectorAll("header a")].find(
-    (link) => !menu.contains(link) && link.textContent === "Synthetic Head",
+    (link) => !menu.contains(link) && link.textContent?.includes("Synthetic Head"),
   );
   expect(identity).toBeTruthy();
   expect(identity!.getAttribute("href")).toBe("/student?view=account");
@@ -749,9 +751,9 @@ it("keeps the inherited quarter messages when quarter mode is applied", async ()
   expect(screen.queryByTestId("period-messages")).toBeNull();
 });
 
-// Exercise the real layouts: each shortcut must also retain the same menu destination.
+// Exercise the real layouts: workspace shortcuts stay visible in the header without duplicating them in the avatar menu.
 it.each(["HEAD", "ADMIN", "COORDINATOR"])(
-  "keeps tutor/tutee management shortcuts adjacent for %s",
+  "keeps tutor/tutee management shortcuts adjacent in the header for %s without duplicating them in UserAvatar",
   async (role) => {
     mocks.auth.mockResolvedValue({ user: { id: "account" }, role });
     mocks.user.mockResolvedValue({ tutor: { status: "ACTIVE" } });
@@ -761,8 +763,11 @@ it.each(["HEAD", "ADMIN", "COORDINATOR"])(
     });
     const menuLinks = within(menu).getAllByRole("link");
     expect(
-      menuLinks.slice(0, 2).map((link) => link.getAttribute("href")),
-    ).toEqual(["/dashboard", "/student"]);
+      menuLinks.map((link) => link.getAttribute("href")),
+    ).not.toContain("/dashboard");
+    expect(
+      menuLinks.map((link) => link.getAttribute("href")),
+    ).not.toContain("/student");
     const shortcuts = [...container.querySelectorAll("header a")].filter(
       (link) =>
         !menu.contains(link) &&
@@ -779,7 +784,7 @@ it.each(["HEAD", "ADMIN", "COORDINATOR"])(
   },
 );
 it.each([null, { status: "ARCHIVED" }])(
-  "hides ineligible tutor entry in both management destinations (%j)",
+  "hides ineligible tutor entry in management (%j)",
   async (tutor) => {
     mocks.auth.mockResolvedValue({ user: { id: "account" }, role: "ADMIN" });
     mocks.user.mockResolvedValue({ tutor });
@@ -789,7 +794,7 @@ it.each([null, { status: "ARCHIVED" }])(
     ).toBeNull();
     expect(
       screen.getAllByRole("link", { name: "components.userMenu.enterTutee" }),
-    ).toHaveLength(2);
+    ).toHaveLength(1);
   },
 );
 for (const [area, Layout] of [
@@ -816,7 +821,7 @@ for (const [area, Layout] of [
         name: "components.userMenu.backToManagement",
       });
       const allowed = ["HEAD", "ADMIN", "COORDINATOR"].includes(role);
-      expect(links).toHaveLength(allowed ? 2 : 0);
+      expect(links).toHaveLength(allowed ? 1 : 0);
       if (allowed) {
         expect(
           links.every((link) => link.getAttribute("href") === "/admin"),
@@ -889,6 +894,6 @@ it.each([null, { status: "ARCHIVED" }])(
       screen.getAllByRole("link", {
         name: "components.userMenu.backToManagement",
       }),
-    ).toHaveLength(2);
+    ).toHaveLength(1);
   },
 );

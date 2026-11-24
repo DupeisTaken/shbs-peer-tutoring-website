@@ -1,10 +1,11 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getTranslations } from "next-intl/server";
 
 import { auth } from "~/server/auth";
 import { db } from "~/server/db";
 import { WorkspaceHeader } from "~/app/_components/workspace-header";
-import { SignOutButton } from "~/app/_components/sign-out-button";
+import { UserAvatar } from "~/app/_components/user-avatar";
 import { NavSidebar, NavMobileRow } from "~/app/_components/admin-nav";
 import { TEAM_TITLE } from "~/lib/branding";
 import { translationAccess } from "~/lib/translation-access";
@@ -24,12 +25,15 @@ export default async function LocalizationLayout({
   const me = await db.user.findUnique({
     where: { id: session.user.id },
     select: {
+      name: true,
+      email: true,
+      username: true,
       canTranslate: true,
       role: true,
       tutorId: true,
       tutorAccessRevoked: true,
       suspendedAt: true,
-      tutor: { select: { username: true } },
+      tutor: { select: { username: true, status: true } },
     },
   });
   if (!me) redirect("/signin");
@@ -43,11 +47,38 @@ export default async function LocalizationLayout({
   const adminArea = ["HEAD", "ADMIN", "COORDINATOR", "VIEWER"].includes(
     me.role,
   );
-  const home = adminArea
-    ? "/admin"
-    : me.tutorId && !me.tutorAccessRevoked
-      ? "/dashboard"
-      : "/";
+  const canTutor =
+    !me.tutorAccessRevoked &&
+    Boolean(me.tutorId ?? me.tutor) &&
+    (!adminArea || me.tutor?.status !== "ARCHIVED");
+  const home = adminArea ? "/admin" : canTutor ? "/dashboard" : "/";
+  const accountHref = adminArea
+    ? "/admin/account"
+    : canTutor
+      ? "/settings"
+      : "/my-account";
+  const accountLabel = adminArea
+    ? t("account.title")
+    : t("workflows.settings");
+  const handle = me.username ?? me.tutor?.username;
+  const displayName =
+    me.name ?? session.user.name ?? me.email ?? session.user.email ?? me.role;
+
+  const workspaceItems = elevated
+    ? [
+        ...(canTutor
+          ? [{ href: "/dashboard", label: t("components.userMenu.enterTutor") }]
+          : []),
+        { href: "/student", label: t("components.userMenu.enterTutee") },
+      ]
+    : [{ href: home, label: t("localization.back") }];
+
+  const accountItems = [
+    { href: accountHref, label: accountLabel },
+    ...(!elevated
+      ? [{ href: "/messages", label: t("workflows.messages") }]
+      : []),
+  ];
 
   return (
     <div
@@ -62,28 +93,34 @@ export default async function LocalizationLayout({
         title={TEAM_TITLE}
         skipLabel={t("common.skipToContent")}
         skipToId={elevated ? "admin-content" : "main-content"}
-        items={
-          elevated
-            ? []
-            : [
-                { href: home, label: t("localization.back") },
-                { href: "/help", label: t("helpNav.title") },
-              ]
-        }
+        items={workspaceItems}
         navigation={
           elevated ? <NavMobileRow role={me.role} embedded /> : undefined
         }
         identity={
-          <div className="text-right leading-tight">
-            <p className="text-sm font-medium">{session.user.name}</p>
+          <Link
+            href={accountHref}
+            className="hidden shrink-0 rounded-md px-2 py-1 text-right leading-tight hover:bg-slate-100 lg:block"
+            title={accountLabel}
+          >
+            <p className="max-w-44 truncate text-sm font-medium text-slate-900">
+              {me.name ?? session.user.name}
+            </p>
             <p className="muted text-xs">
-              {me.tutor?.username ? `@${me.tutor.username} · ` : ""}
+              {handle ? `@${handle} · ` : ""}
               {t(`admin.users.roles.${me.role}`)}
             </p>
-          </div>
+          </Link>
         }
         account={
-          <SignOutButton className="btn-secondary btn-sm min-h-11 lg:min-h-8 lg:py-0" />
+          <UserAvatar
+            name={displayName}
+            username={handle}
+            email={me.email ?? session.user.email}
+            role={me.role}
+            items={accountItems}
+            compactAtDesktop
+          />
         }
       />
 

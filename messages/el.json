@@ -2638,7 +2638,8 @@
       "recall": "Ανάκληση αιτήματος",
       "statusNote": "Η κατάστασή σας ως βοηθός είναι {status}. Αυτή είναι πρόσβαση μόνο ανάγνωσης — επικοινωνήστε με διαχειριστή για αλλαγές.",
       "profileSyncFailed": "Το προφίλ σας αποθηκεύτηκε, αλλά η ανανέωση απέτυχε. Δοκιμάστε ξανά την ανανέωση χωρίς νέα υποβολή.",
-      "pwTooLong": "Use no more than {max} characters."
+      "pwTooLong": "Use no more than {max} characters.",
+      "backToDashboard": "Επιστροφή στον πίνακα"
     },
     "dashboard": {
       "pending": {
@@ -2995,6 +2996,14 @@
       "resend": "Επαναποστολή κωδικού",
       "cancel": "Άκυρο",
       "deliveryFailed": "Η αποστολή του email απέτυχε. Δοκιμάστε ξανά αργότερα."
+    },
+    "tutorSettings": "Ρυθμίσεις διδάσκοντα",
+    "sections": {
+      "profile": "Προφίλ",
+      "security": "Ασφάλεια και email",
+      "notifications": "Ειδοποιήσεις",
+      "access": "Ρόλοι και πρόσβαση",
+      "membership": "Συμμετοχή και πρόσβαση"
     }
   },
   "crew": {

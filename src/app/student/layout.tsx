@@ -97,7 +97,6 @@ export default async function TuteeLayout({
       : []),
   ];
   const items = [
-    ...workspaceItems,
     { href: "/student?view=account", label: t("tuteePortal.account") },
     { href: "/student?view=messages", label: t("tuteePortal.messages") },
     ...(me.crewStatus === "ACTIVE" && features.CREW
@@ -126,9 +125,16 @@ export default async function TuteeLayout({
         identity={
           <Link
             href="/student?view=account"
-            className="hidden max-w-48 truncate rounded-md px-2 py-1 text-sm font-medium hover:bg-slate-100 lg:block"
+            className="hidden shrink-0 rounded-md px-2 py-1 text-right leading-tight hover:bg-slate-100 lg:block"
+            title={t("tuteePortal.account")}
           >
-            {me.name ?? me.username}
+            <p className="max-w-44 truncate text-sm font-medium text-slate-900">
+              {me.name ?? me.username}
+            </p>
+            <p className="muted text-xs">
+              {me.username ? `@${me.username} · ` : ""}
+              {t(`admin.users.roles.${me.role}`)}
+            </p>
           </Link>
         }
         account={

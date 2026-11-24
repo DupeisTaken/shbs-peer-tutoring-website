@@ -107,23 +107,18 @@ export default async function TutorLayout({
       : []),
   ];
   const accountItems = [
-    ...workspaceItems,
+    { href: "/settings", label: t("components.userMenu.settings") },
     {
       href: isElevated ? "/admin/messages" : "/messages",
       label: t("workflows.messages"),
     },
-    {
-      href: isElevated ? "/admin/student-support" : "/student?view=support",
-      label: t("workflows.support"),
-    },
+    { href: "/handbook", label: t("tutor.nav.handbook") },
     ...(features.CREW && me.crewStatus === "ACTIVE"
       ? [{ href: "/patrol", label: t("crew.nav.patrol") }]
       : []),
-    { href: "/handbook", label: t("tutor.nav.handbook") },
     ...(me.canTranslate
       ? [{ href: "/localization", label: t("localization.navLabel") }]
       : []),
-    { href: "/settings", label: t("components.userMenu.settings") },
   ];
 
   return (

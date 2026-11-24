@@ -11,6 +11,7 @@ import { getFeatures } from "~/server/program/features";
 import { UserAvatar } from "~/app/_components/user-avatar";
 import { NavSidebar, NavMobileRow } from "~/app/_components/admin-nav";
 import { ReadOnlyProvider } from "~/app/_components/read-only";
+import { AdminReadOnlyBanner } from "~/app/_components/admin-read-only-banner";
 import { InlineNotice } from "~/app/_components/ui/patterns";
 import { TEAM_TITLE } from "~/lib/branding";
 
@@ -56,7 +57,7 @@ export default async function AdminLayout({
   // `session.tutorId` in sync too, so following the link into the tutor area resolves correctly.
   const canEnterTutor = !me?.tutorAccessRevoked && !!me?.tutor && me.tutor.status !== "ARCHIVED";
   const features = await getFeatures(db);
-  // Use one ordered list for visible shortcuts and the account submenu.
+  // Workspace switches stay in the header bar; keep the avatar menu focused on account shortcuts.
   const workspaceItems = [
     ...(canEnterTutor
       ? [{ href: "/dashboard", label: t("components.userMenu.enterTutor") }]
@@ -64,19 +65,16 @@ export default async function AdminLayout({
     ...(!readOnly || access.departed ? [{ href: "/student", label: t("components.userMenu.enterTutee") }] : []),
   ];
   const accountItems = [
-    ...workspaceItems,
-    {
-      href: readOnly ? "/messages" : "/admin/messages",
-      label: t("workflows.messages"),
-    },
-    {
-      href: readOnly ? "/student-support" : "/admin/student-support",
-      label: t("workflows.support"),
-    },
+    { href: "/admin/account", label: t("account.title") },
+    ...(readOnly
+      ? [
+          { href: "/messages", label: t("workflows.messages") },
+          { href: "/student-support", label: t("workflows.support") },
+        ]
+      : []),
     ...(features.CREW && me?.crewStatus === "ACTIVE"
       ? [{ href: "/patrol", label: t("crew.nav.patrol") }]
       : []),
-    { href: "/admin/account", label: t("account.title") },
   ];
 
   return (
@@ -139,31 +137,9 @@ export default async function AdminLayout({
           data-readonly={readOnly ? "" : undefined}
         >
           {readOnly && (
-            // Viewer's viewing pass — a welcoming accent strip, not an amber lockout warning
-            // (the program values transparency). The eye glyph carries the "viewer" identity, so
-            // the copy stays the single existing banner string.
-            <div className="border-accent-200 bg-accent-50 mb-5 flex items-center gap-3 rounded-xl border px-4 py-2.5">
-              <span
-                aria-hidden
-                className="bg-accent-100 text-accent-700 ring-accent-200 grid h-7 w-7 shrink-0 place-items-center rounded-full ring-1"
-              >
-                <svg
-                  viewBox="0 0 24 24"
-                  className="h-4 w-4"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="1.8"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                >
-                  <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z" />
-                  <circle cx="12" cy="12" r="2.6" />
-                </svg>
-              </span>
-              <p className="text-accent-800 text-sm leading-snug">
-                {t("admin.readOnly.banner")}
-              </p>
-            </div>
+            // Viewer's viewing pass — hidden on self-service /admin/account where the user's
+            // own account controls stay interactive.
+            <AdminReadOnlyBanner message={t("admin.readOnly.banner")} />
           )}
           {session.role === "COORDINATOR" && (
             <div className="mb-5">

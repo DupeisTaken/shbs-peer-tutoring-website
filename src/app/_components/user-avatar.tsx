@@ -70,14 +70,13 @@ export async function UserAvatar({
         </div>
         <div
           className={`grid gap-1 pt-2 ${
-            compactAtDesktop ? "lg:gap-0 lg:pt-1" : ""
+            compactAtDesktop ? "lg:gap-0.5 lg:pt-1.5" : ""
           }`}
         >
           {[
             ...items,
-            { href: "/help", label: t("helpNav.title") },
-            { href: "/register", label: t("accountInvitation.addAccess") },
             { href: "/history", label: t("tuteeHistory.myHistory") },
+            { href: "/help", label: t("helpNav.title") },
           ]
             .filter(
               (item, index, all) =>
@@ -95,7 +94,11 @@ export async function UserAvatar({
               </Link>
             ))}
         </div>
-        <div className={compactAtDesktop ? "pt-2 lg:pt-1" : "pt-2"}>
+        <div
+          className={`mt-2 border-t border-slate-100 pt-2 ${
+            compactAtDesktop ? "lg:mt-1.5 lg:pt-1.5" : ""
+          }`}
+        >
           <SignOutButton
             className={`btn-secondary min-h-11 w-full ${
               compactAtDesktop ? "lg:min-h-0 lg:py-1.5" : ""

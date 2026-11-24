@@ -2638,7 +2638,8 @@
       "recall": "Révoquer la demande",
       "statusNote": "Votre statut de tuteur est {status}. Accès en lecture seule — contactez un administrateur pour toute modification.",
       "profileSyncFailed": "Votre profil a été enregistré, mais son actualisation a échoué. Réessayez l’actualisation sans renvoyer les modifications.",
-      "pwTooLong": "Use no more than {max} characters."
+      "pwTooLong": "Use no more than {max} characters.",
+      "backToDashboard": "Retour au tableau de bord"
     },
     "dashboard": {
       "pending": {
@@ -2995,6 +2996,14 @@
       "resend": "Renvoyer le code",
       "cancel": "Annuler",
       "deliveryFailed": "L'envoi de l'e-mail a échoué. Veuillez réessayer plus tard."
+    },
+    "tutorSettings": "Paramètres tuteur",
+    "sections": {
+      "profile": "Profil",
+      "security": "Sécurité et e-mails",
+      "notifications": "Notifications",
+      "access": "Rôles et accès",
+      "membership": "Adhésion et accès"
     }
   },
   "crew": {

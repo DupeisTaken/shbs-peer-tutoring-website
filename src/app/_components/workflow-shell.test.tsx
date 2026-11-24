@@ -49,13 +49,20 @@ vi.mock("./notification-bell", () => ({ NotificationBell: () => null }));
 vi.mock("./language-switcher", () => ({ LanguageSwitcher: () => null }));
 vi.mock("./sign-out-button", () => ({ SignOutButton: () => null }));
 vi.mock("./theme-switcher", () => ({ ThemeSwitcher: () => null }));
+const avatarCalls = vi.hoisted(
+  () => [] as { items?: { href: string; label: string }[] }[],
+);
 vi.mock("./user-avatar", () => ({
-  UserAvatar: async () => <button aria-label="Account menu">Avatar</button>,
+  UserAvatar: async (props: { items?: { href: string; label: string }[] }) => {
+    avatarCalls.push(props);
+    return <button aria-label="Account menu">Avatar</button>;
+  },
 }));
 import { WorkflowShell } from "./workflow-shell";
 
 afterEach(cleanup);
 beforeEach(() => {
+  avatarCalls.length = 0;
   state.role = "VIEWER";
   state.tutor = null;
   state.revoked = false;
@@ -122,6 +129,19 @@ it("provides the existing read-only management return for a departed observer", 
   expect(
     screen.getByRole("link", { name: "enterTutee" }).getAttribute("href"),
   ).toBe("/student");
+});
+
+it("keeps Account Settings and Tutor Settings distinctly labeled in UserAvatar without duplicating header or tab links", async () => {
+  state.role = "ADMIN";
+  state.tutor = { status: "ACTIVE" };
+  render(
+    await WorkflowShell({ title: "Account", children: <div>Own account</div> }),
+  );
+  const items = avatarCalls.at(-1)?.items ?? [];
+  expect(items).toEqual([
+    { href: "/my-account", label: "settings" },
+    { href: "/settings", label: "tutorSettings" },
+  ]);
 });
 
 it.each(["signedOut", "absent", "suspended", "managementDenied"])(
