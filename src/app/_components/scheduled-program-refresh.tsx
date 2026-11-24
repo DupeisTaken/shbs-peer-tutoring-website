@@ -5,9 +5,6 @@ import type { RouterOutputs } from "~/trpc/react";
 import { parseProgramDateTime } from "~/lib/program-time";
 import { quarterSemester } from "~/lib/period";
 import type { NextRecruitmentSettingsData } from "./next-recruitment-settings";
-import { NextRecruitmentReview } from "./next-recruitment-review";
-import { ProgramRefreshEffects } from "./program-refresh-effects";
-import { DisclosureSection } from "./ui/disclosure-section";
 
 export type ScheduleData = RouterOutputs["admin"]["refreshSchedule"];
 export type Schedule = NonNullable<ScheduleData["schedule"]>;
@@ -28,6 +25,11 @@ export type RefreshSnapshot = {
   next: NextRecruitmentSettingsData;
 };
 
+export type StagedFeatureChange = {
+  key: string;
+  pendingEnabled: boolean;
+};
+
 export type RefreshConditionsState = {
   changed: boolean;
   stalePreparation: boolean;
@@ -36,7 +38,7 @@ export type RefreshConditionsState = {
   futureTuteeOpening: Date | null;
   schedulePhase: SchedulePhase;
   timingIssue: "past_or_invalid" | "after_tutee_opening" | null;
-  stagedFeatureCount: number;
+  stagedFeatures: StagedFeatureChange[];
   hasActiveOrAttentionSchedule: boolean;
 };
 
@@ -138,9 +140,19 @@ export function evaluateRefreshConditions({
     }
   }
 
-  const stagedFeatureCount = (
+  const stagedFeatures: StagedFeatureChange[] = (
     snapshot.next.refreshEvidence.stagedFeatures ?? []
-  ).filter((feature) => feature.pendingEnabled !== null).length;
+  )
+    .filter(
+      (
+        feature,
+      ): feature is typeof feature & { pendingEnabled: boolean } =>
+        feature.pendingEnabled !== null,
+    )
+    .map((feature) => ({
+      key: feature.key,
+      pendingEnabled: feature.pendingEnabled,
+    }));
 
   const hasActiveOrAttentionSchedule =
     !!snapshot.schedule &&
@@ -154,7 +166,7 @@ export function evaluateRefreshConditions({
     futureTuteeOpening,
     schedulePhase,
     timingIssue,
-    stagedFeatureCount,
+    stagedFeatures,
     hasActiveOrAttentionSchedule,
   };
 }
@@ -196,63 +208,27 @@ export function RefreshStatusBadge({
   return <span className="badge-slate">{t("notScheduledBadge")}</span>;
 }
 
-/** Read-only overview of the current scheduled refresh and every run condition
- * that must hold before automatic or immediate activation can proceed. */
+/** Compact status and active-condition summary: surfaces only essential live
+ * schedule state, staged feature switches, and blockers without redundant chrome. */
 export function RefreshScheduleOverview({
   liveSchedule,
-  snapshot,
   conditions,
-  readFailed,
-  allowed,
-  applies,
-  approvalId,
 }: {
   liveSchedule: Schedule | null;
-  snapshot: RefreshSnapshot;
   conditions: RefreshConditionsState;
-  readFailed: boolean;
-  allowed: boolean;
-  applies: boolean;
-  approvalId?: string;
 }) {
   const t = useTranslations("scheduledRefresh");
+  const featureNames = useTranslations("admin.program.features.name");
+  const featureState = useTranslations("admin.program.features");
   const locale = useLocale();
   const format = (at: Date | string, zone: string) =>
     formatRefreshDateTime(at, zone, locale);
 
-  const syncBadge =
-    conditions.changed || conditions.sourceMismatch
-      ? { className: "badge-amber", label: t("conditionSyncChanged") }
-      : readFailed
-        ? { className: "badge-red", label: t("conditionSyncError") }
-        : { className: "badge-green", label: t("conditionSyncReady") };
-
-  const openingsBadge = conditions.stalePreparation
-    ? { className: "badge-amber", label: t("conditionOpeningsStale") }
-    : { className: "badge-green", label: t("conditionOpeningsReady") };
-
-  const featuresBadge =
-    conditions.stagedFeatureCount > 0
-      ? {
-          className: "badge-amber",
-          label: t("conditionFeaturesPending", {
-            count: conditions.stagedFeatureCount,
-          }),
-        }
-      : { className: "badge-slate", label: t("conditionFeaturesNone") };
-
-  const authBadge = approvalId
-    ? { className: "badge-amber", label: t("conditionAuthPending") }
-    : conditions.schedulePhase === "blocked" &&
-        liveSchedule?.blockedReason === "SCHEDULED_REFRESH_HEAD_CHANGED"
-      ? { className: "badge-amber", label: t("conditionAuthChanged") }
-      : ["scheduled", "due", "retrying"].includes(conditions.schedulePhase)
-        ? { className: "badge-green", label: t("conditionAuthApproved") }
-        : applies
-          ? { className: "badge-slate", label: t("conditionAuthDirect") }
-          : allowed
-            ? { className: "badge-slate", label: t("conditionAuthRequest") }
-            : { className: "badge-slate", label: t("conditionAuthReadOnly") };
+  const hasScheduleCard =
+    liveSchedule &&
+    ["scheduled", "due", "retrying", "blocked", "failed"].includes(
+      conditions.schedulePhase,
+    );
 
   const statusTone =
     conditions.schedulePhase === "scheduled" ||
@@ -261,118 +237,66 @@ export function RefreshScheduleOverview({
       : conditions.schedulePhase === "retrying" ||
           conditions.schedulePhase === "blocked"
         ? "border-amber-200 bg-amber-50 text-amber-950"
-        : conditions.schedulePhase === "failed"
-          ? "border-red-200 bg-red-50 text-red-950"
-          : "border-slate-200 bg-slate-50 text-slate-900";
+        : "border-red-200 bg-red-50 text-red-950";
 
   return (
-    <div className="space-y-5">
-      {/* Live scheduled refresh status */}
-      <div className={`space-y-2 rounded-lg border p-4 ${statusTone}`}>
-        {liveSchedule && conditions.schedulePhase !== "none" ? (
-          <>
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <p className="font-semibold">
-                {conditions.schedulePhase === "scheduled"
-                  ? t("statusReady")
-                  : conditions.schedulePhase === "due"
-                    ? t("statusDue")
-                    : conditions.schedulePhase === "retrying"
-                      ? t("statusRetrying", {
-                          attempts: liveSchedule.attempts ?? 1,
-                        })
-                      : conditions.schedulePhase === "blocked" ||
-                          conditions.schedulePhase === "failed"
-                        ? `${t("statusPaused")} — ${t(`states.${liveSchedule.state}`)}`
-                        : t(`states.${liveSchedule.state}`)}
-              </p>
-            </div>
-            <p className="text-sm">
+    <div className="space-y-3">
+      {hasScheduleCard ? (
+        <div className={`space-y-1.5 rounded-lg border px-4 py-3 text-sm ${statusTone}`}>
+          <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
+            <p className="font-semibold">
+              {conditions.schedulePhase === "scheduled"
+                ? t("statusReady")
+                : conditions.schedulePhase === "due"
+                  ? t("statusDue")
+                  : conditions.schedulePhase === "retrying"
+                    ? t("statusRetrying", {
+                        attempts: liveSchedule.attempts ?? 1,
+                      })
+                    : `${t("statusPaused")} — ${t(`states.${liveSchedule.state}`)}`}
+            </p>
+            <p className="font-medium">
               {t("summary", {
                 target: formatScheduleDestination(liveSchedule),
                 time: format(liveSchedule.executeAt, liveSchedule.timeZone),
                 zone: liveSchedule.timeZone,
               })}
             </p>
-            {conditions.schedulePhase === "scheduled" && (
-              <p className="text-sm text-slate-700">{t("statusReadyHelp")}</p>
-            )}
-            {conditions.schedulePhase === "due" && (
-              <p className="text-sm text-slate-700">{t("statusDueHelp")}</p>
-            )}
-            {conditions.schedulePhase === "retrying" && (
-              <p className="text-sm text-amber-900">{t("statusRetryingHelp")}</p>
-            )}
-            {(conditions.schedulePhase === "blocked" ||
-              conditions.schedulePhase === "failed") && (
-              <p className="text-sm">
-                {liveSchedule.blockedReason &&
-                t.has(`errors.${liveSchedule.blockedReason}`)
-                  ? t(`errors.${liveSchedule.blockedReason}`)
-                  : t("blockedHelp")}
-              </p>
-            )}
-            {conditions.schedulePhase === "cancelled" && (
-              <p className="muted text-sm">{t("noneHelp")}</p>
-            )}
-          </>
-        ) : (
-          <>
-            <p className="font-medium text-slate-900">{t("none")}</p>
-            <p className="muted text-sm">{t("noneHelp")}</p>
-          </>
-        )}
-      </div>
-
-      {/* Run conditions & reviewed snapshot */}
-      <div className="space-y-4">
-        <div>
-          <h3 className="text-base font-semibold text-slate-900">
-            {t("conditionsHeading")}
-          </h3>
-          <p className="muted mt-1 text-sm">{t("conditionsHelp")}</p>
-        </div>
-
-        <ul className="divide-y divide-slate-100 rounded-lg border border-slate-200 bg-white px-4">
-          <li className="flex flex-wrap items-center justify-between gap-2 py-2.5 text-sm">
-            <span className="font-medium text-slate-700">
-              {t("conditionSync")}
-            </span>
-            <span className={syncBadge.className}>{syncBadge.label}</span>
-          </li>
-          <li className="flex flex-wrap items-center justify-between gap-2 py-2.5 text-sm">
-            <span className="font-medium text-slate-700">
-              {t("conditionOpenings")}
-            </span>
-            <span className={openingsBadge.className}>
-              {openingsBadge.label}
-            </span>
-          </li>
-          <li className="flex flex-wrap items-center justify-between gap-2 py-2.5 text-sm">
-            <span className="font-medium text-slate-700">
-              {t("conditionFeatures")}
-            </span>
-            <span className={featuresBadge.className}>
-              {featuresBadge.label}
-            </span>
-          </li>
-          <li className="flex flex-wrap items-center justify-between gap-2 py-2.5 text-sm">
-            <span className="font-medium text-slate-700">
-              {t("conditionAuth")}
-            </span>
-            <span className={authBadge.className}>{authBadge.label}</span>
-          </li>
-        </ul>
-
-        <NextRecruitmentReview snapshot={snapshot.next} />
-
-        <DisclosureSection title={t("effectsDisclosure")} lifetime="lazy">
-          <div className="space-y-3">
-            <ProgramRefreshEffects target={snapshot.next.target} />
-            <p className="muted text-sm">{t("staleHelp")}</p>
           </div>
-        </DisclosureSection>
-      </div>
+          {conditions.schedulePhase === "scheduled" && (
+            <p className="text-xs text-slate-700">{t("statusReadyHelp")}</p>
+          )}
+          {conditions.schedulePhase === "due" && (
+            <p className="text-xs text-slate-700">{t("statusDueHelp")}</p>
+          )}
+          {conditions.schedulePhase === "retrying" && (
+            <p className="text-xs text-amber-900">{t("statusRetryingHelp")}</p>
+          )}
+          {(conditions.schedulePhase === "blocked" ||
+            conditions.schedulePhase === "failed") && (
+            <p className="text-xs">
+              {liveSchedule.blockedReason &&
+              t.has(`errors.${liveSchedule.blockedReason}`)
+                ? t(`errors.${liveSchedule.blockedReason}`)
+                : t("blockedHelp")}
+            </p>
+          )}
+        </div>
+      ) : (
+        <p className="muted text-sm">{t("none")}</p>
+      )}
+
+      {conditions.stagedFeatures.length > 0 && (
+        <div className="flex flex-wrap items-center gap-2 rounded-lg border border-amber-200 bg-amber-50/60 px-3 py-2 text-xs text-amber-950">
+          <span className="font-semibold">{t("conditionFeatures")}:</span>
+          {conditions.stagedFeatures.map((feature) => (
+            <span key={feature.key} className="badge-amber">
+              {featureNames(feature.key)}:{" "}
+              {featureState(feature.pendingEnabled ? "on" : "off")}
+            </span>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

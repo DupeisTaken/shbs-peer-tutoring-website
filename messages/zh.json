@@ -240,7 +240,7 @@
     },
     "featureAfterRefreshEnabled": "刷新后：开启",
     "featureAfterRefreshDisabled": "刷新后：关闭",
-    "embeddedHelp": "为下一周期准备辅导伙伴和学习伙伴的开放时间。这些设置仅在刷新执行时生效；若在预约刷新后修改，需要重新审核预约。"
+    "embeddedHelp": "仅在刷新时生效；预约后修改需要重新审核预约。"
   },
   "historicalInvitation": {
     "claimUncertain": "认领结果尚未确定。请重新读取邀请以查询结果；不要重复提交。",
@@ -7984,7 +7984,7 @@
       "SCHEDULED_REFRESH_EXECUTION_FAILED": "多次尝试后仍未完成刷新。请检查部署，再审核新的预约或取消当前预约。",
       "SCHEDULED_REFRESH_AFTER_OPENING": "刷新时间不得晚于已准备的学习伙伴报名开放时间；也可先修改该准备项。"
     },
-    "subtitle": "将周期从 {current} 推进至 {next}（{mode} · {zone}）。",
+    "subtitle": "{current} → {next} · {mode} · {zone}",
     "notScheduledBadge": "未预约",
     "dueBadge": "已到期",
     "retryingBadge": "重试中（{attempts}/5）",
@@ -7992,9 +7992,9 @@
     "statusDue": "已到预约时间 — 等待执行",
     "statusRetrying": "正在自动重试刷新（第 {attempts}/5 次）",
     "statusPaused": "不会自动执行",
-    "statusReadyHelp": "到达预约时间后将自动执行（服务器每 30 秒检查一次，停机恢复后自动补执行），前提是下方已审核的各项条件均未改变。",
-    "statusDueHelp": "已到达预约时间。服务器每 30 秒检查一次到期刷新，核对条件有效后将推进周期。",
-    "statusRetryingHelp": "执行刷新时遇到临时错误。只要条件仍有效，服务器将自动重试，最多 5 次。",
+    "statusReadyHelp": "到时自动执行（每 30 秒检查并支持停机补执行），前提是周期、开放时间、暂存功能、时区与负责人授权均未变更。",
+    "statusDueHelp": "已到预约时间。服务器每 30 秒检查一次，确认条件有效后自动执行。",
+    "statusRetryingHelp": "遇到临时错误；只要条件仍有效，服务器将自动重试，最多 5 次。",
     "completedAt": "完成于 {time}（{zone}）。",
     "noneHelp": "可在下方预约自动刷新（条件满足时自动执行），或选择立即刷新。",
     "conditionsHeading": "刷新条件与复核",
@@ -8016,7 +8016,7 @@
     "conditionAuthRequest": "需要负责人审批",
     "conditionAuthReadOnly": "仅限管理员与负责人",
     "conditionAuthChanged": "需要重新审核",
-    "effectsDisclosure": "刷新后会发生什么",
+    "effectsDisclosure": "刷新影响与完整详情",
     "entranceHeading": "执行或预约刷新",
     "timingModeLabel": "何时执行此次刷新？",
     "modeScheduled": "预约定时刷新",

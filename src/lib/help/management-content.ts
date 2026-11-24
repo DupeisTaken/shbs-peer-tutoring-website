@@ -4433,17 +4433,17 @@ export const managementArticles: HelpArticle[] = [
     ],
     steps: [
       [
-        t("Review conditions and openings", "审核条件与开放时间"),
+        t("Review status and openings", "核对状态与开放时间"),
         t(
-          "Open Program Settings → Recruitment and Refresh and find the unified Program Refresh section. Check the schedule status banner, live condition badges (sync, opening bindings, staged feature switches and authorization) and embedded Next-Period Recruitment openings.",
-          "打开项目设置→招募与刷新中的统一“项目刷新”区块。核对预约状态栏、各项条件状态徽章（同步、开放时间绑定、暂存功能开关及授权）以及内嵌的下一周期报名开放时间。",
+          "Open Program Settings → Recruitment and Refresh and find the unified Program Refresh card. Check the transition header, live schedule status, any staged optional features, and the compact embedded Next-Period Recruitment openings.",
+          "打开项目设置→招募与刷新中的统一“项目刷新”卡片。核对周期推进标题、实时预约状态、暂存可选功能变更以及内嵌的下一周期报名开放时间。",
         ),
       ],
       [
         t("Read all refresh effects", "阅读全部换期影响"),
         t(
-          "Expand What happens when this refresh runs to inspect participation, scheduling and destination consequences. Resolve stale preparations and review current mail, policies, subjects, rooms and operator readiness before admitting the refresh.",
-          "展开“刷新后会发生什么”查看参与、排课及目标后果。接受换期前解决过时准备，并审核当前邮件、政策、科目、教室及操作员就绪。",
+          "Expand Effects & full refresh details to inspect participation, scheduling and destination consequences. Resolve stale preparations and review current mail, policies, subjects, rooms and operator readiness before admitting the refresh.",
+          "展开“刷新影响与完整详情”查看参与、排课及目标后果。接受换期前解决过时准备，并审核当前邮件、政策、科目、教室及操作员就绪。",
         ),
       ],
       [

@@ -240,7 +240,7 @@
     },
     "featureAfterRefreshEnabled": "Après le renouvellement : Activé",
     "featureAfterRefreshDisabled": "Après le renouvellement : Désactivé",
-    "embeddedHelp": "Prepare Tutor and Tutee opening times for the next period. They take effect only when the refresh runs; editing them after scheduling requires renewed review."
+    "embeddedHelp": "Apply on refresh. Editing after scheduling requires renewed review."
   },
   "historicalInvitation": {
     "claimUncertain": "The claim result is unknown. Read the invitation again to check its result; do not repeat the claim.",
@@ -7984,7 +7984,7 @@
       "SCHEDULED_REFRESH_EXECUTION_FAILED": "The refresh could not complete after repeated attempts. Check the deployment, then review a new schedule or cancel this one.",
       "SCHEDULED_REFRESH_AFTER_OPENING": "Choose a refresh time no later than the prepared tutee signup opening time, or update that preparation first."
     },
-    "subtitle": "Advances {current} to {next} ({mode} · {zone}).",
+    "subtitle": "{current} → {next} · {mode} · {zone}",
     "notScheduledBadge": "Not scheduled",
     "dueBadge": "Due now",
     "retryingBadge": "Retrying ({attempts}/5)",
@@ -7992,9 +7992,9 @@
     "statusDue": "Scheduled time reached — running soon",
     "statusRetrying": "Retrying automatic refresh (attempt {attempts} of 5)",
     "statusPaused": "Will not run automatically",
-    "statusReadyHelp": "Runs automatically once this time arrives (checked every 30 seconds, with catch-up after downtime) as long as all reviewed conditions below remain unchanged.",
-    "statusDueHelp": "The scheduled time has arrived. The server checks due refreshes every 30 seconds and will advance the period once all reviewed conditions are verified.",
-    "statusRetryingHelp": "A temporary error occurred while running the refresh. The server retries automatically up to 5 attempts while conditions remain valid.",
+    "statusReadyHelp": "Runs automatically when due (checked every 30s, with catch-up) while period, openings, staged features, timezone, and Head approval stay unchanged.",
+    "statusDueHelp": "Scheduled time reached. Server checks every 30s and runs once reviewed conditions are verified.",
+    "statusRetryingHelp": "Temporary error; retrying automatically up to 5 attempts while conditions stay valid.",
     "completedAt": "Completed at {time} ({zone}).",
     "noneHelp": "Schedule a refresh below to advance automatically when all conditions are met, or choose Refresh now.",
     "conditionsHeading": "Refresh Conditions & Review",
@@ -8016,7 +8016,7 @@
     "conditionAuthRequest": "Requires Head approval",
     "conditionAuthReadOnly": "Admin & Head only",
     "conditionAuthChanged": "Renewed review required",
-    "effectsDisclosure": "What happens when this refresh runs",
+    "effectsDisclosure": "Effects & full refresh details",
     "entranceHeading": "Authorize Refresh",
     "timingModeLabel": "When should this refresh run?",
     "modeScheduled": "Schedule for later",

@@ -34,6 +34,7 @@ import {
 } from "./scheduled-program-refresh";
 import { useActionReview } from "./ui/action-review";
 import { ChoiceButton } from "./ui/button";
+import { DisclosureSection } from "./ui/disclosure-section";
 import { FormActions, InlineNotice, StatePanel } from "./ui/patterns";
 import { useSessionAccessDenied } from "./session-view-state";
 import { useProgramWriteAdmission } from "./program-write-admission";
@@ -130,14 +131,12 @@ export function ProgramRefresh(props: Props) {
     );
     if (!props.nextOpenings) return panel;
     return (
-      <section className="card space-y-6 p-5" aria-labelledby={headingId}>
-        <div>
-          <h2 id={headingId} className="section-title">
-            {programT("refreshHeading")}
-          </h2>
-        </div>
+      <section className="card space-y-5 p-5" aria-labelledby={headingId}>
+        <h2 id={headingId} className="section-title">
+          {programT("refreshHeading")}
+        </h2>
         {panel}
-        <div className="border-t border-slate-200 pt-6">{props.nextOpenings}</div>
+        <div className="border-t border-slate-200 pt-4">{props.nextOpenings}</div>
       </section>
     );
   }
@@ -579,16 +578,16 @@ export function UnifiedProgramRefreshEditor({
 
   return (
     <section
-      className="card space-y-6 border-amber-200 p-5"
+      className="card space-y-5 p-5"
       aria-labelledby={`${id}-title`}
     >
-      {/* Unified header */}
-      <div className="flex flex-wrap items-start justify-between gap-3">
+      {/* Unified header: transition + live schedule badge */}
+      <div className="flex flex-wrap items-start justify-between gap-2">
         <div className="min-w-0 flex-1">
           <h2 id={`${id}-title`} className="section-title">
             {programT("refreshHeading")}
           </h2>
-          <p className="muted mt-1 text-sm">
+          <p className="muted mt-0.5 text-sm">
             {t("subtitle", {
               current: snapshot.next.currentName,
               next: snapshot.next.nextName,
@@ -640,27 +639,54 @@ export function UnifiedProgramRefreshEditor({
         </InlineNotice>
       )}
 
-      {/* Scheduled refresh status & run conditions */}
+      {/* Essential schedule status + staged feature changes */}
       <RefreshScheduleOverview
         liveSchedule={data.schedule}
-        snapshot={snapshot}
         conditions={conditions}
-        readFailed={readFailed || periodReadFailed}
-        allowed={allowed}
-        applies={applies}
-        approvalId={approvalId}
       />
 
-      {/* Embedded Next-Period Signup Openings (retains independent save/admission boundaries) */}
+      {/* Embedded compact Next-Period Signup Openings (retains independent save/admission boundaries) */}
       {nextOpenings && (
-        <div className="border-t border-slate-200 pt-6">{nextOpenings}</div>
+        <div className="border-t border-slate-200 pt-4">{nextOpenings}</div>
       )}
 
       {/* Single unified refresh entrance */}
-      <div className="space-y-4 border-t border-slate-200 pt-6">
-        <h3 className="text-base font-semibold text-slate-900">
-          {t("entranceHeading")}
-        </h3>
+      <div className="space-y-3 border-t border-slate-200 pt-4">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <h3 className="text-sm font-semibold text-slate-900">
+            {t("entranceHeading")}
+          </h3>
+          {allowed && editing && (
+            <div
+              role="group"
+              aria-label={t("timingModeLabel")}
+              className="flex flex-wrap items-center gap-1.5"
+            >
+              <ChoiceButton
+                size="compact"
+                selected={mode === "scheduled"}
+                disabled={blocked}
+                onClick={() => {
+                  setMode("scheduled");
+                  setError(undefined);
+                }}
+              >
+                {t("modeScheduled")}
+              </ChoiceButton>
+              <ChoiceButton
+                size="compact"
+                selected={mode === "immediate"}
+                disabled={blocked}
+                onClick={() => {
+                  setMode("immediate");
+                  setError(undefined);
+                }}
+              >
+                {t("modeImmediate")}
+              </ChoiceButton>
+            </div>
+          )}
+        </div>
 
         {conditions.changed && (
           <InlineNotice tone="warning" announcement="status">
@@ -686,155 +712,88 @@ export function UnifiedProgramRefreshEditor({
         )}
 
         {allowed && editing && (
-          <fieldset className="relative space-y-4" disabled={blocked}>
+          <fieldset className="relative space-y-3" disabled={blocked}>
             <legend className="sr-only">{t("entranceHeading")}</legend>
 
-            <div className="space-y-2">
-              <p className="label">{t("timingModeLabel")}</p>
-              <div
-                role="group"
-                aria-label={t("timingModeLabel")}
-                className="flex flex-wrap items-center gap-2"
-              >
-                <ChoiceButton
-                  size="standard"
-                  selected={mode === "scheduled"}
-                  onClick={() => {
-                    setMode("scheduled");
-                    setError(undefined);
-                  }}
-                >
-                  {t("modeScheduled")}
-                </ChoiceButton>
-                <ChoiceButton
-                  size="standard"
-                  selected={mode === "immediate"}
-                  onClick={() => {
-                    setMode("immediate");
-                    setError(undefined);
-                  }}
-                >
-                  {t("modeImmediate")}
-                </ChoiceButton>
-              </div>
-            </div>
-
-            {mode === "scheduled" ? (
-              <div className="space-y-2">
-                <label className="label" htmlFor={`${id}-time`}>
-                  {t("timeLabel")}
-                </label>
-                <input
-                  id={`${id}-time`}
-                  type="datetime-local"
-                  className="input mt-1 min-h-11 w-full sm:max-w-sm lg:min-h-10"
-                  value={time}
-                  aria-describedby={
-                    conditions.futureTuteeOpening
-                      ? `${id}-zone ${id}-opening-bound`
-                      : `${id}-zone`
-                  }
-                  onChange={(event) => {
-                    setTime(event.target.value);
-                    setError(undefined);
-                  }}
-                />
-                <p id={`${id}-zone`} className="muted text-sm">
-                  {programTimeZoneInputLabel(
-                    time,
-                    snapshot.next.timeZone,
-                    locale,
-                  )}
-                </p>
-                {conditions.futureTuteeOpening && (
-                  <p id={`${id}-opening-bound`} className="muted text-sm">
-                    {t("openingBound", {
-                      time: format(
-                        conditions.futureTuteeOpening,
-                        snapshot.next.timeZone,
-                      ),
-                      zone: snapshot.next.timeZone,
-                    })}
-                  </p>
-                )}
-                {conditions.timingIssue === "after_tutee_opening" && (
-                  <InlineNotice tone="warning" announcement="status">
-                    {t("errors.SCHEDULED_REFRESH_AFTER_OPENING")}
-                  </InlineNotice>
-                )}
-              </div>
-            ) : (
-              <div className="space-y-2">
-                <p className="muted text-sm">
-                  {t("immediateHelp", { target: snapshot.next.nextName })}
-                </p>
-                {row?.state === "SCHEDULED" && (
-                  <InlineNotice tone="warning" announcement="status">
-                    {t("immediateSupersedes")}
-                  </InlineNotice>
-                )}
-              </div>
+            {mode === "immediate" && row?.state === "SCHEDULED" && (
+              <InlineNotice tone="warning" announcement="status">
+                {t("immediateSupersedes")}
+              </InlineNotice>
             )}
 
-            <div>
-              <label className="label" htmlFor={`${id}-confirm`}>
-                {programT("confirmLabel")}
-              </label>
-              <input
-                id={`${id}-confirm`}
-                className="input mt-1 min-h-11 w-full sm:max-w-sm lg:min-h-10"
-                value={confirm}
-                placeholder={programT("confirmPlaceholder")}
-                onChange={(event) => {
-                  setConfirm(event.target.value);
-                  setError(undefined);
-                }}
-                autoComplete="off"
-              />
-            </div>
-
-            <FormActions>
-              {mode === "scheduled" ? (
-                <button
-                  type="button"
-                  className="btn-primary min-h-11 lg:min-h-10"
-                  disabled={
-                    !time ||
-                    !confirmMatches ||
-                    conditions.timingIssue === "after_tutee_opening"
-                  }
-                  onClick={() => openScheduledOrCancel(false)}
-                >
-                  {t("review")}
-                </button>
-              ) : (
-                <button
-                  type="button"
-                  className="btn-danger min-h-11 lg:min-h-10"
-                  disabled={!confirmMatches}
-                  onClick={openImmediate}
-                >
-                  {applies
-                    ? programT("refreshButton", {
-                        name: snapshot.next.nextName,
-                      })
-                    : approvals("requestHead")}
-                </button>
+            <div
+              className={`grid gap-3 ${mode === "scheduled" ? "sm:grid-cols-2" : ""}`}
+            >
+              {mode === "scheduled" && (
+                <div className="min-w-0 space-y-1">
+                  <label className="label" htmlFor={`${id}-time`}>
+                    {t("timeLabel")}
+                  </label>
+                  <input
+                    id={`${id}-time`}
+                    type="datetime-local"
+                    className="input min-h-11 w-full min-w-0 lg:min-h-10"
+                    value={time}
+                    aria-describedby={
+                      conditions.futureTuteeOpening
+                        ? `${id}-zone ${id}-opening-bound`
+                        : `${id}-zone`
+                    }
+                    onChange={(event) => {
+                      setTime(event.target.value);
+                      setError(undefined);
+                    }}
+                  />
+                  <p id={`${id}-zone`} className="muted text-xs">
+                    {programTimeZoneInputLabel(
+                      time,
+                      snapshot.next.timeZone,
+                      locale,
+                    )}
+                  </p>
+                  {conditions.futureTuteeOpening && (
+                    <p id={`${id}-opening-bound`} className="muted text-xs">
+                      {t("openingBound", {
+                        time: format(
+                          conditions.futureTuteeOpening,
+                          snapshot.next.timeZone,
+                        ),
+                        zone: snapshot.next.timeZone,
+                      })}
+                    </p>
+                  )}
+                </div>
               )}
-              {conditions.hasActiveOrAttentionSchedule && (
-                <button
-                  type="button"
-                  className="btn-secondary min-h-11 lg:min-h-10"
-                  onClick={() => {
-                    setEditing(false);
-                    setConfirm("");
+
+              <div className="min-w-0 space-y-1">
+                <label className="label" htmlFor={`${id}-confirm`}>
+                  {programT("confirmLabel")}
+                </label>
+                <input
+                  id={`${id}-confirm`}
+                  className="input min-h-11 w-full min-w-0 sm:max-w-sm lg:min-h-10"
+                  value={confirm}
+                  placeholder={programT("confirmPlaceholder")}
+                  onChange={(event) => {
+                    setConfirm(event.target.value);
                     setError(undefined);
                   }}
-                >
-                  {t("closeEditor")}
-                </button>
+                  autoComplete="off"
+                />
+                {mode === "immediate" && (
+                  <p className="muted text-xs">
+                    {t("immediateHelp", { target: snapshot.next.nextName })}
+                  </p>
+                )}
+              </div>
+            </div>
+
+            {mode === "scheduled" &&
+              conditions.timingIssue === "after_tutee_opening" && (
+                <InlineNotice tone="warning" announcement="status">
+                  {t("errors.SCHEDULED_REFRESH_AFTER_OPENING")}
+                </InlineNotice>
               )}
-            </FormActions>
           </fieldset>
         )}
 
@@ -844,9 +803,55 @@ export function UnifiedProgramRefreshEditor({
           </InlineNotice>
         )}
 
+        {/* Single unified action bar */}
         {allowed && (
           <FormActions>
-            {!editing && (
+            {editing ? (
+              <>
+                {mode === "scheduled" ? (
+                  <button
+                    type="button"
+                    className="btn-primary min-h-11 lg:min-h-10"
+                    disabled={
+                      blocked ||
+                      !time ||
+                      !confirmMatches ||
+                      conditions.timingIssue === "after_tutee_opening"
+                    }
+                    onClick={() => openScheduledOrCancel(false)}
+                  >
+                    {t("review")}
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    className="btn-danger min-h-11 lg:min-h-10"
+                    disabled={blocked || !confirmMatches}
+                    onClick={openImmediate}
+                  >
+                    {applies
+                      ? programT("refreshButton", {
+                          name: snapshot.next.nextName,
+                        })
+                      : approvals("requestHead")}
+                  </button>
+                )}
+                {conditions.hasActiveOrAttentionSchedule && (
+                  <button
+                    type="button"
+                    className="btn-secondary min-h-11 lg:min-h-10"
+                    disabled={blocked}
+                    onClick={() => {
+                      setEditing(false);
+                      setConfirm("");
+                      setError(undefined);
+                    }}
+                  >
+                    {t("closeEditor")}
+                  </button>
+                )}
+              </>
+            ) : (
               <button
                 type="button"
                 className="btn-primary min-h-11 lg:min-h-10"
@@ -888,6 +893,15 @@ export function UnifiedProgramRefreshEditor({
           </FormActions>
         )}
       </div>
+
+      {/* Collapsed details for period-transition effects and full review metadata */}
+      <DisclosureSection title={t("effectsDisclosure")} lifetime="lazy">
+        <div className="space-y-4">
+          <ProgramRefreshEffects target={snapshot.next.target} />
+          <NextRecruitmentReview snapshot={snapshot.next} />
+          <p className="muted text-xs">{t("staleHelp")}</p>
+        </div>
+      </DisclosureSection>
 
       {review.dialog}
     </section>

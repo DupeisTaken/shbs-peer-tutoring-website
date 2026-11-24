@@ -560,9 +560,6 @@ it("disables refresh while a saved preparation is bound to an old target", () =>
   render(tree());
   expect(screen.getByText(en.scheduledRefresh.stalePreparation)).toBeTruthy();
   expect(
-    screen.getByText(en.scheduledRefresh.conditionOpeningsStale),
-  ).toBeTruthy();
-  expect(
     screen.getByLabelText<HTMLInputElement>(en.admin.program.confirmLabel)
       .matches(":disabled"),
   ).toBe(true);

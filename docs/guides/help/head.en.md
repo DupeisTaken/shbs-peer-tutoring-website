@@ -23,11 +23,11 @@ Open: `/admin/program`
 
 ### Walkthrough
 
-1. **Review conditions and openings** Open Program Settings → Recruitment and Refresh and find the unified Program Refresh section. Check the schedule status banner, live condition badges (sync, opening bindings, staged feature switches and authorization) and embedded Next-Period Recruitment openings.
+1. **Review status and openings** Open Program Settings → Recruitment and Refresh and find the unified Program Refresh card. Check the transition header, live schedule status, any staged optional features, and the compact embedded Next-Period Recruitment openings.
 
    Look for: Read the destination and full refresh effects before typing REFRESH.
 
-2. **Read all refresh effects** Expand What happens when this refresh runs to inspect participation, scheduling and destination consequences. Resolve stale preparations and review current mail, policies, subjects, rooms and operator readiness before admitting the refresh.
+2. **Read all refresh effects** Expand Effects & full refresh details to inspect participation, scheduling and destination consequences. Resolve stale preparations and review current mail, policies, subjects, rooms and operator readiness before admitting the refresh.
 
 3. **Schedule or run from one entrance** Use Authorize Refresh, which defaults to Schedule for later (or switch to Refresh now in the same entrance when advancing immediately). Enter REFRESH, open the final named consequence review and confirm; use Cancel scheduled refresh to remove an active or paused schedule.
 

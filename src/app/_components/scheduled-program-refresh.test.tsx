@@ -345,10 +345,9 @@ it("clearly denotes scheduled readiness, due/retrying states, blocked reasons an
     tree({ data: data(schedule()), next: withStaged }),
   );
   expect(screen.getByText(en.scheduledRefresh.statusReady)).toBeTruthy();
-  expect(screen.getByText(en.scheduledRefresh.conditionAuthApproved)).toBeTruthy();
   expect(
     screen.getByText(
-      en.scheduledRefresh.conditionFeaturesPending.replace("{count}", "1"),
+      `${en.admin.program.features.name.MEETINGS}: ${en.admin.program.features.off}`,
     ),
   ).toBeTruthy();
 
@@ -402,9 +401,6 @@ it("clearly denotes scheduled readiness, due/retrying states, blocked reasons an
   ).toBeTruthy();
   expect(
     screen.getByText(en.scheduledRefresh.errors.SCHEDULED_REFRESH_HEAD_CHANGED),
-  ).toBeTruthy();
-  expect(
-    screen.getByText(en.scheduledRefresh.conditionAuthChanged),
   ).toBeTruthy();
   expect(
     screen.getByRole("button", { name: en.scheduledRefresh.reschedule }),
