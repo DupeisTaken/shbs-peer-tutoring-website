@@ -554,7 +554,7 @@ function ApprovalQueue({
               {/* Native inputs declare their own padding/min-height after shared
                   controls; keep this toolbar's desktop baseline explicit. */}
               <select
-                className="input control-compact mt-1 block w-full lg:min-h-8 lg:py-1"
+                className="select control-compact mt-1 block w-full lg:min-h-8 lg:py-1"
                 value={requesterId}
                 onChange={(e) => {
                   setRequesterId(e.target.value);

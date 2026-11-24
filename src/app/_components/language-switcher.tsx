@@ -37,14 +37,14 @@ export function LanguageSwitcher({
   const select = (
     <select
       aria-label={t("language")}
-      className={`select py-0 ${
+      className={`select py-0 font-medium text-slate-700 disabled:cursor-wait ${
         embedded
           ? "h-11 w-full text-sm"
           : compact
-            ? "h-8 w-auto text-xs"
+            ? "control-compact field-auto h-8 text-[13px]"
             : compactAtDesktop
-              ? "h-11 w-auto text-xs lg:h-8"
-              : "h-11 w-auto text-xs"
+              ? "control-compact field-auto h-11 text-[13px] lg:h-8"
+              : "control-compact field-auto h-11 text-[13px]"
       }`}
       value={locale}
       disabled={pending}

@@ -241,7 +241,7 @@ export function PersonHistoryCorrection({ personId, unavailable = false, accessD
             <div className="mt-3 space-y-3">{inventory.rows.map((row) => <div key={rowKey(row)} className="min-w-0 rounded-lg border border-slate-200 p-3">
               <p className="font-medium">{row.label}</p><p className="muted break-all text-xs">{t(`entity.${row.entity}`)} · {row.recordId}</p>
               <p className="mt-2 break-all text-sm">{t("currentReader", { id: reader(row.readerUserId) })}</p>
-              <label className="mt-2 block"><span className="label">{t("decision", { label: row.label })}</span><select className="input w-full" value={decisions.find((decision) => rowKey(decision) === rowKey(row))?.action ?? "RETAIN"} onChange={(event) => {
+              <label className="mt-2 block"><span className="label">{t("decision", { label: row.label })}</span><select className="select w-full" value={decisions.find((decision) => rowKey(decision) === rowKey(row))?.action ?? "RETAIN"} onChange={(event) => {
                 const action = event.target.value as Decision["action"];
                 setDecisions((previous) => previous.map((decision) => rowKey(decision) === rowKey(row) ? { ...decision, action } : decision)); setAcknowledged(false);
               }}>

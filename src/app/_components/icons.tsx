@@ -30,6 +30,28 @@ export function NativeDisclosureIcon() {
   );
 }
 
+/** Crisp 1.8px stroke chevron matching `.select` and floating menu triggers. */
+export function ChevronDownIcon({
+  className = "h-3.5 w-3.5",
+}: {
+  className?: string;
+}) {
+  return (
+    <svg
+      aria-hidden="true"
+      viewBox="0 0 16 16"
+      className={className}
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M4.5 6.25 8 9.75l3.5-3.5" />
+    </svg>
+  );
+}
+
 /** Crisp 1.75px stroke inline SVGs shared across chrome and landing cards so icons render
  * consistently across Windows, macOS, iOS and Android without OS emoji drift. */
 export function BellIcon({ className = "h-5 w-5" }: { className?: string }) {

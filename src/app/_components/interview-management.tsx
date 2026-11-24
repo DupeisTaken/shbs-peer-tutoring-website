@@ -534,7 +534,7 @@ export function InterviewManagement({
               <label className="min-w-0 flex-[1_1_12rem]">
                 <span className="label">{t("interviewFilter")}</span>
                 <select
-                  className="input control-compact mt-1 min-h-11 w-full lg:min-h-8 lg:py-1"
+                  className="select control-compact mt-1 min-h-11 w-full lg:min-h-8 lg:py-1"
                   value={completion}
                   onChange={(event) => {
                     setPage(0);
@@ -557,7 +557,7 @@ export function InterviewManagement({
                   {allT("admin.applications.filters.status")}
                 </span>
                 <select
-                  className="input control-compact mt-1 min-h-11 w-full lg:min-h-8 lg:py-1"
+                  className="select control-compact mt-1 min-h-11 w-full lg:min-h-8 lg:py-1"
                   value={status}
                   onChange={(event) => {
                     setPage(0);
@@ -587,7 +587,7 @@ export function InterviewManagement({
                   {allT("admin.applications.filters.sort")}
                 </span>
                 <select
-                  className="input control-compact mt-1 min-h-11 w-full lg:min-h-8 lg:py-1"
+                  className="select control-compact mt-1 min-h-11 w-full lg:min-h-8 lg:py-1"
                   value={sort}
                   onChange={(event) => {
                     // Read preferences never replace the unsubmitted search or completion drafts.

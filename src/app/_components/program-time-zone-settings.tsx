@@ -130,7 +130,7 @@ export function TimeZoneEditor({
       <label className="block space-y-1">
         <span className="label">{t("zone")}</span>
         <select
-          className="input min-h-11 w-full min-w-0 lg:min-h-10"
+          className="select min-h-11 w-full min-w-0 lg:min-h-10"
           aria-describedby="program-time-zone-label"
           value={zone}
           disabled={!admission.allowed || save.isPending || reloading}

@@ -874,7 +874,7 @@ export function CheckpointRecovery({
                 </label>
                 <select
                   id={`${formId}-domain`}
-                  className="input w-full"
+                  className="select w-full"
                   value={adapter}
                   onChange={(event) =>
                     setAdapter(event.target.value as CheckpointAdapterId)

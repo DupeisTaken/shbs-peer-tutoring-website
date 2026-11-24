@@ -90,7 +90,7 @@ export function NotificationBell() {
 
       <div
         ref={panelRef}
-        className="absolute right-0 z-20 mt-2 hidden w-[min(24rem,calc(100vw-2rem))] rounded-lg border border-slate-200 bg-white shadow-lg group-open:block"
+        className="popover-surface absolute right-0 z-20 mt-2 hidden w-[min(24rem,calc(100vw-2rem))] overflow-hidden group-open:block"
       >
         <div className="flex items-center justify-between border-b border-slate-100 px-3 py-2">
           <span className="text-sm font-semibold text-slate-900">

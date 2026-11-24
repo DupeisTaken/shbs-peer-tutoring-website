@@ -82,7 +82,7 @@ export function RecipientPicker({
           <label className="block space-y-1 text-sm font-medium">
             {t("mode")}
             <select
-              className="input w-full"
+              className="select w-full"
               value={audience.mode}
               onChange={(event) =>
                 onChange({
@@ -174,7 +174,7 @@ export function RecipientPicker({
               <label className="space-y-1 text-sm font-medium">
                 {t("assignment")}
                 <select
-                  className="input w-full"
+                  className="select w-full"
                   value={audience.assignment}
                   onChange={(event) =>
                     onChange({
@@ -242,7 +242,7 @@ export function RecipientPicker({
                     </div>
                     <select
                       aria-label={t("overrideFor", { name: tutor.name })}
-                      className="input w-auto"
+                      className="select field-auto"
                       value={override}
                       onChange={(event) =>
                         onChange({

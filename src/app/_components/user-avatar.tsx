@@ -50,7 +50,7 @@ export async function UserAvatar({
       </summary>
 
       <div
-        className={`absolute right-0 z-30 mt-2 w-[min(14rem,calc(100vw-2rem))] rounded-lg border border-slate-200 bg-white p-3 shadow-lg ${
+        className={`popover-surface absolute right-0 z-30 mt-2 w-[min(14rem,calc(100vw-2rem))] p-3 ${
           compactAtDesktop ? "lg:p-2" : ""
         }`}
       >

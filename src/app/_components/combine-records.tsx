@@ -575,7 +575,7 @@ export function CombineRecords({
                     <label className="block">
                       <span className="label">{t("retainedLogin")}</span>
                       <select
-                        className="input w-full"
+                        className="select w-full"
                         value={retainedUserId ?? ""}
                         onChange={(event) => {
                           resetReview();
