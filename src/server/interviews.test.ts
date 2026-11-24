@@ -12,7 +12,12 @@ vi.mock("~/server/request-invalidity", () => ({
 function panelFixture(roles: string[]) {
   const panel = roles.map((role, index) => ({
     id: `panel-${index}`,
-    user: { role, suspendedAt: null },
+    user: {
+      role,
+      suspendedAt: null as Date | null,
+      tutorAccessRevoked: false,
+      mergedIntoId: null as string | null,
+    },
   }));
   const tx = {
     tutor: { findMany: vi.fn(async () => panel) },
@@ -83,6 +88,21 @@ it("requires the selected chair to belong to the panel", async () => {
     validatePanel(tx, "application", ids, "outside-panel"),
   ).rejects.toMatchObject({ code: "BAD_REQUEST" });
 });
+
+it.each(["suspended", "revoked", "merged"] as const)(
+  "rejects a %s panelist even when their tutor row remains ACTIVE",
+  async (restriction) => {
+    const { tx, mocks, ids } = panelFixture(["HEAD", "ADMIN", "TUTOR"]);
+    const panel = await mocks.tutor.findMany();
+    const member = panel[2]!;
+    if (restriction === "suspended") member.user.suspendedAt = new Date();
+    if (restriction === "revoked") member.user.tutorAccessRevoked = true;
+    if (restriction === "merged") member.user.mergedIntoId = "another-account";
+    await expect(
+      validatePanel(tx, "application", ids, ids[0]!),
+    ).rejects.toMatchObject({ code: "BAD_REQUEST" });
+  },
+);
 
 it.each(["COORDINATOR", "TUTOR"])(
   "retains a recorded %s chair only when validating completed service",

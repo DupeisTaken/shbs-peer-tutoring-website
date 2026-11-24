@@ -20,7 +20,12 @@ import { validateInterviewDecision } from "./interviews";
 import {
   inspectInterviewCompletionReview,
   interviewCompletionInput,
+  reviewInterviewCompletion,
 } from "./interview-hours";
+import {
+  assertAdjustmentDeletionAllowed,
+  lockAdjustmentDeletion,
+} from "./interview-adjustment-source";
 import { validateRoomBlockProposal } from "./room-block-proposals";
 import {
   historicalApplyInput,
@@ -115,6 +120,10 @@ export async function proposalAuthority(
       checkpointRequiresHead: checkpoint.adapter === "PROGRAM_REFRESH",
     });
   }
+  // A generic reversal cannot sever a live interview's source ledger. Keep this
+  // inspection read-only; queue admission and application retain their own locks.
+  if (operation === "admin.deleteAdjustment" && typeof input.id === "string")
+    await assertAdjustmentDeletionAllowed(client, input.id);
   // Reading an exact completion receipt makes no live change. Admin lost-response
   // retries and Coordinator retries after review must not create correction proposals.
   // The API rechecks this classification under the application's review lock.
@@ -796,6 +805,30 @@ export async function proposalTargets(
       Object.entries(value).forEach(([k, v]) => collect(v, k));
   };
   collect(input);
+  if (includeAuthorityContext && operation === "interviewManagement.complete") {
+    const applicationId = z.string().parse(fields.applicationId);
+    const application = await client.tutorApplication.findUniqueOrThrow({
+      where: { id: applicationId },
+      include: { interviewers: true },
+    });
+    const { interviewServiceContext } = await import("./interview-hours");
+    const service = await interviewServiceContext(
+      client,
+      applicationId,
+      application,
+    );
+    reviewInterviewCompletion(
+      application,
+      service,
+      interviewCompletionInput.parse(fields),
+    );
+    // Removed recipients still belong to the proposed correction's before
+    // evidence. Capture their identities/source rows, even when absent from both
+    // the new attendance selection and the current voting panel.
+    const tutors = ids.get("Tutor") ?? new Set<string>();
+    for (const tutorId of service.eligibleTutorIds) tutors.add(tutorId);
+    ids.set("Tutor", tutors);
+  }
   if (
     includeReviewPresentation &&
     operation === "corrections.correctAttendance"
@@ -1360,22 +1393,78 @@ export async function queueProposal(
     operation === "interviewManagement.complete"
       ? interviewCompletionInput.parse(value)
       : null;
+  const interviewDecision =
+    operation === "tutor.decideInterview"
+      ? z.object({ applicationId: z.string(), accept: z.boolean() }).parse(value)
+      : null;
   return inTransaction(db, async (tx) => {
+    if (operation === "admin.deleteAdjustment") {
+      const deletion = z.object({ id: z.string().min(1) }).parse(value);
+      // Retain fresh ownership through capture/commit, before the proposal lock.
+      // A formerly missing/manual row may become an owned source while waiting.
+      await lockAdjustmentDeletion(tx, deletion.id, async () => {
+        await tx.$queryRaw`SELECT id FROM "User" WHERE id = ${session.user.id} FOR SHARE`;
+        const current = await tx.user.findUnique({
+          where: { id: session.user.id },
+          select: {
+            role: true,
+            suspendedAt: true,
+            mergedIntoId: true,
+            recoveryVoidedAt: true,
+          },
+        });
+        if (
+          !current ||
+          current.suspendedAt ||
+          current.mergedIntoId ||
+          current.recoveryVoidedAt ||
+          current.role !== session.role ||
+          !["HEAD", "ADMIN", "COORDINATOR"].includes(current.role)
+        )
+          throw new TRPCError({
+            code: "FORBIDDEN",
+            message: "Admin access required.",
+          });
+      });
+    }
     if (interviewCompletion) {
-      // Classifying outside this transaction is advisory. Hold the writer's
-      // source lock through the recheck and immutable proposal/notice capture.
+      // Source evidence cannot change between classification and immutable
+      // proposal capture. Match the writer's namespace-before-application order
+      // before taking the proposal fingerprint lock, and retain both to commit.
+      try {
+        await lockUsernameNamespace(tx);
+      } catch (cause) {
+        const { isSerializationFailure } =
+          await import("./auth/username-snapshot");
+        if (isSerializationFailure(cause))
+          throw new TRPCError({
+            code: "CONFLICT",
+            message:
+              "Interview service changed while this review waited. Reload the current evidence.",
+            cause,
+          });
+        throw cause;
+      }
       const { lockApplicationReview } = await import("./request-invalidity");
       await lockApplicationReview(tx, interviewCompletion.applicationId);
       if (
         (await inspectInterviewCompletionReview(tx, value)) === "EXACT_RECEIPT"
       )
-        // A matching writer may have finished while this proposal waited. Let a
-        // fresh retry read its receipt instead of fabricating a review request.
+        // An identical writer may finish after the outer classification chose
+        // the proposal path. A fresh retry takes its normal direct receipt path;
+        // never queue an already-applied action or invent an approval receipt.
         throw new TRPCError({
           code: "CONFLICT",
           message:
             "This interview service is already recorded. Retry against the current evidence to read its receipt.",
         });
+    }
+    if (interviewDecision) {
+      // Match tutor.decideInterview's namespace-before-application lock order
+      // before taking the proposal lock so terminal decisions cannot be queued.
+      await lockUsernameNamespace(tx);
+      const { lockApplicationReview } = await import("./request-invalidity");
+      await lockApplicationReview(tx, interviewDecision.applicationId);
     }
     if (identityCorrection) {
       await lockUsernameNamespace(tx);
@@ -1545,6 +1634,21 @@ export async function queueProposal(
       const decision = z
         .object({ applicationId: z.string(), accept: z.boolean() })
         .parse(value);
+      const before = await tx.tutorApplication.findUniqueOrThrow({
+        where: { id: decision.applicationId },
+        select: { type: true, status: true },
+      });
+      if (before.type !== "INITIAL" || before.status === "RECALLED")
+        throw new TRPCError({
+          code: "CONFLICT",
+          message: "This application cannot receive this interview decision.",
+        });
+      if (before.status !== "INTERVIEW")
+        throw new TRPCError({
+          code: "CONFLICT",
+          message:
+            "This interview has already been decided. Reload its current outcome.",
+        });
       const actor = await tx.user.findUniqueOrThrow({
         where: { id: session.user.id },
         select: { tutorId: true },
