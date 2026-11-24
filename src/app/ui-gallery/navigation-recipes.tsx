@@ -29,8 +29,8 @@ export function NavigationRecipes({ locale }: { locale: "en" | "zh" }) {
       </h2>
       <p className="muted">
         {zh
-          ? "页面链接保留浏览器历史；步骤变化时聚焦标题。BrandMark 跟随当前主题色，.skip-link 在键盘聚焦时显示。标题栏偏好控件为本地示例；上方语言选择器翻译整个示例。"
-          : "Page links preserve browser history; step changes focus the heading. BrandMark inherits the active accent theme and .skip-link reveals on keyboard focus. Header preferences are local examples; the gallery language selector translates this preview."}
+          ? "页面链接保留浏览器历史；步骤变化时聚焦标题。BrandMark 使用官方 PT 标志，.skip-link 在键盘聚焦时显示。标题栏偏好控件为本地示例；上方语言选择器翻译整个示例。"
+          : "Page links preserve browser history; step changes focus the heading. BrandMark renders the official PT logo and .skip-link reveals on keyboard focus. Header preferences are local examples; the gallery language selector translates this preview."}
       </p>
       <code className="block text-xs break-words text-slate-500">
         PublicHeaderFrame · BrandMark · .skip-link · SectionLinks ·
