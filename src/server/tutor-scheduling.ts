@@ -13,6 +13,7 @@ type PlannedTutorWrite = TutorPlannedSchedule & {
   preservedPlanIds?: readonly string[];
   id?: string;
   excludePairingIds?: readonly string[];
+  tuteeIds?: readonly string[];
 };
 
 /** Scheduling shares the existing period → tutor (when needed) → planned-room
@@ -49,9 +50,16 @@ export async function assertTutorScheduleAvailable(
       message:
         "This tutor already has another assigned teaching block during the selected time. Choose a different time or combine eligible assignments first.",
     });
+  // Validate only tutor/participant occupancy here; room availability runs after
+  // room-mode resolution so an old automatic or released room never blocks a move.
   await assertSessionPlanningWeeklyAvailable(db, {
-    ...schedule,
+    tutorId: schedule.tutorId,
+    termId: schedule.termId,
+    dayOfWeek: schedule.dayOfWeek,
+    startMin: schedule.startMin,
     excludePairingIds: excluded,
+    tuteeIds: schedule.tuteeIds,
+    preservedPlanIds: schedule.preservedPlanIds,
   });
 }
 

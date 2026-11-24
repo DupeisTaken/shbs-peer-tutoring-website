@@ -353,10 +353,20 @@ export async function roomUnitMembers(
   );
 }
 
-export function roomUnitSchedule(members: RoomUnitMember[]) {
+export function roomUnitSchedule(
+  members: RoomUnitMember[],
+): AllocationSchedule {
   const primary = members[0]!;
+  // Return only AllocationSchedule fields — never spread primary.roomId into
+  // tutor/participant availability checks before room-mode allocation runs.
   return {
-    ...primary,
+    id: primary.id,
+    termId: primary.termId,
+    tutorId: primary.tutorId,
+    dayOfWeek: primary.dayOfWeek,
+    startMin: primary.startMin,
+    endMin: primary.endMin,
+    scheduleConfirmed: primary.scheduleConfirmed,
     excludePairingIds: members.map((member) => member.id),
     tuteeIds: [
       ...new Set(
@@ -511,7 +521,7 @@ export async function allocateSlotCohort(
   const fixed = units.filter((unit) => !movable.includes(unit));
   const releases = movable.map((unit) => unit.map((row) => row.id).sort());
   await releasePairingsInOrder(db, releases, "rooms");
-  const fixedIds = fixed.flatMap((unit) => unit.map((row) => row.id));
+  const cohortIds = units.flatMap((unit) => unit.map((row) => row.id));
   const occupied = new Set<string>();
   for (const unit of fixed) {
     const primary = unit[0]!;
@@ -519,7 +529,7 @@ export async function allocateSlotCohort(
       ...slot,
       roomId: primary.roomId,
       termId: primary.termId,
-      excludePairingIds: fixedIds,
+      excludePairingIds: cohortIds,
     });
     if (primary.roomId) {
       const key = primary.termId + ":" + primary.roomId;
