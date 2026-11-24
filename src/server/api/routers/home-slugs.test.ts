@@ -3,6 +3,7 @@ import type { Session } from "next-auth";
 vi.mock("~/server/auth", () => ({ auth: async () => null }));
 import { createCaller } from "~/server/api/root";
 import { db } from "~/server/db";
+import { assertIsolatedTestDatabase } from "~/test/database-guard";
 import { slugify } from "~/server/home/slugs";
 import { databaseScope } from "~/server/db-scope";
 
@@ -18,12 +19,7 @@ const caller = () => createCaller({ db, session, headers: new Headers() });
 
 /** Only remove this suite's synthetic content; never touch a running demonstration database. */
 async function clean() {
-  const url = new URL(process.env.DATABASE_URL!);
-  if (
-    !["localhost", "127.0.0.1"].includes(url.hostname) ||
-    !url.pathname.endsWith("_test")
-  )
-    throw Error("Slug tests require an explicitly named local test database");
+  assertIsolatedTestDatabase(process.env.DATABASE_URL);
   await db.customPage.deleteMany({ where: { createdByName: author } });
   await db.landingSection.deleteMany({ where: { createdByName: author } });
 }

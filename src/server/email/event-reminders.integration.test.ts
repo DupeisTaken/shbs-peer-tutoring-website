@@ -109,8 +109,12 @@ beforeEach(async () => {
   });
 });
 afterAll(async () => {
-  await cleanup();
-  await db.$disconnect();
+  try {
+    assertIsolatedTestDatabase(process.env.DATABASE_URL);
+    await cleanup();
+  } finally {
+    await db.$disconnect();
+  }
 });
 
 async function createPairing() {

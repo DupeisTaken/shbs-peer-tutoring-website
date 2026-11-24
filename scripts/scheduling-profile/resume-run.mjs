@@ -105,7 +105,26 @@ async function verify(command, campaign) {
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   const command = process.argv[2];
   try {
-    if (command === "aggregate") await mkdir("outputs", { recursive: true });
+    if (command === "aggregate") {
+      await mkdir("outputs", { recursive: true });
+      if (!process.env.PROFILE_CAMPAIGN) {
+        const message =
+          "No admitted scheduling-profile campaign was bound in the matrix job; inspect the matrix admission summary and artifact instead of aggregate output.";
+        await json("outputs/scheduling-profile-selection.json", {
+          state: "NOT_ADMITTED",
+          error: message,
+        });
+        await json("outputs/scheduling-profile-aggregate.json", {
+          status: "FAIL",
+          samplingComplete: false,
+          latencyComparisonEligible: false,
+          error: message,
+        });
+        process.stderr.write(message + "\n");
+        process.exitCode = 1;
+        process.exit();
+      }
+    }
     const campaign = currentCampaign();
     if (command === "prepare" && campaign.currentAttempt === campaign.campaignAttempt) {
       workerSlot();

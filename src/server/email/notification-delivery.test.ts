@@ -150,8 +150,12 @@ it.each(["en", "zh"] as const)(
   },
 );
 afterAll(async () => {
-  await db.user.deleteMany({ where: { id: uid } });
-  await db.$disconnect();
+  try {
+    assertIsolatedTestDatabase(process.env.DATABASE_URL);
+    await db.user.deleteMany({ where: { id: uid } });
+  } finally {
+    await db.$disconnect();
+  }
 });
 
 it.each(["en", "zh"] as const)(

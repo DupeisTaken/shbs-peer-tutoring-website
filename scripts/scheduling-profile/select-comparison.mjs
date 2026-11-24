@@ -12,10 +12,10 @@ const immutable = (value) => {
   assert.ok(value.length === 40 && /^[0-9a-f]{40}$/.test(value), "Comparison revisions must be immutable lowercase commit SHAs");
   return value;
 };
-/** Select only explicit reviewed paths; this does not authorize their schema delta.
- * The comparison helper still validates every schema, lockfile and migration byte.
+/** Select only explicit reviewed paths; this does not authorize their schema or
+ * dependency delta. Comparison and admission helpers still validate every byte.
  * @param {string} root
- * @param {{defaultBaseline:string, manualBaseline?:string, manualManifest?:string, prNumber?:string}} options
+ * @param {{defaultBaseline:string, manualBaseline?:string, manualManifest?:string, manualAdmissionManifest?:string, prNumber?:string}} options
  */
 export function selectComparison(root, options) {
   const defaultBaseline = immutable(options.defaultBaseline);
@@ -25,27 +25,54 @@ export function selectComparison(root, options) {
   let catalogPath = null;
   let source = "default-baseline";
   let manifest = options.manualManifest || null;
+  let admissionManifest = options.manualAdmissionManifest || null;
+  let admissionManifestFileSha256 = null;
   const prNumber = options.prNumber ?? "";
   assert.ok(typeof prNumber === "string" && (prNumber === "" ||
     /^[1-9][0-9]*$/.test(prNumber) && Number.isSafeInteger(Number(prNumber))),
   "PR_NUMBER must be a positive decimal safe integer without leading zeroes");
+  assert.ok(!(options.manualManifest && options.manualAdmissionManifest),
+    "Manual schema manifest and admission manifest are mutually exclusive");
   // Explicit manual authority bypasses scoped discovery as one selection. This
   // prevents a different manual manifest being labelled as a matched PR pair.
-  if (prNumber && !options.manualBaseline && !options.manualManifest) {
+  const hasManualOverride = Boolean(options.manualBaseline || options.manualManifest || options.manualAdmissionManifest);
+  if (prNumber && !hasManualOverride) {
     const scopedBaseline = `.github/scheduling-profile-manifests/pr-${prNumber}-baseline.txt`;
     const scopedManifest = `.github/scheduling-profile-manifests/pr-${prNumber}.json`;
     const scopedCatalog = `.github/scheduling-profile-manifests/pr-${prNumber}-catalog-baseline.txt`;
+    const scopedAdmission = `.github/scheduling-profile-manifests/pr-${prNumber}-admission.json`;
     const hasBaseline = existsSync(resolve(root, scopedBaseline));
     const hasManifest = existsSync(resolve(root, scopedManifest));
     const hasCatalog = existsSync(resolve(root, scopedCatalog));
+    const hasAdmission = existsSync(resolve(root, scopedAdmission));
+    assert.ok(!hasAdmission || (!hasBaseline && !hasManifest && !hasCatalog),
+      "PR-scoped admission manifest cannot coexist with PR-scoped baseline or schema manifests");
     assert.equal(hasBaseline, hasManifest, "PR-scoped baseline and reviewed manifest must both exist");
     assert.ok(!hasCatalog || hasBaseline && hasManifest, "PR-scoped catalog baseline requires its ordinary baseline and reviewed manifest pair");
-    if (hasBaseline) {
+    if (hasAdmission) {
+      admissionManifest = scopedAdmission;
+    } else if (hasBaseline) {
       selectedPath = scopedBaseline;
       manifest = scopedManifest;
       source = "reviewed-pr-baseline-file";
       if (hasCatalog) catalogPath = scopedCatalog;
     }
+  }
+  if (admissionManifest) {
+    assert.match(admissionManifest, manifestPattern, "Reviewed admission manifest path is outside the fixed directory");
+    assert.ok(lstatSync(resolve(root, admissionManifest)).isFile(), "Reviewed admission manifest must be a regular file");
+    admissionManifestFileSha256 = createHash("sha256").update(readFileSync(resolve(root, admissionManifest))).digest("hex");
+    if (options.manualBaseline) {
+      baseline = immutable(options.manualBaseline);
+      source = "manual-baseline";
+    }
+    return {
+      baseline, manifest: null, baselineSelectionSource: source,
+      baselineSelectionPath: null, baselineSelectionFileSha256: null,
+      catalogBaseline: baseline, catalogBaselineSelectionPath: null,
+      catalogBaselineSelectionFileSha256: null, catalogBaselineSelectionSource: source,
+      admissionManifest, admissionManifestFileSha256,
+    };
   }
   if (manifest) assert.match(manifest, manifestPattern, "Reviewed manifest path is outside the fixed directory");
   else if (existsSync(resolve(root, defaultManifest))) manifest = defaultManifest;
@@ -82,7 +109,8 @@ export function selectComparison(root, options) {
   return { baseline, manifest, baselineSelectionSource: source,
     baselineSelectionPath: selectedPath, baselineSelectionFileSha256: selectedHash,
     catalogBaseline, catalogBaselineSelectionPath: catalogPath ?? selectedPath,
-    catalogBaselineSelectionFileSha256: catalogHash, catalogBaselineSelectionSource: catalogSource };
+    catalogBaselineSelectionFileSha256: catalogHash, catalogBaselineSelectionSource: catalogSource,
+    admissionManifest: null, admissionManifestFileSha256: null };
 }
 
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
@@ -93,6 +121,7 @@ if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.ur
     defaultBaseline: process.env.DEFAULT_BASELINE_SHA ?? "",
     manualBaseline: process.env.MANUAL_BASELINE_SHA,
     manualManifest: process.env.MANUAL_SCHEMA_MANIFEST,
+    manualAdmissionManifest: process.env.MANUAL_ADMISSION_MANIFEST,
     prNumber: process.env.PR_NUMBER,
   });
   for (const [key, value] of Object.entries(selected)) process.stdout.write(`${key}=${value ?? ""}\n`);
