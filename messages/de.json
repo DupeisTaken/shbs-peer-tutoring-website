@@ -32,6 +32,7 @@
     "calendarCreate": "Privaten Link erstellen",
     "calendarRevoke": "Privaten Link widerrufen",
     "calendarUnavailable": "Ohne berechtigte aktuelle Teilnahme ist kein Kalenderabonnement verfügbar.",
+    "calendarCreateHelp": "Erstellt einen privaten, schreibgeschützten Link für deinen Tutoring-Kalender. Halte ihn geheim; jeder mit dem Link kann deinen Zeitplan einsehen.",
     "calendarRotateHelp": "Ein neuer Link widerruft alle bisherigen Links. Kalender mit alten Links werden nicht mehr aktualisiert.",
     "calendarRevokeHelp": "Der private Link wird widerrufen. Bestehende Abonnements erhalten keine Updates mehr. Die Sitzungen bleiben unverändert.",
     "publicationUnavailable": "{count} wöchentliche Vereinbarung(en) müssen geprüft werden und konnten nicht als datierte Sitzungen vorbereitet werden.",
@@ -1125,7 +1126,7 @@
       "programTotals": "Programmsummen im gewählten Zeitraum",
       "programTotalsHelp": "Alle Tutoren einschließlich inaktiver; Listenfilter ändern diese Summen nicht.",
       "filteredSubtotal": "Gefilterte Zwischensumme · {count} Tutoren",
-      "hiddenInactive": "Der Statusfilter blendet {count} inaktive Tutoren mit Einträgen aus.",
+      "hiddenInactive": "{count, plural, one {Der Statusfilter blendet # inaktiven Tutor mit Einträgen aus.} other {Der Statusfilter blendet # inaktive Tutoren mit Einträgen aus.}}",
       "viewInactive": "Inaktive Mitwirkende anzeigen",
       "viewLabel": "Listenansicht",
       "viewSummary": "Übersicht",
@@ -1416,7 +1417,7 @@
     },
     "tutorRequests": {
       "title": "Tutor-Statusanträge",
-      "help": "Von Tutoren initiierte Mitgliedschaftsänderungen. Austrittsanträge können erst nach einer einwöchigen Wartezeit genehmigt werden; Wiedereintritt ist sofort möglich.",
+      "help": "Von Tutoren initiierte Mitgliedschaftsänderungen. Austrittsanträge können erst nach einer einwöchigen Wartezeit genehmigt werden; Wiedereintrittsanträge können sofort geprüft werden und werden nach Genehmigung wirksam.",
       "kind": {
         "OPT_OUT": "Austritt",
         "REENTRY": "Wiedereintritt"
@@ -2964,7 +2965,8 @@
       "codeSent": "Wir haben einen Code an {email} gesendet. Geben Sie ihn unten ein, um abzuschließen.",
       "codeLabel": "E-Mail-Bestätigungscode",
       "resend": "Code erneut senden",
-      "cancel": "Abbrechen"
+      "cancel": "Abbrechen",
+      "deliveryFailed": "E-Mail-Zustellung fehlgeschlagen. Bitte versuchen Sie es später erneut."
     }
   },
   "crew": {

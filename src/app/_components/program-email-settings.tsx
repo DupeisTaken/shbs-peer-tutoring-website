@@ -115,7 +115,7 @@ export function ProgramEmailSettings({
           <p className="muted text-xs">{t("essential")}</p>
           <div className="space-y-3 border-t border-slate-100 pt-4">
             <div className="flex items-start justify-between gap-4">
-              <div>
+              <div className="min-w-0 flex-1">
                 <h3 className="text-sm font-semibold text-slate-900">
                   {t("bindingTitle")}
                 </h3>
@@ -123,11 +123,11 @@ export function ProgramEmailSettings({
               </div>
               {data && (
                 <span
-                  className={
+                  className={`shrink-0 whitespace-nowrap ${
                     data.secondaryEmailBindingEnabled
                       ? "badge-green"
                       : "badge-slate"
-                  }
+                  }`}
                 >
                   {t(data.secondaryEmailBindingEnabled ? "on" : "off")}
                 </span>

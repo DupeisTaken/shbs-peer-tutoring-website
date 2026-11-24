@@ -773,3 +773,55 @@ it("shows retained current work without falsely labelling it as a retirement blo
   expect(screen.queryByText(en.personParticipation.blocksRetirement)).toBeNull();
   expect(screen.queryByText(en.personParticipation.blocksFinalization)).toBeNull();
 });
+
+it("resets selected records, search, and identity evidence when reviewing another combination (#786)", async () => {
+  mount();
+  await review();
+  fireEvent.change(
+    screen.getByRole("textbox", { name: en.combineRecords.search }),
+    { target: { value: "alex" } },
+  );
+  confirm();
+  await act(async () => {
+    await fixture.callbacks!.onSuccess(result);
+    fixture.callbacks!.onSettled();
+  });
+  fireEvent.click(
+    screen.getByRole("button", { name: en.combineRecords.combineMore }),
+  );
+  // Previous search and selections are cleared before starting the next combination.
+  expect(
+    screen.getByRole<HTMLInputElement>("textbox", {
+      name: en.combineRecords.search,
+    }).value,
+  ).toBe("");
+  expect(
+    screen.getByRole<HTMLInputElement>("checkbox", { name: /archive-tutor/ })
+      .checked,
+  ).toBe(false);
+  expect(
+    screen.getByRole<HTMLInputElement>("checkbox", { name: /archive-tutee/ })
+      .checked,
+  ).toBe(false);
+
+  // Select two records for the next combination and verify earlier sources and reason are absent.
+  fireEvent.click(screen.getByRole("checkbox", { name: /archive-tutee/ }));
+  fireEvent.click(screen.getByRole("checkbox", { name: /login/ }));
+  fireEvent.click(
+    screen.getByRole("button", { name: en.combineRecords.preview }),
+  );
+  await screen.findByRole("heading", { name: en.combineRecords.result });
+  expect(fixture.preview).toHaveBeenLastCalledWith(
+    {
+      sources: [candidates[1]!.ref, candidates[2]!.ref],
+      retainedUserId: undefined,
+      retireDuplicateLogins: false,
+    },
+    { staleTime: 0 },
+  );
+  expect(
+    screen.getByRole<HTMLTextAreaElement>("textbox", {
+      name: en.combineRecords.evidence,
+    }).value,
+  ).toBe("");
+});

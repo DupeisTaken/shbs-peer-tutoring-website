@@ -1,3 +1,4 @@
+import { createTranslator } from "next-intl";
 import { describe, expect, it } from "vitest";
 
 import de from "../../messages/de.json";
@@ -474,5 +475,45 @@ describe("copy quality and EN/ZH consistency regressions (#825-#828)", () => {
     for (const text of enValues) {
       expect(text).not.toMatch(/\bHEAD\b/);
     }
+  });
+});
+
+describe("catalog regressions (#749, #769, #771, #774)", () => {
+  it("pluralizes Service Hours hiddenInactive cleanly for singular and plural counts (#769)", () => {
+    const tEn = createTranslator({ locale: "en", messages: en });
+    expect(tEn("admin.summary.hiddenInactive", { count: 1 })).toBe(
+      "1 inactive tutor with records is hidden by the status filter.",
+    );
+    expect(tEn("admin.summary.hiddenInactive", { count: 2 })).toBe(
+      "2 inactive tutors with records are hidden by the status filter.",
+    );
+    for (const locale of LOCALES) {
+      const t = createTranslator({ locale, messages: bundledMessages[locale] });
+      expect(t("admin.summary.hiddenInactive", { count: 1 })).toContain("1");
+      expect(t("admin.summary.hiddenInactive", { count: 3 })).toContain("3");
+    }
+  });
+
+  it("clarifies Tutor Status Requests reentry review vs approval effect (#771)", () => {
+    expect(en.admin.tutorRequests.help).toContain("one-week cooldown");
+    expect(en.admin.tutorRequests.help).toContain("review reentry");
+    expect(en.admin.tutorRequests.help).toContain("after approval");
+    expect(en.admin.tutorRequests.help).not.toContain("reentry is immediate");
+    expect(zh.admin.tutorRequests.help).toContain("一周冷静期");
+    expect(zh.admin.tutorRequests.help).toContain("立即审核");
+    expect(zh.admin.tutorRequests.help).toContain("审批通过后生效");
+    expect(zh.admin.tutorRequests.help).not.toContain("立即生效");
+  });
+
+  it("provides distinct first-time calendar creation help and password-code delivery failure copy across all locales (#774, #749)", () => {
+    for (const locale of LOCALES) {
+      const m = bundledMessages[locale];
+      expect(m.sessionPlanning.calendarCreateHelp.trim()).not.toBe("");
+      expect(m.sessionPlanning.calendarCreateHelp).not.toBe(
+        m.sessionPlanning.calendarRotateHelp,
+      );
+      expect(m.account.password.deliveryFailed.trim()).not.toBe("");
+    }
+    expect(zh.account.password.deliveryFailed).not.toMatch(/[A-Za-z]/);
   });
 });
