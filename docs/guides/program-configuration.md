@@ -366,7 +366,7 @@ Completed menu and retain drafts across collapse and deterministic reordering.
 
 ## Refresh the program
 
-Head runs refresh in **Program Settings → Recruitment and Refresh** after reviewing the current period, exact destination, program timezone and prepared Tutor/Tutee openings, then typing `REFRESH`; Admin may request Head review. Coordinators can inspect it but cannot submit or execute it. Previously staged module settings take effect in this operation; the applied quarter/semester mode determines the next period.
+**Program Settings → Recruitment and Refresh** provides one unified **Program Refresh** section combining scheduled-refresh status, run conditions, **Next-Period Recruitment** openings, and a single refresh authorization entrance. Head runs or schedules refresh directly after reviewing the current period, exact destination, program timezone, prepared Tutor/Tutee openings and staged optional features, then typing `REFRESH`; Admin may request Head review. Coordinators can inspect refresh status and conditions and submit next-period opening proposals for Admin review, but cannot submit or execute a refresh. Previously staged module settings take effect in this operation; the applied quarter/semester mode determines the next period.
 
 | Change                       | Result                                                                                                                                                      |
 | ---------------------- | ---------------------------------------------------------------------------------------------------------------- |
@@ -391,16 +391,14 @@ Q3 → Q4 graduation still applies; a graduated tutor cannot receive an automati
 continuation assignment, and the accepted tutee request waits for staff assignment.
 ### Schedule a refresh
 
-Use **Schedule the next refresh** to choose a future date and time in the displayed
-program timezone. Type `REFRESH`, then open the review of the exact destination,
-prepared openings and consequences. Head saves directly; Admin submits for Head approval. A pending
-proposal is not an active schedule. The current period stays active until execution.
-A future prepared tutee opening cannot precede the scheduled refresh.
+Inside **Program Refresh → Authorize Refresh**, **Schedule for later** is the default timing mode (switch to **Refresh now** in the same entrance only when you intend to advance immediately). Choose a future date and time in the displayed program timezone, type `REFRESH`, then open the review of the exact destination, prepared openings and consequences. Head saves directly; Admin submits for Head approval. A pending proposal is not an active schedule. The current period stays active until execution. A future prepared tutee opening cannot precede the scheduled refresh, and the editor displays that bound inline when present.
+
+The **Program Refresh** card surfaces only essential live state: the transition header (`current → next · mode · timezone`), active/blocked/failed schedule status (explicitly denoting when it will run automatically vs when it is paused), any pending staged optional features, the compact embedded **Next-Period Recruitment** openings, and the single **Authorize Refresh** entrance. Period-transition effects and full destination details stay collapsed under **Effects & full refresh details** until expanded and always appear in full inside the final review modal. Updating prepared next-period openings or other reviewed settings promptly rechecks an active schedule so invalidated schedules show **Needs renewed review** without waiting for the next poll.
 
 Schedules survive browser closure and server restarts. The server checks approved
 schedules on startup and every 30 seconds, including before their execution time.
 On detecting a change to the reviewed settings or the approving Head's authority,
-it marks the schedule **Needs review** and notifies active Admins and Head. Earlier
+it marks the schedule **Needs renewed review** and notifies active Admins and Head. Earlier
 detection gives management time to review and replace the schedule before the
 intended refresh time. Saving an unchanged default feature setting keeps the
 authorization valid. Changes to the approving Head's role, suspension or merge
