@@ -2589,7 +2589,10 @@
       "panel": "Gremium: {members}",
       "headSuffix": "(Leiter)",
       "scheduled": "Geplant: {time}",
-      "awaitingSchedule": "Warten auf Terminierung durch den Leiter."
+      "awaitingSchedule": "Warten auf Terminierung durch den Leiter.",
+      "chairHelp": "Interviews, die Sie leiten. Planen Sie Termine, prüfen Sie die Gremiumsstimmen und halten Sie Entscheidungen hier fest. Geben Sie Ihre eigene Stimme im Interviewtermin unter Zeitplan ab.",
+      "voteInSchedule": "Im Zeitplan abstimmen",
+      "updateVoteInSchedule": "Stimme im Zeitplan ändern"
     },
     "announcements": {
       "label": "Ankündigungen",
@@ -2695,7 +2698,8 @@
       "schedule": "Zeitplan",
       "pairings": "Zuordnungen",
       "preferences": "Einstellungen",
-      "history": "Verlauf & Stunden"
+      "history": "Verlauf & Stunden",
+      "chair": "Interviewleitung"
     }
   },
   "public": {
@@ -7215,6 +7219,9 @@
     "historyFollowups": "{count, plural, one {# abgeschlossenes Interview benötigt noch} other {# abgeschlossene Interviews benötigen noch}} die Erfassung des Abschlusses und die Stundengutschrift durch die Verwaltung.",
     "accessDenied": "Der Zugriff auf Interviews ist nicht mehr verfügbar. Laden Sie die Ansicht neu, um Ihre aktuellen Berechtigungen zu prüfen.",
     "chairNeedsUpdate": "This panel needs an Admin or Head chair. Ask management to update the panel.",
+    "noChairInterviews": "Ihnen sind derzeit keine Interviews als Leitung zugewiesen.",
+    "refresh": "Aktualisieren",
+    "refreshing": "Wird aktualisiert…",
     "correctionEvidence": {
       "readUnavailable": "Die aktuellen Interviewnachweise müssen erfolgreich geladen werden, bevor Sie prüfen oder einreichen. Ihr Entwurf bleibt erhalten.",
       "missingEvidence": "Laden Sie die erfassten Interviewteilnehmer und aktuellen Quellgutschriften, bevor Sie diese Änderung prüfen.",
@@ -7937,7 +7944,7 @@
     "denied": "Access to this planning source is no longer available.",
     "retry": "Retry",
     "interviewAttention": "These interviews still need attention, even when they have no upcoming date.",
-    "interviewHelp": "Assigned interview dates appear in your agenda. Your chair workspace remains on the dashboard.",
+    "interviewHelp": "Zugewiesene Interviewtermine erscheinen im Zeitplan. Öffnen Sie ein Interview zum Abstimmen; Leitungsaufgaben befinden sich im Tab Interviewleitung.",
     "meetingHelp": "Anstehende Termine erscheinen in deiner Agenda. Öffne die Besprechungen, um Abwesenheiten zu entschuldigen und deinen persönlichen Verlauf anzusehen.",
     "calendarScope": "Calendar subscriptions currently include tutoring sessions only. Interviews and meetings appear here in the portal.",
     "task": {

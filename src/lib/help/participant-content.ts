@@ -3332,8 +3332,8 @@ export const participantArticles: HelpArticle[] = [
       {
         title: t("Open Interview work", "打开面试工作"),
         body: t(
-          "In Schedule open your assigned interview and inspect the requested subjects and qualification explanation. Chairs can also open Interviews to Conduct; completed records are in its collapsed history section.",
-          "在课表中打开分配的面试，查看申请科目及资质说明。主席也可打开待主持面试；已完成记录位于折叠历史区域。",
+          "In Schedule open your assigned interview event (or Interviews & history) to inspect the requested subjects, qualification explanation and panel votes. Chairs handle scheduling and final decisions in the separate Interview chair tab; completed records are in its collapsed history section.",
+          "在日程中打开分配的面试事件（或“面试与历史”），查看申请科目、资质说明与评审投票。组长排期和最终决定位于独立的“面试组长”标签页；已完成记录位于折叠历史区域。",
         ),
         screenshot: "tutor-schedule",
         focus: t(
@@ -3344,15 +3344,15 @@ export const participantArticles: HelpArticle[] = [
       {
         title: t("Submit your own vote", "提交本人的投票"),
         body: t(
-          "Read the application evidence and record your vote through its existing control. Check Vote recorded / Awaiting decision. Every panelist must vote before the final decision; opening or scheduling earns no hours.",
-          "阅读申请证据，通过现有控件记录本人投票。检查已投票／等待决定。最终决定前每位委员必须投票；仅打开或排期不会计时。",
+          "Every assigned panelist, including the chair, submits their own vote from the interview event in Schedule. Check Vote recorded / Awaiting decision. Every panelist must vote before the final decision; opening or scheduling earns no hours.",
+          "包括组长在内的每位面试委员都在日程中的面试事件里提交本人投票。检查已投票／等待决定。最终决定前每位委员必须投票；仅打开或排期不会计时。",
         ),
       },
       {
         title: t("Chair: schedule and decide", "主席：排期并决定"),
         body: t(
-          "An authorized chair schedules the interview and records the outcome after all votes, following the majority and resolving a tie. On approval enter actual completion time, minutes and attending panelists, then review Approve & award hours.",
-          "获授权主席安排面试，并在全部投票后依据多数意见记录结果，平票时作出决定。批准时填写实际完成时间、分钟数及出席委员，再检查批准并授予时数。",
+          "In the Interview chair tab, an authorized chair schedules the interview and records the outcome after all votes, following the majority and resolving a tie. On approval enter actual completion time, minutes and attending panelists, then review Approve & award hours.",
+          "获授权组长在“面试组长”标签页安排面试，并在全部投票后依据多数意见记录结果，平票时作出决定。批准时填写实际完成时间、分钟数及出席委员，再检查批准并授予时数。",
         ),
       },
       {

@@ -499,3 +499,88 @@ it("retains the comment and missing-vote prompts when the mutation is rejected",
   expect(fixture.readSummary).toHaveBeenCalledOnce();
   expect(fixture.readEvents).toHaveBeenCalledOnce();
 });
+
+it("lets a chair cast their member vote from the Schedule event while synchronizing the separate chair workspace", async () => {
+  fixture.readOwn.mockImplementation(async () =>
+    ownRows().map((row) =>
+      row.id === "target"
+        ? { ...row, type: "INITIAL", isHead: true, canChair: true }
+        : row,
+    ),
+  );
+  fixture.readSummary.mockImplementation(async () => {
+    const base = scheduleRows();
+    return {
+      ...base,
+      appointments: base.appointments.map((row) =>
+        row.id === "target" ? { ...row, isHead: true, canChair: true } : row,
+      ),
+      actionableTasks: base.actionableTasks.map((row) =>
+        row.id === "target" ? { ...row, isHead: true, canChair: true } : row,
+      ),
+    };
+  });
+  fixture.readEvents.mockImplementation(async () => {
+    const base = scheduleRows();
+    return {
+      ...base,
+      appointments: base.appointments.map((row) =>
+        row.id === "target" ? { ...row, isHead: true, canChair: true } : row,
+      ),
+    };
+  });
+  const client = api.createClient({ links: [transport()] });
+  render(
+    <QueryClientProvider client={queryClient}>
+      <api.Provider client={client} queryClient={queryClient}>
+        <NextIntlClientProvider
+          locale="en"
+          timeZone="Asia/Shanghai"
+          messages={en}
+        >
+          <div data-testid="chair-tab">
+            <MyInterviews audience="chair" />
+          </div>
+          <TutorSchedule
+            active
+            interviewsEnabled
+            meetingsEnabled={false}
+            compact
+            now={now}
+          />
+        </NextIntlClientProvider>
+      </api.Provider>
+    </QueryClientProvider>,
+  );
+  await ready();
+  const chairTab = within(screen.getByTestId("chair-tab"));
+  expect(
+    chairTab.queryByLabelText(en.tutor.interviews.voteCommentPlaceholder),
+  ).toBeNull();
+  expect(
+    chairTab
+      .getByRole("link", { name: en.tutor.interviews.voteInSchedule })
+      .getAttribute("href"),
+  ).toBe("#interview-target");
+  // Cast vote from the calendar event card in Schedule.
+  const dialog = await open();
+  fireEvent.click(accept(dialog));
+  await waitFor(() => expect(mutationState()?.status).toBe("success"));
+  fireEvent.click(
+    within(dialog).getByRole("button", { name: en.accountProfile.close }),
+  );
+  assertSynchronized();
+  expect(
+    chairTab.getByRole("link", {
+      name: en.tutor.interviews.updateVoteInSchedule,
+    }),
+  ).toBeTruthy();
+  expect(
+    chairTab.getByText(
+      en.tutor.interviews.yourVote.replace(
+        "{vote}",
+        en.tutor.interviews.voteAccept,
+      ),
+    ),
+  ).toBeTruthy();
+});

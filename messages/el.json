@@ -2589,7 +2589,10 @@
       "panel": "Επιτροπή: {members}",
       "headSuffix": "(υπεύθυνος)",
       "scheduled": "Προγραμματισμένο: {time}",
-      "awaitingSchedule": "Αναμένεται ο υπεύθυνος να ορίσει ώρα."
+      "awaitingSchedule": "Αναμένεται ο υπεύθυνος να ορίσει ώρα.",
+      "chairHelp": "Συνεντεύξεις στις οποίες είστε υπεύθυνος. Ορίστε ώρες, δείτε τις ψήφους της επιτροπής και καταχωρίστε τελικές αποφάσεις εδώ. Υποβάλετε τη δική σας ψήφο από το συμβάν συνέντευξης στο Πρόγραμμα.",
+      "voteInSchedule": "Ψηφοφορία στο Πρόγραμμα",
+      "updateVoteInSchedule": "Ενημέρωση ψήφου στο Πρόγραμμα"
     },
     "announcements": {
       "label": "Ανακοινώσεις",
@@ -2695,7 +2698,8 @@
       "schedule": "Πρόγραμμα",
       "pairings": "Αντιστοιχίσεις",
       "preferences": "Προτιμήσεις",
-      "history": "Ιστορικό και ώρες"
+      "history": "Ιστορικό και ώρες",
+      "chair": "Υπεύθυνος συνέντευξης"
     }
   },
   "public": {
@@ -7215,6 +7219,9 @@
     "historyFollowups": "{count, plural, one {Για # οριστικοποιημένη συνέντευξη εκκρεμεί ακόμη} other {Για # οριστικοποιημένες συνεντεύξεις εκκρεμεί ακόμη}} η καταγραφή ολοκλήρωσης και η απόδοση ωρών από τη διαχείριση.",
     "accessDenied": "Η πρόσβαση στις συνεντεύξεις δεν είναι πλέον διαθέσιμη. Επαναφορτώστε για να ελέγξετε τα τρέχοντα δικαιώματά σας.",
     "chairNeedsUpdate": "This panel needs an Admin or Head chair. Ask management to update the panel.",
+    "noChairInterviews": "Δεν σας έχουν ανατεθεί συνεντεύξεις ως υπεύθυνος.",
+    "refresh": "Ανανέωση",
+    "refreshing": "Ανανέωση…",
     "correctionEvidence": {
       "readUnavailable": "Τα τρέχοντα στοιχεία της συνέντευξης πρέπει να φορτωθούν επιτυχώς πριν από τον έλεγχο ή την υποβολή. Το πρόχειρό σας διατηρείται.",
       "missingEvidence": "Φορτώστε τους καταγεγραμμένους συμμετέχοντες και τις τρέχουσες πιστώσεις ωρών πριν ελέγξετε αυτή την αλλαγή.",
@@ -7937,7 +7944,7 @@
     "denied": "Access to this planning source is no longer available.",
     "retry": "Retry",
     "interviewAttention": "These interviews still need attention, even when they have no upcoming date.",
-    "interviewHelp": "Assigned interview dates appear in your agenda. Your chair workspace remains on the dashboard.",
+    "interviewHelp": "Οι ανατεθειμένες συνεντεύξεις εμφανίζονται στο πρόγραμμά σας. Ανοίξτε οποιαδήποτε συνέντευξη για να ψηφίσετε· τα καθήκοντα υπευθύνου βρίσκονται στην καρτέλα Υπεύθυνος συνέντευξης.",
     "meetingHelp": "Οι προσεχείς ημερομηνίες εμφανίζονται στην ατζέντα σας. Ανοίξτε τις συναντήσεις για δικαιολόγηση απουσιών και προσωπικό ιστορικό.",
     "calendarScope": "Calendar subscriptions currently include tutoring sessions only. Interviews and meetings appear here in the portal.",
     "task": {

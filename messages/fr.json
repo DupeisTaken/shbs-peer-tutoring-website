@@ -2589,7 +2589,10 @@
       "panel": "Jury : {members}",
       "headSuffix": "(responsable)",
       "scheduled": "Planifié : {time}",
-      "awaitingSchedule": "En attente que le responsable planifie une heure."
+      "awaitingSchedule": "En attente que le responsable planifie une heure.",
+      "chairHelp": "Entretiens que vous présidez. Planifiez les horaires, consultez les votes du jury et enregistrez les décisions finales ici. Exprimez votre propre vote depuis l'événement d'entretien dans Planning.",
+      "voteInSchedule": "Voter dans Planning",
+      "updateVoteInSchedule": "Modifier mon vote dans Planning"
     },
     "announcements": {
       "label": "Annonces",
@@ -2695,7 +2698,8 @@
       "schedule": "Planning",
       "pairings": "Affectations",
       "preferences": "Préférences",
-      "history": "Historique et heures"
+      "history": "Historique et heures",
+      "chair": "Responsable d'entretien"
     }
   },
   "public": {
@@ -7215,6 +7219,9 @@
     "historyFollowups": "{count, plural, one {# entretien clôturé nécessite encore} other {# entretiens clôturés nécessitent encore}} l’enregistrement de la fin et l’attribution des heures par l’équipe de gestion.",
     "accessDenied": "L’accès aux entretiens n’est plus disponible. Rechargez la vue pour vérifier vos droits actuels.",
     "chairNeedsUpdate": "This panel needs an Admin or Head chair. Ask management to update the panel.",
+    "noChairInterviews": "Aucun entretien ne vous est attribué en tant que responsable.",
+    "refresh": "Actualiser",
+    "refreshing": "Actualisation…",
     "correctionEvidence": {
       "readUnavailable": "Les preuves actuelles de l’entretien doivent être chargées avant la vérification ou l’envoi. Votre brouillon est conservé.",
       "missingEvidence": "Chargez les participants enregistrés et les crédits actuels de la source avant de vérifier cette modification.",
@@ -7937,7 +7944,7 @@
     "denied": "Access to this planning source is no longer available.",
     "retry": "Retry",
     "interviewAttention": "These interviews still need attention, even when they have no upcoming date.",
-    "interviewHelp": "Assigned interview dates appear in your agenda. Your chair workspace remains on the dashboard.",
+    "interviewHelp": "Les entretiens attribués apparaissent dans votre planning. Ouvrez n'importe quel entretien pour voter ; les tâches de responsable se trouvent dans l'onglet Responsable d'entretien.",
     "meetingHelp": "Les prochaines dates apparaissent dans votre agenda. Ouvrez les réunions pour justifier une absence et consulter votre historique personnel.",
     "calendarScope": "Calendar subscriptions currently include tutoring sessions only. Interviews and meetings appear here in the portal.",
     "task": {
