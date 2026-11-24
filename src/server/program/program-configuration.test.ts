@@ -501,6 +501,86 @@ it("captures one complete room order for Coordinator review and rejects stale re
     }),
   ).toBe(1);
 });
+it("reorders legacy, numeric, UUID and generated room IDs directly and through Coordinator approval", async () => {
+  await db.room.createMany({
+    data: [
+      { id: "legacy-room-2", name: "Legacy room", programOrder: 0, patrolOrder: 7 },
+      { id: "2", name: "Numeric room", programOrder: 1, patrolOrder: 8 },
+      {
+        id: "00000000-0000-4000-8000-000000000002",
+        name: "UUID room",
+        programOrder: 2,
+        patrolOrder: 9,
+      },
+    ],
+  });
+  const generated = await caller("ADMIN").admin.createRoom({
+    name: "Generated room",
+  });
+  const initial = [
+    "legacy-room-2",
+    "2",
+    "00000000-0000-4000-8000-000000000002",
+    generated.id,
+  ];
+  expect((await caller("ADMIN").admin.rooms()).map((room) => room.id)).toEqual(
+    initial,
+  );
+  const directOrder = [
+    generated.id,
+    "00000000-0000-4000-8000-000000000002",
+    "2",
+    "legacy-room-2",
+  ];
+  await caller("ADMIN").admin.reorderRooms({
+    ids: directOrder,
+    expectedIds: initial,
+  });
+  expect((await caller("ADMIN").admin.rooms()).map((room) => room.id)).toEqual(
+    directOrder,
+  );
+  expect(
+    (await db.room.findUniqueOrThrow({ where: { id: "legacy-room-2" } }))
+      .patrolOrder,
+  ).toBe(7);
+
+  const proposedOrder = [
+    "2",
+    "legacy-room-2",
+    generated.id,
+    "00000000-0000-4000-8000-000000000002",
+  ];
+  await expect(
+    caller("COORDINATOR").admin.reorderRooms({
+      ids: proposedOrder,
+      expectedIds: directOrder,
+    }),
+  ).rejects.toMatchObject({ code: "PRECONDITION_FAILED" });
+  const proposal = await db.approvalRequest.findFirstOrThrow({
+    where: { operation: "admin.reorderRooms", state: "PENDING" },
+  });
+  await caller("ADMIN").approval.decide({
+    id: proposal.id,
+    approve: true,
+    note: "Approved legacy room reorder",
+  });
+  expect((await caller("ADMIN").admin.rooms()).map((room) => room.id)).toEqual(
+    proposedOrder,
+  );
+
+  await expect(
+    caller("ADMIN").admin.reorderRooms({
+      ids: ["", "legacy-room-2", generated.id, "2"],
+      expectedIds: proposedOrder,
+    }),
+  ).rejects.toMatchObject({ code: "BAD_REQUEST" });
+  await expect(
+    caller("ADMIN").admin.reorderRooms({
+      ids: ["unknown-room", "legacy-room-2", generated.id, "2"],
+      expectedIds: proposedOrder,
+    }),
+  ).rejects.toMatchObject({ code: "BAD_REQUEST" });
+});
 it("retains original hidden names, enforces the current role and reserves neutral nameless handles", async () => {
   const tutor = await db.tutor.create({
     data: {
