@@ -380,10 +380,9 @@ calculate every authorization query, or resolve general split/reviewer policy.
    weakening guards, restoring retired credentials, or running old writers that
    omit identity fences is not a safe rollback.
 
-The ordinary directory split preserves complete ownership components. Active
-participation and retired-source correction use the separate authority workflows
-above. Keep the broad identity lifecycle tracker open until the complete acceptance
-matrix and integrated scheduling/recovery contracts are verified.
+The ordinary directory split preserves complete ownership components; active
+participation transfer and retired-source history correction use the separate
+authority workflows above.
 
 A canonical learner whose own intake has closed may execute another independent
 open request only through that request's exact assignment authority. The writer
@@ -396,9 +395,8 @@ pending merely because another original request is still open.
 
 The roster guard applies to actual status transitions and membership writes.
 Unchanged-status contact edits and history ownership revision updates remain
-permitted, even when an original request is flagged. They do not authorize new
-assignment or reactivation. The follow-up migration preserves the checksum of
-the original participation migration.
+permitted even when an original request is flagged, without authorizing new
+assignment or reactivation.
 
 Calendar subscriptions resolve exact execution ownership before rendering each
 candidate event. Restoring an original profile does not restore calendar access

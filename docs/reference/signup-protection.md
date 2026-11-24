@@ -1,12 +1,6 @@
 # Public signup protection
 
-Tutee submit (including `requestSignup`) and resend, viewer start/resend, and Crew
-application/status verification mail use the same mail admission lane. Confirmation,
-inspection, mailbox verification and completion keep independent admission capacity;
-exhausting signup mail does not consume it. Existing-account sign-in and password
-recovery are outside these quotas. Recruitment windows and the Viewer/Crew feature
-switches still apply. This is application
-abuse mitigation, not protection against a saturated network or volumetric DDoS.
+Tutee submit (`requestSignup`, `submitSurvey`) and resend (`resendSurvey`), viewer start/resend (`viewer.start`), Crew application/status verification mail (`crew.submitApplication`, `crew.requestStatus`), and `program.verifySignupCaptcha` share the `mail` admission lane ([signup-ingress.ts](../../src/server/signup-ingress.ts)). Confirmation, inspection, mailbox verification and completion keep independent admission capacity; exhausting signup mail does not consume it. Existing-account sign-in and password recovery are outside these quotas. Recruitment windows and Viewer/Crew feature switches still apply. This is application abuse mitigation, not network-layer DDoS protection.
 
 ## Defaults and tuning
 
@@ -18,9 +12,9 @@ first admission, not monthly traffic estimates. Values below cover these public 
 | --- | --- | --- |
 | `SIGNUP_MAIL_GLOBAL` | 400 | Submit / resend attempts per 15 minutes, all networks |
 | `SIGNUP_MAIL_NETWORK` | 300 | Submit / resend attempts per 15 minutes, one network |
-| `SIGNUP_COMPLETE_GLOBAL` | 2000 | Tutee confirmation / inspection, Viewer verification / completion and Crew mailbox verification per 15 minutes |
+| `SIGNUP_COMPLETE_GLOBAL` | 2000 | Tutee confirmation/inspection/receipt, signup appeal inspection/submission, `accountInvitation.review`, Viewer verify/complete, and Crew mailbox verification per 15 minutes |
 | `SIGNUP_COMPLETE_NETWORK` | 1200 | Same, one network |
-| `SIGNUP_READ_GLOBAL` | 6000 | Tutee options/policies, public CAPTCHA configuration and Crew application status reads per 15 minutes |
+| `SIGNUP_READ_GLOBAL` | 6000 | Tutee options/policies, public profile/name-field/feature/CAPTCHA policies, and Crew application status reads per 15 minutes |
 | `SIGNUP_READ_NETWORK` | 3000 | Same, one network |
 | `SIGNUP_RESEND_SECONDS` | 60 | Minimum interval between mail-producing attempts for one normalized email |
 
@@ -84,18 +78,4 @@ availability and configured limits. Use the existing tutee recruitment/viewer
 availability controls for an operational pause. Keep confirmation capacity enabled.
 No CAPTCHA or paid service is needed for these protections.
 
-Automated tests use an isolated local PostgreSQL database and mocked email. They
-exercise the final allowance concurrently through separate clients and a reconnect,
-failed transactions, cooldowns, leases, failed SMTP, and 100 mixed full registrations
-over a simulated 800 seconds from one school network (including reads and wrong-code
-retries). Existing expiry, replay, priority and account-linking regressions also run.
-This is functional acceptance testing, not a production flood test or upstream
-network-capacity guarantee.
-
-[Archived desktop and mobile verification evidence](https://github.com/DupeisTaken/shbs-peer-tutoring-website/tree/6357007373d1efd177e36140d9e0ba7c80d2f237/docs/evidence/issues-181-182)
-describes the implementation revision, rather than a check of the current site.
-
-The SMTP runtime is pinned to Nodemailer 10.0.12, including the upstream TLS
-servername cache fix. Its Node 20 minimum is covered by the deployment's Node 22
-image. A loopback-only SMTP test checks the actual library's caller-owned socket
-and message-delivery contract; deadline and recovery-pool tests remain separate.
+Automated tests (`src/server/signup-ingress.test.ts`, `src/server/signup-admission.test.ts`, `src/server/email/smtp-runtime.test.ts`) exercise concurrent boundary admission, failed transactions, cooldowns, leases, failed SMTP and loopback Nodemailer delivery (exact pinned version in `package.json`) against an isolated local PostgreSQL database with mocked external mail. They establish functional acceptance, not production flood capacity.
