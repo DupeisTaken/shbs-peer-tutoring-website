@@ -26,6 +26,7 @@ const fixture = vi.hoisted(() => ({
   readPeriod: vi.fn<() => Promise<unknown>>(),
   readPolicy: vi.fn<() => Promise<unknown>>(),
   readNext: vi.fn<() => Promise<unknown>>(),
+  readSchedule: vi.fn<() => Promise<unknown>>(),
   writePolicy: vi.fn<(input: unknown) => Promise<unknown>>(),
   writeRefresh: vi.fn<(input: unknown) => Promise<unknown>>(),
   requests: [] as { path: string; type: string; input: unknown }[],
@@ -65,9 +66,6 @@ vi.mock("~/app/_components/program-public-qr-links", () => ({
 vi.mock("~/app/_components/next-recruitment-settings", () => ({
   NextRecruitmentSettings: fixture.privateChild,
   NextRecruitmentError: ({ message }: { message: string }) => message,
-}));
-vi.mock("~/app/_components/scheduled-program-refresh", () => ({
-  ScheduledProgramRefresh: () => null,
 }));
 vi.mock("~/app/_components/school-calendar", () => ({
   SchoolCalendar: fixture.privateChild,
@@ -136,6 +134,13 @@ const nextRecruitment = {
     destination: null,
   },
 };
+const refreshSchedule = {
+  schedule: null,
+  activeSourceTermId: period.termId,
+  serverNow: new Date("2026-10-30T01:00:00Z"),
+  canEdit: true,
+  canApply: true,
+};
 
 function readError(
   code: "INTERNAL_SERVER_ERROR" | "FORBIDDEN" | "UNAUTHORIZED",
@@ -188,6 +193,8 @@ function transport(): TRPCLink<AppRouter> {
               return fixture.readPolicy();
             if (op.type === "query" && op.path === "program.nextRecruitment")
               return fixture.readNext();
+            if (op.type === "query" && op.path === "admin.refreshSchedule")
+              return fixture.readSchedule();
             if (
               op.type === "mutation" &&
               op.path === "program.setProfilePolicy"
@@ -233,6 +240,7 @@ beforeEach(() => {
   fixture.readPeriod.mockReset().mockResolvedValue(period);
   fixture.readPolicy.mockReset().mockResolvedValue(policy);
   fixture.readNext.mockReset().mockResolvedValue(nextRecruitment);
+  fixture.readSchedule.mockReset().mockResolvedValue(refreshSchedule);
   fixture.writePolicy
     .mockReset()
     .mockRejectedValue(new Error("Synthetic rejected policy save"));
@@ -271,6 +279,7 @@ afterEach(() => {
           [
             "account.me",
             "admin.currentPeriod",
+            "admin.refreshSchedule",
             "program.profilePolicySettings",
             "program.nextRecruitment",
           ].includes(request.path)
@@ -819,6 +828,11 @@ it.each(["account", "period"] as const)(
     fireEvent.click(
       screen.getByRole("tab", { name: en.admin.program.panels.period }),
     );
+    fireEvent.click(
+      await screen.findByRole("button", {
+        name: en.scheduledRefresh.modeImmediate,
+      }),
+    );
     const confirmation = await screen.findByLabelText<HTMLInputElement>(
       en.admin.program.confirmLabel,
     );
@@ -839,7 +853,7 @@ it.each(["account", "period"] as const)(
     await waitForPhase(prerequisite, "error", "INTERNAL_SERVER_ERROR");
     expect(screen.getByRole("dialog")).toBe(dialog);
     expect(confirmation.value).toBe("REFRESH");
-    expect(confirmation.disabled).toBe(true);
+    expect(confirmation.matches(":disabled")).toBe(true);
     expect(preferred(true)).toBe(field);
     fireEvent.click(confirm);
     await waitFor(() =>
@@ -873,6 +887,11 @@ it("retains an accepted refresh receipt through account failure and retries sync
   const { field } = await stageDraft();
   fireEvent.click(
     screen.getByRole("tab", { name: en.admin.program.panels.period }),
+  );
+  fireEvent.click(
+    await screen.findByRole("button", {
+      name: en.scheduledRefresh.modeImmediate,
+    }),
   );
   const confirmation = await screen.findByLabelText<HTMLInputElement>(
     en.admin.program.confirmLabel,

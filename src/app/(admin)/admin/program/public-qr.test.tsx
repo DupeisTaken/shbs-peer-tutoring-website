@@ -241,11 +241,13 @@ it.each(["en", "zh"] as const)(
     const confirmation = screen.getByLabelText<HTMLInputElement>(
       copy.admin.program.confirmLabel,
     );
-    fireEvent.change(confirmation, { target: { value: "REFRESH" } });
-    const scheduledTime = screen.getByLabelText<HTMLInputElement>(copy.scheduledRefresh.timeLabel);
-    const scheduledConfirmation = screen.getByLabelText<HTMLInputElement>(copy.scheduledRefresh.confirmLabel);
+    const scheduledTime = screen.getByLabelText<HTMLInputElement>(
+      copy.scheduledRefresh.timeLabel,
+    );
+    // One single refresh entrance: only one REFRESH confirmation textbox exists.
+    expect(screen.getAllByLabelText(copy.admin.program.confirmLabel)).toHaveLength(1);
     fireEvent.change(scheduledTime, { target: { value: "2026-11-01T09:00" } });
-    fireEvent.change(scheduledConfirmation, { target: { value: "REFRESH" } });
+    fireEvent.change(confirmation, { target: { value: "REFRESH" } });
 
     const region = screen.getByRole("region", {
       name: copy.admin.program.publicQr.heading,
@@ -266,7 +268,6 @@ it.each(["en", "zh"] as const)(
       expect(nextOpenings.map((input) => input.value)).toEqual(nextDrafts);
       expect(confirmation.value).toBe("REFRESH");
       expect(scheduledTime.value).toBe("2026-11-01T09:00");
-      expect(scheduledConfirmation.value).toBe("REFRESH");
     }
     fireEvent.click(
       screen.getByRole("tab", {
@@ -299,7 +300,6 @@ it.each(["en", "zh"] as const)(
     expect(confirmation.value).toBe("REFRESH");
     expect(screen.getByLabelText(copy.scheduledRefresh.timeLabel)).toBe(scheduledTime);
     expect(scheduledTime.value).toBe("2026-11-01T09:00");
-    expect(scheduledConfirmation.value).toBe("REFRESH");
     expect(state.saveRecruitment).not.toHaveBeenCalled();
     expect(state.saveNextRecruitment).not.toHaveBeenCalled();
     expect(state.refresh).not.toHaveBeenCalled();
@@ -355,7 +355,17 @@ it.each(
           name: role === "COORDINATOR" ? copy.approvals.requestAdmin : copy.nextRecruitment.clear,
         })).toBeTruthy();
       }
-      expect(screen.getByLabelText<HTMLInputElement>(copy.admin.program.confirmLabel).disabled).toBe(!canPrepareRefresh);
+      if (canPrepareRefresh) {
+        expect(
+          screen.getByLabelText<HTMLInputElement>(copy.admin.program.confirmLabel)
+            .matches(":disabled"),
+        ).toBe(false);
+      } else {
+        expect(
+          screen.queryByLabelText(copy.admin.program.confirmLabel),
+        ).toBeNull();
+        expect(screen.getByText(copy.scheduledRefresh.readOnly)).toBeTruthy();
+      }
     }
     if (!editable) {
       // Synthetic submit bypasses disabled controls; the real forms must still

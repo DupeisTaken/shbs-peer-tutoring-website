@@ -28,7 +28,11 @@ export function NextRecruitmentError({ message }: { message: string }) {
 }
 
 /** The page grants entry; the query independently supplies live editing authority. */
-export function NextRecruitmentSettings() {
+export function NextRecruitmentSettings({
+  embedded = false,
+}: {
+  embedded?: boolean;
+} = {}) {
   const t = useTranslations("nextRecruitment");
   const query = api.program.nextRecruitment.useQuery();
   const denied = useSessionAccessDenied(query);
@@ -38,12 +42,20 @@ export function NextRecruitmentSettings() {
   return (
     <section className="space-y-4" aria-label={t("title")}>
       <div>
-        <h2 className="section-title">{t("title")}</h2>
-        <p className="muted mt-1 text-sm">{t("help")}</p>
+        {embedded ? (
+          <h3 className="text-base font-semibold text-slate-900">
+            {t("title")}
+          </h3>
+        ) : (
+          <h2 className="section-title">{t("title")}</h2>
+        )}
+        <p className="muted mt-1 text-sm">
+          {t(embedded ? "embeddedHelp" : "help")}
+        </p>
       </div>
       {query.error && <InlineNotice tone="error" announcement="alert" action={<button className="btn-secondary" disabled={query.isFetching} onClick={() => void query.refetch()}>{t("retry")}</button>}>{t("loadFailed")}</InlineNotice>}
       <div className="grid items-start gap-4 lg:grid-cols-2">
-        {(["tutor", "tutee"] as const).map((audience) => <NextRecruitmentEditor key={audience} audience={audience} data={query.data} readFailed={!!query.error} />)}
+        {(["tutor", "tutee"] as const).map((audience) => <NextRecruitmentEditor key={audience} audience={audience} data={query.data} readFailed={!!query.error} embedded={embedded} />)}
       </div>
     </section>
   );
@@ -51,7 +63,7 @@ export function NextRecruitmentSettings() {
 
 /** Draft, version, target and conversion zone move together only after an explicit
  * reload or a confirmed save. Background cache arrivals never rewrite local work. */
-export function NextRecruitmentEditor({ audience, data, readFailed = false }: { audience: RecruitmentAudience; data: NextRecruitmentSettingsData; readFailed?: boolean }) {
+export function NextRecruitmentEditor({ audience, data, readFailed = false, embedded = false }: { audience: RecruitmentAudience; data: NextRecruitmentSettingsData; readFailed?: boolean; embedded?: boolean }) {
   const t = useTranslations("nextRecruitment");
   const approvalText = useTranslations("approvals");
   const locale = useLocale();
@@ -184,7 +196,15 @@ export function NextRecruitmentEditor({ audience, data, readFailed = false }: { 
   return (
     <section className="card overflow-hidden" aria-label={t(audience)}>
       <div className="border-b border-slate-200 bg-slate-50 px-5 py-4">
-        <h3 className="text-base font-semibold text-slate-900">{t(audience)}</h3>
+        {embedded ? (
+          <h4 className="text-base font-semibold text-slate-900">
+            {t(audience)}
+          </h4>
+        ) : (
+          <h3 className="text-base font-semibold text-slate-900">
+            {t(audience)}
+          </h3>
+        )}
         <p className="muted mt-1 text-sm">{t("destination", { name: snapshot.nextName })}</p>
       </div>
       <form className="space-y-4 p-5" onSubmit={(event) => { event.preventDefault(); void save(); }}>
