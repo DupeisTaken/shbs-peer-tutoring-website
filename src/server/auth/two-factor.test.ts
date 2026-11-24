@@ -13,6 +13,7 @@ vi.mock("~/server/email/sender", () => ({
 }));
 
 import { db } from "~/server/db";
+import { assertIsolatedTestDatabase } from "~/test/database-guard";
 import * as codeHelpers from "./code";
 import { hashCode } from "./registration";
 import { EMAIL_CODE_LENGTH } from "./code";
@@ -59,6 +60,7 @@ async function cleanup() {
 }
 
 beforeEach(async () => {
+  assertIsolatedTestDatabase(process.env.DATABASE_URL);
   send.mockClear();
   await cleanup();
   await db.user.create({
@@ -72,7 +74,12 @@ beforeEach(async () => {
 });
 
 afterAll(async () => {
-  await cleanup();
+  try {
+    assertIsolatedTestDatabase(process.env.DATABASE_URL);
+    await cleanup();
+  } finally {
+    await db.$disconnect();
+  }
 });
 
 describe("login 2FA codes", () => {

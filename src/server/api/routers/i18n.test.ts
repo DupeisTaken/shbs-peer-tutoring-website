@@ -6,6 +6,7 @@ vi.mock("~/server/auth", () => ({ auth: async () => null }));
 
 import { createCaller } from "~/server/api/root";
 import { db } from "~/server/db";
+import { assertIsolatedTestDatabase } from "~/test/database-guard";
 
 const LANGUAGE = "zz";
 const adminSession: Session = {
@@ -40,6 +41,7 @@ async function applyStructural(operation: string, apply: () => Promise<unknown>)
 }
 
 beforeEach(async () => {
+  assertIsolatedTestDatabase(process.env.DATABASE_URL);
   await cleanup();
   // Translation editing is an explicit membership, independent of management rank.
   await db.user.upsert({
@@ -56,9 +58,13 @@ beforeEach(async () => {
 });
 
 afterAll(async () => {
-  await cleanup();
-  await db.user.deleteMany({ where: { id: adminSession.user.id } });
-  await db.$disconnect();
+  try {
+    assertIsolatedTestDatabase(process.env.DATABASE_URL);
+    await cleanup();
+    await db.user.deleteMany({ where: { id: adminSession.user.id } });
+  } finally {
+    await db.$disconnect();
+  }
 });
 
 describe("language publishing", () => {
