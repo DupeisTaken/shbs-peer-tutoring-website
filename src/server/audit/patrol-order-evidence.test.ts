@@ -3,6 +3,7 @@ import type { Session } from "next-auth";
 vi.mock("~/server/auth", () => ({ auth: async () => null }));
 import { db } from "~/server/db";
 import { createCaller } from "~/server/api/root";
+import { ApprovalQueued } from "~/server/approvals";
 import { assertIsolatedTestDatabase } from "~/test/database-guard";
 
 assertIsolatedTestDatabase(process.env.DATABASE_URL);
@@ -75,7 +76,7 @@ it("retains exact before/after patrolOrder values including zero in stored audit
       entity?: string;
       before?: Array<Record<string, unknown>>;
       after?: Array<Record<string, unknown>>;
-      submittedSafeFields?: Record<string, unknown>;
+      submittedSafeFields?: Array<Record<string, unknown>>;
     }>;
   };
   expect(details.outcome).toBe("APPLIED");
@@ -90,7 +91,7 @@ it("retains exact before/after patrolOrder values including zero in stored audit
       {
         beforeOrder: change.before?.[0]?.patrolOrder,
         afterOrder: change.after?.[0]?.patrolOrder,
-        submittedOrder: change.submittedSafeFields?.patrolOrder,
+        submittedOrder: change.submittedSafeFields?.[0]?.patrolOrder,
       },
     ]),
   );
@@ -114,16 +115,21 @@ it("retains exact before/after patrolOrder values including zero in stored audit
     submittedOrder: 2,
   });
 
-  // Coordinator proposal (if queued) also preserves patrolOrder evidence without leaking private fields.
+  // Coordinator proposal queues for review without mutating live patrolOrder.
+  let queuedError: unknown;
   try {
     await caller(coordinatorId, "COORDINATOR").admin.setPatrolOrder({
       roomIds: [roomBId, roomCId, roomAId],
     });
   } catch (error) {
-    expect(
-      (error as { data?: { approvalId?: string } }).data?.approvalId,
-    ).toBeTruthy();
+    queuedError = error;
   }
+  const cause = (queuedError as { cause?: unknown } | undefined)?.cause;
+  expect(cause).toBeInstanceOf(ApprovalQueued);
+  const request = await db.approvalRequest.findUniqueOrThrow({
+    where: { id: (cause as ApprovalQueued).approvalId },
+  });
+  expect(request.operation).toBe("admin.setPatrolOrder");
   const roomsNow = await db.room.findMany({
     orderBy: { patrolOrder: "asc" },
     select: { id: true, patrolOrder: true },
