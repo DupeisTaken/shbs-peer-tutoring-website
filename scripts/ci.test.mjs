@@ -11,6 +11,7 @@ import { renderWorker } from "./scheduling-profile/generate-workflow.mjs";
 import {
   isAllowedHelpTarEntry,
   unpackHelpAssets,
+  unpackHelpAssetsWithFallback,
   validateTarListing,
   verifyArchiveChecksum,
   verifyExtractedCaptures,
@@ -731,6 +732,17 @@ test("docker-build unpacks baked help assets before image build and help-assets 
   assert.deepEqual(Object.keys(helpWorkflow.on), ["workflow_dispatch"]);
   assert.deepEqual(helpWorkflow.permissions, { contents: "read" });
   assert.equal(helpWorkflow.jobs.bake.permissions?.contents, "write");
+  assert.equal(helpWorkflow.jobs.bake.env?.AUTH_TRUST_HOST, "true");
+  const verifyStep = helpWorkflow.jobs.bake.steps.find((step) =>
+    step.name.includes("Verify baked screenshot manifest"),
+  );
+  assert.ok(verifyStep);
+  assert.match(verifyStep.run, /check-help-captures\.ts --require-captures/);
+  const packageStep = helpWorkflow.jobs.bake.steps.find((step) =>
+    step.name.includes("Package baked runtime screenshot bundle"),
+  );
+  assert.ok(packageStep);
+  assert.match(packageStep.run, /--exclude=docs\/guides\/help\/assets\/annotated/);
   const releaseStep = helpWorkflow.jobs.bake.steps.find((step) =>
     step.name.includes("Publish rolling help-assets-latest release"),
   );
@@ -831,4 +843,17 @@ test("unpack-help-assets enforces strict tar paths, checksums, and graceful miss
   } finally {
     rmSync(fixtureRoot, { recursive: true, force: true });
   }
+});
+
+test("unpack-help-assets falls back to public HTTPS release download when gh is unauthenticated", async () => {
+  const missingFallback = await unpackHelpAssetsWithFallback({
+    env: { GITHUB_REPOSITORY: "Example/School" },
+    exec: () => {
+      const err = new Error("gh auth login required");
+      err.stderr = "To get started with GitHub CLI, please run: gh auth login";
+      throw err;
+    },
+    fetchImpl: async () => ({ status: 404, ok: false }),
+  });
+  assert.deepEqual(missingFallback, { status: "missing-release", count: 0 });
 });

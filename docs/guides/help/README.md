@@ -52,7 +52,13 @@ automatically verify and unpack `help-assets-latest` before building the runtime
 image so `/help` and `/admin/help` serve illustrated screenshots and PDFs in
 deployment with zero binary blobs in Git.
 
-To bake screenshots locally against a running demo server, run:
+To pull the latest CI-baked screenshots into a local checkout, run:
+
+```sh
+npm run help:unpack
+```
+
+Or to bake screenshots locally against a running demo server, run:
 
 ```sh
 npm run help:capture -- --base-url=http://127.0.0.1:3027
