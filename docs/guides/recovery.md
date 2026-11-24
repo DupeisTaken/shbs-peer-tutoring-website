@@ -148,3 +148,54 @@ the private evidence directory restricted (including Windows ACLs).
 - Staging and synthetic clone acceptance do **not** activate a writable live site.
   See [recovery reference](../reference/recovery.md) for reconciliation invariants
   and [deployment runbook](deployment.md) for production operations.
+
+## Reconcile pretracking archive provenance
+
+Records imported before archive-provenance tracking began have no per-row origin
+in the database. Never infer origin from names, dates, inactive status, totals,
+or matching emails, and never assume balances were posted to the school ledger.
+
+Keep private import files and origin evidence outside Git in a local
+operator-only directory. Extract exact scalar/composite primary keys and
+privacy-preserving SHA-256 row hashes offline (no DB connection; skips
+reference-only `User.csv`):
+
+```bash
+npm run recovery -- provenance extract --input local-operations/pretracking-archive.zip --out local-operations/provenance-candidates.json --evidence-label synthetic-pretracking-2024 --revision DEPLOYED_SHA
+```
+
+Or build a strict JSON candidate file directly from retained evidence with exact
+primary keys (`action: "MARK_IMPORTED"` or `"RELEASE_IMPORTED"`). Then run a
+read-only preview and compare with an active Admin/Head `--actor-id`:
+
+```bash
+npm run recovery -- provenance preview --candidates local-operations/provenance-candidates.json --candidates-hash CANDIDATES_SHA256 --actor-id ADMIN_ID --revision DEPLOYED_SHA --out local-operations/provenance-plan.json
+npm run recovery -- provenance compare --plan local-operations/provenance-plan.json --plan-hash PLAN_SHA256 --actor-id ADMIN_ID
+```
+
+Preview checks blockers without writing:
+- Active/live records (`ACTIVE` participants, active-term sessions/pairings,
+  pending workflows, upcoming meetings/patrols) and active reference
+  configuration (`Term`, `TimeSlot`, `Room`, `Subject`, `SchoolCalendarDay`)
+  block.
+- Live rows diverging from the original import hash block as possible native
+  late corrections.
+- `MARK_IMPORTED` blocks if financial sources (`Session`, `ServiceHourAdjustment`,
+  `Patrol`) overlap `SchoolHoursSchedule.openingBaseline` or a committed
+  `SchoolHoursReport`.
+- `RELEASE_IMPORTED` on an archived financial source is allowed only when it
+  matches an exact anchored opening/committed owner, component, and amount.
+
+When `applicable: true`, apply the exact reviewed plan with a fresh UUID
+`--client-key` and inspect the receipt:
+
+```bash
+npm run recovery -- provenance apply --plan local-operations/provenance-plan.json --plan-hash PLAN_SHA256 --actor-id ADMIN_ID --reason 'Reviewed pretracking archive provenance' --client-key 4a55f2c8-851c-4a5d-9b30-2a7e5c4e1201
+npm run recovery -- provenance receipt --receipt-id RECEIPT_ID --actor-id ADMIN_ID
+```
+
+Apply rechecks live Admin/Head authority, shared writer fences, and current
+source hashes in a `Serializable` transaction, updating only
+`ImportedRecordProvenance` alongside immutable `ArchiveProvenanceReceipt` and
+`AuditLog` entries. Retries with the same `--actor-id` and `--client-key` replay
+idempotently; reusing a key with different intent fails.

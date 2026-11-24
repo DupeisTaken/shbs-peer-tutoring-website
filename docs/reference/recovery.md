@@ -219,6 +219,54 @@ snapshots and protected target identities remain unavailable. The bounded
 its references are recorded relationship evidence, not proof of a complete causal
 chain. Both transports retain the same masking and a 50-change page limit.
 
+## Archive provenance reconciliation boundary
+
+[Archive provenance reconciliation](../../src/server/recovery/operator-provenance.ts)
+provides a host-only, DB-only operator workflow (`provenance extract|preview|compare|apply|receipt`)
+for retrospective classification of pretracking imported records and reviewed
+release of anchored source overlaps. It never imports Next, the shared database
+singleton, or `src/env.js`, and never infers origin from names, dates, status,
+aggregate totals, or matching emails.
+
+- **Offline extraction (`provenance extract`):** reads original Program Records
+  ZIP/CSV files, skips reference-only `User.csv`, validates columns against the
+  Prisma datamodel, and records only exact scalar/composite primary keys plus
+  canonical SHA-256 hashes of supplied columns (zero PII).
+- **Read-only preview (`provenance preview` / `compare`):** runs in a
+  `RepeatableRead` `SET TRANSACTION READ ONLY` transaction under live Admin/Head
+  authority. Binds database identity, applied schema revision, current row
+  hashes, typed recovery references, automation effects, and full before/after
+  school-hours ledger simulation without writing. Active live records, current
+  reference configuration (`Term`, `TimeSlot`, `Room`, `Subject`, `CourseGroup`,
+  `SubjectLevel`, `RoomUnavailability`, `SchoolCalendarDay`), original-import
+  value drift, opening/committed school-hours overlaps, manufactured reversals,
+  and silent archive credit releases fail closed with explicit blockers.
+- **Typed recovery references & unsupported-consequence fencing:**
+  `ImportedRecordProvenance` uses `recovery_capture_imported_provenance()`
+  (backed by `imported_provenance_references()`), expanding scalar,
+  single-non-`id`, and composite marker keys (`SessionTutee`, `PairingTutee`,
+  `InterviewAssignment`, `InterviewVote`, `PatrolCreditWindow`,
+  `TutorQualification`, `QualificationGrant`, etc.) into exact typed parent
+  entities, recording composite `{ entity, recordId }` keys in `RecoveryChange`,
+  advancing `RecoveryFence`, and marking overlapping roots `UNSUPPORTED`.
+  `ArchiveProvenanceReceipt` is protected by `archive_provenance_receipt_immutable`
+  (`BEFORE UPDATE OR DELETE`) and `recovery_capture_archive_provenance_receipt()`.
+  Both `checkpoint.ts` and `admission.ts` enforce these exact trigger functions
+  in their coverage queries.
+- **Reviewed apply & authority fingerprints:** `applyArchiveProvenanceFromOperator`
+  acquires shared writer fences in canonical deadlock-free order
+  (`attendance:catalogue-propagation` → `program:period` →
+  `identity:username-namespace` → `account-profile` → `school-hours-chain` →
+  `program-record-transfer` → domain locks), verifies live authority,
+  idempotency (`(actorId, clientKey)` + `inputHash`), and fresh fingerprint
+  equality inside a `Serializable` transaction, writing only
+  `ImportedRecordProvenance`, immutable `ArchiveProvenanceReceipt`, and
+  `AuditLog` (never mutating source amounts or current memberships). Both
+  `ImportedRecordProvenance` and `ArchiveProvenanceReceipt` are validated in
+  `operator-schema.ts` and fingerprinted in `operator-reconcile.ts` (excluding
+  retry keys `clientKey`/`inputHash`) so whole-site security overlays refuse
+  provenance divergence.
+
 ## Whole-site staging boundary
 
 [The staging service](../../src/server/recovery/operator-site.ts) accepts a trusted
@@ -575,5 +623,5 @@ Planning is bounded to 100 events, 2,000 changes, 1,000 tracked identities,
 these limits blocks automated execution on both routes. The read-only plan cannot
 invent missing history or force unsupported later work through compensation.
 
-- **Standalone CLI tests:** `npm run test:recovery` ([scripts/recovery.test.ts](../../scripts/recovery.test.ts), run in CI `checks`) tests parser bounds, plan hashing, wrong-database/changed-backup refusal, replay protection and secret-free errors with stubbed DB/Postgres tools.
+- **Standalone CLI tests:** `npm run test:recovery` ([scripts/recovery.test.ts](../../scripts/recovery.test.ts), run in CI `checks`) tests parser bounds, plan hashing, wrong-database/changed-backup refusal, replay protection and secret-free errors with stubbed DB/Postgres tools. Domain integration tests separately verify transactions, permissions, causal preservation and receipts—including [archive provenance integration tests](../../src/server/recovery/operator-provenance.integration.test.ts) against synthetic fixtures in `shbs_shipping_test`.
 - **Committed journal & whole-site rehearsals:** [scripts/recovery-transfer-journal-postgres.test.ts](../../scripts/recovery-transfer-journal-postgres.test.ts) runs real `scripts/recovery.ts` admission/checkpoint CLI flows against isolated Postgres; [scripts/recovery-postgres.test.ts](../../scripts/recovery-postgres.test.ts) (opt-in via `SHBS_RECOVERY_TEST_SOURCE_ADMIN_URL` and `SHBS_RECOVERY_TEST_STAGING_ADMIN_URL`, run in CI by [recovery-rehearsal.yml](../../.github/workflows/recovery-rehearsal.yml)) exercises real dump/restore, row-for-row comparison, proof quarantine, HTTP acceptance and rollback against two isolated PostgreSQL 16 clusters. Set `SHBS_RECOVERY_TEST_ARTIFACT_DIR` to emit allowlisted JSON/HTML receipts (`w115-cli-witness.json`, excluding secrets/dumps/identities). Disposable rehearsals do not replace production restore or live cutover checks.

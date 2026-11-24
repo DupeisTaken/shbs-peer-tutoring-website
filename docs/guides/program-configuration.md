@@ -345,7 +345,10 @@ Coordinator proposals) exports all periods as a ZIP of CSVs (`Export CSV archive
   Imported hours stay excluded from automatic school-hours credit (see
   [school reporting](user-guide.md#review-records-and-reports)), and imported
   meetings/attendance/patrols do not trigger retroactive deductions, slot
-  recalculations or discrepancy flags.
+  recalculations or discrepancy flags. Records imported before provenance
+  tracking began retain their existing automation until an operator completes
+  the reviewed [archive provenance reconciliation](recovery.md#reconcile-pretracking-archive-provenance)
+  workflow using exact keys from original import files or retained evidence.
 - **CSV rules:** UTF-8, exact case-sensitive filenames (`Tutor.csv`, `Term.csv`,
   `Pairing.csv`, etc.), `\N` for null, formula-safe leading apostrophe escaping,
   max **5 MiB / 5,000 records** per transfer. New terms must be `active=false`;

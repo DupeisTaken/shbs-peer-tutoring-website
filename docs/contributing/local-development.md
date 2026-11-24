@@ -316,7 +316,9 @@ is derived from `POSTGRES_*` (host `db`).
 ## Browser tab icon (favicon)
 
 Replace **`src/app/icon.png`** with a square PNG (512 × 512 recommended, readable
-at 16 × 16). Do not add a competing `public/favicon.ico` or `src/app/favicon.ico`.
+at 16 × 16). This single PNG supplies the browser tab/bookmark icon, the in-page
+header `BrandMark`, and the email footer icon. Do not add a competing
+`public/favicon.ico` or `src/app/favicon.ico`.
 Restart dev or rebuild production, then verify against a running site with:
 
 ```bash

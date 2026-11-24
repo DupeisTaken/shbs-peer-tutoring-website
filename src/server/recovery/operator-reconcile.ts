@@ -473,6 +473,9 @@ export async function readReconciliationSnapshot(
     ...(schema.rows.some((row) => row.table_name === "ImportedRecordProvenance")
       ? ["ImportedRecordProvenance"]
       : []),
+    ...(schema.rows.some((row) => row.table_name === "ArchiveProvenanceReceipt")
+      ? ["ArchiveProvenanceReceipt"]
+      : []),
     "StudentSurvey",
   ]) {
     const records = await db.query(
@@ -481,7 +484,10 @@ export async function readReconciliationSnapshot(
     operatorAssert(records.rows.length <= 10000, "SECURITY_MANIFEST_TOO_LARGE");
     const values = records.rows.map((record) => {
       const row = record.row as Record<string, unknown>;
-      if (table === "LegacySignupDecline")
+      if (
+        table === "LegacySignupDecline" ||
+        table === "ArchiveProvenanceReceipt"
+      )
         return Object.fromEntries(
           Object.entries(row).filter(
             ([field]) => !["clientKey", "inputHash"].includes(field),

@@ -65,6 +65,7 @@ export const RECORD_PRIMARY_KEYS: Readonly<Record<string, readonly string[]>> =
     ApplicationIdentityCorrection: ["id"],
     ApplicationSubjectIntent: ["id"],
     ImportedRecordProvenance: ["entity", "recordId"],
+    ArchiveProvenanceReceipt: ["id"],
     InterviewAssignment: ["applicationId", "tutorId"],
     InterviewVote: ["applicationId", "tutorId"],
     PolicyFile: ["id"],

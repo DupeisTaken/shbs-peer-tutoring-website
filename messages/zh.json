@@ -4066,6 +4066,7 @@
       },
       "entities": {
         "ImportedRecordProvenance": "导入历史记录来源",
+        "ArchiveProvenanceReceipt": "归档来源核对回执",
         "SchedulingMaintenanceState": "排期维护状态",
         "SchedulingDirtyEvent": "排期失效事件",
         "PersonPartitionReceipt": "身份分离回执",

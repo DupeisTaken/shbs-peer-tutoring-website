@@ -4066,6 +4066,7 @@
       },
       "entities": {
         "ImportedRecordProvenance": "Προέλευση εισαγμένης ιστορικής εγγραφής",
+        "ArchiveProvenanceReceipt": "Απόδειξη συμφωνίας προέλευσης αρχείου",
         "SchedulingMaintenanceState": "Κατάσταση συντήρησης προγραμματισμού",
         "SchedulingDirtyEvent": "Συμβάν ακύρωσης δεδομένων προγραμματισμού",
         "PersonPartitionReceipt": "Απόδειξη διαχωρισμού ταυτότητας",
