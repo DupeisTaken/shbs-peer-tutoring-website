@@ -32,6 +32,7 @@
     "calendarCreate": "创建私人链接",
     "calendarRevoke": "撤销私人链接",
     "calendarUnavailable": "没有符合条件的当前参与记录，暂不可订阅日历。",
+    "calendarCreateHelp": "这将创建一个只读的个人辅导日历私人链接。请妥善保管，任何获得链接的人都可以查看你的日程安排。",
     "calendarRotateHelp": "创建新链接将撤销所有旧链接。使用旧链接的日历订阅将停止更新。",
     "calendarRevokeHelp": "此操作会停用日历订阅链接，日历应用将停止更新，不会影响你的辅导安排。",
     "publicationUnavailable": "有 {count} 项每周安排需要核对，暂无法生成具体日期的辅导。",
@@ -239,7 +240,8 @@
       "NEXT_RECRUITMENT_CLOSING_CONFLICT": "开放时间必须早于目标周期已有的截止时间。"
     },
     "featureAfterRefreshEnabled": "刷新后：开启",
-    "featureAfterRefreshDisabled": "刷新后：关闭"
+    "featureAfterRefreshDisabled": "刷新后：关闭",
+    "embeddedHelp": "仅在刷新时生效；预约后修改需要重新审核预约。"
   },
   "historicalInvitation": {
     "claimUncertain": "认领结果尚未确定。请重新读取邀请以查询结果；不要重复提交。",
@@ -1180,7 +1182,7 @@
       "noPeriod": "暂无活动的项目时段。请先创建或运行种子。",
       "currentPeriod": "当前时段",
       "semester": "学期 {semester}",
-      "refreshHeading": "刷新到下一季度",
+      "refreshHeading": "项目刷新",
       "advancesTo": "此操作会将项目推进到 {name}，并：",
       "effectPending": "清空待处理的学习伙伴报名队列（归档为停用）。",
       "effectTutees": "归档所有待处理和活跃的学习伙伴，包括尚未配对的学习伙伴。他们需要重新报名才能继续。",
@@ -1861,7 +1863,7 @@
     },
     "tutorRequests": {
       "title": "辅导伙伴状态申请",
-      "help": "辅导伙伴发起的成员变更申请。退出申请须经过一周冷静期方可审批；重新加入申请则立即生效。",
+      "help": "辅导伙伴发起的成员变更申请。退出申请须经过一周冷静期方可审批；重新加入申请可立即审核，审批通过后生效。",
       "kind": {
         "OPT_OUT": "退出",
         "REENTRY": "重新加入"
@@ -2939,7 +2941,8 @@
       "codeSent": "我们已将验证码发送至 {email}，请在下方输入以完成更改。",
       "codeLabel": "电子邮箱验证码",
       "resend": "重新发送",
-      "cancel": "取消"
+      "cancel": "取消",
+      "deliveryFailed": "邮件发送失败，请稍后重试。"
     }
   },
   "crew": {
@@ -4073,6 +4076,7 @@
       },
       "entities": {
         "ImportedRecordProvenance": "导入历史记录来源",
+        "ArchiveProvenanceReceipt": "归档来源核对回执",
         "SchedulingMaintenanceState": "排期维护状态",
         "SchedulingDirtyEvent": "排期失效事件",
         "PersonPartitionReceipt": "身份分离回执",
@@ -8004,7 +8008,49 @@
       "SCHEDULED_REFRESH_REVIEW_CHANGED": "已审核的刷新条件发生了变化。请重新加载并审核新的预约。",
       "SCHEDULED_REFRESH_EXECUTION_FAILED": "多次尝试后仍未完成刷新。请检查部署，再审核新的预约或取消当前预约。",
       "SCHEDULED_REFRESH_AFTER_OPENING": "刷新时间不得晚于已准备的学习伙伴报名开放时间；也可先修改该准备项。"
-    }
+    },
+    "subtitle": "{current} → {next} · {mode} · {zone}",
+    "notScheduledBadge": "未预约",
+    "dueBadge": "已到期",
+    "retryingBadge": "重试中（{attempts}/5）",
+    "statusReady": "已预约 — 届时将自动执行",
+    "statusDue": "已到预约时间 — 等待执行",
+    "statusRetrying": "正在自动重试刷新（第 {attempts}/5 次）",
+    "statusPaused": "不会自动执行",
+    "statusReadyHelp": "到时自动执行（每 30 秒检查并支持停机补执行），前提是周期、开放时间、暂存功能、时区与负责人授权均未变更。",
+    "statusDueHelp": "已到预约时间。服务器每 30 秒检查一次，确认条件有效后自动执行。",
+    "statusRetryingHelp": "遇到临时错误；只要条件仍有效，服务器将自动重试，最多 5 次。",
+    "completedAt": "完成于 {time}（{zone}）。",
+    "noneHelp": "可在下方预约自动刷新（条件满足时自动执行），或选择立即刷新。",
+    "conditionsHeading": "刷新条件与复核",
+    "conditionsHelp": "仅当下方每项已审核条件都保持不变时，预约刷新才会自动执行。",
+    "conditionSync": "设置与复核同步",
+    "conditionSyncReady": "已是最新",
+    "conditionSyncChanged": "需要重新加载",
+    "conditionSyncError": "暂时不可用",
+    "conditionOpenings": "下一周期开放时间绑定",
+    "conditionOpeningsReady": "就绪",
+    "conditionOpeningsStale": "需要处理",
+    "conditionFeatures": "暂存可选功能变更",
+    "conditionFeaturesPending": "{count} 项待生效",
+    "conditionFeaturesNone": "无待生效变更",
+    "conditionAuth": "授权状态",
+    "conditionAuthApproved": "已获负责人授权",
+    "conditionAuthPending": "等待负责人审批",
+    "conditionAuthDirect": "负责人直接应用",
+    "conditionAuthRequest": "需要负责人审批",
+    "conditionAuthReadOnly": "仅限管理员与负责人",
+    "conditionAuthChanged": "需要重新审核",
+    "effectsDisclosure": "刷新影响与完整详情",
+    "entranceHeading": "执行或预约刷新",
+    "timingModeLabel": "何时执行此次刷新？",
+    "modeScheduled": "预约定时刷新",
+    "modeImmediate": "立即刷新",
+    "openingBound": "必须不晚于已准备的学习伙伴报名开放时间（{time}，{zone}）。",
+    "immediateHelp": "确认后将立即推进至 {target}，无需等待预约时间。",
+    "immediateSupersedes": "立即刷新会马上推进周期，并使当前已预约的定时刷新失效。",
+    "immediateReviewTitle": "审核立即刷新",
+    "reschedule": "复核并重新预约"
   },
   "signupTransition": {
     "currentClosed": "{period} 的学习伙伴报名已关闭。下方显示下一季度的报名安排。",

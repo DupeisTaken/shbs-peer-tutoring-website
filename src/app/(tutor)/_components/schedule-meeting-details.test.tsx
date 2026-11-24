@@ -501,3 +501,30 @@ it.each(["en", "zh"])(
     expect(state.mutate).not.toHaveBeenCalled();
   },
 );
+
+it.each([
+  { locale: "en", showAll: false },
+  { locale: "en", showAll: true },
+  { locale: "zh", showAll: false },
+  { locale: "zh", showAll: true },
+])(
+  "keeps the open meeting excuse editor bounded inside the dialog ($locale, showAll=$showAll, #747)",
+  ({ locale, showAll }) => {
+    const catalog = locale === "zh" ? zh : messages;
+    render(element("one", showAll, locale));
+    fireEvent.click(
+      screen.getByRole("button", { name: catalog.tutor.meetings.excuseBtn }),
+    );
+    const input = screen.getByRole("textbox");
+    const submit = screen.getByRole("button", {
+      name: catalog.tutor.meetings.submitExcuse,
+    });
+    const dismiss = screen.getByRole("button", {
+      name: catalog.common.dismiss,
+    });
+    expect(input.className).not.toContain("field-auto");
+    expect(submit.parentElement).toBe(dismiss.parentElement);
+    expect(submit.parentElement!.className).toContain("flex-wrap");
+    expect(input.parentElement!.parentElement!.className).toContain("basis-full");
+  },
+);

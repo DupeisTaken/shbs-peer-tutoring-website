@@ -1,6 +1,9 @@
 import { expect, it } from "vitest";
 import {
   currentStudentSignupPayload,
+  effectiveStudentSignupEditedAt,
+  nextStudentSignupEditedAt,
+  studentSignupAnswersEqual,
   studentSignupIntentDigest,
 } from "./student-signup-answers";
 
@@ -147,6 +150,127 @@ it.each([NaN, Infinity, -Infinity])(
     expect(() => studentSignupIntentDigest({ value })).toThrow(TypeError);
   },
 );
+
+it("compares signup answers semantically across slot order, blank optionals and non-answer metadata", () => {
+  expect(
+    studentSignupAnswersEqual(original, {
+      englishName: "Original Student",
+      firstChoiceId: "math",
+      slotIds: ["monday"],
+      phone: "",
+      gradeLevel: "",
+      preferredName: null,
+      alternativeNames: null,
+      preferredContact: "",
+      secondChoiceId: "",
+    }),
+  ).toBe(true);
+  expect(
+    studentSignupAnswersEqual(
+      { ...original, slotIds: ["monday", "tuesday"] },
+      { ...original, slotIds: ["tuesday", "monday", "tuesday"] },
+    ),
+  ).toBe(true);
+  expect(
+    studentSignupAnswersEqual(original, {
+      ...original,
+      preferredContact: "WeChat",
+    }),
+  ).toBe(false);
+  expect(
+    studentSignupAnswersEqual(original, {
+      ...original,
+      slotIds: ["tuesday"],
+    }),
+  ).toBe(false);
+});
+
+it("computes next editedAt only when answers diverge from the original submission and change", () => {
+  const firstEdit = new Date("2026-10-10T00:00:00Z");
+  const secondEdit = new Date("2026-10-12T00:00:00Z");
+  const initialRow = {
+    payload: original,
+    currentPayload: null as Record<string, unknown> | null,
+    editedAt: null as Date | null,
+  };
+  // Initial confirmation with identical answers is not an edit.
+  expect(
+    nextStudentSignupEditedAt(
+      initialRow,
+      {
+        englishName: "Original Student",
+        firstChoiceId: "math",
+        slotIds: ["monday"],
+      },
+      firstEdit,
+    ),
+  ).toBeNull();
+  // A real change stamps editedAt.
+  const changed = {
+    englishName: "Original Student",
+    firstChoiceId: "math",
+    preferredContact: "WeChat",
+    slotIds: ["monday"],
+  };
+  expect(nextStudentSignupEditedAt(initialRow, changed, firstEdit)).toEqual(
+    firstEdit,
+  );
+  // A no-op re-save preserves the prior edit timestamp without bumping it.
+  const editedRow = {
+    payload: original,
+    currentPayload: changed,
+    editedAt: firstEdit,
+  };
+  expect(nextStudentSignupEditedAt(editedRow, changed, secondEdit)).toEqual(
+    firstEdit,
+  );
+  // Reverting back to the original submission clears editedAt.
+  expect(
+    nextStudentSignupEditedAt(
+      editedRow,
+      {
+        englishName: "Original Student",
+        firstChoiceId: "math",
+        slotIds: ["monday"],
+      },
+      secondEdit,
+    ),
+  ).toBeNull();
+});
+
+it("suppresses historical false-positive editedAt when current answers match the original payload", () => {
+  const stamped = new Date("2026-10-10T00:00:00Z");
+  expect(
+    effectiveStudentSignupEditedAt({
+      payload: original,
+      currentPayload: {
+        englishName: "Original Student",
+        firstChoiceId: "math",
+        slotIds: ["monday"],
+      },
+      editedAt: stamped,
+    }),
+  ).toBeNull();
+  expect(
+    effectiveStudentSignupEditedAt({
+      payload: original,
+      currentPayload: {
+        englishName: "Original Student",
+        firstChoiceId: "math",
+        slotIds: ["tuesday"],
+      },
+      editedAt: stamped,
+    }),
+  ).toEqual(stamped);
+  // Pre-revision legacy rows with currentPayload=null retain their recorded edit marker.
+  expect(
+    effectiveStudentSignupEditedAt({
+      payload: original,
+      currentPayload: null,
+      editedAt: stamped,
+    }),
+  ).toEqual(stamped);
+});
 
 it.each([undefined, new Date(0), 1n])(
   "rejects non-JSON values rather than hashing a colliding representation: %s",
