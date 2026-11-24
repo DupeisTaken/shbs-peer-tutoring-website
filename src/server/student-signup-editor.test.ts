@@ -188,6 +188,43 @@ it("saves after intake closes, retains original priority/evidence and leaves can
   ).toBeUndefined();
 });
 
+it("tracks editedAt only when answers diverge from the original submission", async () => {
+  const { user, row, payload } = await fixture();
+  // Saving unchanged answers does not mark the request edited.
+  await editOwnedStudentSignup(db, user.id, draft(payload));
+  expect(
+    (await db.studentSurvey.findUniqueOrThrow({ where: { id: row.id } }))
+      .editedAt,
+  ).toBeNull();
+  // Editing an answer stamps editedAt.
+  await editOwnedStudentSignup(db, user.id, {
+    ...draft({ ...payload, preferredContact: "Updated contact" }),
+    expectedVersion: 1,
+  });
+  const firstEdit = (
+    await db.studentSurvey.findUniqueOrThrow({ where: { id: row.id } })
+  ).editedAt;
+  expect(firstEdit).toBeInstanceOf(Date);
+  // Saving the same edited answers again preserves the original edit timestamp.
+  await editOwnedStudentSignup(db, user.id, {
+    ...draft({ ...payload, preferredContact: "Updated contact" }),
+    expectedVersion: 2,
+  });
+  expect(
+    (await db.studentSurvey.findUniqueOrThrow({ where: { id: row.id } }))
+      .editedAt,
+  ).toEqual(firstEdit);
+  // Reverting answers back to the original submission clears editedAt.
+  await editOwnedStudentSignup(db, user.id, {
+    ...draft(payload),
+    expectedVersion: 3,
+  });
+  expect(
+    (await db.studentSurvey.findUniqueOrThrow({ where: { id: row.id } }))
+      .editedAt,
+  ).toBeNull();
+});
+
 it("preserves unsplit legacy name eligibility across consecutive contact-only saves", async () => {
   const { payload } = await fixture();
   const first = draft({
