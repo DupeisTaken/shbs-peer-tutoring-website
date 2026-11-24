@@ -387,12 +387,19 @@ export function CombineRecords({
             <Button
               disabled={busy}
               onClick={() => {
+                const startFresh = receipt.outcome !== "REVIEW_REQUIRED";
                 accepted.current = false;
                 setReceipt(null);
                 resetReview();
                 setAccounts([]);
                 setRetainedUserId(undefined);
                 setRetireDuplicateLogins(false);
+                if (startFresh) {
+                  setSelected(initial());
+                  setReason("");
+                  setSearch("");
+                  setQuery("");
+                }
               }}
             >
               {t(

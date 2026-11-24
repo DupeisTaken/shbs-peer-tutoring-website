@@ -32,6 +32,7 @@
     "calendarCreate": "Create private link",
     "calendarRevoke": "Revoke private link",
     "calendarUnavailable": "A calendar subscription is unavailable without eligible current participation.",
+    "calendarCreateHelp": "Creates a private read-only link for your tutoring calendar. Keep it confidential; anyone with the link can view your schedule.",
     "calendarRotateHelp": "Creating a new link revokes all previous links. Existing calendar subscriptions using an old link stop updating.",
     "calendarRevokeHelp": "This turns off your private calendar link so calendar apps stop updating. Your tutoring sessions stay unchanged.",
     "publicationUnavailable": "{count} weekly arrangement(s) need review and could not be prepared as dated sessions.",
@@ -1125,7 +1126,7 @@
       "programTotals": "Selected-period program totals",
       "programTotalsHelp": "All tutors, including inactive tutors; roster filters do not change these totals.",
       "filteredSubtotal": "Filtered subtotal · {count} tutors",
-      "hiddenInactive": "{count} inactive tutors with records are hidden by the status filter.",
+      "hiddenInactive": "{count, plural, one {# inactive tutor with records is hidden by the status filter.} other {# inactive tutors with records are hidden by the status filter.}}",
       "viewInactive": "View inactive contributors",
       "viewLabel": "Roster view",
       "viewSummary": "Summary",
@@ -1416,7 +1417,7 @@
     },
     "tutorRequests": {
       "title": "Tutor Status Requests",
-      "help": "Tutor-initiated membership changes. Opt-out requests can only be approved after a one-week cooldown; reentry is immediate.",
+      "help": "Tutor-initiated membership changes. Opt-out requests can only be approved after a one-week cooldown; staff can review reentry requests immediately, and reentry takes effect after approval.",
       "kind": {
         "OPT_OUT": "Opt-Out",
         "REENTRY": "Reentry"
@@ -2939,7 +2940,8 @@
       "codeSent": "We emailed a code to {email}. Enter it below to finish.",
       "codeLabel": "Email verification code",
       "resend": "Resend Code",
-      "cancel": "Cancel"
+      "cancel": "Cancel",
+      "deliveryFailed": "Email delivery failed. Please try again later."
     }
   },
   "crew": {
