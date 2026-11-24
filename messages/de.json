@@ -563,7 +563,13 @@
         "enable": "Enable 2FA",
         "disable": "Disable 2FA",
         "saving": "Saving…",
-        "saved": "Two-factor settings updated."
+        "saved": "Two-factor settings updated.",
+        "loading": "Loading two-factor settings…",
+        "loadFailed": "Two-factor settings could not be loaded.",
+        "refreshFailed": "Two-factor settings could not be refreshed. Your password draft is kept; try again before saving.",
+        "refreshing": "Refreshing two-factor settings…",
+        "accessDenied": "Two-factor settings are unavailable.",
+        "savedRefreshFailed": "Saved, but two-factor settings could not refresh. Try refreshing."
       }
     },
     "forgotPassword": "Passwort vergessen?",
@@ -596,7 +602,8 @@
         "confirmPassword": "Neues Passwort bestätigen"
       },
       "submit": "Neues Passwort setzen",
-      "saving": "Wird gespeichert…"
+      "saving": "Wird gespeichert…",
+      "passwordLength": "Use {min}–{max} characters."
     },
     "onboarding": {
       "proofRequired": "Öffne den Link an deine Konto-E-Mail-Adresse, um sie zu bestätigen und ein Passwort festzulegen. Ohne Zugriff auf diese Adresse kontaktiere das Programmteam. Die Zwei-Faktor-Authentifizierung verwaltest du nach der Anmeldung.",
@@ -1347,7 +1354,22 @@
         "deny": "Ablehnen",
         "review": "Einspruch prüfen",
         "message": "Ursprünglicher Einspruch",
-        "refreshFailed": "Die Entscheidung wurde gespeichert, aber das Konto oder die Einspruchsliste konnte nicht aktualisiert werden. Versuche die Aktualisierung erneut, ohne die Entscheidung nochmals abzusenden."
+        "refreshFailed": "Die Entscheidung wurde gespeichert, aber das Konto oder die Einspruchsliste konnte nicht aktualisiert werden. Versuche die Aktualisierung erneut, ohne die Entscheidung nochmals abzusenden.",
+        "restrictionHeading": "Current Account Restriction",
+        "restricted": "Suspended",
+        "active": "Already active",
+        "restrictedAt": "Suspended {date}",
+        "submittedAt": "Appeal submitted {date}",
+        "noReason": "No suspension reason recorded.",
+        "coResolveHelp": "Approve restores access and closes all pending appeals for this account with one notice.",
+        "activeHelp": "This account is already active. Approve closes all pending appeals without changing access. Deny is unavailable.",
+        "reloadReview": "Reload restriction review",
+        "reviewChanged": "This appeal or account restriction changed. Reload the review before deciding.",
+        "reviewUnavailable": "Current review details could not be loaded. Try again before deciding.",
+        "approveClose": "Approve and close appeals",
+        "accessRestored": "Account access restored and all pending appeals approved.",
+        "closedActive": "Pending appeals closed. Account access was already active and did not change.",
+        "deniedReceipt": "Appeal denied. The account remains suspended."
       }
     },
     "registrationCodes": {
@@ -2592,7 +2614,7 @@
       "currentPassword": "Aktuelles Passwort",
       "newPassword": "Neues Passwort",
       "confirmPassword": "Neues Passwort bestätigen",
-      "pwHelp": "Mindestens 8 Zeichen.",
+      "pwHelp": "Use 8–1024 characters.",
       "changePasswordBtn": "Passwort ändern",
       "changing": "Wird geändert…",
       "passwordChanged": "Passwort geändert.",
@@ -2612,7 +2634,8 @@
       "reentryBtn": "Wiedereintritt beantragen",
       "recall": "Antrag zurückziehen",
       "statusNote": "Ihr Tutor-Status ist {status}. Dies ist nur Lesezugriff — für Änderungen einen Administrator kontaktieren.",
-      "profileSyncFailed": "Dein Profil wurde gespeichert, konnte aber nicht neu geladen werden. Lade es erneut, ohne die Änderung nochmals abzusenden."
+      "profileSyncFailed": "Dein Profil wurde gespeichert, konnte aber nicht neu geladen werden. Lade es erneut, ohne die Änderung nochmals abzusenden.",
+      "pwTooLong": "Use no more than {max} characters."
     },
     "dashboard": {
       "pending": {
@@ -3064,7 +3087,10 @@
     "send": "Bestätigungscode senden",
     "code": "E-Mail-Bestätigungscode",
     "confirm": "Bestätigen und E-Mail ändern",
-    "success": "Deine E-Mail wurde geändert."
+    "success": "Deine E-Mail wurde geändert.",
+    "sentTo": "Enter the verification code sent to {email}.",
+    "changeAddress": "Use another email",
+    "savedRefreshFailed": "Email changed, but account details could not refresh. Try refreshing."
   },
   "profileCorrection": {
     "edit": "Details bearbeiten",

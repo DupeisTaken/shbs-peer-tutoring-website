@@ -563,7 +563,13 @@
         "enable": "Enable 2FA",
         "disable": "Disable 2FA",
         "saving": "Saving…",
-        "saved": "Two-factor settings updated."
+        "saved": "Two-factor settings updated.",
+        "loading": "Loading two-factor settings…",
+        "loadFailed": "Two-factor settings could not be loaded.",
+        "refreshFailed": "Two-factor settings could not be refreshed. Your password draft is kept; try again before saving.",
+        "refreshing": "Refreshing two-factor settings…",
+        "accessDenied": "Two-factor settings are unavailable.",
+        "savedRefreshFailed": "Saved, but two-factor settings could not refresh. Try refreshing."
       }
     },
     "forgotPassword": "Forgot password?",
@@ -596,7 +602,8 @@
         "confirmPassword": "Confirm New Password"
       },
       "submit": "Set New Password",
-      "saving": "Saving…"
+      "saving": "Saving…",
+      "passwordLength": "Use {min}–{max} characters."
     },
     "onboarding": {
       "proofRequired": "Open the link sent to your email to confirm your address and set a password. Contact the program team if you cannot access this email.",
@@ -1347,7 +1354,22 @@
         "deny": "Deny",
         "review": "Review appeal",
         "message": "Original appeal",
-        "refreshFailed": "The appeal decision was saved, but the account or appeal list could not be refreshed. Retry refresh; do not submit the decision again."
+        "refreshFailed": "The appeal decision was saved, but the account or appeal list could not be refreshed. Retry refresh; do not submit the decision again.",
+        "restrictionHeading": "Current Account Restriction",
+        "restricted": "Suspended",
+        "active": "Already active",
+        "restrictedAt": "Suspended {date}",
+        "submittedAt": "Appeal submitted {date}",
+        "noReason": "No suspension reason recorded.",
+        "coResolveHelp": "Approve restores access and closes all pending appeals for this account with one notice.",
+        "activeHelp": "This account is already active. Approve closes all pending appeals without changing access. Deny is unavailable.",
+        "reloadReview": "Reload restriction review",
+        "reviewChanged": "This appeal or account restriction changed. Reload the review before deciding.",
+        "reviewUnavailable": "Current review details could not be loaded. Try again before deciding.",
+        "approveClose": "Approve and close appeals",
+        "accessRestored": "Account access restored and all pending appeals approved.",
+        "closedActive": "Pending appeals closed. Account access was already active and did not change.",
+        "deniedReceipt": "Appeal denied. The account remains suspended."
       }
     },
     "registrationCodes": {
@@ -2592,7 +2614,7 @@
       "currentPassword": "Current Password",
       "newPassword": "New Password",
       "confirmPassword": "Confirm New Password",
-      "pwHelp": "At least 8 characters.",
+      "pwHelp": "Use 8–1024 characters.",
       "changePasswordBtn": "Change Password",
       "changing": "Changing…",
       "passwordChanged": "Password changed.",
@@ -2612,7 +2634,8 @@
       "reentryBtn": "Request Reentry",
       "recall": "Recall Request",
       "statusNote": "Your tutor status is {status}. This is read-only access — contact an admin for changes.",
-      "profileSyncFailed": "Saved, but we could not reload your profile. Try refreshing."
+      "profileSyncFailed": "Saved, but we could not reload your profile. Try refreshing.",
+      "pwTooLong": "Use no more than {max} characters."
     },
     "dashboard": {
       "pending": {
@@ -3064,7 +3087,10 @@
     "send": "Send Verification Code",
     "code": "Email verification code",
     "confirm": "Verify and Change Email",
-    "success": "Your email has been changed."
+    "success": "Your email has been changed.",
+    "sentTo": "Enter the verification code sent to {email}.",
+    "changeAddress": "Use another email",
+    "savedRefreshFailed": "Email changed, but account details could not refresh. Try refreshing."
   },
   "profileCorrection": {
     "edit": "Edit Details",

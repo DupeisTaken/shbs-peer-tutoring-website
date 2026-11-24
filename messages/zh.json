@@ -563,7 +563,13 @@
         "enable": "启用双重验证",
         "disable": "停用双重验证",
         "saving": "正在保存…",
-        "saved": "双重验证设置已更新。"
+        "saved": "双重验证设置已更新。",
+        "loading": "正在加载双重验证设置…",
+        "loadFailed": "无法加载双重验证设置。",
+        "refreshFailed": "无法刷新双重验证设置。已保留输入的密码，请重试后再保存。",
+        "refreshing": "正在刷新双重验证设置…",
+        "accessDenied": "无法访问双重验证设置。",
+        "savedRefreshFailed": "已保存，但双重验证设置未能刷新，请重试刷新。"
       }
     },
     "forgotPassword": "忘记密码？",
@@ -596,7 +602,8 @@
         "confirmPassword": "确认新密码"
       },
       "submit": "设置新密码",
-      "saving": "保存中…"
+      "saving": "保存中…",
+      "passwordLength": "请使用 {min}–{max} 个字符。"
     },
     "onboarding": {
       "proofRequired": "请打开邮箱收到的链接以验证地址并设置密码。如无法访问此邮箱，请联系项目团队。",
@@ -1339,7 +1346,22 @@
         "deny": "拒绝",
         "review": "审核申诉",
         "message": "申诉原文",
-        "refreshFailed": "申诉处理结果已保存，但账号或申诉列表未能刷新。请重试刷新，无需再次提交处理结果。"
+        "refreshFailed": "申诉处理结果已保存，但账号或申诉列表未能刷新。请重试刷新，无需再次提交处理结果。",
+        "restrictionHeading": "当前账号限制",
+        "restricted": "已暂停",
+        "active": "已恢复正常",
+        "restrictedAt": "暂停时间：{date}",
+        "submittedAt": "申诉提交时间：{date}",
+        "noReason": "未记录暂停原因。",
+        "coResolveHelp": "批准将恢复账号访问权限，并一并处理该账号的所有待处理申诉。",
+        "activeHelp": "该账号已处于正常状态。批准只会关闭所有待处理申诉，不会更改权限；此时不可拒绝。",
+        "reloadReview": "重新加载限制审核",
+        "reviewChanged": "该申诉或账号限制已变更，请重新加载后再决定。",
+        "reviewUnavailable": "无法确认最新审核信息，请重试后再决定。",
+        "approveClose": "批准并关闭申诉",
+        "accessRestored": "账号访问权限已恢复，所有待处理申诉已批准。",
+        "closedActive": "待处理申诉已关闭。账号原本已正常，权限未更改。",
+        "deniedReceipt": "申诉已拒绝，账号仍保持暂停状态。"
       }
     },
     "submissions": {
@@ -2583,7 +2605,7 @@
       "currentPassword": "当前密码",
       "newPassword": "新密码",
       "confirmPassword": "确认新密码",
-      "pwHelp": "至少 8 个字符。",
+      "pwHelp": "请使用 8–1024 个字符。",
       "changePasswordBtn": "修改密码",
       "changing": "修改中…",
       "passwordChanged": "密码已修改。",
@@ -2604,7 +2626,8 @@
       "reentryBtn": "申请重新加入",
       "recall": "撤回申请",
       "statusNote": "你的辅导伙伴状态为「{status}」，仅供查看——如需变更请联系管理员。",
-      "profileSyncFailed": "已保存，但重新加载失败，请点击重试。"
+      "profileSyncFailed": "已保存，但重新加载失败，请点击重试。",
+      "pwTooLong": "请勿超过 {max} 个字符。"
     },
     "dashboard": {
       "pending": {
@@ -3064,7 +3087,10 @@
     "send": "发送验证码",
     "code": "电子邮箱验证码",
     "confirm": "验证并更改邮箱",
-    "success": "邮箱已更改。"
+    "success": "邮箱已更改。",
+    "sentTo": "请输入发送至 {email} 的验证码。",
+    "changeAddress": "更换其他邮箱",
+    "savedRefreshFailed": "邮箱已更改，但账号信息未能刷新，请重试刷新。"
   },
   "profileCorrection": {
     "edit": "编辑详情",
