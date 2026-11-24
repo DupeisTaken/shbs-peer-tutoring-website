@@ -685,7 +685,7 @@ needed. Keep this as the single icon source; do not add a competing
 Restart the development server after replacing the image. For production, rebuild
 and redeploy the app (including rebuilding the Docker image if used). If a browser
 still shows the old icon, close and reopen the tab or clear its cached site data.
-This controls the browser tab/bookmark icon, not an image inside the page.
+This single PNG supplies the browser tab/bookmark icon, the in-page header `BrandMark`, and the email footer icon.
 
 With the app running locally, verify the icon and its page metadata with:
 
