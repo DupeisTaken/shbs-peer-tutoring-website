@@ -21,11 +21,26 @@ export async function validatePanel(
     });
   const tutors = await tx.tutor.findMany({
     where: { id: { in: tutorIds }, status: "ACTIVE" },
-    include: { user: { select: { role: true, suspendedAt: true } } },
+    include: {
+      user: {
+        select: {
+          role: true,
+          suspendedAt: true,
+          tutorAccessRevoked: true,
+          mergedIntoId: true,
+        },
+      },
+    },
   });
   if (
     tutors.length !== tutorIds.length ||
-    tutors.some((t) => !t.user || t.user.suspendedAt)
+    tutors.some(
+      (t) =>
+        !t.user ||
+        Boolean(t.user.suspendedAt) ||
+        t.user.tutorAccessRevoked ||
+        Boolean(t.user.mergedIntoId),
+    )
   )
     throw new TRPCError({
       code: "BAD_REQUEST",

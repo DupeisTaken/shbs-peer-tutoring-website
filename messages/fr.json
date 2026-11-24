@@ -1768,7 +1768,18 @@
         "consequence": "This permanently removes the adjustment and changes the tutor’s service-hour total. Review the tutor, month and amount before continuing.",
         "confirm": "Delete adjustment"
       },
-      "create": "Nouvel ajustement des heures"
+      "create": "Nouvel ajustement des heures",
+      "source": {
+        "label": "Source",
+        "other": "Autre ajustement d’heures",
+        "interview": "Source d’entretien",
+        "orphaned": "Dossier d’entretien indisponible",
+        "unresolved": "Source d’entretien non résolue",
+        "conflicting": "Source d’entretien en conflit",
+        "correct": "Corriger les heures d’entretien",
+        "help": "Ces heures proviennent d’un service d’entretien enregistré. Vérifiez l’entretien pour corriger la réalisation, la durée ou les présences.",
+        "unavailable": "La correction de réalisation de l’entretien n’est pas disponible pour cette ligne."
+      }
     },
     "applications": {
       "title": "Candidatures tuteurs",
@@ -1862,7 +1873,21 @@
         "unavailable": "{name} (indisponible — remplacer cette sélection)",
         "chairSlot": "Choisir le membre {n} comme président"
       },
-      "setupTargetUnavailable": "The linked tutor record is unavailable. Refresh this application before setting up the account."
+      "setupTargetUnavailable": "The linked tutor record is unavailable. Refresh this application before setting up the account.",
+      "panelDraft": {
+        "changed": "Le jury a changé pendant que ce brouillon était ouvert. Rechargez pour vérifier le jury actuel.",
+        "reloadHelp": "Le rechargement remplace ce brouillon par le jury actuellement enregistré.",
+        "reload": "Recharger le jury",
+        "loading": "Chargement du jury…",
+        "retry": "Réessayer de charger le jury",
+        "reloadError": "Le jury actuel n’a pas pu être chargé. Votre brouillon reste inchangé.",
+        "refreshError": "La modification du jury a été envoyée, mais le jury actuel n’a pas pu être chargé. Réessayez de le charger avant toute autre modification."
+      },
+      "panelRepair": {
+        "reason": "Motif de la correction du jury",
+        "save": "Corriger le jury",
+        "consequence": "Le remplacement de ce jury en cours efface ses votes. La réalisation enregistrée et les heures acquises restent dans l’historique ; les nouveaux membres ne reçoivent aucun crédit automatique. Tous les membres du jury de remplacement doivent voter à nouveau."
+      }
     },
     "cards": {
       "title": "Discipline des élèves",
@@ -7174,7 +7199,18 @@
     "chairNeedsUpdate": "This panel needs an Admin or Head chair. Ask management to update the panel.",
     "noChairInterviews": "Aucun entretien ne vous est attribué en tant que responsable.",
     "refresh": "Actualiser",
-    "refreshing": "Actualisation…"
+    "refreshing": "Actualisation…",
+    "correctionEvidence": {
+      "readUnavailable": "Les preuves actuelles de l’entretien doivent être chargées avant la vérification ou l’envoi. Votre brouillon est conservé.",
+      "missingEvidence": "Chargez les participants enregistrés et les crédits actuels de la source avant de vérifier cette modification.",
+      "historyHelp": "Les présences et les heures appartiennent à l’entretien enregistré. Changer le jury de décision ne fait pas de ses nouveaux membres des participants à cet entretien.",
+      "decisionPanel": "Jury de décision actuel : {names}",
+      "participants": "Présences du jury de l’entretien enregistré",
+      "formerPanelist": "Ancien membre du jury",
+      "loading": "Chargement des preuves de réalisation…",
+      "totalChange": "Crédit total : {before} → {after} heures (variation {delta})",
+      "retryArrival": "Réessayer de charger l’entretien"
+    }
   },
   "applicationAccountSetup": {
     "title": "Account Setup · {name}",
@@ -7216,7 +7252,8 @@
     "reload": "Reload interview (replace draft)",
     "unavailable": "This interview is no longer available for your approval.",
     "waitingVotes": "Every panelist must vote before approval.",
-    "changed": "Interview evidence changed. Reload to review current information."
+    "changed": "Interview evidence changed. Reload to review current information.",
+    "retainedService": "Cette approbation conserve la réalisation de l’entretien, les présences et les crédits d’heures enregistrés, y compris les corrections autorisées. Le jury actuel peut différer des personnes dont la présence est enregistrée. Cette approbation n’ajoute ni ne retire d’heures de service."
   },
   "personPartition": {
     "refreshFailed": "The separation was saved, but the directory has not refreshed. Retry the read only.",
