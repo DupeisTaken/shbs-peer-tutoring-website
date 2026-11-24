@@ -2581,7 +2581,10 @@
       "panel": "面试小组：{members}",
       "headSuffix": "（组长）",
       "scheduled": "已安排：{time}",
-      "awaitingSchedule": "等待组长安排时间。"
+      "awaitingSchedule": "等待组长安排时间。",
+      "chairHelp": "你担任组长的面试。在此安排面试时间、查看评审投票并记录最终决定；你的个人投票请在日程中的面试事件里提交。",
+      "voteInSchedule": "前往日程投票",
+      "updateVoteInSchedule": "在日程中修改投票"
     },
     "announcements": {
       "label": "公告",
@@ -2695,7 +2698,8 @@
       "schedule": "日程",
       "pairings": "配对",
       "preferences": "偏好设置",
-      "history": "历史与服务时数"
+      "history": "历史与服务时数",
+      "chair": "面试组长"
     }
   },
   "public": {
@@ -7193,6 +7197,9 @@
     "historyFollowups": "{count} 场已作决定的面试仍需管理人员记录完成与服务时数。",
     "accessDenied": "面试访问权限当前不可用。请重新加载以核实当前权限。",
     "chairNeedsUpdate": "此小组需要由管理员或负责人担任主席。请联系管理团队更新小组。",
+    "noChairInterviews": "目前没有分配给你担任组长的面试。",
+    "refresh": "刷新",
+    "refreshing": "刷新中…",
     "correctionEvidence": {
       "readUnavailable": "请先成功加载当前面试证据，再核对或提交。你的草稿已保留。",
       "missingEvidence": "请先加载已记录的面试小组成员和当前来源时数，再核对此更改。",
@@ -7915,7 +7922,7 @@
     "denied": "你已无法访问此日程来源。",
     "retry": "重试",
     "interviewAttention": "这些面试仍有待处理事项，包括尚未安排时间的面试。",
-    "interviewHelp": "已分配的面试时间显示在日程中。面试组长工作区仍保留在主页。",
+    "interviewHelp": "已分配的面试时间显示在日程中。打开任意面试即可提交投票；组长排期与最终决定位于“面试组长”标签页。",
     "meetingHelp": "即将举行的会议显示在日程中。打开会议可办理缺席请假并查看个人历史。",
     "calendarScope": "日历订阅目前仅包含辅导课。面试和会议可在此门户日程中查看。",
     "task": {
