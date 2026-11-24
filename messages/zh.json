@@ -1,6 +1,6 @@
 {
   "helpNav": {
-    "title": "帮助与操作指南",
+    "title": "帮助中心",
     "downloads": "PDF 操作手册"
   },
   "recoveryWorkflow": {
@@ -680,7 +680,8 @@
       "teamSignin": "登录",
       "becomeCrew": "加入巡查队",
       "viewerSignup": "关注项目",
-      "landmark": "网站导航"
+      "landmark": "网站导航",
+      "signInAndJoin": "登录与加入"
     },
     "tagline": "朋辈辅导项目",
     "heroTitle": "一起学习，共同成长。",
@@ -2874,7 +2875,12 @@
       "enterTutor": "进入辅导伙伴主页",
       "enterAdmin": "进入管理区",
       "enterTutee": "进入学习伙伴主页",
-      "backToManagement": "返回管理主页"
+      "backToManagement": "返回管理主页",
+      "groups": {
+        "workspaces": "工作区",
+        "tools": "常用功能",
+        "account": "账号"
+      }
     },
     "theme": {
       "label": "主题",
@@ -2886,6 +2892,20 @@
         "amber": "琥珀",
         "sky": "天蓝"
       }
+    },
+    "workspaceTitles": {
+      "management": "管理区",
+      "viewer": "项目概览",
+      "tutor": "辅导伙伴",
+      "tutee": "学习伙伴",
+      "patrol": "巡查队",
+      "translations": "翻译",
+      "programHome": "项目主页"
+    },
+    "workspaceSwitcher": {
+      "label": "切换页面",
+      "workspaces": "工作区",
+      "general": "通用"
     }
   },
   "localization": {

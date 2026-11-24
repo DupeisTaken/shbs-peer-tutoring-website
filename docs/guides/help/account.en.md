@@ -33,9 +33,9 @@ Open: `/my-account`
 
 ### Walkthrough
 
-1. **Open the account menu** Choose the workspace offered for your access: Enter Tutor Page, Enter Tutee Page, Patrol, Translations or management. Back to Management returns eligible staff and observers. A shortcut does not grant a missing membership.
+1. **Open the grouped account menu** Use the header shortcuts or open your avatar menu to see links grouped under Workspaces, Tools and Account: Enter Tutor Page, Enter Tutee Page, Patrol, Translations or Back to Management. Use the top-bar Help Center button on any page for task guides. A shortcut does not grant a missing membership.
 
-   Look for: Account menu and available workspace links
+   Look for: Grouped account menu and top-bar Help Center button
 
 2. **Use mobile and language controls** On narrow screens use Menu to open management navigation; choose a link, Close or Escape to dismiss it. Use the language selector and theme control in the header. Scroll wide tables inside their own region.
 

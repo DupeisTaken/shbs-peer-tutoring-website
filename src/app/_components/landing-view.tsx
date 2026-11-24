@@ -1,4 +1,5 @@
 import Link from "next/link";
+import type { ReactNode } from "react";
 import { getLocale, getTranslations } from "next-intl/server";
 
 import { db } from "~/server/db";
@@ -35,7 +36,13 @@ import { PublicHeader } from "~/app/_components/public-header";
  * in unpublished news + hidden sections (badged) behind a ribbon. The auth redirect for signed-in
  * visitors lives on the `/` route, not here.
  */
-export async function LandingView({ preview = false }: { preview?: boolean }) {
+export async function LandingView({
+  preview = false,
+  signedInHeader,
+}: {
+  preview?: boolean;
+  signedInHeader?: ReactNode;
+}) {
   const locale = await getLocale();
   const [features, overrides, news, sections, layout, navPages, t, tc] =
     await Promise.all([
@@ -61,7 +68,6 @@ export async function LandingView({ preview = false }: { preview?: boolean }) {
   const draftLabel = t("preview.draftBadge");
   const help = await getTranslations("helpNav");
   const informationItems = [
-    { href: "/help", label: help("title") },
     { href: "/privacy", label: getPrivacyPolicy(locale).title },
     ...navPages
       .filter((page) => page.slug !== "faq")
@@ -237,56 +243,40 @@ export async function LandingView({ preview = false }: { preview?: boolean }) {
     <div className="flex min-h-screen flex-col">
       {preview && <PreviewRibbon />}
 
-      <PublicHeader
-        skipLabel={tc("skipToContent")}
-        navigation={
-          <HeaderMenuGroup
-            label={t("nav.landmark")}
-            className="flex min-w-0 flex-wrap items-center gap-2"
-          >
-            <div className="lg:hidden">
+      {signedInHeader ?? (
+        <PublicHeader
+          skipLabel={tc("skipToContent")}
+          trailingAction={
+            <HeaderMenuGroup label={t("nav.landmark")}>
               <HeaderMenu
-                label={t("nav.menu")}
+                label={t("nav.signInAndJoin")}
+                tone="secondary"
+                align="right"
                 panelWidth="wide"
+                compact
                 items={[
-                  ...informationItems.map((item) => ({
-                    ...item,
-                    group: t("nav.accessProgramInformation"),
-                  })),
-                  ...joinItems.map((item) => ({
-                    ...item,
-                    group: t("nav.joinProgram"),
-                  })),
                   {
                     href: "/signin",
                     label: t("nav.teamSignin"),
-                    separatorBefore: true,
+                    strong: true,
                   },
+                  ...joinItems.map((item, idx) => ({
+                    ...item,
+                    strong: false,
+                    group: t("nav.joinProgram"),
+                    separatorBefore: idx === 0,
+                  })),
+                  ...informationItems.map((item, idx) => ({
+                    ...item,
+                    group: t("nav.accessProgramInformation"),
+                    separatorBefore: idx === 0,
+                  })),
                 ]}
               />
-            </div>
-            <div className="hidden flex-wrap items-center gap-2 lg:flex">
-              <HeaderMenu
-                label={t("nav.accessProgramInformation")}
-                items={informationItems}
-                compact
-              />
-              <HeaderMenu
-                label={t("nav.joinProgram")}
-                items={joinItems}
-                align="right"
-                compact
-              />
-              <Link
-                href="/signin"
-                className="btn-secondary btn-sm min-h-8 py-0"
-              >
-                {t("nav.teamSignin")}
-              </Link>
-            </div>
-          </HeaderMenuGroup>
-        }
-      />
+            </HeaderMenuGroup>
+          }
+        />
+      )}
 
       <main id="main-content" className="flex-1">
         {!primaryHero && <h1 className="sr-only">{APP_TITLE}</h1>}
@@ -297,15 +287,24 @@ export async function LandingView({ preview = false }: { preview?: boolean }) {
 
       <footer className="border-t border-slate-200 py-6">
         <p className="muted text-center text-sm">{text("footer")}</p>
-        {/* Keep the privacy notice discoverable even when editors remove every landing block. */}
-        <p className="mt-2 text-center text-sm">
+        {/* Keep Help Center and privacy notice discoverable even when editors remove landing blocks. */}
+        <div className="mt-2 flex flex-wrap items-center justify-center gap-x-2 gap-y-1 text-sm">
+          <Link
+            href="/help"
+            className="link inline-flex min-h-11 items-center px-3"
+          >
+            {help("title")}
+          </Link>
+          <span aria-hidden="true" className="text-slate-300">
+            ·
+          </span>
           <Link
             href="/privacy"
             className="link inline-flex min-h-11 items-center px-3"
           >
             {getPrivacyPolicy(locale).title}
           </Link>
-        </p>
+        </div>
         {SUPPORT_EMAIL && (
           <p className="muted mt-1 text-center text-sm">
             <a href={`mailto:${SUPPORT_EMAIL}`} className="link">

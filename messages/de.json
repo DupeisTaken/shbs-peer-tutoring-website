@@ -1,6 +1,6 @@
 {
   "helpNav": {
-    "title": "Hilfe & Anleitungen",
+    "title": "Hilfezentrum",
     "downloads": "PDF-Handbücher"
   },
   "recoveryWorkflow": {
@@ -680,7 +680,8 @@
       "teamSignin": "Anmelden",
       "becomeCrew": "Rundgang beitreten",
       "viewerSignup": "Programm Verfolgen",
-      "landmark": "Seitennavigation"
+      "landmark": "Seitennavigation",
+      "signInAndJoin": "Anmelden & Beitreten"
     },
     "tagline": "Peer-Tutoring-Programm",
     "heroTitle": "Gemeinsam lernen. Gemeinsam wachsen.",
@@ -2874,7 +2875,12 @@
       "enterTutor": "Tutor-Seite öffnen",
       "enterAdmin": "Admin-Bereich betreten",
       "enterTutee": "Tutee-Seite öffnen",
-      "backToManagement": "Zurück zur Verwaltung"
+      "backToManagement": "Zurück zur Verwaltung",
+      "groups": {
+        "workspaces": "Arbeitsbereiche",
+        "tools": "Werkzeuge",
+        "account": "Konto"
+      }
     },
     "theme": {
       "label": "Design",
@@ -2886,6 +2892,20 @@
         "amber": "Bernstein",
         "sky": "Himmel"
       }
+    },
+    "workspaceTitles": {
+      "management": "Verwaltung",
+      "viewer": "Programmübersicht",
+      "tutor": "Tutor",
+      "tutee": "Lernende",
+      "patrol": "Crew",
+      "translations": "Übersetzungen",
+      "programHome": "Startseite"
+    },
+    "workspaceSwitcher": {
+      "label": "Bereich wechseln",
+      "workspaces": "Arbeitsbereiche",
+      "general": "Allgemein"
     }
   },
   "localization": {

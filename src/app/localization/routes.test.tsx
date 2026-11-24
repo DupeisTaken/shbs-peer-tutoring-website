@@ -22,6 +22,12 @@ vi.mock("~/server/auth", () => ({
 vi.mock("~/server/db", () => ({
   db: { user: { findUnique: async () => mocks.account } },
 }));
+vi.mock("~/server/program/features", () => ({
+  getFeatures: async () => ({ CREW: true }),
+}));
+vi.mock("~/app/_components/help-link", () => ({
+  HelpLink: () => null,
+}));
 vi.mock("~/app/_components/language-switcher", () => ({
   LanguageSwitcher: () => null,
 }));
@@ -33,6 +39,9 @@ vi.mock("~/app/_components/notification-bell", () => ({
 }));
 vi.mock("~/app/_components/sign-out-button", () => ({
   SignOutButton: () => null,
+}));
+vi.mock("~/app/_components/user-avatar", () => ({
+  UserAvatar: () => null,
 }));
 vi.mock("~/app/_components/admin-nav", () => ({
   NavSidebar: () => null,

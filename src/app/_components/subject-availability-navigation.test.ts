@@ -37,4 +37,10 @@ it("keeps archival, audit and recovery routes in Data & Recovery rather than Ove
     "/admin/recovery",
     "/admin/database",
   ]);
+  expect(overview?.items.map((item) => item.href)).not.toContain("/help");
+  expect(overview?.items.map((item) => item.href)).not.toContain("/admin/help");
+  const administration = NAV_SECTIONS.find(
+    (section) => section.titleKey === "admin.nav.sections.administration",
+  );
+  expect(administration?.items.map((item) => item.href)).toContain("/admin/help");
 });

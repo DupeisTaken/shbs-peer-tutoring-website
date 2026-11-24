@@ -98,16 +98,13 @@ async function Shell({
     getTranslations("common"),
   ]);
   const help = await getTranslations("helpNav");
-  const navItems = [
-    { href: "/help", label: help("title") },
-    ...nav
-      .filter((page) => page.slug !== "faq")
-      .map((page) => ({
-        href: `/p/${page.slug}`,
-        label: page.label,
-        lang: page.labelLocale,
-      })),
-  ];
+  const navItems = nav
+    .filter((page) => page.slug !== "faq")
+    .map((page) => ({
+      href: `/p/${page.slug}`,
+      label: page.label,
+      lang: page.labelLocale,
+    }));
   return (
     <div className="flex min-h-screen flex-col">
       <PublicHeader
@@ -120,6 +117,7 @@ async function Shell({
             <HeaderMenu
               label={t("nav.accessProgramInformation")}
               items={navItems}
+              tone="ghost"
               className="hidden lg:block"
               compact
             />
@@ -175,6 +173,14 @@ async function Shell({
       <footer className="border-t border-slate-200 py-6">
         <p className="muted text-center text-sm">
           {t("footer", { appTitle: APP_TITLE })}
+        </p>
+        <p className="mt-2 text-center text-sm">
+          <Link
+            href="/help"
+            className="link inline-flex min-h-11 items-center px-3"
+          >
+            {help("title")}
+          </Link>
         </p>
       </footer>
     </div>

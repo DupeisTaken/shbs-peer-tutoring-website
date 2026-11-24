@@ -1,6 +1,6 @@
 {
   "helpNav": {
-    "title": "Aide et guides",
+    "title": "Centre d'aide",
     "downloads": "Manuels PDF"
   },
   "recoveryWorkflow": {
@@ -680,7 +680,8 @@
       "teamSignin": "Connexion",
       "becomeCrew": "Rejoindre la ronde",
       "viewerSignup": "Suivre le Programme",
-      "landmark": "Navigation du site"
+      "landmark": "Navigation du site",
+      "signInAndJoin": "Connexion et inscription"
     },
     "tagline": "Programme de tutorat par les pairs",
     "heroTitle": "Apprendre ensemble. Progresser ensemble.",
@@ -2874,7 +2875,12 @@
       "enterTutor": "Accéder à la page tuteur",
       "enterAdmin": "Accéder à l'espace administrateur",
       "enterTutee": "Accéder à la page élève",
-      "backToManagement": "Retour à la gestion"
+      "backToManagement": "Retour à la gestion",
+      "groups": {
+        "workspaces": "Espaces de travail",
+        "tools": "Outils",
+        "account": "Compte"
+      }
     },
     "theme": {
       "label": "Thème",
@@ -2886,6 +2892,20 @@
         "amber": "Ambre",
         "sky": "Ciel"
       }
+    },
+    "workspaceTitles": {
+      "management": "Gestion",
+      "viewer": "Aperçu du programme",
+      "tutor": "Tuteur",
+      "tutee": "Élève",
+      "patrol": "Équipe de ronde",
+      "translations": "Traductions",
+      "programHome": "Accueil du programme"
+    },
+    "workspaceSwitcher": {
+      "label": "Changer de page",
+      "workspaces": "Espaces",
+      "general": "Général"
     }
   },
   "localization": {

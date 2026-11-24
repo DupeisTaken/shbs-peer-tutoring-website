@@ -49,8 +49,10 @@ describe("shared accessibility fixes (#843, #844, #845)", () => {
       <NextIntlClientProvider locale="en" messages={en} timeZone="Asia/Shanghai">
         <WorkspaceHeader
           href="/admin"
-          title="SHBS Peer Tutoring Team"
-          items={[{ href: "/student", label: "Enter Tutee Page" }]}
+          title="Management"
+          switcherItems={[
+            { id: "tutee", href: "/student", label: "Tutee", group: "workspaces" },
+          ]}
           identity={<span>Admin</span>}
           account={<button type="button">Account</button>}
           skipLabel={en.common.skipToContent}
@@ -61,19 +63,23 @@ describe("shared accessibility fixes (#843, #844, #845)", () => {
     );
     const skip = screen.getByRole("link", { name: en.common.skipToContent });
     expect(skip.getAttribute("href")).toBe("#admin-content");
-    expect(container.querySelector("header svg")).toBeTruthy();
+    const brandMark = container.querySelector<HTMLImageElement>(
+      "header [data-brand-mark] img",
+    );
+    expect(brandMark?.getAttribute("src")).toBe("/icon.png");
+    expect(brandMark?.getAttribute("alt")).toBe("");
     const controls = [
       ...container.querySelectorAll("header a, header button, header select"),
     ];
-    const enterIndex = controls.indexOf(
-      screen.getByRole("link", { name: "Enter Tutee Page" }),
+    const tuteeIndex = controls.indexOf(
+      screen.getByRole("link", { name: "Tutee" }),
     );
     const languageIndex = controls.indexOf(
       screen.getByRole("combobox", { name: "Language" }),
     );
     // Language switcher follows workspace navigation in DOM/Tab order on desktop.
-    expect(enterIndex).toBeGreaterThan(0);
-    expect(languageIndex).toBeGreaterThan(enterIndex);
+    expect(tuteeIndex).toBeGreaterThan(0);
+    expect(languageIndex).toBeGreaterThan(tuteeIndex);
   });
 
   it("supports accent tone, title, and green semantic success on InlineNotice", () => {

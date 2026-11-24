@@ -1,10 +1,12 @@
 # User guide
 
 For searchable English and Chinese task walkthroughs with real development-server
-screenshots, explanations and troubleshooting, open **Help & How-to** at `/help`.
-Sign in to reveal guides for your current account and participation. The
+screenshots, explanations, troubleshooting and offline PDF handbooks, open
+**Help Center** from the top bar on any page (or visit `/help`). Sign in to
+reveal guides and PDF handbooks for your current account and participation. The
 [repository catalogue](help/README.md) mirrors the same maintained instructions;
-staff can download PDF handbooks from **Management → PDF handbooks**.
+staff can also distribute training PDF handbooks from
+**Management → Administration → PDF handbooks**.
 
 Use this guide with the website address supplied by your program. Page names below match the interface. Features and navigation can vary when Head activates staged program modules at refresh. A hidden page does not grant permission to use its address directly.
 

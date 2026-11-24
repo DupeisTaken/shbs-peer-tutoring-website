@@ -117,7 +117,7 @@ Use [configured-field tests](../../src/app/_components/configured-person-name-fi
 
 ## Keep settings and navigation predictable
 
-The management sidebar separates daily operations from configuration and archival maintenance: **Overview** holds everyday operational queues and rosters; **Administration** holds program settings, signup forms, content, policies, translations, codes, approvals and user administration; and **Data & Recovery** groups archival, audit and recovery tooling (**Program Records**, **Academic Corrections**, **Audit Log**, **Admission Recovery** and **Database records**). Grouping links by task frequency keeps daily work scannable without changing route permissions, approval policies or recovery contracts.
+The management sidebar separates daily operations from configuration and archival maintenance: **Overview** holds everyday operational queues and rosters; **Administration** holds program settings, signup forms, content, policies, translations, codes, approvals, user administration and PDF handbook distribution; and **Data & Recovery** groups archival, audit and recovery tooling (**Program Records**, **Academic Corrections**, **Audit Log**, **Admission Recovery** and **Database records**). **Help Center** (`/help`) is a persistent top-bar control across both public and signed-in headers (and in the landing footer), rather than an Overview sidebar item. Grouping links by task frequency keeps daily work scannable without changing route permissions, approval policies or recovery contracts.
 
 The Program Settings information architecture groups independent controls into
 Recruitment and Refresh; Account Settings; Deployment Configurations; and Optional

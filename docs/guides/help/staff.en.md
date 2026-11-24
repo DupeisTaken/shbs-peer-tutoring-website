@@ -998,7 +998,7 @@ The public website reflects applied content while unrelated drafts remain indepe
 
 ### How it works
 
-A custom page is public content, not a protected participant record or a replacement for the policy versioning workflow. Help & How-to is a maintained catalogue; the legacy FAQ URL redirects there.
+A custom page is public content, not a protected participant record or a replacement for the policy versioning workflow. Help Center is a maintained catalogue; the legacy FAQ URL redirects there.
 
 ### Troubleshooting
 
@@ -1462,11 +1462,11 @@ Open: `/admin/help`
 
 ### Walkthrough
 
-1. **Open handbook downloads** In management navigation open PDF handbooks. Read the available editions; downloads follow current account authority, and the Head handbook remains Head-only.
+1. **Open handbook downloads** In management navigation open Administration → PDF handbooks, or open PDF handbooks from Help Center. Visitors and participants can download handbooks for their own authorized collections; staff can distribute participant training handbooks, while Admin and Head editions follow current authority.
 
    Look for: Choose a permitted handbook audience and its English or Chinese PDF download.
 
-2. **Choose language and audience** Choose the role handbook you need and select English or 中文 PDF. Save the downloaded file and inspect its title, article list and screenshot captions before sharing the intended edition.
+2. **Choose language and audience** Choose the role handbook you need and select English or 中文 PDF. Each file is stamped with the download date and time in both its cover metadata and filename. Inspect its title, article list and screenshot captions before sharing.
 
 3. **Check screenshot provenance** Read the guide's screenshot source details for capture revision, date and route. In the GitHub catalogue open captures.json for role, viewport and crop receipts. Chinese guides label English fallback images. This set is labelled latest main, without claiming that revision is deployed.
 

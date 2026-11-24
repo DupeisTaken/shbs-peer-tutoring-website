@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getTranslations } from "next-intl/server";
 
@@ -5,9 +6,13 @@ import { auth } from "~/server/auth";
 import { db } from "~/server/db";
 import { pageMetadata } from "~/server/branding-metadata";
 import { getFeatures } from "~/server/program/features";
-import { SignOutButton } from "~/app/_components/sign-out-button";
+import {
+  resolveWorkspaceNavigation,
+  workspaceNavLabels,
+  workspaceSwitcherLabels,
+} from "~/lib/workspace-navigation";
+import { UserAvatar } from "~/app/_components/user-avatar";
 import { WorkspaceHeader } from "~/app/_components/workspace-header";
-import { TEAM_TITLE } from "~/lib/branding";
 
 export async function generateMetadata() {
   return pageMetadata("crew.patrol.title");
@@ -28,7 +33,19 @@ export default async function PatrolLayout({
   // Keep appeal access available even when crew access or the entire module is disabled.
   const me = await db.user.findUnique({
     where: { id: session.user.id },
-    select: { crewStatus: true, suspendedAt: true },
+    select: {
+      name: true,
+      email: true,
+      username: true,
+      role: true,
+      crewStatus: true,
+      tutorAccessRevoked: true,
+      canTranslate: true,
+      suspendedAt: true,
+      mergedIntoId: true,
+      schoolDeparture: true,
+      tutor: { select: { username: true, status: true } },
+    },
   });
   if (me?.suspendedAt) redirect("/suspended");
 
@@ -36,41 +53,86 @@ export default async function PatrolLayout({
   const features = await getFeatures(db);
   if (!features.CREW) redirect("/");
 
+  const role = me?.role ?? session.role;
   const elevated =
-    session.role === "HEAD" ||
-    session.role === "ADMIN" ||
-    session.role === "COORDINATOR";
+    role === "HEAD" || role === "ADMIN" || role === "COORDINATOR";
   // Crew (any status) and crew-only logins reach the portal; the page itself gates patrolling on
   // ACTIVE and shows a read-only notice otherwise. Elevated roles oversee the crew.
-  const isCrew = me?.crewStatus != null || session.role === "CREW";
+  const isCrew = me?.crewStatus != null || role === "CREW";
   if (!isCrew && !elevated) redirect("/");
 
   const t = await getTranslations();
-  // Where "back" goes depends on what else this account is (crew-only logins have nowhere else).
-  const backHref = elevated ? "/admin" : session.tutorId ? "/dashboard" : null;
+  const nav = resolveWorkspaceNavigation({
+    account: {
+      role,
+      suspendedAt: me?.suspendedAt ?? null,
+      mergedIntoId: me?.mergedIntoId ?? null,
+      crewStatus: me?.crewStatus ?? null,
+      tutorAccessRevoked: me?.tutorAccessRevoked ?? false,
+      canTranslate: me?.canTranslate ?? false,
+      schoolDeparture: me?.schoolDeparture ?? null,
+      tutor: me?.tutor ?? null,
+    },
+    crewEnabled: features.CREW,
+    currentArea: "crew",
+    labels: workspaceNavLabels(t),
+  });
+  const accountHref = elevated ? "/admin/account" : "/my-account";
+  const accountItems = [
+    {
+      href: elevated ? "/admin/messages" : "/messages",
+      label: t("workflows.messages"),
+      group: "tools" as const,
+    },
+    ...(elevated
+      ? [
+          {
+            href: "/admin/student-support",
+            label: t("workflows.support"),
+            group: "tools" as const,
+          },
+        ]
+      : []),
+    {
+      href: accountHref,
+      label: t(elevated ? "account.title" : "components.userMenu.settings"),
+      group: "account" as const,
+    },
+  ];
+  const displayName = me?.name ?? session.user.name ?? me?.email ?? role;
+  const username = me?.username ?? me?.tutor?.username;
 
   return (
     <div className="min-h-screen">
       <WorkspaceHeader
         href="/patrol"
-        title={t("crew.brand", { team: TEAM_TITLE })}
+        title={t("components.workspaceTitles.patrol")}
+        switcherItems={nav.items}
+        switcherLabels={workspaceSwitcherLabels(t)}
         skipLabel={t("common.skipToContent")}
-        containerClassName="mx-auto max-w-3xl"
-        items={[
-          { href: "/help", label: t("helpNav.title") },
-          ...(session.role !== "VIEWER"
-            ? [{ href: "/student", label: t("components.userMenu.enterTutee") }]
-            : []),
-          ...(backHref ? [{ href: backHref, label: t("crew.exit") }] : []),
-        ]}
+        containerClassName="mx-auto max-w-6xl"
         identity={
-          <div className="text-right leading-tight">
-            <p className="text-sm font-medium">{session.user.name}</p>
-            <p className="muted text-xs">{t("crew.role")}</p>
-          </div>
+          <Link
+            href={accountHref}
+            className="hidden shrink-0 rounded-md px-2 py-0.5 text-right leading-tight hover:bg-slate-100 lg:block"
+            title={t("account.title")}
+          >
+            <p className="text-[13px] font-medium text-slate-900">{displayName}</p>
+            <p className="muted text-[11px]">
+              {username ? `@${username} · ` : ""}
+              {t("crew.role")}
+            </p>
+          </Link>
         }
         account={
-          <SignOutButton className="btn-secondary btn-sm min-h-11 lg:min-h-8 lg:py-0" />
+          <UserAvatar
+            name={displayName}
+            username={username}
+            email={me?.email ?? session.user.email}
+            role={role}
+            items={accountItems}
+            compactAtDesktop
+          />
         }
       />
 

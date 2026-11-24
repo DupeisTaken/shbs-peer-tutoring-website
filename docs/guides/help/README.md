@@ -1,10 +1,11 @@
-# Help & How-to catalogue
+# Help Center catalogue
 
-Open `/help` on the running website for searchable, bilingual walkthroughs.
-The Information menu and account menu link to it; `/p/faq` redirects there.
-Signing in adds the collections available to the current account. Each guide
-has prerequisites, numbered directions, a result to check, an explanation and
-brief troubleshooting.
+Open `/help` on the running website (via the top-bar **Help Center** button on
+any page or the landing-page footer) for searchable, bilingual walkthroughs and
+offline PDF handbooks. `/p/faq` redirects there. Signing in adds the collections
+available to the current account and shows your signed-in workspace header. Each
+guide has prerequisites, numbered directions, a result to check, an explanation
+and brief troubleshooting.
 
 ## GitHub training editions
 
@@ -28,12 +29,15 @@ access on articles, image routes and PDF downloads.
 
 ## PDF handbooks
 
-Staff open **Management → PDF handbooks** at `/admin/help` and choose English
-or Chinese for a collection. Downloads render on demand using the website's
-**Geist** typography (with an embedded Noto Sans SC subset for Chinese text).
-Staff can distribute participant training editions without having those
-memberships themselves; the Admin and Head editions require their corresponding
-authority. Downloads are private and are not cached publicly.
+Everyone can download PDF handbooks directly from **Help Center** (`/help#handbooks`)
+for every collection their current session or account is authorized to read
+(visitors can download the public **Get started** handbook). Staff can also open
+**Management → Administration → PDF handbooks** at `/admin/help` to distribute
+participant training editions without having those memberships themselves; the
+Admin and Head editions still require their corresponding authority. Downloads
+render on demand using the website's **Geist** typography (with an embedded Noto
+Sans SC subset for Chinese text), stamp the download date and time into both the
+PDF and filename, and are served with `private, no-store` headers.
 
 ## CI-baked screenshots (clean Git repository)
 

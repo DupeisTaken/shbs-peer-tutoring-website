@@ -1,6 +1,11 @@
 import { accountPortalAccess } from "~/server/portal-access";
 import { WorkspaceHeader } from "~/app/_components/workspace-header";
 import { AdminPreferenceIdentity } from "~/app/_components/dismissible-notice";
+import {
+  resolveWorkspaceNavigation,
+  workspaceNavLabels,
+  workspaceSwitcherLabels,
+} from "~/lib/workspace-navigation";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getTranslations } from "next-intl/server";
@@ -12,7 +17,6 @@ import { UserAvatar } from "~/app/_components/user-avatar";
 import { NavSidebar, NavMobileRow } from "~/app/_components/admin-nav";
 import { ReadOnlyProvider } from "~/app/_components/read-only";
 import { InlineNotice } from "~/app/_components/ui/patterns";
-import { TEAM_TITLE } from "~/lib/branding";
 
 /**
  * Gates management reads using current account capabilities. Departure observers receive
@@ -32,70 +36,76 @@ export default async function AdminLayout({
   if (!access.canReadManagement) redirect("/");
   const readOnly = access.managementReadOnly;
 
-  // Username for the identity block in the top bar (account handle, falling back to a linked
-  // tutor's). The block links to the self-service account page. The tutor `status` decides whether
-  // to show the "Enter tutor" hop: an ARCHIVED tutor means can-tutor is off (not permitted) — we
-  // keep the link to preserve attributes, so check the live status rather than the JWT's tutorId.
   const me = await db.user.findUnique({
     where: { id: session.user.id },
     select: {
+      role: true,
       username: true,
       crewStatus: true,
+      canTranslate: true,
       tutorAccessRevoked: true,
       suspendedAt: true,
+      mergedIntoId: true,
+      schoolDeparture: true,
       tutor: { select: { username: true, status: true } },
     },
   });
   // A suspended viewer keeps their login but is routed to the suspension/appeal screen.
   if (me?.suspendedAt) redirect("/suspended");
-  // Permitted to tutor = a live linked tutor that hasn't been archived (can-tutor turned off).
-  // Keyed off the DB link (`me.tutor`), not the JWT's `session.tutorId`, so toggling can-tutor on
-  // shows the button on the next render without waiting for a re-login. The jwt callback keeps
-  // `session.tutorId` in sync too, so following the link into the tutor area resolves correctly.
-  const canEnterTutor = !me?.tutorAccessRevoked && !!me?.tutor && me.tutor.status !== "ARCHIVED";
   const features = await getFeatures(db);
-  // Use one ordered list for visible shortcuts and the account submenu.
-  const workspaceItems = [
-    ...(canEnterTutor
-      ? [{ href: "/dashboard", label: t("components.userMenu.enterTutor") }]
-      : []),
-    ...(!readOnly || access.departed ? [{ href: "/student", label: t("components.userMenu.enterTutee") }] : []),
-  ];
+  const nav = resolveWorkspaceNavigation({
+    account: {
+      role: me?.role ?? session.role,
+      suspendedAt: me?.suspendedAt ?? null,
+      mergedIntoId: me?.mergedIntoId ?? null,
+      crewStatus: me?.crewStatus ?? null,
+      tutorAccessRevoked: me?.tutorAccessRevoked ?? false,
+      canTranslate: me?.canTranslate ?? false,
+      schoolDeparture: me?.schoolDeparture ?? null,
+      tutor: me?.tutor ?? null,
+    },
+    crewEnabled: features.CREW,
+    currentArea: "management",
+    labels: workspaceNavLabels(t),
+  });
   const accountItems = [
-    ...workspaceItems,
     {
       href: readOnly ? "/messages" : "/admin/messages",
       label: t("workflows.messages"),
+      group: "tools" as const,
     },
     {
       href: readOnly ? "/student-support" : "/admin/student-support",
       label: t("workflows.support"),
+      group: "tools" as const,
     },
-    ...(features.CREW && me?.crewStatus === "ACTIVE"
-      ? [{ href: "/patrol", label: t("crew.nav.patrol") }]
-      : []),
-    { href: "/admin/account", label: t("account.title") },
+    {
+      href: "/admin/account",
+      label: t("account.title"),
+      group: "account" as const,
+    },
   ];
 
   return (
     <div className="admin-shell min-h-dvh lg:flex lg:h-dvh lg:flex-col lg:overflow-hidden">
-      {/* Unified top bar (all breakpoints): brand + the global controls. */}
+      {/* Unified top bar (all breakpoints): workspace selector left, global controls right. */}
       <WorkspaceHeader
         href="/admin"
-        title={TEAM_TITLE}
-        items={workspaceItems}
+        title={nav.managementLabel}
+        switcherItems={nav.items}
+        switcherLabels={workspaceSwitcherLabels(t)}
         skipLabel={t("common.skipToContent")}
         skipToId="admin-content"
         identity={
           <Link
             href="/admin/account"
-            className="hidden shrink-0 rounded-md px-2 py-1 text-right leading-tight hover:bg-slate-100 lg:block"
+            className="hidden shrink-0 rounded-md px-2 py-0.5 text-right leading-tight hover:bg-slate-100 lg:block"
             title={t("account.title")}
           >
-            <p className="text-sm font-medium text-slate-900">
+            <p className="text-[13px] font-medium text-slate-900">
               {session.user.name}
             </p>
-            <p className="muted text-xs">
+            <p className="muted text-[11px]">
               {(me?.username ?? me?.tutor?.username)
                 ? `@${me.username ?? me?.tutor?.username} · `
                 : ""}

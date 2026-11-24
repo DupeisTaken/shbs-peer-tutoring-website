@@ -75,7 +75,7 @@ export function NotificationBell() {
       <summary
         aria-label={bellLabel}
         title={bellLabel}
-        className="focus-visible:ring-accent-500 relative flex min-h-11 min-w-11 cursor-pointer list-none items-center justify-center rounded-md hover:bg-slate-100 focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-hidden [&::-webkit-details-marker]:hidden"
+        className="focus-visible:ring-accent-500 relative flex min-h-11 min-w-11 cursor-pointer list-none items-center justify-center rounded-md hover:bg-slate-100 focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-hidden lg:min-h-8 lg:min-w-8 [&::-webkit-details-marker]:hidden"
       >
         <BellIcon className="h-5 w-5 text-slate-700" />
         {count > 0 && (

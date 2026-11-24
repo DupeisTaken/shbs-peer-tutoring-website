@@ -251,15 +251,12 @@ weight, not an arbitrary height difference.
 
 ## Mobile header hierarchy
 
-- Use a prominent brand (20 px on mobile) and the language selector on the top row.
-- Put the management hamburger menu at the far left of the second row; align theme,
-  notifications and account controls to its right. Give the icon an accessible name.
-- Keep workspace entry/return links together on a third row, separated with a subtle
-  top border and space. Let long translated labels wrap without clipping.
-- Preserve 44 px mobile touch targets. Make the header spacious and the rows clear
-  rather than shrinking interactive controls to obtain a shorter header.
-- At desktop widths retain a single compact row, 18 px branding, and 32 px workspace
-  buttons/language selector. Keep only one instance of each interactive control.
+- Pair the official PT `BrandMark` logo with a bold franchise-style wordmark (`text-xl font-bold tracking-tight lg:text-lg`) inside the `(Logo) Title ⌄` workspace switcher across signed-in workspaces (`Management` for staff, `Program Overview` for Viewers/read-only observers, `Tutor`, `Tutee`, `Crew`, `Translations`, `Help Center`, and the configured site title on signed-in Program Home). Clicking opens an access-gated selector for the user's other authorized areas plus `Program Home` and `Help Center`, omitting whichever area is currently open.
+- On Program Home (`/` and signed-in `/?home=1`), show the configured program title (`SHBS Peer Tutoring`) beside the PT logo. For guests, merge `Sign In`, `Join the Program`, and `Access Program Information` into one far-right `Sign In & Join` menu after `?`, `Theme`, and `Language`; when signed in, hide guest actions and show the workspace switcher and account menu.
+- Keep the signed-in right-side utility order consistent across viewports: **Notifications (Bell) → Help Center (`?`, hidden when already on `/help`) → Theme → Language → User & Portrait (far right)**, separated by a subtle hairline divider before the account block on desktop.
+- In `WorkspaceHeader`, mobile (`<lg`) puts the optional management hamburger menu and `(Logo) Title ⌄` on row 1 (preventing title truncation in any language) and `Bell · ? · Theme` (left) + `Language · Avatar` (right) on row 2, separated by a full-width hairline.
+- In `PublicHeader`, Program Home mirrors that exact 2-row mobile structure (`[PT] SHBS Peer Tutoring` on row 1, `? · Theme` left and `Language · Sign In & Join` right on row 2); subpages with a return link place `[PT] <Title>` + `Language` on row 1 and the return link + `? · Theme` on row 2.
+- Preserve 44 px mobile touch targets. At desktop widths retain a single compact ~56 px row with 32 px utility controls and one instance of each interactive control.
 
 `WorkspaceHeaderFrame` measures the rendered header for native document scroll
 padding, including translated wrapping and enlarged text. After ordinary focus

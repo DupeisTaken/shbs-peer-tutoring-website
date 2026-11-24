@@ -2492,8 +2492,8 @@ export const managementArticles: HelpArticle[] = [
     ),
     explanation: [
       t(
-        "A custom page is public content, not a protected participant record or a replacement for the policy versioning workflow. Help & How-to is a maintained catalogue; the legacy FAQ URL redirects there.",
-        "自定义页面属于公开内容，不是受保护参与者记录，也不能替代政策版本流程。帮助与操作指南属于维护目录；旧常见问题网址会跳转至此。",
+        "A custom page is public content, not a protected participant record or a replacement for the policy versioning workflow. Help Center is a maintained catalogue; the legacy FAQ URL redirects there.",
+        "自定义页面属于公开内容，不是受保护参与者记录，也不能替代政策版本流程。帮助中心属于维护目录；旧常见问题网址会跳转至此。",
       ),
     ],
     troubleshooting: [
@@ -4601,15 +4601,15 @@ export const managementArticles: HelpArticle[] = [
       [
         t("Open handbook downloads", "打开手册下载"),
         t(
-          "In management navigation open PDF handbooks. Read the available editions; downloads follow current account authority, and the Head handbook remains Head-only.",
-          "在管理导航打开PDF手册。阅读可用版本；下载遵循当前账号权限，负责人手册仅负责人可用。",
+          "In management navigation open Administration → PDF handbooks, or open PDF handbooks from Help Center. Visitors and participants can download handbooks for their own authorized collections; staff can distribute participant training handbooks, while Admin and Head editions follow current authority.",
+          "在管理导航打开系统管理→PDF操作手册，或从帮助中心打开PDF操作手册。访客与参与者可下载本人有权查看的指南集手册；工作人员可分发参与者培训手册，管理员与负责人手册按当前权限提供。",
         ),
       ],
       [
         t("Choose language and audience", "选择语言及角色"),
         t(
-          "Choose the role handbook you need and select English or 中文 PDF. Save the downloaded file and inspect its title, article list and screenshot captions before sharing the intended edition.",
-          "选择所需角色手册，再选择英文或中文PDF。保存下载文件，分享预期版本前检查标题、文章清单及截图说明。",
+          "Choose the role handbook you need and select English or 中文 PDF. Each file is stamped with the download date and time in both its cover metadata and filename. Inspect its title, article list and screenshot captions before sharing.",
+          "选择所需角色手册，再选择英文或中文PDF。文件封面元数据及文件名均附带下载日期与时间。分享前请检查标题、文章清单及截图说明。",
         ),
       ],
       [
