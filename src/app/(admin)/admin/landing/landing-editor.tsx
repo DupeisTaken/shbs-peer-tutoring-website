@@ -10,7 +10,8 @@ import {
   useRef,
   useState,
 } from "react";
-import { useTranslations } from "next-intl";
+import { useTimeZone, useTranslations } from "next-intl";
+import { programDateKey } from "~/lib/program-time";
 
 import { SectionTabs } from "~/app/_components/ui/section-tabs";
 import {
@@ -713,6 +714,7 @@ function NewsPostCard({
   onChanged: () => void;
 }) {
   const t = useTranslations();
+  const timeZone = useTimeZone();
   const review = useLandingReview();
   const utils = api.useUtils();
   const update = api.home.updateNews.useMutation({ onSuccess: onChanged });
@@ -728,7 +730,7 @@ function NewsPostCard({
     post.translations[0]?.title ??
     t("admin.landing.news.untitled");
   const dateValue = post.publishedAt
-    ? new Date(post.publishedAt).toISOString().slice(0, 10)
+    ? programDateKey(new Date(post.publishedAt), timeZone)
     : "";
 
   return (
@@ -850,7 +852,8 @@ function NewsPostCard({
           <input
             type="date"
             className="input field-auto"
-            defaultValue={dateValue}
+            value={dateValue}
+            disabled={update.isPending}
             onChange={(e) =>
               update.mutate({
                 id: post.id,
