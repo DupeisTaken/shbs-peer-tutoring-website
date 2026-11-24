@@ -10,7 +10,7 @@ import {
 import { NextIntlClientProvider } from "next-intl";
 import en from "../../../../../messages/en.json";
 import type { Block } from "~/lib/page-blocks";
-import { LayoutEditor } from "./landing-editor";
+import LandingAdminPage, { LayoutEditor } from "./landing-editor";
 type LayoutPayload = {
   owner: string;
   blocks: Block[];
@@ -18,11 +18,27 @@ type LayoutPayload = {
 type LayoutCallbacks = { onSuccess: () => void; onSettled: () => void };
 const state = vi.hoisted(() => ({
   blocks: [] as Block[],
+  news: [] as Array<{
+    id: string;
+    status: "DRAFT" | "PUBLISHED" | "ARCHIVED";
+    pinned: boolean;
+    publishedAt: Date | null;
+    createdByName: string | null;
+    createdAt: Date;
+    updatedAt: Date;
+    translations: Array<{ locale: string; title: string; body: string }>;
+  }>,
   mutate: vi.fn<(payload: LayoutPayload, callbacks: LayoutCallbacks) => void>(),
+  updateNews: vi.fn(),
 }));
 vi.mock("~/trpc/react", () => ({
   api: {
-    useUtils: () => ({ home: { layout: { invalidate: vi.fn() } } }),
+    useUtils: () => ({
+      home: {
+        layout: { invalidate: vi.fn() },
+        news: { invalidate: vi.fn() },
+      },
+    }),
     i18n: {
       languages: {
         useQuery: () => ({ data: [{ code: "en", label: "English" }] }),
@@ -33,13 +49,30 @@ vi.mock("~/trpc/react", () => ({
       setLayout: {
         useMutation: () => ({ mutate: state.mutate, isPending: false }),
       },
+      images: { useQuery: () => ({ data: [], isLoading: false }) },
+      news: { useQuery: () => ({ data: state.news, isLoading: false }) },
+      createNews: { useMutation: () => ({ mutate: vi.fn(), isPending: false }) },
+      updateNews: {
+        useMutation: () => ({ mutate: state.updateNews, isPending: false }),
+      },
+      deleteNews: {
+        useMutation: () => ({ mutateAsync: vi.fn(), isPending: false }),
+      },
+      setNewsTranslation: {
+        useMutation: () => ({ mutate: vi.fn(), isPending: false }),
+      },
+      removeNewsTranslation: {
+        useMutation: () => ({ mutateAsync: vi.fn(), isPending: false }),
+      },
     },
   },
 }));
 afterEach(() => {
   cleanup();
   state.mutate.mockReset();
+  state.updateNews.mockReset();
   state.blocks = [];
+  state.news = [];
 });
 it("shares admission and exact dirty snapshot between both layout save actions", () => {
   render(
@@ -98,3 +131,61 @@ it("follows untouched reads, preserves edited layout and resets ownership before
   expect(state.mutate.mock.calls[1]![0].owner).toBe("page:new");
   expect(state.mutate.mock.calls[1]![0].blocks.map((block) => block.type)).toEqual(["FEATURES"]);
 });
+
+it.each([
+  {
+    timeZone: "Asia/Shanghai",
+    publishedAt: new Date("2026-11-20T16:30:00.000Z"),
+    expected: "2026-11-21",
+  },
+  {
+    timeZone: "Pacific/Kiritimati",
+    publishedAt: new Date("2026-11-20T10:30:00.000Z"),
+    expected: "2026-11-21",
+  },
+  {
+    timeZone: "America/Los_Angeles",
+    publishedAt: new Date("2026-11-22T07:30:00.000Z"),
+    expected: "2026-11-21",
+  },
+  {
+    timeZone: "America/New_York",
+    publishedAt: new Date("2026-11-22T04:30:00.000Z"),
+    expected: "2026-11-21",
+  },
+])(
+  "formats Program News publish date in the configured program time zone ($timeZone, #788)",
+  ({ timeZone, publishedAt, expected }) => {
+    state.news = [
+      {
+        id: "post-1",
+        status: "PUBLISHED",
+        pinned: false,
+        publishedAt,
+        createdByName: "Staff",
+        createdAt: publishedAt,
+        updatedAt: publishedAt,
+        translations: [
+          { locale: "en", title: "Fall Update", body: "Welcome back." },
+        ],
+      },
+    ];
+    render(
+      <NextIntlClientProvider locale="en" timeZone={timeZone} messages={en}>
+        <LandingAdminPage />
+      </NextIntlClientProvider>,
+    );
+    fireEvent.click(
+      screen.getByRole("tab", { name: en.admin.landing.tabs.news }),
+    );
+    const input = screen.getByLabelText<HTMLInputElement>(
+      en.admin.landing.news.dateLabel,
+    );
+    expect(input.value).toBe(expected);
+    fireEvent.change(input, { target: { value: "2026-11-25" } });
+    expect(state.updateNews).toHaveBeenCalledWith({
+      id: "post-1",
+      publishedAt: "2026-11-25",
+    });
+  },
+);

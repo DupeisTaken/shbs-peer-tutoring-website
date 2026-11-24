@@ -32,6 +32,7 @@
     "calendarCreate": "创建私人链接",
     "calendarRevoke": "撤销私人链接",
     "calendarUnavailable": "没有符合条件的当前参与记录，暂不可订阅日历。",
+    "calendarCreateHelp": "这将创建一个只读的个人辅导日历私人链接。请妥善保管，任何获得链接的人都可以查看你的日程安排。",
     "calendarRotateHelp": "创建新链接将撤销所有旧链接。使用旧链接的日历订阅将停止更新。",
     "calendarRevokeHelp": "此操作会停用日历订阅链接，日历应用将停止更新，不会影响你的辅导安排。",
     "publicationUnavailable": "有 {count} 项每周安排需要核对，暂无法生成具体日期的辅导。",
@@ -1861,7 +1862,7 @@
     },
     "tutorRequests": {
       "title": "辅导伙伴状态申请",
-      "help": "辅导伙伴发起的成员变更申请。退出申请须经过一周冷静期方可审批；重新加入申请则立即生效。",
+      "help": "辅导伙伴发起的成员变更申请。退出申请须经过一周冷静期方可审批；重新加入申请可立即审核，审批通过后生效。",
       "kind": {
         "OPT_OUT": "退出",
         "REENTRY": "重新加入"
@@ -2939,7 +2940,8 @@
       "codeSent": "我们已将验证码发送至 {email}，请在下方输入以完成更改。",
       "codeLabel": "电子邮箱验证码",
       "resend": "重新发送",
-      "cancel": "取消"
+      "cancel": "取消",
+      "deliveryFailed": "邮件发送失败，请稍后重试。"
     }
   },
   "crew": {

@@ -32,6 +32,7 @@
     "calendarCreate": "Crear enlace privado",
     "calendarRevoke": "Revocar enlace privado",
     "calendarUnavailable": "La suscripción requiere una participación actual válida.",
+    "calendarCreateHelp": "Crea un enlace privado de solo lectura para tu calendario de tutorías. Mantenlo confidencial; cualquier persona con el enlace puede ver tu horario.",
     "calendarRotateHelp": "Crear un enlace revoca todos los anteriores. Las suscripciones con enlaces antiguos dejarán de actualizarse.",
     "calendarRevokeHelp": "Se revocará el enlace privado. Las suscripciones existentes dejarán de actualizarse. Las sesiones no cambian.",
     "publicationUnavailable": "Hay {count} acuerdo(s) semanal(es) que necesitan revisión y no pudieron convertirse en sesiones con fecha.",
@@ -1117,7 +1118,7 @@
       "programTotals": "Totales del programa del período seleccionado",
       "programTotalsHelp": "Todos los tutores, incluidos los inactivos; los filtros no cambian estos totales.",
       "filteredSubtotal": "Subtotal filtrado · {count} tutores",
-      "hiddenInactive": "El filtro de estado oculta {count} tutores inactivos con registros.",
+      "hiddenInactive": "{count, plural, one {El filtro de estado oculta # tutor inactivo con registros.} other {El filtro de estado oculta # tutores inactivos con registros.}}",
       "viewInactive": "Ver colaboradores inactivos",
       "viewLabel": "Vista de tutores",
       "viewSummary": "Resumen",
@@ -1861,7 +1862,7 @@
     },
     "tutorRequests": {
       "title": "Solicitudes de estado de tutor",
-      "help": "Cambios de membresía iniciados por el tutor. Las solicitudes de baja solo pueden aprobarse tras un período de espera de una semana; la reincorporación es inmediata.",
+      "help": "Cambios de membresía iniciados por el tutor. Las solicitudes de baja solo pueden aprobarse tras un período de espera de una semana; el personal puede revisar las solicitudes de reincorporación de inmediato y surten efecto tras su aprobación.",
       "kind": {
         "OPT_OUT": "Darse de baja",
         "REENTRY": "Reincorporación"
@@ -2939,7 +2940,8 @@
       "codeSent": "Enviamos un código a {email}. Introdúcelo abajo para terminar.",
       "codeLabel": "Código de verificación por correo",
       "resend": "Reenviar código",
-      "cancel": "Cancelar"
+      "cancel": "Cancelar",
+      "deliveryFailed": "No se pudo enviar el correo. Inténtalo de nuevo más tarde."
     }
   },
   "crew": {
