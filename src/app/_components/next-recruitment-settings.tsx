@@ -28,7 +28,11 @@ export function NextRecruitmentError({ message }: { message: string }) {
 }
 
 /** The page grants entry; the query independently supplies live editing authority. */
-export function NextRecruitmentSettings() {
+export function NextRecruitmentSettings({
+  embedded = false,
+}: {
+  embedded?: boolean;
+} = {}) {
   const t = useTranslations("nextRecruitment");
   const query = api.program.nextRecruitment.useQuery();
   const denied = useSessionAccessDenied(query);
@@ -36,14 +40,22 @@ export function NextRecruitmentSettings() {
   if (!query.data)
     return <StatePanel kind={query.error ? "error" : "loading"} title={t(query.error ? "loadFailed" : "loading")} action={query.error && <button className="btn-secondary" disabled={query.isFetching} onClick={() => void query.refetch()}>{t("retry")}</button>} />;
   return (
-    <section className="space-y-4" aria-label={t("title")}>
+    <section className={embedded ? "space-y-3" : "space-y-4"} aria-label={t("title")}>
       <div>
-        <h2 className="section-title">{t("title")}</h2>
-        <p className="muted mt-1 text-sm">{t("help")}</p>
+        {embedded ? (
+          <h3 className="text-sm font-semibold text-slate-900">
+            {t("title")}
+          </h3>
+        ) : (
+          <h2 className="section-title">{t("title")}</h2>
+        )}
+        <p className="muted mt-0.5 text-xs">
+          {t(embedded ? "embeddedHelp" : "help")}
+        </p>
       </div>
       {query.error && <InlineNotice tone="error" announcement="alert" action={<button className="btn-secondary" disabled={query.isFetching} onClick={() => void query.refetch()}>{t("retry")}</button>}>{t("loadFailed")}</InlineNotice>}
-      <div className="grid items-start gap-4 lg:grid-cols-2">
-        {(["tutor", "tutee"] as const).map((audience) => <NextRecruitmentEditor key={audience} audience={audience} data={query.data} readFailed={!!query.error} />)}
+      <div className={embedded ? "grid items-start gap-3 lg:grid-cols-2" : "grid items-start gap-4 lg:grid-cols-2"}>
+        {(["tutor", "tutee"] as const).map((audience) => <NextRecruitmentEditor key={audience} audience={audience} data={query.data} readFailed={!!query.error} embedded={embedded} />)}
       </div>
     </section>
   );
@@ -51,7 +63,7 @@ export function NextRecruitmentSettings() {
 
 /** Draft, version, target and conversion zone move together only after an explicit
  * reload or a confirmed save. Background cache arrivals never rewrite local work. */
-export function NextRecruitmentEditor({ audience, data, readFailed = false }: { audience: RecruitmentAudience; data: NextRecruitmentSettingsData; readFailed?: boolean }) {
+export function NextRecruitmentEditor({ audience, data, readFailed = false, embedded = false }: { audience: RecruitmentAudience; data: NextRecruitmentSettingsData; readFailed?: boolean; embedded?: boolean }) {
   const t = useTranslations("nextRecruitment");
   const approvalText = useTranslations("approvals");
   const locale = useLocale();
@@ -181,6 +193,164 @@ export function NextRecruitmentEditor({ audience, data, readFailed = false }: { 
       setBusy(false);
     }
   };
+  const formatSavedOpening = (value: Date | null | undefined) =>
+    value
+      ? new Intl.DateTimeFormat(locale, {
+          dateStyle: "medium",
+          timeStyle: "short",
+          timeZone: snapshot.timeZone,
+        }).format(new Date(value))
+      : t("noRestriction");
+
+  if (embedded) {
+    const dest = snapshot.refreshEvidence.destination?.[audience];
+    return (
+      <section
+        className="rounded-lg border border-slate-200 bg-slate-50/50 p-3.5"
+        aria-label={t(audience)}
+      >
+        <form
+          className="space-y-2.5"
+          onSubmit={(event) => {
+            event.preventDefault();
+            void save();
+          }}
+        >
+          <div className="flex flex-wrap items-baseline justify-between gap-x-2 gap-y-1">
+            <h4 className="text-sm font-semibold text-slate-900">
+              {t(audience)}
+            </h4>
+            <span className={row?.opensAt ? "badge-green" : "badge-slate"}>
+              {row ? formatSavedOpening(row.opensAt) : t("notPrepared")}
+            </span>
+          </div>
+          {row && !row.matchesTarget && (
+            <p className="text-xs text-amber-800">
+              {t("boundElsewhere", {
+                year: row.target.destinationSchoolYear,
+                quarter: row.target.destinationQuarter,
+              })}
+            </p>
+          )}
+          {row && row.timeZone !== snapshot.timeZone && (
+            <p className="muted text-xs">
+              {t("originalZone", { zone: row.timeZone })}
+            </p>
+          )}
+          {dest?.enabled === false && (
+            <p className="muted text-xs">{t("switchDisabled")}</p>
+          )}
+          {dest?.closesAt && (
+            <p className="muted text-xs">
+              {t("preservedClosing", {
+                value: formatSavedOpening(dest.closesAt),
+              })}
+            </p>
+          )}
+          {!data.canEdit && <p className="muted text-xs">{t("readOnly")}</p>}
+          {data.canEdit && !data.canApply && (
+            <p className="muted text-xs">{approvalText("sensitiveHelp")}</p>
+          )}
+          {(changed || staleBinding) && (
+            <InlineNotice tone="warning" announcement="status">
+              {t(staleBinding ? "staleBinding" : "changed")}
+            </InlineNotice>
+          )}
+          <fieldset className="relative min-w-0 space-y-2" disabled={blocked}>
+            <legend className="sr-only">{t(audience)}</legend>
+            <label className="flex min-h-11 items-center gap-2.5 text-sm font-medium lg:min-h-8">
+              <input
+                type="checkbox"
+                checked={hasOpening}
+                onChange={(event) => {
+                  setHasOpening(event.target.checked);
+                  setSaved(false);
+                }}
+              />
+              {t("setOpening")}
+            </label>
+            {hasOpening && (
+              <div className="space-y-1">
+                <label className="label" htmlFor={inputId}>
+                  {t("opening")}
+                </label>
+                <input
+                  id={inputId}
+                  type="datetime-local"
+                  className="input min-h-11 w-full min-w-0 lg:min-h-10"
+                  required
+                  value={opening}
+                  aria-describedby={`${inputId}-zone`}
+                  onChange={(event) => {
+                    setOpening(event.target.value);
+                    setSaved(false);
+                  }}
+                />
+                <p id={`${inputId}-zone`} className="muted text-xs">
+                  {programTimeZoneInputLabel(opening, snapshot.timeZone, locale)}
+                </p>
+              </div>
+            )}
+          </fieldset>
+          {approvalId && (
+            <InlineNotice tone="warning" announcement="status">
+              <p>{t("queued")}</p>
+              <Link
+                className="link inline-flex min-h-11 items-center lg:min-h-8"
+                href={`/admin/approvals?request=${encodeURIComponent(approvalId)}`}
+              >
+                {t("viewRequest")}
+              </Link>
+            </InlineNotice>
+          )}
+          {error && (
+            <InlineNotice tone="error" announcement="alert">
+              <NextRecruitmentError message={error} />
+            </InlineNotice>
+          )}
+          {saved && (
+            <div role="status" className="text-xs text-green-700">
+              <p>
+                {t("savedForTarget", { name: savedTarget })}{" "}
+                {t(needsRead ? "savedPendingRead" : "saved")}
+              </p>
+            </div>
+          )}
+          <div className="flex flex-wrap items-center gap-2 pt-1">
+            {data.canEdit && (
+              <button
+                className="btn-primary control-compact min-h-11 lg:min-h-8"
+                disabled={blocked}
+              >
+                {busy
+                  ? t("saving")
+                  : !data.canApply
+                    ? approvalText("requestAdmin")
+                    : hasOpening
+                      ? t("save")
+                      : t("clear")}
+              </button>
+            )}
+            <button
+              type="button"
+              className="btn-secondary control-compact min-h-11 lg:min-h-8"
+              disabled={busy}
+              onClick={() => void reload()}
+            >
+              {t(
+                approvalId
+                  ? "checkApproval"
+                  : needsRead && !readChanged
+                    ? "retryRead"
+                    : "reload",
+              )}
+            </button>
+          </div>
+        </form>
+      </section>
+    );
+  }
+
   return (
     <section className="card overflow-hidden" aria-label={t(audience)}>
       <div className="border-b border-slate-200 bg-slate-50 px-5 py-4">
