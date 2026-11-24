@@ -170,7 +170,7 @@ Published website and email links use short paths that permanently redirect (`HT
 
 [`public-signup-links.ts`](../../src/lib/public-signup-links.ts) maps exact root-relative signup links in CMS buttons/Markdown without rewriting stored content.
 
-**Public QR endpoint ([`public-qr/route.ts`](../../src/app/api/public-qr/route.ts), [`render.tsx`](../../src/server/public-qr/render.tsx)):** allowlists `destination=tutor|tutee|crew|site`, optional `locale=en|zh`, and optional `download=1`, deriving the URL solely from validated `AUTH_URL` (`no-store`, `nosniff`, `shbs-{destination}-qr-{locale}.png`). Renders transparent-background black QR + Geist Sans + local Noto Sans SC footer without runtime font fetches.
+**Public QR endpoint ([`public-qr/route.ts`](../../src/app/api/public-qr/route.ts), [`render.tsx`](../../src/server/public-qr/render.tsx)):** allowlists `destination=tutor|tutee|crew|site`, optional `locale=en|zh`, and optional `download=1`, deriving the URL solely from validated `AUTH_URL` (`no-store`, `nosniff`, `shbs-{destination}-qr-{locale}.png`). Renders transparent-background black QR + Geist Sans + local Noto Sans SC footer without runtime font fetches, loading both packaged fonts via direct static literal `process.cwd()` paths so standalone tracing includes only those two files rather than local ignored evidence directories.
 
 ## Program refresh and recruitment transitions
 

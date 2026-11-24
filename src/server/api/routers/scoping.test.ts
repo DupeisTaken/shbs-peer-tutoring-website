@@ -19,6 +19,7 @@ vi.mock("~/server/auth", () => ({ auth: async () => null }));
 import { createCaller } from "~/server/api/root";
 import { requireSelfOrAdmin } from "~/server/api/trpc";
 import { db } from "~/server/db";
+import { assertIsolatedTestDatabase } from "~/test/database-guard";
 
 // Fixture ids (prefixed so they never collide with seed data).
 const TERM = "test-term";
@@ -73,6 +74,7 @@ async function cleanup() {
 }
 
 beforeEach(async () => {
+  assertIsolatedTestDatabase(process.env.DATABASE_URL);
   await db.policyDocument.upsert({
     where: { slug_locale: { slug: "tutor-policy", locale: "en" } },
     update: {},
@@ -103,6 +105,7 @@ beforeEach(async () => {
 });
 
 beforeAll(async () => {
+  assertIsolatedTestDatabase(process.env.DATABASE_URL);
   await cleanup();
   await db.term.create({
     data: {
@@ -149,8 +152,12 @@ beforeAll(async () => {
 });
 
 afterAll(async () => {
-  await cleanup();
-  await db.$disconnect();
+  try {
+    assertIsolatedTestDatabase(process.env.DATABASE_URL);
+    await cleanup();
+  } finally {
+    await db.$disconnect();
+  }
 });
 
 describe("row-level scoping (the critical rule)", () => {

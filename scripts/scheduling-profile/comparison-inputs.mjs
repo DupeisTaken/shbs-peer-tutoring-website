@@ -117,7 +117,10 @@ function reviewedInventory(root) {
  * @param {unknown} [reviewedManifest] Explicit reviewed data only; never auto-discovered.
  */
 export function inspectComparisonInputs(baseline, candidate, reviewedManifest) {
-  assert.deepEqual(read(baseline, "package-lock.json"), read(candidate, "package-lock.json"), "Dependency lockfiles differ");
+  assert.ok(
+    read(baseline, "package-lock.json").equals(read(candidate, "package-lock.json")),
+    "Dependency lockfiles differ",
+  );
   const originalSchema = read(baseline, "prisma/schema.prisma");
   const candidateSchema = read(candidate, "prisma/schema.prisma");
   const baselineText = normalized(originalSchema);

@@ -678,6 +678,19 @@ CI runs [scheduling-profile.yml](../../.github/workflows/scheduling-profile.yml)
   and final aggregation across **60 latency partitions and 10 diagnostics**.
   Baseline and candidate run serially on the same runner with pristine checkouts,
   fresh databases and 7-minute per-partition budgets.
+- **Dependency admission (early matrix gate):** Before clock deferral or Docker
+  pulls, `scripts/scheduling-profile/evaluate-admission.mjs` inspects the
+  immutable control(s) and candidate. Lockfile differences fail closed
+  (`BLOCKED`) whenever any scheduling trigger path, runtime config file, file in
+  the static scheduling import graph, non-dependency `package.json` field, or
+  package in the transitive `package-lock.json` scheduling closure changes
+  (requiring an independently reviewed immutable control with compatible locked
+  dependencies). When programmatic inspection proves zero scheduling impact, a
+  PR-scoped `.github/scheduling-profile-manifests/pr-<number>-admission.json`
+  (or manual `admission-manifest`) pinning baseline/candidate hashes and sorted
+  `changedPackages` emits a `NOT_APPLICABLE` receipt (`measured: false`,
+  distinct from measured `PASS`) and skips workers and aggregation. `aggregate`
+  runs only when `matrix` succeeds with `admission == 'ADMITTED'`.
 - **Admission windows (Asia/Shanghai):** Campaigns admit only between
   **00:30–11:30** or **19:15–20:30** CST (reserving >=3 h before 14:30 / 23:30
   and respecting the 12-hour shared anchor). Outside these windows the workflow

@@ -29,10 +29,8 @@ const quietZoneModules = 4;
 const urlLineHeight = 36;
 let packagedFonts: Promise<[ArrayBuffer, ArrayBuffer]> | undefined;
 
-function fontBytes(path: string): Promise<ArrayBuffer> {
-  return readFile(join(process.cwd(), path)).then(
-    (font) => new Uint8Array(font).buffer,
-  );
+function toArrayBuffer(font: Buffer): ArrayBuffer {
+  return new Uint8Array(font).buffer;
 }
 
 function loadPackagedFonts(): Promise<[ArrayBuffer, ArrayBuffer]> {
@@ -41,9 +39,18 @@ function loadPackagedFonts(): Promise<[ArrayBuffer, ArrayBuffer]> {
   // Use the same Geist dependency as RootLayout, in next/og's supported static
   // TTF format. Geist lacks CJK glyphs; keep a portable, locally packaged fallback
   // instead of relying on whichever system fonts happen to be installed.
+  // Keep each readFile path a direct static literal so Turbopack/NFT traces only
+  // these two font files rather than broadening join(process.cwd(), param) to **.
   return (packagedFonts ??= Promise.all([
-    fontBytes("node_modules/geist/dist/fonts/geist-sans/Geist-Regular.ttf"),
-    fontBytes("public/fonts/public-qr/shbs-public-qr.otf"),
+    readFile(
+      join(
+        process.cwd(),
+        "node_modules/geist/dist/fonts/geist-sans/Geist-Regular.ttf",
+      ),
+    ).then(toArrayBuffer),
+    readFile(
+      join(process.cwd(), "public/fonts/public-qr/shbs-public-qr.otf"),
+    ).then(toArrayBuffer),
   ]));
 }
 

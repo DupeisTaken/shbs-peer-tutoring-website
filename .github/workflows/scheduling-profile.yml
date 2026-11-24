@@ -33,6 +33,11 @@ on:
         required: false
         default: ""
         type: string
+      admission-manifest:
+        description: "Optional reviewed non-scheduling dependency admission manifest under .github/scheduling-profile-manifests/"
+        required: false
+        default: ""
+        type: string
 
 permissions:
   contents: read
@@ -47,7 +52,8 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 6
     outputs:
-      admission: ${{ steps.clock.outputs.status }}
+      admission: ${{ steps.clock.outputs.status || steps.admission.outputs.status }}
+      disposition: ${{ steps.admission.outputs.disposition }}
       anchor: ${{ steps.plan.outputs.anchor }}
       node_image: ${{ steps.plan.outputs.node_image }}
       campaign: ${{ steps.binding.outputs.campaign }}
@@ -76,8 +82,37 @@ jobs:
           PR_NUMBER: ${{ github.event.pull_request.number }}
           MANUAL_BASELINE_SHA: ${{ inputs.baseline || '' }}
           MANUAL_SCHEMA_MANIFEST: ${{ inputs.schema-manifest || '' }}
+          MANUAL_ADMISSION_MANIFEST: ${{ inputs.admission-manifest || '' }}
         run: node scripts/scheduling-profile/select-comparison.mjs . >> "$GITHUB_OUTPUT"
+      - name: Checkout the immutable application control
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ steps.selection.outputs.baseline }}
+          path: .profile-baseline
+          persist-credentials: false
+      - name: Checkout the distinct immutable catalog control
+        if: steps.selection.outputs.catalogBaseline != steps.selection.outputs.baseline
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ steps.selection.outputs.catalogBaseline }}
+          path: .profile-catalog
+          persist-credentials: false
+      - name: Evaluate comparison and dependency admission
+        id: admission
+        env:
+          SELECTION: ${{ toJSON(steps.selection.outputs) }}
+          CANDIDATE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: node scripts/scheduling-profile/evaluate-admission.mjs
+      - name: Preserve the admission decision
+        if: always() && (steps.admission.outputs.status == 'NOT_APPLICABLE' || steps.admission.outputs.status == 'BLOCKED')
+        uses: actions/upload-artifact@v4
+        with:
+          name: scheduling-profile-admission-${{ github.run_attempt }}
+          retention-days: 7
+          path: scheduling-profile-admission.json
+          if-no-files-found: error
       - name: Determine the common measurement interval
+        if: steps.admission.outputs.status == 'ELIGIBLE'
         id: clock
         env:
           CANDIDATE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
@@ -94,7 +129,7 @@ jobs:
               "$next" "$GITHUB_RUN_ID" "$GITHUB_REPOSITORY" >> "$GITHUB_STEP_SUMMARY"
           fi
       - name: Preserve the deferred decision
-        if: steps.clock.outputs.status == 'DEFERRED'
+        if: steps.admission.outputs.status == 'ELIGIBLE' && steps.clock.outputs.status == 'DEFERRED'
         uses: actions/upload-artifact@v4
         with:
           name: scheduling-profile-deferred-${{ github.run_attempt }}
@@ -102,7 +137,7 @@ jobs:
           path: clock-admission.json
           if-no-files-found: error
       - name: Fix the sample population and shared clock
-        if: steps.clock.outputs.status == 'ADMITTED'
+        if: steps.admission.outputs.status == 'ELIGIBLE' && steps.clock.outputs.status == 'ADMITTED'
         id: plan
         shell: bash
         run: |
@@ -113,22 +148,8 @@ jobs:
           echo "node_image_id=$(docker image inspect node:22-alpine --format '{{.Id}}')" >> "$GITHUB_OUTPUT"
           timeout 60 docker pull postgres:16-alpine
           echo "postgres_image=$(docker image inspect postgres:16-alpine --format '{{index .RepoDigests 0}}')" >> "$GITHUB_OUTPUT"
-      - name: Checkout the immutable application control
-        if: steps.clock.outputs.status == 'ADMITTED'
-        uses: actions/checkout@v4
-        with:
-          ref: ${{ steps.selection.outputs.baseline }}
-          path: .profile-baseline
-          persist-credentials: false
-      - name: Checkout the distinct immutable catalog control
-        if: steps.clock.outputs.status == 'ADMITTED' && steps.selection.outputs.catalogBaseline != steps.selection.outputs.baseline
-        uses: actions/checkout@v4
-        with:
-          ref: ${{ steps.selection.outputs.catalogBaseline }}
-          path: .profile-catalog
-          persist-credentials: false
       - name: Bind admitted campaign to independently inspected controls
-        if: steps.clock.outputs.status == 'ADMITTED'
+        if: steps.admission.outputs.status == 'ELIGIBLE' && steps.clock.outputs.status == 'ADMITTED'
         id: binding
         env:
           SELECTION: ${{ toJSON(steps.selection.outputs) }}
@@ -138,7 +159,7 @@ jobs:
           PROFILE_NODE_IMAGE_ID: ${{ steps.plan.outputs.node_image_id }}
         run: node scripts/scheduling-profile/resume-campaign.mjs >> "$GITHUB_OUTPUT"
       - name: Validate helpers under the measurement resource limits
-        if: steps.clock.outputs.status == 'ADMITTED'
+        if: steps.admission.outputs.status == 'ELIGIBLE' && steps.clock.outputs.status == 'ADMITTED'
         env:
           PROFILE_NODE_IMAGE: ${{ steps.plan.outputs.node_image }}
         run: |
@@ -192,7 +213,7 @@ jobs:
 
   aggregate:
     needs: [matrix, preflight, profile]
-    if: always() && needs.matrix.outputs.admission != 'DEFERRED'
+    if: always() && needs.matrix.result == 'success' && needs.matrix.outputs.admission == 'ADMITTED'
     runs-on: ubuntu-latest
     timeout-minutes: 9
     env:

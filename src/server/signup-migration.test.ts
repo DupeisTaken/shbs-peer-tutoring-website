@@ -1,15 +1,14 @@
 import { readFileSync } from "node:fs";
 import pg from "pg";
 import { expect, it } from "vitest";
+import { assertIsolatedTestDatabase } from "~/test/database-guard";
 
 it.each([false, true])(
   "applies signup migration with existing participant prerequisites: %s",
   async (shared) => {
+    assertIsolatedTestDatabase(process.env.DATABASE_URL);
     const url = new URL(process.env.DATABASE_URL!);
-    if (
-      !["localhost", "127.0.0.1"].includes(url.hostname) ||
-      !["/shbs_survey_first_test", "/shbs_shipping_test"].includes(url.pathname)
-    )
+    if (!["/shbs_survey_first_test", "/shbs_shipping_test"].includes(url.pathname))
       throw Error("Migration tests require the isolated signup database");
     const c = new pg.Client({ connectionString: url.href });
     await c.connect();
