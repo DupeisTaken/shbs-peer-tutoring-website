@@ -7,6 +7,7 @@ import { surveyInput } from "~/lib/student-signup";
 import { validateChoices, type ChoiceValidationMode } from "./student-signup-validation";
 import {
   currentStudentSignupPayload,
+  nextStudentSignupEditedAt,
   studentSignupIntentDigest,
 } from "./student-signup-answers";
 import { ownedStudentIds } from "./student-ownership";
@@ -443,7 +444,7 @@ export async function editStudentSignupAnswers(
       data: {
         currentPayload: answers,
         currentVersion: version,
-        editedAt: new Date(),
+        editedAt: nextStudentSignupEditedAt(row, answers),
       },
     });
     if (row.tuteeId)

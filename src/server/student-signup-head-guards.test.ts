@@ -282,7 +282,7 @@ it("Head unassign returns an exact receipt, rejects changed-key reuse/stale draf
   expect(await db.pairingTutee.count({ where: { pairingId: data.history.id, tuteeId: data.tutee.id } })).toBe(1);
   expect(await db.session.findUniqueOrThrow({ where: { id: data.session!.id } })).toEqual(data.session);
   expect(await db.sessionTutee.findMany()).toEqual(attendance);
-  expect(await db.studentSurvey.findUniqueOrThrow({ where: { id: data.survey.id } })).toMatchObject({ submittedAt: data.survey.submittedAt, payload: data.survey.payload });
+  expect(await db.studentSurvey.findUniqueOrThrow({ where: { id: data.survey.id } })).toMatchObject({ submittedAt: data.survey.submittedAt, payload: data.survey.payload, editedAt: null });
 });
 
 it("rechecks Head's current authority rather than trusting an old session or an unused ticket", async () => {

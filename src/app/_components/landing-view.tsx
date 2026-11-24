@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { getLocale, getTranslations } from "next-intl/server";
+import { getLocale, getTimeZone, getTranslations } from "next-intl/server";
 
 import { db } from "~/server/db";
 import { getFeatures } from "~/server/program/features";
@@ -36,7 +36,7 @@ import { PublicHeader } from "~/app/_components/public-header";
  * visitors lives on the `/` route, not here.
  */
 export async function LandingView({ preview = false }: { preview?: boolean }) {
-  const locale = await getLocale();
+  const [locale, timeZone] = await Promise.all([getLocale(), getTimeZone()]);
   const [features, overrides, news, sections, layout, navPages, t, tc] =
     await Promise.all([
       getFeatures(db),
@@ -209,6 +209,7 @@ export async function LandingView({ preview = false }: { preview?: boolean }) {
                       >
                         {new Intl.DateTimeFormat(locale, {
                           dateStyle: "medium",
+                          timeZone,
                         }).format(new Date(item.date))}
                       </time>
                     )}
