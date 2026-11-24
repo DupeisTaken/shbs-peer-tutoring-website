@@ -1,6 +1,10 @@
-import { readFile } from "node:fs/promises";
+import { mkdtemp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
+import { createRequire } from "node:module";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { ImageResponse } from "next/og";
 import { PNG } from "pngjs";
+import ts from "typescript";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { renderPublicQrPng } from "./render";
 
@@ -148,3 +152,93 @@ it.each(["en", "zh"] as const)(
     expect(footerInk, "complete footer remains visible").toBeGreaterThan(100);
   },
 );
+
+type NodeFileTrace = (
+  files: string[],
+  options: {
+    base: string;
+    processCwd: string;
+    ignore?: string[];
+  },
+) => Promise<{ fileList: Set<string> }>;
+
+function loadNodeFileTrace(): NodeFileTrace {
+  const loadCjs = createRequire(import.meta.url);
+  const nft: unknown = loadCjs("next/dist/compiled/@vercel/nft");
+  if (
+    typeof nft !== "object" ||
+    nft === null ||
+    !("nodeFileTrace" in nft) ||
+    typeof nft.nodeFileTrace !== "function"
+  ) {
+    throw new Error("Expected nodeFileTrace export from Next's bundled NFT");
+  }
+  return nft.nodeFileTrace as NodeFileTrace;
+}
+
+it("traces only the two packaged fonts and never local ignored evidence directories", async () => {
+  const fixtureDir = await mkdtemp(join(tmpdir(), "shbs-public-qr-nft-"));
+  try {
+    const source = await readFile(
+      join(process.cwd(), "src/server/public-qr/render.tsx"),
+      "utf8",
+    );
+    const transpiled = ts.transpileModule(source, {
+      compilerOptions: {
+        module: ts.ModuleKind.ESNext,
+        target: ts.ScriptTarget.ES2022,
+        jsx: ts.JsxEmit.ReactJSX,
+      },
+    }).outputText;
+
+    const modulePath = join(fixtureDir, "src/server/public-qr/render.js");
+    await mkdir(join(fixtureDir, "src/server/public-qr"), { recursive: true });
+    await writeFile(modulePath, transpiled, "utf8");
+    await writeFile(
+      join(fixtureDir, "src/server/public-qr/url-lines.js"),
+      "export function publicQrUrlLines(url) { return [url]; }\n",
+      "utf8",
+    );
+
+    const expectedFonts = [
+      "node_modules/geist/dist/fonts/geist-sans/Geist-Regular.ttf",
+      "public/fonts/public-qr/shbs-public-qr.otf",
+    ];
+    const ignoredEvidence = [
+      "outputs/sentinel.png",
+      ".validation/sentinel.log",
+      "local-operations/sentinel.txt",
+      "backups/sentinel.sql",
+      "coverage/sentinel.json",
+      ".env",
+    ];
+    for (const rel of [...expectedFonts, ...ignoredEvidence]) {
+      const full = join(fixtureDir, rel);
+      await mkdir(join(full, ".."), { recursive: true });
+      await writeFile(full, "synthetic-sentinel", "utf8");
+    }
+
+    const nodeFileTrace = loadNodeFileTrace();
+    const result = await nodeFileTrace([modulePath], {
+      base: fixtureDir,
+      processCwd: fixtureDir,
+      ignore: [
+        "node_modules/next/**",
+        "node_modules/qrcode/**",
+        "node_modules/react/**",
+      ],
+    });
+    const traced = [...result.fileList].map((entry) =>
+      entry.replaceAll("\\", "/"),
+    );
+
+    for (const font of expectedFonts) {
+      expect(traced).toContain(font);
+    }
+    for (const sentinel of ignoredEvidence) {
+      expect(traced).not.toContain(sentinel);
+    }
+  } finally {
+    await rm(fixtureDir, { recursive: true, force: true });
+  }
+});

@@ -20,6 +20,14 @@ import { emailOrigin } from "./urls";
 
 export type EmailCategory = "SECURITY" | "PROGRAM";
 
+/** Typed SMTP/transport failure so tRPC callers can localize without matching English text. */
+export class EmailDeliveryError extends Error {
+  constructor(message = "Email delivery failed. Please try again later.") {
+    super(message);
+    this.name = "EmailDeliveryError";
+  }
+}
+
 export interface EmailMessage {
   /** Explicit purpose, independent of subject and signup transport deadline. */
   category: EmailCategory;
@@ -179,7 +187,7 @@ async function sendSmtp(message: EmailMessage, account: SenderAccount) {
   } catch {
     // SMTP exceptions may include credentials or content; propagate only a safe failure.
     console.error(`[email] ${message.category} delivery failed`);
-    throw new Error("Email delivery failed. Please try again later.");
+    throw new EmailDeliveryError();
   } finally {
     clearTimeout(timer);
     if (message.signup) {

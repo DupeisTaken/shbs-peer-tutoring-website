@@ -107,6 +107,8 @@ const fieldPolicies: Record<string, string> = {
   RecoveryChange:
     "id actionId eventId entity operation recordKey changedFields createdAt",
   RecoveryReceipt: "id actionId actorId channel createdAt",
+  ImportedRecordProvenance: "entity recordId importedAt",
+  ArchiveProvenanceReceipt: "id actorId planHash fingerprint channel createdAt",
   TutorApplication:
     "id identityRevision invalidatedAt invalidatedById invalidatedByName invalidityVersion firstName lastName preferredName alternativeNames type requestedTutorId requestedSubjectId qualificationDecidedById recalledAt recalledById interviewCompletedAt interviewDurationMin interviewSchoolYear interviewQuarter promotedTutorId name email preferredContact contactVerified status interviewAt decidedAt decidedByTutorId createdAt updatedAt",
   RegistrationCode:

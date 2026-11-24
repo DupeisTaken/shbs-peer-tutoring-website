@@ -6,6 +6,7 @@ vi.mock("~/server/auth", () => ({ auth: async () => null }));
 import { createCaller } from "~/server/api/root";
 import { db } from "~/server/db";
 import * as notifications from "~/server/notifications/create";
+import { assertIsolatedTestDatabase } from "~/test/database-guard";
 
 function caller(id = "head", role: Session["role"] = "HEAD") {
   return createCaller({
@@ -40,11 +41,9 @@ const contacts = async (id = "alice") =>
     .sort();
 
 beforeEach(async () => {
+  assertIsolatedTestDatabase(process.env.DATABASE_URL);
   const url = new URL(process.env.DATABASE_URL!);
-  if (
-    !["localhost", "127.0.0.1"].includes(url.hostname) ||
-    !["/shbs_messaging_test", "/shbs_shipping_test"].includes(url.pathname)
-  )
+  if (!["/shbs_messaging_test", "/shbs_shipping_test"].includes(url.pathname))
     throw Error(
       "Messaging tests require an isolated allowed local test database",
     );

@@ -361,7 +361,9 @@ it.each([
       }),
     );
     expect(
-      within(confirmation()).getByText(catalog.interviewApproval.recorded),
+      within(confirmation()).getByText(
+        catalog.interviewApproval.retainedService,
+      ),
     ).toBeTruthy();
     expect(
       within(confirmation()).getByText(
@@ -392,10 +394,58 @@ it.each([
       expect(commit).toHaveBeenCalledExactlyOnceWith({
         comment: "Panel evidence reviewed",
         expectedUpdatedAt: record.updatedAt,
+        retainRecordedService: true,
         completion: {
           completedAt: recorded.interviewCompletedAt,
           durationMin: 45,
           attendedTutorIds: ["one"],
+        },
+      }),
+    );
+  },
+);
+
+it.each(["en", "zh"] as const)(
+  "retains recorded qualification service when no original attendee remains on the panel (%s)",
+  async (locale) => {
+    const catalog = locale === "en" ? en : zh;
+    const recorded = {
+      ...record,
+      type: "ADDITIONAL_SUBJECT" as const,
+      interviewCompletedAt: new Date("2026-09-01T02:00:37.456Z"),
+      interviewDurationMin: 45,
+    };
+    render(element(recorded, true, true, locale));
+    expect(screen.queryByRole("checkbox")).toBeNull();
+    expect(
+      screen.getByText(catalog.interviewApproval.retainedService),
+    ).toBeTruthy();
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: catalog.interviewApproval.reviewRetained,
+      }),
+    );
+    expect(
+      within(confirmation()).getByText(
+        catalog.interviewApproval.retainedService,
+      ),
+    ).toBeTruthy();
+    expect(within(confirmation()).queryByText("Admin Chair")).toBeNull();
+    expect(within(confirmation()).queryByText(/0 hours|0 小时/)).toBeNull();
+    fireEvent.click(
+      within(confirmation()).getByRole("button", {
+        name: catalog.interviewApproval.confirmRetained,
+      }),
+    );
+    await waitFor(() =>
+      expect(commit).toHaveBeenCalledExactlyOnceWith({
+        comment: "Panel evidence reviewed",
+        expectedUpdatedAt: record.updatedAt,
+        retainRecordedService: true,
+        completion: {
+          completedAt: recorded.interviewCompletedAt,
+          durationMin: 45,
+          attendedTutorIds: [],
         },
       }),
     );
@@ -443,6 +493,7 @@ it("keeps the captured retained-service payload and token through a failed write
   await waitFor(() => expect(commit).toHaveBeenCalledTimes(2));
   expect(commit.mock.calls[1]?.[0]).toBe(submitted);
   expect(commit.mock.calls[1]?.[0]).toMatchObject({
+    retainRecordedService: true,
     completion: { durationMin: 45, attendedTutorIds: ["one"] },
     expectedUpdatedAt: record.updatedAt,
   });

@@ -32,6 +32,7 @@
     "calendarCreate": "Privaten Link erstellen",
     "calendarRevoke": "Privaten Link widerrufen",
     "calendarUnavailable": "Ohne berechtigte aktuelle Teilnahme ist kein Kalenderabonnement verfügbar.",
+    "calendarCreateHelp": "Erstellt einen privaten, schreibgeschützten Link für deinen Tutoring-Kalender. Halte ihn geheim; jeder mit dem Link kann deinen Zeitplan einsehen.",
     "calendarRotateHelp": "Ein neuer Link widerruft alle bisherigen Links. Kalender mit alten Links werden nicht mehr aktualisiert.",
     "calendarRevokeHelp": "Der private Link wird widerrufen. Bestehende Abonnements erhalten keine Updates mehr. Die Sitzungen bleiben unverändert.",
     "publicationUnavailable": "{count} wöchentliche Vereinbarung(en) müssen geprüft werden und konnten nicht als datierte Sitzungen vorbereitet werden.",
@@ -239,7 +240,8 @@
       "NEXT_RECRUITMENT_CLOSING_CONFLICT": "Die Öffnung muss vor dem vorhandenen Schließzeitpunkt des Zielzeitraums liegen."
     },
     "featureAfterRefreshEnabled": "Nach der Aktualisierung: Ein",
-    "featureAfterRefreshDisabled": "Nach der Aktualisierung: Aus"
+    "featureAfterRefreshDisabled": "Nach der Aktualisierung: Aus",
+    "embeddedHelp": "Apply on refresh. Editing after scheduling requires renewed review."
   },
   "historicalInvitation": {
     "claimUncertain": "The claim result is unknown. Read the invitation again to check its result; do not repeat the claim.",
@@ -561,7 +563,13 @@
         "enable": "Enable 2FA",
         "disable": "Disable 2FA",
         "saving": "Saving…",
-        "saved": "Two-factor settings updated."
+        "saved": "Two-factor settings updated.",
+        "loading": "Loading two-factor settings…",
+        "loadFailed": "Two-factor settings could not be loaded.",
+        "refreshFailed": "Two-factor settings could not be refreshed. Your password draft is kept; try again before saving.",
+        "refreshing": "Refreshing two-factor settings…",
+        "accessDenied": "Two-factor settings are unavailable.",
+        "savedRefreshFailed": "Saved, but two-factor settings could not refresh. Try refreshing."
       }
     },
     "forgotPassword": "Passwort vergessen?",
@@ -594,7 +602,8 @@
         "confirmPassword": "Neues Passwort bestätigen"
       },
       "submit": "Neues Passwort setzen",
-      "saving": "Wird gespeichert…"
+      "saving": "Wird gespeichert…",
+      "passwordLength": "Use {min}–{max} characters."
     },
     "onboarding": {
       "proofRequired": "Öffne den Link an deine Konto-E-Mail-Adresse, um sie zu bestätigen und ein Passwort festzulegen. Ohne Zugriff auf diese Adresse kontaktiere das Programmteam. Die Zwei-Faktor-Authentifizierung verwaltest du nach der Anmeldung.",
@@ -1126,7 +1135,7 @@
       "programTotals": "Programmsummen im gewählten Zeitraum",
       "programTotalsHelp": "Alle Tutoren einschließlich inaktiver; Listenfilter ändern diese Summen nicht.",
       "filteredSubtotal": "Gefilterte Zwischensumme · {count} Tutoren",
-      "hiddenInactive": "Der Statusfilter blendet {count} inaktive Tutoren mit Einträgen aus.",
+      "hiddenInactive": "{count, plural, one {Der Statusfilter blendet # inaktiven Tutor mit Einträgen aus.} other {Der Statusfilter blendet # inaktive Tutoren mit Einträgen aus.}}",
       "viewInactive": "Inaktive Mitwirkende anzeigen",
       "viewLabel": "Listenansicht",
       "viewSummary": "Übersicht",
@@ -1189,7 +1198,7 @@
       "noPeriod": "Kein aktiver Programmzeitraum. Zuerst einen anlegen oder Seed ausführen.",
       "currentPeriod": "Aktueller Zeitraum",
       "semester": "Semester {semester}",
-      "refreshHeading": "Ins nächste Quartal wechseln",
+      "refreshHeading": "Program Refresh",
       "advancesTo": "Damit wird das Programm auf {name} vorgerückt und:",
       "effectPending": "Die ausstehende Anmeldeliste wird geleert (als inaktiv archiviert).",
       "effectTutees": "Alle ausstehenden und aktiven Lernenden werden archiviert, auch ohne Zuordnung. Sie müssen sich erneut anmelden, um weiter teilzunehmen.",
@@ -1346,7 +1355,22 @@
         "deny": "Ablehnen",
         "review": "Einspruch prüfen",
         "message": "Ursprünglicher Einspruch",
-        "refreshFailed": "Die Entscheidung wurde gespeichert, aber das Konto oder die Einspruchsliste konnte nicht aktualisiert werden. Versuche die Aktualisierung erneut, ohne die Entscheidung nochmals abzusenden."
+        "refreshFailed": "Die Entscheidung wurde gespeichert, aber das Konto oder die Einspruchsliste konnte nicht aktualisiert werden. Versuche die Aktualisierung erneut, ohne die Entscheidung nochmals abzusenden.",
+        "restrictionHeading": "Current Account Restriction",
+        "restricted": "Suspended",
+        "active": "Already active",
+        "restrictedAt": "Suspended {date}",
+        "submittedAt": "Appeal submitted {date}",
+        "noReason": "No suspension reason recorded.",
+        "coResolveHelp": "Approve restores access and closes all pending appeals for this account with one notice.",
+        "activeHelp": "This account is already active. Approve closes all pending appeals without changing access. Deny is unavailable.",
+        "reloadReview": "Reload restriction review",
+        "reviewChanged": "This appeal or account restriction changed. Reload the review before deciding.",
+        "reviewUnavailable": "Current review details could not be loaded. Try again before deciding.",
+        "approveClose": "Approve and close appeals",
+        "accessRestored": "Account access restored and all pending appeals approved.",
+        "closedActive": "Pending appeals closed. Account access was already active and did not change.",
+        "deniedReceipt": "Appeal denied. The account remains suspended."
       }
     },
     "registrationCodes": {
@@ -1417,7 +1441,7 @@
     },
     "tutorRequests": {
       "title": "Tutor-Statusanträge",
-      "help": "Von Tutoren initiierte Mitgliedschaftsänderungen. Austrittsanträge können erst nach einer einwöchigen Wartezeit genehmigt werden; Wiedereintritt ist sofort möglich.",
+      "help": "Von Tutoren initiierte Mitgliedschaftsänderungen. Austrittsanträge können erst nach einer einwöchigen Wartezeit genehmigt werden; Wiedereintrittsanträge können sofort geprüft werden und werden nach Genehmigung wirksam.",
       "kind": {
         "OPT_OUT": "Austritt",
         "REENTRY": "Wiedereintritt"
@@ -1745,7 +1769,18 @@
         "consequence": "This permanently removes the adjustment and changes the tutor’s service-hour total. Review the tutor, month and amount before continuing.",
         "confirm": "Delete adjustment"
       },
-      "create": "Neue Stundenkorrektur"
+      "create": "Neue Stundenkorrektur",
+      "source": {
+        "label": "Quelle",
+        "other": "Andere Stundenanpassung",
+        "interview": "Interviewquelle",
+        "orphaned": "Interviewaufzeichnung nicht verfügbar",
+        "unresolved": "Ungeklärte Interviewquelle",
+        "conflicting": "Widersprüchliche Interviewquelle",
+        "correct": "Interviewstunden korrigieren",
+        "help": "Diese Stunden stammen aus erfasstem Interviewdienst. Prüfen Sie das Interview, um Abschlusszeit, Dauer oder Anwesenheit zu korrigieren.",
+        "unavailable": "Für diesen Eintrag ist keine Korrektur des Interviewabschlusses verfügbar."
+      }
     },
     "applications": {
       "title": "Tutor-Bewerbungen",
@@ -1839,7 +1874,21 @@
         "unavailable": "{name} (nicht verfügbar — Auswahl ersetzen)",
         "chairSlot": "Interviewmitglied {n} als Vorsitz wählen"
       },
-      "setupTargetUnavailable": "The linked tutor record is unavailable. Refresh this application before setting up the account."
+      "setupTargetUnavailable": "The linked tutor record is unavailable. Refresh this application before setting up the account.",
+      "panelDraft": {
+        "changed": "Das Interviewteam wurde während der Bearbeitung geändert. Laden Sie es neu, um das aktuelle Team zu prüfen.",
+        "reloadHelp": "Beim Neuladen wird dieser Entwurf durch das aktuell gespeicherte Interviewteam ersetzt.",
+        "reload": "Interviewteam neu laden",
+        "loading": "Interviewteam wird geladen…",
+        "retry": "Interviewteam erneut laden",
+        "reloadError": "Das aktuelle Interviewteam konnte nicht geladen werden. Ihr Entwurf bleibt unverändert.",
+        "refreshError": "Die Teamänderung wurde eingereicht, aber das aktuelle Team konnte nicht geladen werden. Laden Sie es erneut, bevor Sie weitere Änderungen vornehmen."
+      },
+      "panelRepair": {
+        "reason": "Grund für die Korrektur des Interviewteams",
+        "save": "Interviewteam korrigieren",
+        "consequence": "Beim Ersetzen dieses offenen Interviewteams werden seine Stimmen gelöscht. Erfasste Abschlussdaten und erworbene Stunden bleiben als Historie erhalten; neue Teammitglieder erhalten keine automatische Gutschrift. Alle Mitglieder des Ersatzteams müssen erneut abstimmen."
+      }
     },
     "cards": {
       "title": "Disziplin der Lernenden",
@@ -2541,7 +2590,10 @@
       "panel": "Gremium: {members}",
       "headSuffix": "(Leiter)",
       "scheduled": "Geplant: {time}",
-      "awaitingSchedule": "Warten auf Terminierung durch den Leiter."
+      "awaitingSchedule": "Warten auf Terminierung durch den Leiter.",
+      "chairHelp": "Interviews, die Sie leiten. Planen Sie Termine, prüfen Sie die Gremiumsstimmen und halten Sie Entscheidungen hier fest. Geben Sie Ihre eigene Stimme im Interviewtermin unter Zeitplan ab.",
+      "voteInSchedule": "Im Zeitplan abstimmen",
+      "updateVoteInSchedule": "Stimme im Zeitplan ändern"
     },
     "announcements": {
       "label": "Ankündigungen",
@@ -2566,7 +2618,7 @@
       "currentPassword": "Aktuelles Passwort",
       "newPassword": "Neues Passwort",
       "confirmPassword": "Neues Passwort bestätigen",
-      "pwHelp": "Mindestens 8 Zeichen.",
+      "pwHelp": "Use 8–1024 characters.",
       "changePasswordBtn": "Passwort ändern",
       "changing": "Wird geändert…",
       "passwordChanged": "Passwort geändert.",
@@ -2586,7 +2638,8 @@
       "reentryBtn": "Wiedereintritt beantragen",
       "recall": "Antrag zurückziehen",
       "statusNote": "Ihr Tutor-Status ist {status}. Dies ist nur Lesezugriff — für Änderungen einen Administrator kontaktieren.",
-      "profileSyncFailed": "Dein Profil wurde gespeichert, konnte aber nicht neu geladen werden. Lade es erneut, ohne die Änderung nochmals abzusenden."
+      "profileSyncFailed": "Dein Profil wurde gespeichert, konnte aber nicht neu geladen werden. Lade es erneut, ohne die Änderung nochmals abzusenden.",
+      "pwTooLong": "Use no more than {max} characters."
     },
     "dashboard": {
       "pending": {
@@ -2646,7 +2699,8 @@
       "schedule": "Zeitplan",
       "pairings": "Zuordnungen",
       "preferences": "Einstellungen",
-      "history": "Verlauf & Stunden"
+      "history": "Verlauf & Stunden",
+      "chair": "Interviewleitung"
     }
   },
   "public": {
@@ -2959,7 +3013,8 @@
       "codeSent": "Wir haben einen Code an {email} gesendet. Geben Sie ihn unten ein, um abzuschließen.",
       "codeLabel": "E-Mail-Bestätigungscode",
       "resend": "Code erneut senden",
-      "cancel": "Abbrechen"
+      "cancel": "Abbrechen",
+      "deliveryFailed": "E-Mail-Zustellung fehlgeschlagen. Bitte versuchen Sie es später erneut."
     }
   },
   "crew": {
@@ -3056,7 +3111,10 @@
     "send": "Bestätigungscode senden",
     "code": "E-Mail-Bestätigungscode",
     "confirm": "Bestätigen und E-Mail ändern",
-    "success": "Deine E-Mail wurde geändert."
+    "success": "Deine E-Mail wurde geändert.",
+    "sentTo": "Enter the verification code sent to {email}.",
+    "changeAddress": "Use another email",
+    "savedRefreshFailed": "Email changed, but account details could not refresh. Try refreshing."
   },
   "profileCorrection": {
     "edit": "Details bearbeiten",
@@ -4083,6 +4141,7 @@
       },
       "entities": {
         "ImportedRecordProvenance": "Herkunft importierter historischer Datensätze",
+        "ArchiveProvenanceReceipt": "Beleg für den Abgleich der Archivherkunft",
         "SchedulingMaintenanceState": "Wartungsstatus der Terminplanung",
         "SchedulingDirtyEvent": "Invalidierungsereignis der Terminplanung",
         "PersonPartitionReceipt": "Beleg zur Identitätstrennung",
@@ -7157,7 +7216,21 @@
     "reloadEvidence": "Aktuelle Nachweise neu laden (Entwurf ersetzen)",
     "historyFollowups": "{count, plural, one {# abgeschlossenes Interview benötigt noch} other {# abgeschlossene Interviews benötigen noch}} die Erfassung des Abschlusses und die Stundengutschrift durch die Verwaltung.",
     "accessDenied": "Der Zugriff auf Interviews ist nicht mehr verfügbar. Laden Sie die Ansicht neu, um Ihre aktuellen Berechtigungen zu prüfen.",
-    "chairNeedsUpdate": "This panel needs an Admin or Head chair. Ask management to update the panel."
+    "chairNeedsUpdate": "This panel needs an Admin or Head chair. Ask management to update the panel.",
+    "noChairInterviews": "Ihnen sind derzeit keine Interviews als Leitung zugewiesen.",
+    "refresh": "Aktualisieren",
+    "refreshing": "Wird aktualisiert…",
+    "correctionEvidence": {
+      "readUnavailable": "Die aktuellen Interviewnachweise müssen erfolgreich geladen werden, bevor Sie prüfen oder einreichen. Ihr Entwurf bleibt erhalten.",
+      "missingEvidence": "Laden Sie die erfassten Interviewteilnehmer und aktuellen Quellgutschriften, bevor Sie diese Änderung prüfen.",
+      "historyHelp": "Anwesenheit und Stunden gehören zum erfassten Interview. Neue Mitglieder des Entscheidungsteams werden dadurch nicht zu damaligen Interviewteilnehmern.",
+      "decisionPanel": "Aktuelles Entscheidungsteam: {names}",
+      "participants": "Anwesenheit im Team des erfassten Interviews",
+      "formerPanelist": "Früheres Teammitglied",
+      "loading": "Abschlussnachweise werden geladen…",
+      "totalChange": "Gesamtgutschrift: {before} → {after} Stunden (Änderung {delta})",
+      "retryArrival": "Interviewaufzeichnung erneut laden"
+    }
   },
   "applicationAccountSetup": {
     "title": "Account Setup · {name}",
@@ -7199,7 +7272,8 @@
     "reload": "Reload interview (replace draft)",
     "unavailable": "This interview is no longer available for your approval.",
     "waitingVotes": "Every panelist must vote before approval.",
-    "changed": "Interview evidence changed. Reload to review current information."
+    "changed": "Interview evidence changed. Reload to review current information.",
+    "retainedService": "Diese Genehmigung übernimmt den erfassten Interviewabschluss, die Anwesenheit und die Zeitgutschriften einschließlich genehmigter Korrekturen. Das aktuelle Gremium kann von den erfassten Teilnehmenden abweichen. Diese Genehmigung fügt keine Dienststunden hinzu und entfernt keine."
   },
   "personPartition": {
     "refreshFailed": "The separation was saved, but the directory has not refreshed. Retry the read only.",
@@ -7868,7 +7942,7 @@
     "denied": "Access to this planning source is no longer available.",
     "retry": "Retry",
     "interviewAttention": "These interviews still need attention, even when they have no upcoming date.",
-    "interviewHelp": "Assigned interview dates appear in your agenda. Your chair workspace remains on the dashboard.",
+    "interviewHelp": "Zugewiesene Interviewtermine erscheinen im Zeitplan. Öffnen Sie ein Interview zum Abstimmen; Leitungsaufgaben befinden sich im Tab Interviewleitung.",
     "meetingHelp": "Anstehende Termine erscheinen in deiner Agenda. Öffne die Besprechungen, um Abwesenheiten zu entschuldigen und deinen persönlichen Verlauf anzusehen.",
     "calendarScope": "Calendar subscriptions currently include tutoring sessions only. Interviews and meetings appear here in the portal.",
     "task": {
@@ -8002,7 +8076,49 @@
       "SCHEDULED_REFRESH_REVIEW_CHANGED": "The reviewed refresh conditions changed. Reload and review a new schedule.",
       "SCHEDULED_REFRESH_EXECUTION_FAILED": "The refresh could not complete after repeated attempts. Check the deployment, then review a new schedule or cancel this one.",
       "SCHEDULED_REFRESH_AFTER_OPENING": "Choose a refresh time no later than the prepared tutee signup opening time, or update that preparation first."
-    }
+    },
+    "subtitle": "{current} → {next} · {mode} · {zone}",
+    "notScheduledBadge": "Not scheduled",
+    "dueBadge": "Due now",
+    "retryingBadge": "Retrying ({attempts}/5)",
+    "statusReady": "Scheduled — will run automatically",
+    "statusDue": "Scheduled time reached — running soon",
+    "statusRetrying": "Retrying automatic refresh (attempt {attempts} of 5)",
+    "statusPaused": "Will not run automatically",
+    "statusReadyHelp": "Runs automatically when due (checked every 30s, with catch-up) while period, openings, staged features, timezone, and Head approval stay unchanged.",
+    "statusDueHelp": "Scheduled time reached. Server checks every 30s and runs once reviewed conditions are verified.",
+    "statusRetryingHelp": "Temporary error; retrying automatically up to 5 attempts while conditions stay valid.",
+    "completedAt": "Completed at {time} ({zone}).",
+    "noneHelp": "Schedule a refresh below to advance automatically when all conditions are met, or choose Refresh now.",
+    "conditionsHeading": "Refresh Conditions & Review",
+    "conditionsHelp": "A scheduled refresh runs automatically only while every reviewed condition stays unchanged.",
+    "conditionSync": "Settings and review sync",
+    "conditionSyncReady": "Up to date",
+    "conditionSyncChanged": "Reload required",
+    "conditionSyncError": "Unavailable",
+    "conditionOpenings": "Next-period opening bindings",
+    "conditionOpeningsReady": "Ready",
+    "conditionOpeningsStale": "Needs attention",
+    "conditionFeatures": "Staged optional features",
+    "conditionFeaturesPending": "{count} pending",
+    "conditionFeaturesNone": "No pending changes",
+    "conditionAuth": "Authorization",
+    "conditionAuthApproved": "Authorized by Head",
+    "conditionAuthPending": "Pending Head approval",
+    "conditionAuthDirect": "Head applies directly",
+    "conditionAuthRequest": "Requires Head approval",
+    "conditionAuthReadOnly": "Admin & Head only",
+    "conditionAuthChanged": "Renewed review required",
+    "effectsDisclosure": "Effects & full refresh details",
+    "entranceHeading": "Authorize Refresh",
+    "timingModeLabel": "When should this refresh run?",
+    "modeScheduled": "Schedule for later",
+    "modeImmediate": "Refresh now",
+    "openingBound": "Must be on or before the prepared tutee signup opening ({time}, {zone}).",
+    "immediateHelp": "Advances immediately to {target} after confirmation instead of waiting for a scheduled time.",
+    "immediateSupersedes": "Running a refresh now will advance the period immediately and supersede the currently scheduled refresh.",
+    "immediateReviewTitle": "Review Immediate Refresh",
+    "reschedule": "Review & reschedule"
   },
   "signupTransition": {
     "currentClosed": "{period} tutee signup is closed. The next intake is shown below.",

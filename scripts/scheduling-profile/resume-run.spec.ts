@@ -87,3 +87,29 @@ void test("worker CLI seals a failed arm, authenticates the next attempt, and re
     assert.equal(await readFile(join(directory, "retry-authorization.json"), "utf8"), receipt);
   } finally { await rm(cwd, { recursive: true, force: true }); }
 });
+
+void test("aggregate emits an early admission diagnostic and both JSON receipts when PROFILE_CAMPAIGN is absent", async () => {
+  const cwd = await mkdtemp(join(tmpdir(), "profile-resume-missing-campaign-"));
+  const script = fileURLToPath(new URL("./resume-run.mjs", import.meta.url));
+  try {
+    const env = { ...process.env };
+    delete env.PROFILE_CAMPAIGN;
+    let stderr = "";
+    let failed = false;
+    try {
+      execFileSync(process.execPath, [script, "aggregate"], { cwd, env, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] });
+    } catch (error) {
+      failed = true;
+      stderr = (error as { stderr?: string }).stderr ?? "";
+    }
+    assert.equal(failed, true);
+    assert.match(stderr, /No admitted scheduling-profile campaign was bound/);
+    const aggregate = JSON.parse(await readFile(join(cwd, "outputs/scheduling-profile-aggregate.json"), "utf8")) as { status: string; error: string };
+    const selection = JSON.parse(await readFile(join(cwd, "outputs/scheduling-profile-selection.json"), "utf8")) as { state: string; error: string };
+    assert.equal(aggregate.status, "FAIL");
+    assert.equal(selection.state, "NOT_ADMITTED");
+    assert.match(aggregate.error, /admission summary/);
+  } finally {
+    await rm(cwd, { recursive: true, force: true });
+  }
+});

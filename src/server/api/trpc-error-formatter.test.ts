@@ -4,6 +4,7 @@ import { z, ZodError } from "zod";
 vi.mock("~/server/auth", () => ({ auth: async () => null }));
 
 import { ApprovalQueued } from "~/server/approvals";
+import { EmailDeliveryError } from "~/server/email/sender";
 import { formatTRPCErrorShape, validationSummary } from "./trpc";
 
 it("summarizes repeated field validation failures without exposing paths", () => {
@@ -71,4 +72,15 @@ it("preserves flattened details and approval metadata in the transport shape", (
   expect(queued.message).toBe("business rule");
   expect(queued.data.approvalId).toBe("approval-123");
   expect(queued.data.zodError).toBeNull();
+  expect(queued.data.emailDeliveryFailed).toBe(false);
+
+  const delivery = formatTRPCErrorShape(
+    {
+      message: "Email delivery failed. Please try again later.",
+      data: { code: "INTERNAL_SERVER_ERROR" },
+    },
+    { cause: new EmailDeliveryError() },
+  );
+  expect(delivery.message).toBe("Email delivery failed. Please try again later.");
+  expect(delivery.data.emailDeliveryFailed).toBe(true);
 });

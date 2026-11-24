@@ -14,9 +14,12 @@ const mocks = vi.hoisted(() => ({
   features: vi.fn(),
   schedule: vi.fn(),
   availability: vi.fn(),
+  chairCount: vi.fn(),
 }));
 vi.mock("~/server/auth", () => ({ auth: mocks.auth }));
-vi.mock("~/server/db", () => ({ db: {} }));
+vi.mock("~/server/db", () => ({
+  db: { interviewAssignment: { count: mocks.chairCount } },
+}));
 vi.mock("~/server/program/features", () => ({ getFeatures: mocks.features }));
 vi.mock("~/trpc/server", () => ({
   api: {
@@ -89,13 +92,15 @@ vi.mock("~/app/(tutor)/_components/tutor-workspace", () => ({
   TutorWorkspace: ({
     attention,
     schedule,
+    chair,
     pairings,
     preferences,
     history,
   }: Record<string, ReactNode>) => (
     <>
       {attention}
-      {schedule}
+      <div data-testid="schedule-panel">{schedule}</div>
+      {chair !== undefined && <div data-testid="chair-panel">{chair}</div>}
       {pairings}
       {preferences}
       {history}
@@ -126,7 +131,9 @@ beforeEach(() => {
   mocks.auth.mockResolvedValue({
     user: { id: "tutor-login", name: "Synthetic Tutor" },
     tutorId: "tutor",
+    role: "ADMIN",
   });
+  mocks.chairCount.mockResolvedValue(0);
   mocks.me.mockResolvedValue({ status: "ACTIVE" });
   mocks.total.mockResolvedValue({
     periodLabel: "Synthetic quarter",
@@ -141,7 +148,7 @@ beforeEach(() => {
 afterEach(cleanup);
 
 it.each(["ACTIVE", "PENDING", "OPTED_OUT", "GRADUATED", "ARCHIVED"])(
-  "composes the workspace with %s access and retained feature owners",
+  "composes the workspace with %s access and separates the chair tab from Schedule",
   async (status) => {
     mocks.me.mockResolvedValue({ status });
     render(await TutorDashboard());
@@ -165,15 +172,45 @@ it.each(["ACTIVE", "PENDING", "OPTED_OUT", "GRADUATED", "ARCHIVED"])(
         .compareDocumentPosition(screen.getByText("Schedule content")) &
         Node.DOCUMENT_POSITION_FOLLOWING,
     ).toBeTruthy();
-    expect(!!screen.queryByText("Interview workspace: chair")).toBe(
-      status === "ACTIVE",
-    );
+    expect(
+      within(screen.getByTestId("schedule-panel")).queryByText(
+        "Interview workspace: chair",
+      ),
+    ).toBeNull();
+    expect(!!screen.queryByTestId("chair-panel")).toBe(status === "ACTIVE");
+    if (status === "ACTIVE") {
+      expect(
+        within(screen.getByTestId("chair-panel")).getByText(
+          "Interview workspace: chair",
+        ),
+      ).toBeTruthy();
+    }
     expect(screen.getByText("Personal tutor history")).toBeTruthy();
     expect(mocks.rooms).toHaveBeenCalledOnce();
     expect(screen.getByText("Read-only room grid")).toBeTruthy();
     expect(screen.getByText("School calendar notice")).toBeTruthy();
   },
 );
+
+it("omits the Interview chair tab for ordinary tutors without chair assignments and retains it for legacy chairs", async () => {
+  mocks.auth.mockResolvedValue({
+    user: { id: "tutor-login", name: "Synthetic Tutor" },
+    tutorId: "tutor",
+    role: "TUTOR",
+  });
+  mocks.chairCount.mockResolvedValueOnce(0);
+  const first = render(await TutorDashboard());
+  expect(screen.queryByTestId("chair-panel")).toBeNull();
+  first.unmount();
+
+  mocks.chairCount.mockResolvedValueOnce(1);
+  render(await TutorDashboard());
+  expect(
+    within(screen.getByTestId("chair-panel")).getByText(
+      "Interview workspace: chair",
+    ),
+  ).toBeTruthy();
+});
 
 it.each([
   [null, "/signin"],

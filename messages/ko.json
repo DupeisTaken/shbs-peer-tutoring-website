@@ -32,6 +32,7 @@
     "calendarCreate": "비공개 링크 만들기",
     "calendarRevoke": "비공개 링크 취소",
     "calendarUnavailable": "구독하려면 현재 유효한 참여 자격이 필요합니다.",
+    "calendarCreateHelp": "튜터링 일정의 읽기 전용 비공개 링크를 만듭니다. 링크가 있는 사람은 누구나 일정을 볼 수 있으므로 안전하게 보관하세요.",
     "calendarRotateHelp": "새 링크를 만들면 이전 링크가 모두 취소됩니다. 이전 링크를 사용한 구독은 더 이상 갱신되지 않습니다.",
     "calendarRevokeHelp": "비공개 링크를 취소합니다. 기존 구독은 더 이상 갱신되지 않습니다. 지도 일정은 그대로 유지됩니다.",
     "publicationUnavailable": "정기 일정 {count}건을 검토해야 하므로 날짜별 일정을 준비하지 못했습니다.",
@@ -239,7 +240,8 @@
       "NEXT_RECRUITMENT_CLOSING_CONFLICT": "시작 시간은 대상 기간의 기존 마감 시간보다 빨라야 합니다."
     },
     "featureAfterRefreshEnabled": "갱신 후: 켜짐",
-    "featureAfterRefreshDisabled": "갱신 후: 꺼짐"
+    "featureAfterRefreshDisabled": "갱신 후: 꺼짐",
+    "embeddedHelp": "Apply on refresh. Editing after scheduling requires renewed review."
   },
   "historicalInvitation": {
     "claimUncertain": "The claim result is unknown. Read the invitation again to check its result; do not repeat the claim.",
@@ -561,7 +563,13 @@
         "enable": "Enable 2FA",
         "disable": "Disable 2FA",
         "saving": "Saving…",
-        "saved": "Two-factor settings updated."
+        "saved": "Two-factor settings updated.",
+        "loading": "Loading two-factor settings…",
+        "loadFailed": "Two-factor settings could not be loaded.",
+        "refreshFailed": "Two-factor settings could not be refreshed. Your password draft is kept; try again before saving.",
+        "refreshing": "Refreshing two-factor settings…",
+        "accessDenied": "Two-factor settings are unavailable.",
+        "savedRefreshFailed": "Saved, but two-factor settings could not refresh. Try refreshing."
       }
     },
     "forgotPassword": "비밀번호를 잊으셨나요?",
@@ -594,7 +602,8 @@
         "confirmPassword": "새 비밀번호 확인"
       },
       "submit": "새 비밀번호 설정",
-      "saving": "저장 중…"
+      "saving": "저장 중…",
+      "passwordLength": "Use {min}–{max} characters."
     },
     "onboarding": {
       "proofRequired": "계정 이메일로 받은 링크를 열어 소유권을 확인하고 비밀번호를 설정하세요. 해당 주소에 접근할 수 없다면 프로그램 팀에 문의하세요. 2단계 인증은 로그인 후 관리할 수 있습니다.",
@@ -1189,7 +1198,7 @@
       "noPeriod": "활성 프로그램 기간이 없습니다. 먼저 시드 또는 생성하세요.",
       "currentPeriod": "현재 기간",
       "semester": "{semester}학기",
-      "refreshHeading": "다음 분기로 갱신",
+      "refreshHeading": "Program Refresh",
       "advancesTo": "이 작업은 프로그램을 {name}으로 전환하며:",
       "effectPending": "대기 중인 학생 신청 큐를 정리합니다 (비활성으로 보관).",
       "effectTutees": "매칭 여부와 관계없이 대기 중이거나 활동 중인 모든 학생을 보관합니다. 계속 참여하려면 다시 신청해야 합니다.",
@@ -1346,7 +1355,22 @@
         "deny": "거부",
         "review": "이의 신청 검토",
         "message": "이의 신청 원문",
-        "refreshFailed": "결정은 저장되었지만 계정 또는 이의 신청 목록을 새로 고칠 수 없습니다. 결정을 다시 제출하지 말고 새로 고침을 다시 시도하세요."
+        "refreshFailed": "결정은 저장되었지만 계정 또는 이의 신청 목록을 새로 고칠 수 없습니다. 결정을 다시 제출하지 말고 새로 고침을 다시 시도하세요.",
+        "restrictionHeading": "Current Account Restriction",
+        "restricted": "Suspended",
+        "active": "Already active",
+        "restrictedAt": "Suspended {date}",
+        "submittedAt": "Appeal submitted {date}",
+        "noReason": "No suspension reason recorded.",
+        "coResolveHelp": "Approve restores access and closes all pending appeals for this account with one notice.",
+        "activeHelp": "This account is already active. Approve closes all pending appeals without changing access. Deny is unavailable.",
+        "reloadReview": "Reload restriction review",
+        "reviewChanged": "This appeal or account restriction changed. Reload the review before deciding.",
+        "reviewUnavailable": "Current review details could not be loaded. Try again before deciding.",
+        "approveClose": "Approve and close appeals",
+        "accessRestored": "Account access restored and all pending appeals approved.",
+        "closedActive": "Pending appeals closed. Account access was already active and did not change.",
+        "deniedReceipt": "Appeal denied. The account remains suspended."
       }
     },
     "registrationCodes": {
@@ -1417,7 +1441,7 @@
     },
     "tutorRequests": {
       "title": "튜터 상태 요청",
-      "help": "튜터가 요청한 멤버십 변경입니다. 탈퇴 요청은 1주일 대기 기간 후에만 승인할 수 있으며, 재가입은 즉시 처리됩니다.",
+      "help": "튜터가 요청한 멤버십 변경입니다. 탈퇴 요청은 1주일 대기 기간 후에만 승인할 수 있으며, 재가입 요청은 즉시 검토할 수 있고 승인 후 적용됩니다.",
       "kind": {
         "OPT_OUT": "탈퇴",
         "REENTRY": "재가입"
@@ -1745,7 +1769,18 @@
         "consequence": "This permanently removes the adjustment and changes the tutor’s service-hour total. Review the tutor, month and amount before continuing.",
         "confirm": "Delete adjustment"
       },
-      "create": "새 활동 시간 조정"
+      "create": "새 활동 시간 조정",
+      "source": {
+        "label": "출처",
+        "other": "기타 시간 조정",
+        "interview": "면접 출처",
+        "orphaned": "면접 기록을 사용할 수 없음",
+        "unresolved": "확인되지 않은 면접 출처",
+        "conflicting": "충돌하는 면접 출처",
+        "correct": "면접 시간 수정",
+        "help": "이 시간은 기록된 면접 활동에서 산정되었습니다. 면접을 검토하여 완료 시각, 소요 시간 또는 출석을 수정하세요.",
+        "unavailable": "이 행에서는 면접 완료 기록 수정을 열 수 없습니다."
+      }
     },
     "applications": {
       "title": "튜터 지원",
@@ -1839,7 +1874,21 @@
         "unavailable": "{name} (선택 불가 — 교체 필요)",
         "chairSlot": "면접위원 {n}을 의장으로 선택"
       },
-      "setupTargetUnavailable": "The linked tutor record is unavailable. Refresh this application before setting up the account."
+      "setupTargetUnavailable": "The linked tutor record is unavailable. Refresh this application before setting up the account.",
+      "panelDraft": {
+        "changed": "이 초안을 편집하는 동안 면접 위원단이 변경되었습니다. 다시 불러와 현재 위원단을 확인하세요.",
+        "reloadHelp": "다시 불러오면 이 초안이 현재 저장된 면접 위원단으로 바뀝니다.",
+        "reload": "면접 위원단 다시 불러오기",
+        "loading": "면접 위원단 불러오는 중…",
+        "retry": "면접 위원단 불러오기 재시도",
+        "reloadError": "현재 면접 위원단을 불러오지 못했습니다. 초안은 그대로 유지됩니다.",
+        "refreshError": "면접 위원단 변경이 제출되었지만 현재 위원단을 불러오지 못했습니다. 다른 변경을 하기 전에 다시 불러오세요."
+      },
+      "panelRepair": {
+        "reason": "면접 위원단 수정 사유",
+        "save": "면접 위원단 수정",
+        "consequence": "진행 중인 이 면접 위원단을 교체하면 투표가 삭제됩니다. 기록된 완료 정보와 인정된 시간은 이력으로 유지되며 새 위원에게 시간이 자동으로 인정되지 않습니다. 교체된 위원단의 모든 위원은 다시 투표해야 합니다."
+      }
     },
     "cards": {
       "title": "학생 규정 준수",
@@ -2541,7 +2590,10 @@
       "panel": "패널: {members}",
       "headSuffix": "(대표)",
       "scheduled": "일정: {time}",
-      "awaitingSchedule": "대표가 시간을 설정하기를 기다리는 중입니다."
+      "awaitingSchedule": "대표가 시간을 설정하기를 기다리는 중입니다.",
+      "chairHelp": "대표로 맡은 면접입니다. 여기에서 일정을 잡으시고 패널 투표를 확인한 뒤 최종 결정을 기록하세요. 본인 투표는 일정 탭의 면접 이벤트에서 제출합니다.",
+      "voteInSchedule": "일정에서 투표하기",
+      "updateVoteInSchedule": "일정에서 투표 수정하기"
     },
     "announcements": {
       "label": "공지사항",
@@ -2566,7 +2618,7 @@
       "currentPassword": "현재 비밀번호",
       "newPassword": "새 비밀번호",
       "confirmPassword": "새 비밀번호 확인",
-      "pwHelp": "최소 8자 이상.",
+      "pwHelp": "Use 8–1024 characters.",
       "changePasswordBtn": "비밀번호 변경",
       "changing": "변경 중…",
       "passwordChanged": "비밀번호가 변경되었습니다.",
@@ -2586,7 +2638,8 @@
       "reentryBtn": "재가입 요청",
       "recall": "요청 취소",
       "statusNote": "현재 튜터 상태는 {status}입니다. 읽기 전용 접근 — 변경은 관리자에게 문의하세요.",
-      "profileSyncFailed": "프로필은 저장되었지만 새로고침에 실패했습니다. 다시 제출하지 말고 새로고침을 재시도하세요."
+      "profileSyncFailed": "프로필은 저장되었지만 새로고침에 실패했습니다. 다시 제출하지 말고 새로고침을 재시도하세요.",
+      "pwTooLong": "Use no more than {max} characters."
     },
     "dashboard": {
       "pending": {
@@ -2646,7 +2699,8 @@
       "schedule": "일정",
       "pairings": "매칭",
       "preferences": "환경설정",
-      "history": "기록 및 시간"
+      "history": "기록 및 시간",
+      "chair": "면접 대표"
     }
   },
   "public": {
@@ -2959,7 +3013,8 @@
       "codeSent": "{email}(으)로 코드를 보냈습니다. 아래에 입력하여 완료하세요.",
       "codeLabel": "이메일 인증 코드",
       "resend": "코드 재전송",
-      "cancel": "취소"
+      "cancel": "취소",
+      "deliveryFailed": "이메일 전송에 실패했습니다. 나중에 다시 시도하세요."
     }
   },
   "crew": {
@@ -3056,7 +3111,10 @@
     "send": "인증 코드 보내기",
     "code": "이메일 인증 코드",
     "confirm": "인증하고 이메일 변경",
-    "success": "이메일이 변경되었습니다."
+    "success": "이메일이 변경되었습니다.",
+    "sentTo": "Enter the verification code sent to {email}.",
+    "changeAddress": "Use another email",
+    "savedRefreshFailed": "Email changed, but account details could not refresh. Try refreshing."
   },
   "profileCorrection": {
     "edit": "세부 정보 편집",
@@ -4083,6 +4141,7 @@
       },
       "entities": {
         "ImportedRecordProvenance": "가져온 과거 기록의 출처",
+        "ArchiveProvenanceReceipt": "아카이브 출처 대조 영수증",
         "SchedulingMaintenanceState": "일정 유지 관리 상태",
         "SchedulingDirtyEvent": "일정 무효화 이벤트",
         "PersonPartitionReceipt": "신원 분리 처리 기록",
@@ -7157,7 +7216,21 @@
     "reloadEvidence": "현재 근거 다시 불러오기 (초안 교체)",
     "historyFollowups": "{count, plural, one {종료된 면접 #건에 대해} other {종료된 면접 #건에 대해}} 관리 담당자가 아직 완료 기록과 봉사 시간 부여를 해야 합니다.",
     "accessDenied": "더 이상 면접에 접근할 수 없습니다. 다시 불러와 현재 권한을 확인하세요.",
-    "chairNeedsUpdate": "This panel needs an Admin or Head chair. Ask management to update the panel."
+    "chairNeedsUpdate": "This panel needs an Admin or Head chair. Ask management to update the panel.",
+    "noChairInterviews": "대표로 배정된 면접이 없습니다.",
+    "refresh": "새로고침",
+    "refreshing": "새로고침 중…",
+    "correctionEvidence": {
+      "readUnavailable": "검토하거나 제출하기 전에 현재 면접 근거를 정상적으로 불러와야 합니다. 초안은 유지됩니다.",
+      "missingEvidence": "이 변경을 검토하기 전에 기록된 면접 참여자와 현재 원본 인정 시간을 불러오세요.",
+      "historyHelp": "출석과 시간은 기록된 면접에 속합니다. 결정 위원단을 교체해도 새 위원이 이전 면접의 출석자가 되지는 않습니다.",
+      "decisionPanel": "현재 결정 위원단: {names}",
+      "participants": "기록된 면접 위원단의 출석",
+      "formerPanelist": "이전 면접 위원",
+      "loading": "면접 완료 근거 불러오는 중…",
+      "totalChange": "총 인정 시간: {before} → {after}시간 (변경 {delta})",
+      "retryArrival": "면접 기록 불러오기 재시도"
+    }
   },
   "applicationAccountSetup": {
     "title": "Account Setup · {name}",
@@ -7199,7 +7272,8 @@
     "reload": "Reload interview (replace draft)",
     "unavailable": "This interview is no longer available for your approval.",
     "waitingVotes": "Every panelist must vote before approval.",
-    "changed": "Interview evidence changed. Reload to review current information."
+    "changed": "Interview evidence changed. Reload to review current information.",
+    "retainedService": "이 승인에서는 승인된 정정을 포함한 면접 완료, 출석 및 봉사 시간 기록을 유지합니다. 현재 심사위원은 기록된 참석자와 다를 수 있습니다. 이 승인으로 봉사 시간이 추가되거나 삭제되지 않습니다."
   },
   "personPartition": {
     "refreshFailed": "The separation was saved, but the directory has not refreshed. Retry the read only.",
@@ -7868,7 +7942,7 @@
     "denied": "Access to this planning source is no longer available.",
     "retry": "Retry",
     "interviewAttention": "These interviews still need attention, even when they have no upcoming date.",
-    "interviewHelp": "Assigned interview dates appear in your agenda. Your chair workspace remains on the dashboard.",
+    "interviewHelp": "배정된 면접 일정이 내 일정에 표시됩니다. 면접을 열어 본인 투표를 제출하고, 대표 업무는 면접 대표 탭에서 진행하세요.",
     "meetingHelp": "예정된 날짜는 일정에 표시됩니다. 회의를 열어 불참 사유를 제출하고 개인 내역을 확인하세요.",
     "calendarScope": "Calendar subscriptions currently include tutoring sessions only. Interviews and meetings appear here in the portal.",
     "task": {
@@ -8002,7 +8076,49 @@
       "SCHEDULED_REFRESH_REVIEW_CHANGED": "The reviewed refresh conditions changed. Reload and review a new schedule.",
       "SCHEDULED_REFRESH_EXECUTION_FAILED": "The refresh could not complete after repeated attempts. Check the deployment, then review a new schedule or cancel this one.",
       "SCHEDULED_REFRESH_AFTER_OPENING": "Choose a refresh time no later than the prepared tutee signup opening time, or update that preparation first."
-    }
+    },
+    "subtitle": "{current} → {next} · {mode} · {zone}",
+    "notScheduledBadge": "Not scheduled",
+    "dueBadge": "Due now",
+    "retryingBadge": "Retrying ({attempts}/5)",
+    "statusReady": "Scheduled — will run automatically",
+    "statusDue": "Scheduled time reached — running soon",
+    "statusRetrying": "Retrying automatic refresh (attempt {attempts} of 5)",
+    "statusPaused": "Will not run automatically",
+    "statusReadyHelp": "Runs automatically when due (checked every 30s, with catch-up) while period, openings, staged features, timezone, and Head approval stay unchanged.",
+    "statusDueHelp": "Scheduled time reached. Server checks every 30s and runs once reviewed conditions are verified.",
+    "statusRetryingHelp": "Temporary error; retrying automatically up to 5 attempts while conditions stay valid.",
+    "completedAt": "Completed at {time} ({zone}).",
+    "noneHelp": "Schedule a refresh below to advance automatically when all conditions are met, or choose Refresh now.",
+    "conditionsHeading": "Refresh Conditions & Review",
+    "conditionsHelp": "A scheduled refresh runs automatically only while every reviewed condition stays unchanged.",
+    "conditionSync": "Settings and review sync",
+    "conditionSyncReady": "Up to date",
+    "conditionSyncChanged": "Reload required",
+    "conditionSyncError": "Unavailable",
+    "conditionOpenings": "Next-period opening bindings",
+    "conditionOpeningsReady": "Ready",
+    "conditionOpeningsStale": "Needs attention",
+    "conditionFeatures": "Staged optional features",
+    "conditionFeaturesPending": "{count} pending",
+    "conditionFeaturesNone": "No pending changes",
+    "conditionAuth": "Authorization",
+    "conditionAuthApproved": "Authorized by Head",
+    "conditionAuthPending": "Pending Head approval",
+    "conditionAuthDirect": "Head applies directly",
+    "conditionAuthRequest": "Requires Head approval",
+    "conditionAuthReadOnly": "Admin & Head only",
+    "conditionAuthChanged": "Renewed review required",
+    "effectsDisclosure": "Effects & full refresh details",
+    "entranceHeading": "Authorize Refresh",
+    "timingModeLabel": "When should this refresh run?",
+    "modeScheduled": "Schedule for later",
+    "modeImmediate": "Refresh now",
+    "openingBound": "Must be on or before the prepared tutee signup opening ({time}, {zone}).",
+    "immediateHelp": "Advances immediately to {target} after confirmation instead of waiting for a scheduled time.",
+    "immediateSupersedes": "Running a refresh now will advance the period immediately and supersede the currently scheduled refresh.",
+    "immediateReviewTitle": "Review Immediate Refresh",
+    "reschedule": "Review & reschedule"
   },
   "signupTransition": {
     "currentClosed": "{period} tutee signup is closed. The next intake is shown below.",

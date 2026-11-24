@@ -2,12 +2,16 @@
 import { CodeInput } from "~/app/_components/ui/code-field";
 
 import { useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { api } from "~/trpc/react";
+import { PASSWORD_MAX_LENGTH } from "~/lib/password-contract";
 import { QueryFeedback } from "./ui/query-feedback";
 import { Button } from "./ui/button";
+import { DisclosureSection } from "./ui/disclosure-section";
 import { FormActions, InlineNotice, StatePanel } from "./ui/patterns";
 import { useSessionAccessDenied } from "./session-view-state";
+import { EmailChange } from "./email-change";
 import { normalizeEmailLocale, type EmailLocale } from "~/lib/email-locale";
 import type { NotificationLockValue } from "~/lib/notification-categories";
 import {
@@ -19,6 +23,8 @@ import {
  * Form actions retain 44px touch targets; compact desktop address actions share 32px rows. */
 export function AccountEmails() {
   const t = useTranslations("accountEmails");
+  const primary = useTranslations("emailChange");
+  const router = useRouter();
   const utils = api.useUtils();
   const settings = api.account.emailSettings.useQuery();
   const [email, setEmail] = useState("");
@@ -32,6 +38,7 @@ export function AccountEmails() {
       utils.account.me.invalidate(),
       utils.tutor.myProfile.invalidate(),
     ]);
+    router.refresh();
   };
   const request = api.account.requestSecondaryEmail.useMutation({
     onSuccess: async (_, input) => {
@@ -105,6 +112,7 @@ export function AccountEmails() {
                   aria-label={t("password")}
                   aria-describedby="associated-email-password-help"
                   autoComplete="current-password"
+                  maxLength={PASSWORD_MAX_LENGTH}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   className="input min-h-11 lg:min-h-10"
@@ -276,6 +284,11 @@ export function AccountEmails() {
             )}
           </>
         )}
+        {/* Primary replacement has independent password/mailbox proof and does
+         * not depend on the optional secondary-address binding gate. */}
+        <DisclosureSection title={primary("title")} lifetime="retained">
+          <EmailChange embedded />
+        </DisclosureSection>
         {notice && (
           <p role="status" className="text-sm text-green-700">
             {notice}

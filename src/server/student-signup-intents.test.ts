@@ -390,6 +390,14 @@ it("keeps the management completion signal pending through mailbox verification 
   expect((await managed()).confirmedAt).toBeNull();
   await complete(accepted.intent.id, undefined, "New-password-533!");
   expect((await managed()).confirmedAt).toBeInstanceOf(Date);
+  expect((await managed()).editedAt).toBeNull();
+  expect(
+    (
+      await db.studentSurvey.findUniqueOrThrow({
+        where: { id: accepted.intent.surveyId },
+      })
+    ).editedAt,
+  ).toBeNull();
   expect((await managed()).submittedAt).toEqual(accepted.intent.receivedAt);
   // An unfinished replacement cannot remove an already confirmed request's status.
   const replacement = await staged(await answers());
@@ -607,6 +615,7 @@ it("records deliberate identical submissions as new consent revisions while exac
   const first = await staged({ ...payload, preferredContact: "New contact", signatureName: "First New Signature" });
   const completed = await complete(first.intent.id, user.id);
   const beforeRetry = await db.studentSurvey.findUniqueOrThrow({ where: { id: row.id } });
+  expect(beforeRetry.editedAt).toBeInstanceOf(Date);
   const notificationCount = await db.notification.count();
   await expect(redeemAccountInvitation(db, { ...profile, ...completed.invite }, user.id)).resolves.toEqual(completed.receipt);
   expect(await db.studentSurvey.findUniqueOrThrow({ where: { id: row.id } })).toEqual(beforeRetry);
@@ -637,6 +646,7 @@ it("records deliberate identical submissions as new consent revisions while exac
     policyRevision: row.policyRevision,
     policySnapshot: row.policySnapshot,
     verificationDueAt: row.verificationDueAt,
+    editedAt: beforeRetry.editedAt,
     currentVersion: 2,
   });
   expect(

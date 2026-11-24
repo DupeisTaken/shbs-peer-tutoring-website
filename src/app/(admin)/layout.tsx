@@ -40,6 +40,8 @@ export default async function AdminLayout({
     where: { id: session.user.id },
     select: {
       role: true,
+      name: true,
+      email: true,
       username: true,
       crewStatus: true,
       canTranslate: true,
@@ -103,7 +105,7 @@ export default async function AdminLayout({
             title={t("account.title")}
           >
             <p className="text-[13px] font-medium text-slate-900">
-              {session.user.name}
+              {me?.name ?? session.user.name}
             </p>
             <p className="muted text-[11px]">
               {(me?.username ?? me?.tutor?.username)
@@ -115,9 +117,15 @@ export default async function AdminLayout({
         }
         account={
           <UserAvatar
-            name={session.user.name ?? session.user.email ?? session.role}
+            name={
+              me?.name ??
+              session.user.name ??
+              me?.email ??
+              session.user.email ??
+              session.role
+            }
             username={me?.username ?? me?.tutor?.username}
-            email={session.user.email}
+            email={me?.email ?? session.user.email}
             role={session.role}
             items={accountItems}
             compactAtDesktop

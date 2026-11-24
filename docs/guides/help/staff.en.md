@@ -174,7 +174,7 @@ Open: `/admin/applications`
 
 3. **Correct an initial name** For an eligible initial application, open the name-correction action, edit the four name fields and enter a reason. Review the before/after identity before saving or submitting a Coordinator proposal.
 
-4. **Continue the proper workflow** Use panel assignment and interview review for qualification decisions. Use the offered account-setup action only when the source is eligible; a roster or accepted application is not itself a usable login.
+4. **Continue the proper workflow** Use panel assignment and interview review for qualification decisions. On an accepted initial application, Set up account opens a live status dialog showing the auto-issued invitation code, linked account and contextual links to Users & Roles and Registration Codes; a roster or accepted application is not itself a usable login.
 
 ### What happens next
 
@@ -1054,11 +1054,11 @@ Open: `/admin/registration-codes`
 
    Look for: Inspect the role on the invitation card and active/used/expired states.
 
-2. **Check binding and issue** Select Kind, enter Label and optional Email, then check the role and recipient binding. For Admin/Head, Issue submits directly. Read the resulting expiry and Active status on the card or list. A Coordinator's issuance request remains pending until approved.
+2. **Check binding and issue** Select Kind, enter Label and optional Email, then check the role and recipient binding. For Admin/Head, Issue submits directly and emails any bound recipient best-effort when security mail is configured. Read the resulting expiry and Active status on the card or list. A Coordinator's issuance request remains pending until approved.
 
 3. **Share the active card** Expand an active code and use its copy/share controls. Export Image downloads account-setup.png with only the setup card in the current language/accent; share it only with the intended recipient.
 
-4. **Inspect use or revoke** Read used/expired cards as retained evidence; they show a crossed-out code without sharing actions. Admin/Head can revoke an eligible invitation through the named review action.
+4. **Inspect status, source or revoke** The list also shows auto-issued codes with source badges (Interview, Accepted application, Crew application), Issued by, bound email, a View application link and Unavailable reason annotations (failed attempts, invalid or inactive application). Used/expired cards stay readable without sharing actions; Admin/Head can revoke an eligible code through the named review.
 
 ### What happens next
 
@@ -1322,7 +1322,7 @@ Open: `/admin/program`
 
 ### Walkthrough
 
-1. **Inspect the calendar** Open Program Settings → Recruitment and Refresh and the school-calendar controls. Read the program timezone and existing school-day/non-school-day overrides before editing an individual date.
+1. **Inspect the calendar** Open Program Settings → Recruitment and Refresh. Holidays & Tutoring Pauses combines school-holiday ranges and tutoring pauses/notices in one sortable table alongside individual date overrides in the program timezone.
 
    Look for: In Recruitment and Refresh, find School calendar and no-tutoring notices.
 
@@ -1330,9 +1330,9 @@ Open: `/admin/program`
 
 3. **Add a holiday range** Choose Add holiday. Enter Start date, End date and a shared Staff note. The range includes both dates and weekends, up to 366 days. Check the No school count and the listed overrides and notes that saving will replace. Choose Save holiday to apply the range or Request Admin Approval to submit one Coordinator proposal.
 
-4. **Create a notice or pause** Enter the starting date, inclusive ending date and reason. A new range defaults to Pause regular tutoring, which suppresses future ordinary sessions. Choose Notice only when the range should provide information without changing the schedule. New dated exceptions during a pause require explicit agreement.
+4. **Create a notice or pause** Choose Add tutoring pause or notice and enter the starting date, inclusive ending date and participant-visible reason. A new range defaults to Pause regular tutoring, suppressing future ordinary sessions and clearing pending 24-hour automatic-acceptance deadlines; tutors use Arrange exception for explicit-agreement exceptions. Choose Notice only to inform without changing the schedule.
 
-5. **Review existing commitments** Read affected published commitments before applying/lifting a pause. Already confirmed extra lessons and agreed reschedules remain; inspect the impact review rather than assuming every lesson is cancelled. Edit an existing notice to change its ending date/reason; to change its identifying start date, remove it and create a new notice. View details shows the full reason.
+5. **Review existing commitments** Use Review impact to inspect affected published commitments before applying or removing a pause. Already confirmed extra lessons and agreed reschedules remain; inspect the impact review rather than assuming every lesson is cancelled. Edit an existing notice to change its ending date/reason; to change its identifying start date, remove it and create a new notice. View details shows the full reason.
 
 ### What happens next
 
@@ -1394,7 +1394,7 @@ Open: `/admin/program`
 
 ### Walkthrough
 
-1. **Inspect delivery before changing policy** Open Program Settings → Deployment Configurations → Email Notifications. Read Email Delivery Status for security and program mail. Open School Report Email Preview and check Email HTML or Plain Text. A preview sends nothing. Operators configure SMTP on the host.
+1. **Inspect delivery before changing policy** Open Program Settings → Deployment Configurations → Email Notifications. Read Email Delivery Status for security and program mail; when Aliyun Direct Mail quota keys are configured, Admin/Head also see the Email Quota card (daily 200-email free usage and remaining balance) here and on the Overview dashboard. Open School Report Email Preview and check Email HTML or Plain Text. A preview sends nothing. Operators configure SMTP on the host.
 
    Look for: Use Account Settings and Deployment Configurations; each control saves independently.
 
@@ -1468,7 +1468,7 @@ Open: `/admin/help`
 
 2. **Choose language and audience** Choose the role handbook you need and select English or 中文 PDF. Each file is stamped with the download date and time in both its cover metadata and filename. Inspect its title, article list and screenshot captions before sharing.
 
-3. **Check screenshot provenance** Read the guide's screenshot source details for capture revision, date and route. In the GitHub catalogue open captures.json for role, viewport and crop receipts. Chinese guides label English fallback images. This set is labelled latest main, without claiming that revision is deployed.
+3. **Check screenshot provenance** Read the guide's screenshot source details for capture revision, date and route. Screenshots are baked in GitHub Actions from production builds using synthetic demo data and packaged via the help-assets-latest release; captures.json in Git records the lightweight baseline.
 
 4. **Keep the GitHub copy synchronized** Use the repository's generated help catalogue for GitHub reading and the maintained refresh instructions for screenshot/PDF updates. Change the shared content source and regenerate outputs together rather than editing an exported handbook independently.
 
@@ -1478,7 +1478,7 @@ The downloaded edition matches the chosen language/audience and its capture evid
 
 ### How it works
 
-The website, GitHub manual and PDFs derive from the same maintained article records. Real dev-server screenshots use synthetic data to illustrate controls; they do not grant permission to enter a restricted workflow.
+The website, GitHub manual and PDFs derive from the same maintained article records. CI-baked production-build screenshots use synthetic demo data to illustrate controls; they do not grant permission to enter a restricted workflow.
 
 ### Troubleshooting
 

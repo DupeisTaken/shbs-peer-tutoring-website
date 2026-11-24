@@ -32,6 +32,7 @@
     "calendarCreate": "非公開リンクを作成",
     "calendarRevoke": "非公開リンクを無効化",
     "calendarUnavailable": "購読には現在の有効な参加資格が必要です。",
+    "calendarCreateHelp": "チュータリング予定表の読み取り専用非公開リンクを作成します。リンクを知っている人は誰でも予定を閲覧できるため、慎重に管理してください。",
     "calendarRotateHelp": "新しいリンクを作ると、以前のリンクはすべて無効になります。古いリンクを使う購読は更新されなくなります。",
     "calendarRevokeHelp": "非公開リンクを無効にします。既存の購読は更新されなくなります。セッションの予定は変わりません。",
     "publicationUnavailable": "{count} 件の定期予定は確認が必要なため、日付別の予定を準備できませんでした。",
@@ -239,7 +240,8 @@
       "NEXT_RECRUITMENT_CLOSING_CONFLICT": "開始時刻は対象期間の既存の締切時刻より前である必要があります。"
     },
     "featureAfterRefreshEnabled": "更新後：有効",
-    "featureAfterRefreshDisabled": "更新後：無効"
+    "featureAfterRefreshDisabled": "更新後：無効",
+    "embeddedHelp": "Apply on refresh. Editing after scheduling requires renewed review."
   },
   "historicalInvitation": {
     "claimUncertain": "The claim result is unknown. Read the invitation again to check its result; do not repeat the claim.",
@@ -561,7 +563,13 @@
         "enable": "Enable 2FA",
         "disable": "Disable 2FA",
         "saving": "Saving…",
-        "saved": "Two-factor settings updated."
+        "saved": "Two-factor settings updated.",
+        "loading": "Loading two-factor settings…",
+        "loadFailed": "Two-factor settings could not be loaded.",
+        "refreshFailed": "Two-factor settings could not be refreshed. Your password draft is kept; try again before saving.",
+        "refreshing": "Refreshing two-factor settings…",
+        "accessDenied": "Two-factor settings are unavailable.",
+        "savedRefreshFailed": "Saved, but two-factor settings could not refresh. Try refreshing."
       }
     },
     "forgotPassword": "パスワードを忘れましたか？",
@@ -594,7 +602,8 @@
         "confirmPassword": "新しいパスワードを確認"
       },
       "submit": "新しいパスワードを設定",
-      "saving": "保存中…"
+      "saving": "保存中…",
+      "passwordLength": "Use {min}–{max} characters."
     },
     "onboarding": {
       "proofRequired": "アカウントのメールに届くリンクを開き、所有権を確認してパスワードを設定してください。このアドレスを利用できない場合は運営チームに連絡してください。二要素認証はログイン後に設定できます。",
@@ -1189,7 +1198,7 @@
       "noPeriod": "有効なプログラム期間がありません。まずシードを実行するか、新規作成してください。",
       "currentPeriod": "現在の期間",
       "semester": "学期 {semester}",
-      "refreshHeading": "次の四半期へリフレッシュ",
+      "refreshHeading": "Program Refresh",
       "advancesTo": "プログラムを {name} に進め、次の処理を行います：",
       "effectPending": "保留中の生徒申請キューをクリアします（非アクティブとしてアーカイブ）。",
       "effectTutees": "ペアリングの有無にかかわらず、保留中および活動中の生徒をすべてアーカイブします。継続するには再申請が必要です。",
@@ -1346,7 +1355,22 @@
         "deny": "却下",
         "review": "異議申し立てを審査",
         "message": "異議申し立ての原文",
-        "refreshFailed": "審査結果は保存されましたが、アカウントまたは異議申し立て一覧を更新できませんでした。結果を再送信せず、更新を再試行してください。"
+        "refreshFailed": "審査結果は保存されましたが、アカウントまたは異議申し立て一覧を更新できませんでした。結果を再送信せず、更新を再試行してください。",
+        "restrictionHeading": "Current Account Restriction",
+        "restricted": "Suspended",
+        "active": "Already active",
+        "restrictedAt": "Suspended {date}",
+        "submittedAt": "Appeal submitted {date}",
+        "noReason": "No suspension reason recorded.",
+        "coResolveHelp": "Approve restores access and closes all pending appeals for this account with one notice.",
+        "activeHelp": "This account is already active. Approve closes all pending appeals without changing access. Deny is unavailable.",
+        "reloadReview": "Reload restriction review",
+        "reviewChanged": "This appeal or account restriction changed. Reload the review before deciding.",
+        "reviewUnavailable": "Current review details could not be loaded. Try again before deciding.",
+        "approveClose": "Approve and close appeals",
+        "accessRestored": "Account access restored and all pending appeals approved.",
+        "closedActive": "Pending appeals closed. Account access was already active and did not change.",
+        "deniedReceipt": "Appeal denied. The account remains suspended."
       }
     },
     "registrationCodes": {
@@ -1417,7 +1441,7 @@
     },
     "tutorRequests": {
       "title": "チューター状態申請",
-      "help": "チューターからの会員変更申請です。離脱申請は1週間のクールダウン後にのみ承認できます。復帰は即時承認できます。",
+      "help": "チューターからの会員変更申請です。離脱申請は1週間のクールダウン後にのみ承認できます。復帰申請はすぐに審査でき、承認後に有効になります。",
       "kind": {
         "OPT_OUT": "離脱",
         "REENTRY": "復帰"
@@ -1745,7 +1769,18 @@
         "consequence": "This permanently removes the adjustment and changes the tutor’s service-hour total. Review the tutor, month and amount before continuing.",
         "confirm": "Delete adjustment"
       },
-      "create": "活動時間の調整を追加"
+      "create": "活動時間の調整を追加",
+      "source": {
+        "label": "出典",
+        "other": "その他の時間調整",
+        "interview": "面接の出典",
+        "orphaned": "面接記録を利用できません",
+        "unresolved": "未確認の面接出典",
+        "conflicting": "矛盾する面接出典",
+        "correct": "面接時間を訂正",
+        "help": "この時間は記録された面接活動に基づきます。面接を確認して、完了日時、所要時間、出席を訂正してください。",
+        "unavailable": "この行では面接完了記録の訂正を開けません。"
+      }
     },
     "applications": {
       "title": "チューター応募",
@@ -1839,7 +1874,21 @@
         "unavailable": "{name}（選択不可・変更してください）",
         "chairSlot": "面接担当者 {n} を議長に選択"
       },
-      "setupTargetUnavailable": "The linked tutor record is unavailable. Refresh this application before setting up the account."
+      "setupTargetUnavailable": "The linked tutor record is unavailable. Refresh this application before setting up the account.",
+      "panelDraft": {
+        "changed": "この下書きの編集中に面接担当者が変更されました。再読み込みして現在の担当者を確認してください。",
+        "reloadHelp": "再読み込みすると、この下書きは現在保存されている面接担当者に置き換わります。",
+        "reload": "面接担当者を再読み込み",
+        "loading": "面接担当者を読み込み中…",
+        "retry": "面接担当者の読み込みを再試行",
+        "reloadError": "現在の面接担当者を読み込めませんでした。下書きは変更されていません。",
+        "refreshError": "面接担当者の変更は送信されましたが、現在の担当者を読み込めませんでした。次の変更の前に読み込みを再試行してください。"
+      },
+      "panelRepair": {
+        "reason": "面接担当者を修復する理由",
+        "save": "面接担当者を修復",
+        "consequence": "未決定の面接担当者を入れ替えると、投票が消去されます。記録済みの完了情報と獲得した時間は履歴として保持され、新しい担当者に時間が自動付与されることはありません。入れ替え後の担当者は全員、再度投票する必要があります。"
+      }
     },
     "cards": {
       "title": "生徒指導",
@@ -2541,7 +2590,10 @@
       "panel": "パネル：{members}",
       "headSuffix": "（代表）",
       "scheduled": "予定日時：{time}",
-      "awaitingSchedule": "代表が日程を設定するのを待っています。"
+      "awaitingSchedule": "代表が日程を設定するのを待っています。",
+      "chairHelp": "あなたが代表を務める面接です。日程設定、パネルの投票確認、最終決定の記録をここで行います。ご自身の投票は「予定」の面接イベントから行ってください。",
+      "voteInSchedule": "予定から投票する",
+      "updateVoteInSchedule": "予定で投票を変更する"
     },
     "announcements": {
       "label": "お知らせ",
@@ -2566,7 +2618,7 @@
       "currentPassword": "現在のパスワード",
       "newPassword": "新しいパスワード",
       "confirmPassword": "新しいパスワードを確認",
-      "pwHelp": "8文字以上。",
+      "pwHelp": "Use 8–1024 characters.",
       "changePasswordBtn": "パスワードを変更",
       "changing": "変更中…",
       "passwordChanged": "パスワードを変更しました。",
@@ -2586,7 +2638,8 @@
       "reentryBtn": "復帰を申請",
       "recall": "申請を取り消す",
       "statusNote": "チューターのステータスは {status} です。読み取り専用アクセスです — 変更は管理者にお問い合わせください。",
-      "profileSyncFailed": "プロフィールは保存されましたが、再読み込みに失敗しました。再送信せずに、もう一度読み込んでください。"
+      "profileSyncFailed": "プロフィールは保存されましたが、再読み込みに失敗しました。再送信せずに、もう一度読み込んでください。",
+      "pwTooLong": "Use no more than {max} characters."
     },
     "dashboard": {
       "pending": {
@@ -2646,7 +2699,8 @@
       "schedule": "予定",
       "pairings": "担当ペア",
       "preferences": "設定",
-      "history": "履歴と時間"
+      "history": "履歴と時間",
+      "chair": "面接代表"
     }
   },
   "public": {
@@ -2959,7 +3013,8 @@
       "codeSent": "{email} に確認コードを送信しました。下に入力して完了してください。",
       "codeLabel": "メール確認コード",
       "resend": "コードを再送",
-      "cancel": "キャンセル"
+      "cancel": "キャンセル",
+      "deliveryFailed": "メールの送信に失敗しました。しばらくしてからもう一度お試しください。"
     }
   },
   "crew": {
@@ -3056,7 +3111,10 @@
     "send": "確認コードを送信",
     "code": "メール確認コード",
     "confirm": "確認してメールを変更",
-    "success": "メールを変更しました。"
+    "success": "メールを変更しました。",
+    "sentTo": "Enter the verification code sent to {email}.",
+    "changeAddress": "Use another email",
+    "savedRefreshFailed": "Email changed, but account details could not refresh. Try refreshing."
   },
   "profileCorrection": {
     "edit": "詳細を編集",
@@ -4083,6 +4141,7 @@
       },
       "entities": {
         "ImportedRecordProvenance": "インポートした過去の記録の来歴",
+        "ArchiveProvenanceReceipt": "アーカイブ来歴照合の受領記録",
         "SchedulingMaintenanceState": "スケジュール保守状態",
         "SchedulingDirtyEvent": "スケジュール無効化イベント",
         "PersonPartitionReceipt": "本人情報の分離記録",
@@ -7157,7 +7216,21 @@
     "reloadEvidence": "最新の根拠を再読み込み（下書きを置換）",
     "historyFollowups": "{count, plural, one {終了した面接#件で} other {終了した面接#件で}}、管理担当者による完了記録と奉仕時間の付与がまだ必要です。",
     "accessDenied": "面接へのアクセスは現在利用できません。再読み込みして現在の権限を確認してください。",
-    "chairNeedsUpdate": "This panel needs an Admin or Head chair. Ask management to update the panel."
+    "chairNeedsUpdate": "This panel needs an Admin or Head chair. Ask management to update the panel.",
+    "noChairInterviews": "代表として担当する面接はありません。",
+    "refresh": "更新",
+    "refreshing": "更新中…",
+    "correctionEvidence": {
+      "readUnavailable": "確認または送信する前に、現在の面接記録を正常に読み込む必要があります。下書きは保持されます。",
+      "missingEvidence": "この変更を確認する前に、記録された面接参加者と現在の付与時間を読み込んでください。",
+      "historyHelp": "出席と時間は記録された面接に属します。判定担当者を入れ替えても、新しい担当者が元の面接の出席者になるわけではありません。",
+      "decisionPanel": "現在の判定担当者：{names}",
+      "participants": "記録された面接担当者の出席状況",
+      "formerPanelist": "以前の面接担当者",
+      "loading": "面接完了の証拠を読み込み中…",
+      "totalChange": "付与時間の合計：{before} → {after} 時間（変更 {delta}）",
+      "retryArrival": "面接記録の読み込みを再試行"
+    }
   },
   "applicationAccountSetup": {
     "title": "Account Setup · {name}",
@@ -7199,7 +7272,8 @@
     "reload": "Reload interview (replace draft)",
     "unavailable": "This interview is no longer available for your approval.",
     "waitingVotes": "Every panelist must vote before approval.",
-    "changed": "Interview evidence changed. Reload to review current information."
+    "changed": "Interview evidence changed. Reload to review current information.",
+    "retainedService": "この承認では、承認済みの訂正を含む面接完了・出席・活動時間の記録を引き継ぎます。現在の審査員は、記録上の出席者と異なる場合があります。この承認による活動時間の加算や削除はありません。"
   },
   "personPartition": {
     "refreshFailed": "The separation was saved, but the directory has not refreshed. Retry the read only.",
@@ -7868,7 +7942,7 @@
     "denied": "Access to this planning source is no longer available.",
     "retry": "Retry",
     "interviewAttention": "These interviews still need attention, even when they have no upcoming date.",
-    "interviewHelp": "Assigned interview dates appear in your agenda. Your chair workspace remains on the dashboard.",
+    "interviewHelp": "担当する面接の日時は予定に表示されます。投票は各面接イベントから行い、代表業務は「面接代表」タブで行います。",
     "meetingHelp": "今後の日程は予定表に表示されます。欠席理由の提出や個人の履歴の確認はミーティングを開いて行ってください。",
     "calendarScope": "Calendar subscriptions currently include tutoring sessions only. Interviews and meetings appear here in the portal.",
     "task": {
@@ -8002,7 +8076,49 @@
       "SCHEDULED_REFRESH_REVIEW_CHANGED": "The reviewed refresh conditions changed. Reload and review a new schedule.",
       "SCHEDULED_REFRESH_EXECUTION_FAILED": "The refresh could not complete after repeated attempts. Check the deployment, then review a new schedule or cancel this one.",
       "SCHEDULED_REFRESH_AFTER_OPENING": "Choose a refresh time no later than the prepared tutee signup opening time, or update that preparation first."
-    }
+    },
+    "subtitle": "{current} → {next} · {mode} · {zone}",
+    "notScheduledBadge": "Not scheduled",
+    "dueBadge": "Due now",
+    "retryingBadge": "Retrying ({attempts}/5)",
+    "statusReady": "Scheduled — will run automatically",
+    "statusDue": "Scheduled time reached — running soon",
+    "statusRetrying": "Retrying automatic refresh (attempt {attempts} of 5)",
+    "statusPaused": "Will not run automatically",
+    "statusReadyHelp": "Runs automatically when due (checked every 30s, with catch-up) while period, openings, staged features, timezone, and Head approval stay unchanged.",
+    "statusDueHelp": "Scheduled time reached. Server checks every 30s and runs once reviewed conditions are verified.",
+    "statusRetryingHelp": "Temporary error; retrying automatically up to 5 attempts while conditions stay valid.",
+    "completedAt": "Completed at {time} ({zone}).",
+    "noneHelp": "Schedule a refresh below to advance automatically when all conditions are met, or choose Refresh now.",
+    "conditionsHeading": "Refresh Conditions & Review",
+    "conditionsHelp": "A scheduled refresh runs automatically only while every reviewed condition stays unchanged.",
+    "conditionSync": "Settings and review sync",
+    "conditionSyncReady": "Up to date",
+    "conditionSyncChanged": "Reload required",
+    "conditionSyncError": "Unavailable",
+    "conditionOpenings": "Next-period opening bindings",
+    "conditionOpeningsReady": "Ready",
+    "conditionOpeningsStale": "Needs attention",
+    "conditionFeatures": "Staged optional features",
+    "conditionFeaturesPending": "{count} pending",
+    "conditionFeaturesNone": "No pending changes",
+    "conditionAuth": "Authorization",
+    "conditionAuthApproved": "Authorized by Head",
+    "conditionAuthPending": "Pending Head approval",
+    "conditionAuthDirect": "Head applies directly",
+    "conditionAuthRequest": "Requires Head approval",
+    "conditionAuthReadOnly": "Admin & Head only",
+    "conditionAuthChanged": "Renewed review required",
+    "effectsDisclosure": "Effects & full refresh details",
+    "entranceHeading": "Authorize Refresh",
+    "timingModeLabel": "When should this refresh run?",
+    "modeScheduled": "Schedule for later",
+    "modeImmediate": "Refresh now",
+    "openingBound": "Must be on or before the prepared tutee signup opening ({time}, {zone}).",
+    "immediateHelp": "Advances immediately to {target} after confirmation instead of waiting for a scheduled time.",
+    "immediateSupersedes": "Running a refresh now will advance the period immediately and supersede the currently scheduled refresh.",
+    "immediateReviewTitle": "Review Immediate Refresh",
+    "reschedule": "Review & reschedule"
   },
   "signupTransition": {
     "currentClosed": "{period} tutee signup is closed. The next intake is shown below.",

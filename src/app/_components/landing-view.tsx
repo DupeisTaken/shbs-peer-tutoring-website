@@ -1,6 +1,6 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
-import { getLocale, getTranslations } from "next-intl/server";
+import { getLocale, getTimeZone, getTranslations } from "next-intl/server";
 
 import { db } from "~/server/db";
 import { getFeatures } from "~/server/program/features";
@@ -43,7 +43,7 @@ export async function LandingView({
   preview?: boolean;
   signedInHeader?: ReactNode;
 }) {
-  const locale = await getLocale();
+  const [locale, timeZone] = await Promise.all([getLocale(), getTimeZone()]);
   const [features, overrides, news, sections, layout, navPages, t, tc] =
     await Promise.all([
       getFeatures(db),
@@ -215,6 +215,7 @@ export async function LandingView({
                       >
                         {new Intl.DateTimeFormat(locale, {
                           dateStyle: "medium",
+                          timeZone,
                         }).format(new Date(item.date))}
                       </time>
                     )}

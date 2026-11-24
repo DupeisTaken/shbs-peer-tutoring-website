@@ -144,8 +144,13 @@ the existing queue order. An in-flight SMTP attempt can finish beyond that budge
 slow transport or a prolonged outage can still exhaust a reminder's lateness window.
 
 Tutoring reminders require an active term, confirmed schedule and active participants.
-Optional term bounds, active inclusive **No tutoring** date ranges and explicit
-non-school days suppress occurrences. Recorded tutor or assigned-tutee absence
+Ordinary recurring occurrences respect optional term bounds and are suppressed by
+active inclusive **No tutoring** date ranges and explicit non-school days. Confirmed
+dated exceptions admitted through [affirmative agreement](session-planning.md#tutoring-pauses-and-affirmative-exceptions)
+from the tutor and every participating tutee may receive reminders during
+**Pause regular tutoring** or on non-school days (already-confirmed extras retained
+across a tutoring pause also remain eligible on school days); an overlapping legacy
+**Notice only** (`NOTICE`) range still suppresses them. Recorded tutor or assigned-tutee absence
 suppresses the whole tutoring occurrence, including queued reminders. Missing
 attendance is not absence; future absence cannot be inferred from an unrecorded plan.
 These rules affect reminders only, never attendance or appeal-school-day calculations.
@@ -196,13 +201,14 @@ Optional reminder emails derive dated occurrences only from confirmed schedules.
 Account authentication, signup confirmation and request-invalidity service mail use
 separate direct/essential flows and are not silently reclassified as optional events.
 
-New panel-assignment and interview-time notices open the tutor's personal interview
-work in `/schedule#tutor-interviews`. A chair can follow its appointment back to
-the retained dashboard chair workspace. Essential dated-tutoring notices use
-`/schedule#sessions` for tutors; the tutee destination remains
-`/student?view=schedule#sessions`. Existing in-app records retain their recorded
-destinations, including older dashboard links; those legacy schedule fragments
-offer an explicit Schedule continuation without unmounting a live dashboard editor.
+Panel-assignment and interview-time notices open the tutor's unified workspace
+at `/schedule#tutor-interviews`, where every assigned panelist (including the
+chair) can cast their own vote. Chairs follow `#chair-interviews` (or legacy
+`/dashboard#tutor-interviews`) to the separate **Interview chair** tab in
+`TutorWorkspace` for scheduling and final decisions. Essential dated-tutoring
+notices use `/schedule#sessions` for tutors and `/student?view=schedule#sessions`
+for tutees. Existing in-app records retain their stored URLs and switch tabs
+locally without unmounting active editors.
 
 **School-calendar audience** means eligible active tutors and tutees with confirmed,
 populated active-period pairings on the union of the actual date's civil weekday,
@@ -247,8 +253,8 @@ ordinary notification destinations retain normal navigation. Once revealed, late
 scrolling belongs to the user. A new location, access denial or intervening user
 gesture cancels an unfinished reveal; it must not pull the user back later.
 
-School-calendar links use `/dashboard#school-calendar/YYYY-MM-DD` or
-`/student#school-calendar/YYYY-MM-DD`. The participant adapter reads that exact
+School-calendar links use `/schedule#school-calendar/YYYY-MM-DD` (tutors) or
+`/student#school-calendar/YYYY-MM-DD` (tutees). The participant adapter reads that exact
 validated date, including dates outside the ordinary fourteen-day notice window.
 It shows current authoritative facts or restored weekday/weekend defaults after a
 reset, without staff notes. A deliberate repeated click reveals the date again;
@@ -763,13 +769,18 @@ Without a recorded count: A catalogue change updated historical teaching blocks.
 ### account_appeal_approved
 
 - Recipient: Appealing account.
-- Trigger: Management approves account appeal and reinstates access. [Emitter](../../src/server/api/routers/admin.ts).
+- Trigger: Management approves the currently reviewed account appeal and co-resolves that account's pending appeals. Suspended accounts regain access; already-active accounts close the appeals with access unchanged. Earlier terminal appeals remain unchanged. [Emitter](../../src/server/api/routers/admin.ts).
 - Authorized destination: /.
 
 | Language | Title | Description | Action |
 | --- | --- | --- | --- |
 | English | Account Appeal Approved | Your appeal was approved and your account is active again. | Open your workspace |
 | 中文 | 账号申诉已批准 | 你的申诉已通过，账号已恢复使用。 | 打开工作区 |
+
+The already-active branch captures one truthful outcome instead: **All pending
+account appeals were approved. Your account was already active; access was unchanged.**
+Its Chinese description records the same closure without a repeated restoration.
+In-app detail and any eligible detailed email use that captured outcome.
 
 ### account_appeal_declined
 
@@ -1020,7 +1031,7 @@ Without a recorded count: A catalogue change updated historical teaching blocks.
 
 - Recipient: School-calendar audience, including eligible prior recipients.
 - Trigger: Applied create/reactivation or resolved school-day/timetable change on today or a future date. Pending proposals and note-only edits emit nothing. [Emitter](../../src/server/school-calendar-notifications.ts).
-- Authorized destination: Tutor dashboard or tutee workspace school-calendar context.
+- Authorized destination: `/schedule#school-calendar/YYYY-MM-DD` (tutor workspace) or `/student#school-calendar/YYYY-MM-DD` (tutee workspace).
 - Timing: Immediate, including same-day changes after the advance-reminder cutoff. A same-revision change receipt within the advance window also serves as that recipient's advance reminder.
 
 | Language | Title | Description | Action |
@@ -1032,7 +1043,7 @@ Without a recorded count: A catalogue change updated historical teaching blocks.
 
 - Recipient: School-calendar audience, including eligible prior recipients.
 - Trigger: Applied reset restores weekday/weekend defaults on today or a future date while retaining the override tombstone. [Emitter](../../src/server/school-calendar-notifications.ts).
-- Authorized destination: Tutor dashboard or tutee workspace school-calendar context.
+- Authorized destination: `/schedule#school-calendar/YYYY-MM-DD` (tutor workspace) or `/student#school-calendar/YYYY-MM-DD` (tutee workspace).
 - Timing: Immediate. Historical resets retain audit evidence without a new operational notice.
 
 | Language | Title | Description | Action |
@@ -1044,7 +1055,7 @@ Without a recorded count: A catalogue change updated historical teaching blocks.
 
 - Recipient: School-calendar audience for the active override, including eligible recipients of that revision's earlier change notice.
 - Trigger: Existing notification worker rereads an active override under its calendar lock and records one advance reminder per semantic revision and recipient. [Emitter](../../src/server/school-calendar-notifications.ts).
-- Authorized destination: Tutor dashboard or tutee workspace school-calendar context.
+- Authorized destination: `/schedule#school-calendar/YYYY-MM-DD` (tutor workspace) or `/student#school-calendar/YYYY-MM-DD` (tutee workspace).
 - Timing: From the prior school-local date at 18:00, inclusive, until noon on the actual date, exclusive. A change notice already issued to that recipient in the same window and revision suppresses the duplicate advance phase; earlier announcements still receive it. School timezone wall clocks, rather than 24 elapsed hours, define the window.
 
 | Language | Title | Description | Action |
@@ -1055,21 +1066,6 @@ Without a recorded count: A catalogue change updated historical teaching blocks.
 `{date}` is the actual date label, never shifted through a recipient timezone.
 `{schedule}` is “No school / 不上课” or “Follows {weekday} timetable / 采用{weekday}课表”,
 with the effective weekday localized by the shared formatter.
-
-## Essential request-service notices
-
-The separate request_service outbox uses request_invalid and request_cleared; these
-are not optional account-event identities. Each applied invalid flag, clear and later
-reflag queues one source/revision receipt to the recorded request address, with no
-account or secondary copies. Their bilingual titles are “Your request is flagged invalid
-/ 您的申请已标记为无效” and “Your request's invalid flag was cleared / 您的申请无效标记已解除”.
-Unverified copy includes request kind and original submission date/time/timezone only;
-request-specific mailbox proof permits the participant-facing reason. Invalid notices
-link to “Appeal this decision / 对此决定提出申诉” at /request-appeal with the limited
-90-day capability; clear notices link to “Contact the program / 联系项目团队” at /privacy.
-See [the source copy](../../src/server/email/request-notice-copy.ts),
-[staff procedure](../guides/user-guide.md#signup-request-tabs) and
-[durable admission/appeal boundaries](technical-report.md#public-request-invalidity-notices-and-appeals).
 
 ### student_signup_rejected
 
@@ -1125,3 +1121,18 @@ See [the source copy](../../src/server/email/request-notice-copy.ts),
 | --- | --- | --- | --- |
 | English | Room Assignment Needed | A confirmed tutoring arrangement still needs a room. | Review room assignment |
 | 中文 | 需要分配教室 | 已确认的辅导安排仍需分配教室。 | 查看教室分配 |
+
+## Essential request-service notices
+
+The separate `request_service` outbox uses `request_invalid` and `request_cleared`; these
+are not optional account-event identities. Each applied invalid flag, clear and later
+reflag queues one source/revision receipt to the recorded request address, with no
+account or secondary copies. Their bilingual titles are “Your request is flagged invalid
+/ 您的申请已标记为无效” and “Your request's invalid flag was cleared / 您的申请无效标记已解除”.
+Unverified copy includes request kind and original submission date/time/timezone only;
+request-specific mailbox proof permits the participant-facing reason. Invalid notices
+link to “Appeal this decision / 对此决定提出申诉” at `/request-appeal` with the limited
+90-day capability; clear notices link to “Contact the program / 联系项目团队” at `/privacy`.
+See [the source copy](../../src/server/email/request-notice-copy.ts),
+[staff procedure](../guides/user-guide.md#signup-request-tabs) and
+[durable admission/appeal boundaries](technical-report.md#public-request-invalidity-notices-and-appeals).

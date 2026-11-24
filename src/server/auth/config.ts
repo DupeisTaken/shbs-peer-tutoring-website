@@ -106,6 +106,7 @@ export const authConfig = {
     /** Expose role + tutorId (decoded from the JWT) on the session. Pure — no DB access. */
     session({ session, token }) {
       session.user.id = token.sub ?? session.user.id;
+      if (typeof token.email === "string") session.user.email = token.email;
       session.role = token.role;
       session.tutorId = token.tutorId;
       session.sessionVersion = token.sessionVersion;

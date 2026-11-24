@@ -15,6 +15,10 @@ import {
   notificationInstant,
 } from "~/lib/notification-facts";
 import { notificationInAppEvent } from "~/lib/notification-details";
+import {
+  NEW_PASSWORD_MIN_LENGTH,
+  PASSWORD_MAX_LENGTH,
+} from "~/lib/password-contract";
 import { isInterviewChairRole } from "~/lib/interview-chair";
 import {
   meetingPeriodInput,
@@ -1340,7 +1344,9 @@ export const tutorRouter = createTRPCRouter({
    * code (step-up 2FA). Returns the masked address. The code is required in `changePassword`.
    */
   requestPasswordChangeCode: tutorProcedure
-    .input(z.object({ currentPassword: z.string().min(1).max(1024) }))
+    .input(
+      z.object({ currentPassword: z.string().min(1).max(PASSWORD_MAX_LENGTH) }),
+    )
     .mutation(async ({ ctx, input }) => {
       const user = await ctx.db.user.findUniqueOrThrow({
         where: { id: ctx.session.user.id },
@@ -1386,8 +1392,11 @@ export const tutorRouter = createTRPCRouter({
   changePassword: tutorProcedure
     .input(
       z.object({
-        currentPassword: z.string().min(1).max(1024),
-        newPassword: z.string().min(8, "Use at least 8 characters.").max(1024),
+        currentPassword: z.string().min(1).max(PASSWORD_MAX_LENGTH),
+        newPassword: z
+          .string()
+          .min(NEW_PASSWORD_MIN_LENGTH, "Use at least 8 characters.")
+          .max(PASSWORD_MAX_LENGTH),
         code: z.string().trim().optional(),
       }),
     )
@@ -2047,13 +2056,15 @@ export const tutorRouter = createTRPCRouter({
             )
               return { ok: true };
           }
-          if (before.status !== "INTERVIEW")
-            throw new TRPCError({
-              code: "CONFLICT",
-              message:
-                "This interview has already been decided. Reload its current outcome.",
-            });
         }
+        // A fresh version cannot reopen a final outcome. Keep the exact accepted
+        // receipt above read-only, then apply this boundary to both decisions.
+        if (before.status !== "INTERVIEW")
+          throw new TRPCError({
+            code: "CONFLICT",
+            message:
+              "This interview has already been decided. Reload its current outcome.",
+          });
         if (before.updatedAt.getTime() !== input.expectedUpdatedAt.getTime())
           staleConflict();
         if (input.accept && input.completion) {

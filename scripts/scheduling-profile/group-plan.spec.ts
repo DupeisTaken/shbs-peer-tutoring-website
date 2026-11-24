@@ -5,6 +5,7 @@ import { readFileSync } from "node:fs";
 import test from "node:test";
 import yamlModule from "js-yaml";
 import { profileMatrix } from "./aggregate-partitions.mjs";
+import { SCHEDULING_TRIGGER_PATHS } from "./dependency-admission.mjs";
 import { groupSlots, partitionStepName, prepareStepName, profileGroups } from "./group-plan.mjs";
 import { renderWorker, workerDefinition } from "./generate-workflow.mjs";
 
@@ -101,4 +102,38 @@ void test("partition cleanup restores only owned checkout trees after evidence u
   assert.match(script, /realpath -e -- "\$target"\)" == "\$target"/);
   assert.match(script, /timeout 30 sudo chown -R -P --no-dereference "\$owner" -- "\$target"/);
   assert.doesNotMatch(script, /rm |chmod|chown.*"\$workspace"/);
+});
+
+void test("scheduling-profile workflow evaluates dependency admission early and gates aggregate on admitted matrix success", () => {
+  const parent = yaml.load(readFileSync(new URL("../../.github/workflows/scheduling-profile.yml", import.meta.url), "utf8")) as {
+    on: { pull_request: { paths: string[] }; workflow_dispatch: { inputs: Record<string, unknown> } };
+    jobs: {
+      matrix: { outputs: Record<string, string>; steps: Array<{ id?: string; name?: string; if?: string; uses?: string; run?: string }> };
+      preflight: { if?: string };
+      profile: { if?: string };
+      aggregate: { if?: string };
+    };
+  };
+  const nonDepWorkflowPaths = parent.on.pull_request.paths.filter(
+    (entry) => entry !== "package.json" && entry !== "package-lock.json",
+  );
+  assert.deepEqual([...nonDepWorkflowPaths].sort(), [...SCHEDULING_TRIGGER_PATHS].sort());
+  assert.ok("admission-manifest" in parent.on.workflow_dispatch.inputs);
+
+  const steps = parent.jobs.matrix.steps;
+  const admissionIdx = steps.findIndex((step) => step.id === "admission");
+  const uploadAdmissionIdx = steps.findIndex((step) => step.name === "Preserve the admission decision");
+  const clockIdx = steps.findIndex((step) => step.id === "clock");
+  const planIdx = steps.findIndex((step) => step.id === "plan");
+  assert.ok(admissionIdx >= 0 && uploadAdmissionIdx > admissionIdx && clockIdx > uploadAdmissionIdx && planIdx > clockIdx);
+  assert.equal(steps[admissionIdx]?.run, "node scripts/scheduling-profile/evaluate-admission.mjs");
+  assert.equal(steps[uploadAdmissionIdx]?.if, "always() && (steps.admission.outputs.status == 'NOT_APPLICABLE' || steps.admission.outputs.status == 'BLOCKED')");
+  assert.equal(steps[clockIdx]?.if, "steps.admission.outputs.status == 'ELIGIBLE'");
+  assert.equal(parent.jobs.matrix.outputs.admission, "${{ steps.clock.outputs.status || steps.admission.outputs.status }}");
+  assert.equal(parent.jobs.preflight.if, "needs.matrix.outputs.admission == 'ADMITTED'");
+  assert.equal(parent.jobs.profile.if, "needs.matrix.outputs.admission == 'ADMITTED'");
+  assert.equal(
+    parent.jobs.aggregate.if,
+    "always() && needs.matrix.result == 'success' && needs.matrix.outputs.admission == 'ADMITTED'",
+  );
 });

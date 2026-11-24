@@ -1,105 +1,81 @@
 # Deployment runbook — SHBS Peer Tutoring
 
-Single-VPS deploy (2 vCPU / 4 GB / 40 GB) with Docker Compose + Caddy (auto HTTPS).
-The memory-heavy image build runs in **GitHub Actions → GHCR**; the VPS only pulls.
-The disk size is an example, not a capacity guarantee; check the actual filesystems
-and planned peak allocations using the [storage preflight](#storage-capacity-preflight).
+Single-VPS deploy (example baseline: 2 vCPU / 4 GB / 40 GB) using Docker Compose
+and Caddy (automatic HTTPS). Heavy image builds run in **GitHub Actions → GHCR**;
+the VPS only pulls. Always check actual filesystem headroom with the
+[storage preflight](#storage-capacity-preflight).
 
-## Scheduled program refresh worker
-
-Apply `20261030120000_scheduled_program_refresh` and
-`20261030130000_scheduled_refresh_recovery_coverage`, then regenerate Prisma before
-starting this release. These migrations create durable schedules, the database
-authority revision trigger and recovery-journal coverage for schedule writes.
-The coverage migration conservatively journals any existing schedule related to
-a tracked admission; it does not change schedule settings or activate a period.
-
-The persistent Node server starts a sweep immediately and every 30 seconds.
-It checks up to ten schedules serially, earliest first, using database time and the
-shared period lock. Multiple application instances may run workers safely. An overdue
-schedule catches up after restart only while its exact review and approving Head
-authority remain valid. Do not promise exact-second execution or execution while
-all app instances are offline. Keep a persistent instance running for this workflow.
-
-Transient execution failures roll back and retry on later sweeps; five recorded
-failures stop execution and notify management. Inspect the schedule status in
-Program Settings, correct the deployment problem, then have Head review a new
-schedule. On detecting a review or authority conflict, the worker blocks the schedule
-and records its notice together, even before execution is due. An error during an
-advance check is retried without using an execution attempt. Notification delivery
-failure never repeats a committed activation. Cancellation queued for Head approval
-does not stop a due schedule until approved. See the
-[operator guide](program-configuration.md#schedule-a-refresh).
+**Quick jump:** [Architecture](#architecture) · [Start fresh](#start-fresh-from-an-existing-deployment) · [Prerequisites](#1-prerequisites) · [Host setup](#2-host-setup-once) · [Runtime settings](#3-configure-runtime-settings-and-secrets) · [Email & quota](#email--aliyun-direct-mail-邮件推送) · [Image build](#4-image-build-ci--ghcr) · [Deploy & bootstrap](#5-deploy) · [Updates](#6-updates) · [Backups](#7-backups) · [Troubleshooting](#troubleshooting) · [Notification & hours delivery](#optional-notification-delivery)
 
 ## Architecture
 
-```
+```text
 Internet ──443/80──▶ caddy ──▶ app:3000 ──▶ db:5432
                      (TLS)      (Next.js)     (Postgres, internal only)
 ```
 
-- Only **caddy** publishes ports (80/443). `app` and `db` are internal-only.
-- `app` waits for `db` to be healthy (`pg_isready`), then runs `prisma migrate deploy` and starts.
-- Postgres data lives on the `db-data` named volume; Caddy certs on `caddy-data`.
-- The image runs a non-root Node 22 / Next.js 16 standalone server, with Prisma 7
-  migrations and PostgreSQL 16. Uploaded `HomeImage` bytes are stored in PostgreSQL,
-  so they are included in the database backup; repository assets are in the image.
-- GitHub Actions publishes images after verification; it does **not** update the VPS.
-  The host must pull and recreate the app. There is no automatic deployment agent
-  or separate notification service in the supplied Compose stack.
+- Only **caddy** publishes ports (`80`/`443`); `app` and `db` stay internal-only.
+- `app` waits for `db` (`pg_isready`), runs `prisma migrate deploy`, then starts
+  a non-root Node 22 / Next.js 16 standalone server (Prisma 7 / PostgreSQL 16).
+- Postgres data lives on `db-data` (including uploaded `HomeImage` bytes); Caddy
+  certs live on `caddy-data`.
+- GitHub Actions publishes verified images to GHCR; it does **not** deploy to the
+  VPS — operators pull and recreate `app`.
+
+### Background workers
+
+`src/instrumentation.ts` starts five persistent Node workers on boot (so a
+persistent Node process — not serverless hosting — is required):
+
+| Worker | Cadence | Purpose |
+| --- | --- | --- |
+| `student-deadline-worker` | Boot + every 60 s | Expires overdue unverified student assignments |
+| `scheduled-refresh-worker` | Boot + every 30 s | Checks up to 10 approved program-refresh schedules (see below) |
+| `notification-delivery` | Boot + every 30 s | Runs calendar/event reminder sweeps in isolated `try/catch` blocks, then drains outbox batches of 10 up to 20 s or 100 batches (1,000 rows) |
+| `session-planning-delivery` | Boot + every 30 s (weekly plan prep every 15 m) | Settles response deadlines and sends `SessionNotice` batches of 10 (5-minute lease; requires configured `PROGRAM` SMTP) |
+| `school-hours-worker` | Boot + every 60 s | Generates due monthly school service-hours reports |
+
+### Scheduled program refresh worker
+
+Checks up to 10 approved refresh schedules serially (earliest first) using
+database time and the shared period lock (safe across multiple instances).
+Overdue schedules catch up after restart while the reviewed settings and
+approving Head's authority remain valid. Transient failures roll back and retry;
+five recorded failures pause execution and notify management. Detected review or
+authority conflicts block the schedule and notify Admins/Head immediately (even
+before due time). See [Schedule a refresh](program-configuration.md#schedule-a-refresh).
 
 ## Start fresh from an existing deployment
 
-Use this path when the old deployment's data is disposable. For a first installation,
-start at [prerequisites](#1-prerequisites); for an update that retains data, use
-[updates](#6-updates).
+Use this only when existing deployment data is disposable (otherwise use
+[updates](#6-updates)).
 
-**The reset deletes the project's PostgreSQL database, including all accounts,
-program settings, published content and uploaded images, plus Caddy's certificate
-and configuration volumes.** Caddy obtains certificates again on the next start.
-It does not remove the checkout, host backup files or other Compose projects.
+> **Warning:** `docker compose down --volumes` deletes the PostgreSQL database
+> (all accounts, settings, content and uploaded images) and Caddy's certificate
+> volumes. It leaves the Git checkout and host backup files intact.
 
-Review the desired release and confirm its image has been published before taking
-anything down. Run the following stages separately on the VPS and stop on errors.
-Use the existing deployment directory and any existing Compose project-name
-options so the reset targets the intended stack.
+Confirm the target GHCR image is published before stopping the stack:
 
-1. Inspect the stack, then remove its containers and volumes:
-
+1. **Remove containers and volumes:**
    ```bash
-   cd /opt/shbs  # substitute the existing deployment directory
+   cd /opt/shbs
    docker compose ps
-   docker compose config --volumes
-   # Optional, if you want a recovery copy before discarding the data:
+   # Optional safety copy before discarding:
    # bash scripts/backup.sh
    # (umask 077; cp .env ".env.backup-$(date +%Y%m%d-%H%M%S)")
    docker compose down --volumes
    ```
-
-2. Update the checkout to the selected release. For a checkout following `main`,
-   use the commands below, reconciling local changes if the pull refuses. Replace
-   the old environment file with the current template only after the reset:
-
+2. **Update checkout and recreate `.env`:**
    ```bash
    git pull --ff-only
    (umask 077; cp .env.example .env)
    chmod 600 .env
    nano .env
    ```
-
-   Follow [runtime configuration](#3-configure-runtime-settings-and-secrets): set
-   the real `DOMAIN`, published `APP_IMAGE`, a new `AUTH_SECRET` of at least 32
-   characters, and new `POSTGRES_*` credentials with a URL-safe password. Configure
-   the verified SMTP sender/password and use the current unprefixed branding keys
+   Configure `DOMAIN`, `APP_IMAGE`, a fresh 32+ char `AUTH_SECRET`, fresh
+   URL-safe `POSTGRES_*` credentials, SMTP settings, and unprefixed branding keys
    (`APP_TITLE`, `TEAM_TITLE`, `ORG_NAME`, `SUPPORT_EMAIL`, `PROGRAM_TERM_LABEL`).
-   No old-key migration is needed when starting from the current template.
-   SMTP credentials can be reused; they belong to the mail provider, not the deleted
-   database. Keep the DNS pointing at the VPS if the domain and host are unchanged.
-
-3. Start the fresh stack:
-
-   Complete the [storage preflight](#storage-capacity-preflight) before pulling images.
-
+3. **Run [storage preflight](#storage-capacity-preflight) and start:**
    ```bash
    docker compose config --quiet
    docker compose pull
@@ -108,203 +84,87 @@ options so the reset targets the intended stack.
    docker compose logs --since=10m --tail=100 app
    docker compose exec app node node_modules/prisma/build/index.js migrate status
    ```
-
-   The database initializes from `POSTGRES_*`; the app applies migrations and starts
-   with no accounts or program data. Complete [first-admin bootstrap](#create-the-first-admin-first-deploy),
-   then configure the program and publish content through the website. Do not run
-   the demonstration seed. Finish with [deployment verification](#verify-either-update)
-   and [intake checks](#verify-before-opening-intake).
+   Then run [first-admin bootstrap](#create-the-first-admin-first-deploy), configure
+   the program through the website (never run `prisma/seed.ts` in production), and
+   complete [verification](#verify-either-update) and
+   [pre-intake checks](#verify-before-opening-intake).
 
 ## 1. Prerequisites
 
-1. A VPS running Ubuntu (22.04/24.04), with a public IP.
-2. A domain, with an **A record pointing at the VPS IP** — set this _before_ first start so
+1. Ubuntu 22.04/24.04 VPS with a public IP.
+2. A domain with an **A record pointing at the VPS IP** before first start so
    Caddy's Let's Encrypt challenge succeeds.
-
-Sign-in is username or email + password (no external identity provider to register). Logins are created only
-through gated paths: the first admin is created by `npm run admin:create`;
-recruits follow **`/register`** to **`/register-account`** with an admin-issued single-use code plus an emailed
-verification code; and outsiders can self-register a **read-only viewer (VIEWER)** account at
-**`/viewer` → `/viewer-signup`** (email-validated, behind the `VIEWER_SIGNUP` feature flag). The public tutee
-signup (`/tutee` → `/tutee-signup`) first saves the full application and policy agreement; mailbox code or legacy
-email-link confirmation opens an invitation popup before shared account/access review. Displaying
-an invitation alone creates no credentials or participation. Tutor application (`/tutor` → `/tutor-signup`)
-creates pending records for review. Crew application (`/crew` → `/crew-signup`) first verifies
-the mailbox before creating a pending record; staff approval and fresh mailbox proof
-then permit shared invitation retrieval. Credential sign-in, the
-registration steps, and viewer signup are all **rate-limited in-app** (per IP + per code / email /
-identifier; `src/server/rate-limit.ts`). Public tutee/viewer signup and Crew verification/status
-mail also use [durable signup quotas](../reference/signup-protection.md) and support
-[optional Aliyun CAPTCHA](../reference/captcha.md), disabled by default.
-Transactional email (reset links plus sign-in and password-change 2FA codes) goes through Aliyun
-Direct Mail — see "Email" below. Sign-in 2FA is enforced when the `EMAIL_2FA` program feature and
-the user's 2FA preference are both enabled.
-
-New invitation and staff registration codes contain five characters, mixing letters
-and numbers; emailed verification challenges contain four digits. Green invitation
-and blue verification backgrounds identify the purpose alongside existing field labels
-and email instructions. Site entry retains one wide input with gray `XXXXX`/`XXXX`
-placeholders; HTML mail retains the legacy single code panel. Plaintext mail preserves
-the purpose, full code and instructions. Leading zeros are significant.
-Outstanding five-digit, alphanumeric and twelve-character invitations and already-issued
-verification challenges retain compatibility only within their original lifetime. Apply the additive
-`20261020070000_numeric_email_codes` migration before starting this version: existing survey
-challenges retain the old format and newly issued challenges record the numeric format.
-Do not clear pending challenges or reissue invitations as a deployment workaround.
-Upgrade all serving application instances together: older builds cannot verify every
-new four-digit challenge or reconstruct receipts issued with the `display:mixed:v3`
-derivation. An application rollback must account for those outstanding new codes
-and retain receipt reconstruction support; additive columns alone do not give an
-older build these contracts.
-See [code contracts and challenge inventory](../reference/technical-report.md#opaque-invitation-codes).
-
-Website/CMS/email hrefs publish the short paths. Permanent redirects retain query
-values; `/signup` and `/signup/account` remain compatible with existing bookmarks
-and confirmation mail. See the [public signup URL convention](../reference/technical-report.md#public-signup-url-convention).
-
-Public tutor and crew intake share database-backed limits: five distinct accepted submissions per normalized email in 24 hours, and 500 per network address in one hour. Pending retries return the same confirmation without another record, counter increment or notification; tutor applications awaiting an interview also count as pending. Decided applications may be submitted again within these limits. Counters, application writes and in-app notifications commit together, and counters survive server restarts and multiple instances. New distinct submissions prune hashed counter keys that expired more than seven days ago, in bounded batches; an idle deployment retains those expired keys until intake resumes.
-
-Tutor intake and credential sign-in use the proxy-supplied `X-Forwarded-For`/`X-Real-IP`; configure the proxy to replace visitor-supplied values and keep the application port private. Tutee/viewer signup and Crew verification/status use the dedicated `X-Signup-Client-IP` boundary and `SIGNUP_TRUST_PROXY=true`, already configured in the supplied Caddy/Compose stack; see [proxy trust and network buckets](../reference/signup-protection.md#trusted-network-boundary). Network addresses are abuse signals, not identity. Tutor applications do not verify email ownership; Crew applications do so before entering review.
+3. **Proxy trust boundary:** Keep the app port private behind Caddy. Caddy
+   overwrites `X-Signup-Client-IP` (`SIGNUP_TRUST_PROXY=true` in Compose) for
+   public signup quotas and replaces visitor-supplied `X-Forwarded-For`/`X-Real-IP`
+   for tutor intake and sign-in. See
+   [signup protection](../reference/signup-protection.md#trusted-network-boundary),
+   [optional CAPTCHA](../reference/captcha.md),
+   [code contracts](../reference/technical-report.md#opaque-invitation-codes), and
+   [public signup URLs](../reference/technical-report.md#public-signup-url-convention).
 
 ## 2. Host setup (once)
 
 ```bash
-sudo ./scripts/setup.sh          # installs Docker + Compose and configures UFW host rules
+sudo ./scripts/setup.sh          # installs Docker + Compose and configures UFW rules
 ```
 
-The setup script allows SSH from any source and does not configure SSH authentication.
-Its UFW INPUT policy is not proof of container isolation: Docker manages forwarding
-rules separately. Complete the [effective network review](#effective-network-and-ssh-review)
-before treating a host as verified.
+Optional `DEPLOY_USER` adds that non-root user to the `docker` group when run as
+root. `setup.sh` allows SSH from any source and does not configure SSH auth or
+prove container isolation (Docker manages forwarding rules outside UFW INPUT).
 
 ### Effective network and SSH review
 
-For step-by-step cloud-console checks with official Aliyun references, use the
-[Aliyun network verification guide](aliyun-network-verification.md). It covers
-attached rules, alternate addresses, NAT, load balancers, IPv6 and evidence handoff.
-
-Use an existing authorized operator session; these are read-only checks, not a
-firewall/SSH change procedure. Record the date, host identity, vantage point and
-deployed image/source identity. Keep raw output private: mappings, addresses and
-operator identities may be sensitive. Do not paste full `.env`, `docker inspect`,
-`docker compose config` or authenticated response headers into public issues.
-
-For the [cloud-owner handoff](aliyun-network-verification.md#status-and-access-needed), preserve and report
-the existing operational policy, including root password login under the current
-maintenance constraints. This review does not impose key-only authentication,
-disable root/password login or require a new source allowlist/VPN. Have the
-operator confirm the intended current policy separately from observed settings:
-an observed setting alone is not approval, and a missing policy remains unknown.
-Compare evidence with that confirmed policy, without changing access rules.
-
-| Boundary | Required evidence and expected result |
-| --- | --- |
-| Host listeners | `sudo ss -lntup` for IPv4 **and** IPv6, including listening address/process; explain every listener. Public HTTP/HTTPS are intended. App 3000, PostgreSQL 5432, Caddy admin 2019, Prisma Studio 5555 and alternate web 8080 must not have unintended Internet paths. |
-| Effective containers | `docker compose ps --all` plus `docker ps --format 'table {{.Names}}\t{{.Ports}}'` for other stacks. Inspect actual container mappings, network mode and network options as below; source Compose alone does not cover overrides, stale containers or direct routing. |
-| Cloud perimeter | Review the instance's attached security groups, ingress rules, IPv4/IPv6 ranges, load balancers/NAT and any alternate public addresses in the cloud console. Record approved sources per administrative port; retain a sanitized rule inventory. |
-| Host firewall | `sudo ufw status verbose`, `sudo nft list ruleset`, and/or `sudo iptables-save` / `sudo ip6tables-save`, as applicable to the active backend. Inspect Docker forwarding/NAT and direct-routing rules, not only INPUT. Do not disable Docker's firewall management as a shortcut. |
-| SSH | `sudo sshd -T` and `sudo sshd -T -C user=<operator>,addr=<client-ip>,host=<client-hostname>,laddr=<server-ip>,lport=<ssh-port>` for each relevant `Match` context. Review `listenaddress`, `port`, `permitrootlogin`, `pubkeyauthentication`, `passwordauthentication`, `kbdinteractiveauthentication`, `authenticationmethods`, `allowusers`/`allowgroups` and any deny rules. Record effective authentication, root-login and source-access behavior against the operator-confirmed current policy, including password login or unrestricted sources where intended. |
-| Independent external vantage | Verify DNS A/AAAA against the cloud IPs and use a network outside the server and local proxy/TUN. Check protocol responses as well as host/cloud rules. A TCP handshake alone may come from an interception proxy; timeout/no protocol reply is **inconclusive**, not proof a port is closed. |
+For Alibaba Cloud console steps, see the
+[Aliyun network verification guide](aliyun-network-verification.md). All steps
+below are **read-only** — preserve current SSH auth/root policy, HTTP/HTTPS,
+volumes and rules until a separate operator decision authorizes changes. Keep
+raw outputs private (never paste `.env`, `docker inspect` or `docker compose config`
+into public issues).
 
 #### Collect a private host inventory
 
-First agree with the operator on the canonical hostname, public IPv4/IPv6 addresses,
-HTTP/HTTPS behavior, SSH port, current source-access policy (including any trusted
-ranges/VPN or unrestricted sources) and password/key/MFA/root-login policy.
-Identify who can review the cloud rules and an independent external network.
-If these details or authorized host access are unavailable, record them as missing;
-do not guess credentials, scan addresses or change access rules.
-
-On the actual Linux VPS, from an existing authorized session, use the optional
-[collector](../../scripts/collect-network-evidence.sh). It needs Bash, GNU coreutils,
-`ss`/`ip` (iproute2) and the existing Docker CLI; it installs nothing and never invokes `sudo`.
-Run as an operator already permitted to inspect the daemon. Without sufficient
-privileges, `ss` may omit process identities even when it exits successfully;
-have the operator complete that gap separately.
+Confirm intended policy with the operator first (canonical hostname, public IPs,
+SSH port/source/auth policy), then run the read-only collector on the VPS (needs
+Bash, coreutils, `ss`/`ip`, Docker CLI; never reads `.env`, invokes `sudo`, or
+probes ports; pinned to `unix:///var/run/docker.sock`; caps: 12 containers, 8
+networks, 64 KiB/cmd, 8 s/cmd, 120 s total):
 
 ```bash
-cd /opt/shbs  # existing deployment checkout; do not update or deploy for this check
+cd /opt/shbs
 (umask 077; mkdir -p local-operations)
 bash scripts/collect-network-evidence.sh local-operations
 ```
 
-Review/copy the script to the operator host through the approved channel if it is
-not yet in that checkout. Each run creates a new mode-700 directory and mode-600
-`evidence.txt`. Keep it private: selected fields exclude container environment,
-logs, arbitrary labels and arbitrary network driver options, but IPs, mounts and
-image names still reveal infrastructure. Listener, interface-address and IPv4/IPv6
-route snapshots stay in that file. Failed-command stdout/stderr are omitted.
-The script never reads `.env`, interpolates Compose, connects to a registry, probes
-public ports, starts/stops containers or changes volumes/firewall/SSH. Ambient
-Docker remote contexts and TLS options are ignored: every Docker call targets
-`unix:///var/run/docker.sock`. Rootless/other daemons, Swarm services and other
-container engines need a separate explicit inventory; an empty rootful daemon is
-not proof that the deployed services are absent.
-
-Collection is serial: at most 12 containers, 8 networks, 64 KiB per command,
-8 seconds per command and a 120-second command budget (plus bounded termination
-overhead). Exit **2** or `UNAVAILABLE` means collection gaps, including truncation,
-missing commands, denied access or a timeout. Exit **0** only means those commands
-completed; all outputs retain **OPERATOR VERIFICATION PENDING**. No automatic
-port-policy verdict is made. A report without `finished_utc` was interrupted and
-must be treated as incomplete. A snapshot can race a deployment: collect during a
-quiet interval and resolve inconsistent image/container identities before review.
-
-`app`/`db` should have no host publication; Caddy should publish only 80/443.
-Caddy's admin endpoint should remain container-local. `ss` alone can miss
-NAT-published listeners. [Docker's firewall guide](https://docs.docker.com/engine/network/packet-filtering-firewalls/)
-explains why published containers can bypass UFW rules; apply the guidance for the
-host's actual iptables/nftables backend before planning changes. Public SSH by
-itself is not a vulnerability: document the effective source/authentication policy.
-Any hardening change requires a separate maintenance plan with tested recovery
-console access and a second verified operator session to avoid lockout.
+Creates a mode-700 directory and mode-600 `evidence.txt`. Exit `2` or missing
+`finished_utc` means incomplete collection (`OPERATOR VERIFICATION PENDING`);
+exit `0` only means commands ran. Expect `app`/`db` unpublished, Caddy publishing
+only `80`/`443` with container-local admin (`2019`), and review Docker's active
+iptables/nftables forwarding rules ([Docker firewall guide](https://docs.docker.com/engine/network/packet-filtering-firewalls/)).
 
 #### Complete the effective-policy worksheet
 
-Keep one private worksheet next to the inventory. Record observation time in UTC,
-host alias, operator reviewer, approved policy, evidence file/command or console
-reference, observed result and disposition (**verified**, **mismatch**, **unknown**)
-for every row. A screenshot of a cloud rule is useful only when its attachment to
-this host/interface and its IPv4/IPv6 scope are established. Use sanitized aliases
-in shared summaries and retain exact addresses/account names privately.
+Record UTC time, host alias, reviewer, approved policy, evidence reference and
+disposition (**verified**, **mismatch**, or **unknown**) for every row:
 
-| Review row | Completion evidence |
+| Boundary | Required evidence |
 | --- | --- |
-| Scope and intended access | Canonical domain, all public IPs/A/AAAA records, approved TCP 80/443 behavior, administrative ports and current source policy (restricted ranges/VPN or unrestricted), operator authentication and root-login requirements. Explicitly account for absent IPv6 and for any intended UDP 443/QUIC; the supplied Compose only publishes TCP. |
-| Listener and container paths | Explain every IPv4/IPv6 TCP/UDP listener and match the expected `app`, `db`, `caddy` services to their actual Compose project labels. Review other stacks, host/macvlan/ipvlan networking, direct routing, IPv6 and alternate ports. Empty port mappings alone are insufficient. |
-| Caddy administration | Review the running proxy's startup options, mounted configuration and any API-loaded configuration privately. Establish the admin listener's actual namespace/interface and absence of external routing. A repository Caddyfile or mount path alone cannot establish the runtime setting. Do not export the full admin API/configuration publicly. |
-| Cloud ingress and host forwarding | Review every attached security group/ACL, load balancer/NAT/public address and the active host INPUT, forwarding and NAT policy for both families. Account for Docker's active firewall backend and daemon direct-routing settings. Record effective administrative source rules, including unrestricted access if present, not just a UFW summary. |
-| Effective SSH policy | Inspect the actual service/socket unit, startup flags and configuration path privately, then run bounded `sshd -T` checks with the same `-f`/`-o` overrides and each relevant user/source/local-address/local-port `Match` context. Include approved operator, root, another/disallowed user, and trusted/untrusted source cases; explain `Include`, PAM/MFA, allow/deny and key-command behavior. Do not copy keys, authorized-key contents or helper credentials into evidence. |
-| Data and operator access preserved | Record the existing Compose project and actual database mount type/name/source/destination, plus Caddy certificate volumes. This collection makes no changes; verify the authorized operator session and intended web access still work. Use existing backup/record evidence privately; do not restart, reset, reseed or test restoration on production just to collect evidence. |
-| Image/source identity | App and Caddy container image IDs and RepoDigests, app OCI revision/source, reviewed mounted files/overrides and matching successful CI publish run. Record missing/mismatched identity as unknown. |
-| Independent external check | Complete the bounded matrix below from approved trusted and untrusted sources, for every public address/family and any relevant direct-routing address. Correlate outcomes with host/cloud rules. |
+| Scope & intended access | Canonical domain, DNS A/AAAA, approved 80/443, SSH port/source/auth policy, IPv6/UDP status |
+| Listeners & containers | `sudo ss -lntup` (IPv4/IPv6) + `docker compose ps --all` + `docker ps`; explain every listener, confirm `app`/`db` unpublished and no stray stacks/host-network containers |
+| Caddy administration | Inspect live startup flags and mounted/API config; confirm admin `2019` is container-local |
+| Cloud & host firewall | Attached security groups/ACLs/NAT/EIPs/LBs + `ufw status verbose`, `nft list ruleset` / `iptables-save` (including Docker FORWARD/NAT) |
+| Effective SSH policy | Live unit/flags + `sudo sshd -T` (and `-C` per `Match` context) compared against confirmed policy — do not flag approved password/unrestricted SSH as a defect |
+| Data & image identity | `git rev-parse HEAD`, `sha256sum Caddyfile docker-compose.yml`, container image IDs, `RepoDigests`, OCI `revision` label matching CI publish run (never rely on mutable `:latest`) |
+| Independent external check | Bounded external matrix below correlated with host and cloud rules |
 
-For host policy commands in the table above, use
-`sudo -n timeout --kill-after=1s 8s ...` where authorized; permission failures remain **unknown**, not a reason to
-change privileges. Review raw firewall and service output locally, since comments,
-paths and command arguments may be private. [OpenSSH's test mode](https://man.openbsd.org/sshd)
-applies `Match` contexts; its result must correspond to the daemon's actual startup
-options. Do not send a signal, reload SSH, enable a firewall or rerun host setup.
+Use `sudo -n timeout --kill-after=1s 8s ...` for privileged read-only checks;
+record permission failures as **unknown**.
 
 #### Independent external verification
 
-Have the operator approve a finite address/port/protocol matrix first. Use an
-independent network outside the VPS, its LAN and local proxy/TUN, and identify its
-source address privately. Check one endpoint at a time, one attempt per approved
-cell, with a 3-second connect timeout and 8-second total limit. Stop on an
-unexpected service response and review its path before testing further; do not
-expand into a port sweep, credential attempt or vulnerability scan.
-
-| Approved target | Expected observation and interpretation |
-| --- | --- |
-| Canonical HTTP/HTTPS, each public A/AAAA address | HTTP redirects to the intended HTTPS host; HTTPS validates its certificate and serves sign-in/health. Resolve each approved address explicitly when several exist, preserving hostname/SNI. Verify intended web access from both trusted and ordinary external clients. |
-| Approved SSH port | Operator confirms normal access using their existing approved method. From an independent external source, compare reachability with the confirmed current source policy: intended source restrictions should prevent the SSH protocol from being reached by excluded clients; intended unrestricted access may expose the SSH protocol. A public banner alone does not establish authentication policy or compromise. Unknown policy remains unknown; do not treat root password login or unrestricted SSH as a mismatch against an invented stricter policy. Do not attempt passwords, keys or root logins to test denial. |
-| App 3000, DB 5432, Caddy admin 2019, Studio 5555, alternate web 8080, plus reviewed override ports | No unintended external service path. A protocol response is a mismatch requiring investigation. TCP success alone, a timeout or lack of a protocol reply is **inconclusive**; corroborate negative results with effective routing/firewall policy and an independently controlled vantage. |
-
-For an approved public-web cell, a bounded unauthenticated request can be recorded
-without cookies, headers or body. Substitute the approved hostname; `--disable`
-ignores local curl configuration and `--noproxy` avoids an explicit HTTP proxy.
-Neither option proves absence of transparent interception or VPN routing.
+From an external network outside the VPS/VPC and any interception proxy, test
+each approved cell once (3 s connect timeout, 8 s total; no `--insecure`, no
+port sweeps or credential probes):
 
 ```bash
 curl --disable --noproxy '*' --connect-timeout 3 --max-time 8 \
@@ -313,350 +173,150 @@ curl --disable --noproxy '*' --connect-timeout 3 --max-time 8 \
   https://tutoring.example.edu/signin
 ```
 
-Do not use `--insecure`. Record the selected address/family, vantage, UTC time,
-command exit and protocol outcome; review redirects and health privately using
-the [update checks](#verify-either-update). For private/admin service cells, agree
-the minimal protocol observation with the operator in advance; the collector does
-not issue those probes. A client-side timeout by itself cannot close the issue.
+- **HTTP/HTTPS (80/443):** HTTP redirects to canonical HTTPS; valid cert serves `/signin` and health.
+- **Approved SSH port:** Compare reachability against confirmed source policy; a banner alone does not prove auth policy.
+- **Private ports (3000, 5432, 2019, 5555, 8080):** Expect no external service response. A timeout or TCP handshake alone is **inconclusive** — corroborate with host and cloud rules.
 
-#### Correlate the release and decide completion
-
-Record what is actually running, separately from the checkout or mutable tag:
-
-```bash
-git rev-parse HEAD
-git status --short
-sha256sum Caddyfile docker-compose.yml
-app_container=$(docker compose ps -q app)
-app_image_id=$(docker inspect --format '{{.Image}}' "$app_container")
-docker inspect --format 'requested={{.Config.Image}} image_id={{.Image}}' "$app_container"
-docker image inspect --format 'digests={{json .RepoDigests}} revision={{index .Config.Labels "org.opencontainers.image.revision"}} source={{index .Config.Labels "org.opencontainers.image.source"}}' "$app_image_id"
-```
-
-Match the digest/revision to the exact successful CI publish run. A local build may
-lack a registry digest or revision label; record that gap instead of assuming the
-checkout is deployed. The local image ID is not the registry manifest digest;
-record both, and do not use a mutable `latest` tag as release proof. Record the
-Caddy image ID/digest and mounted configuration
-too, including any Compose overrides. The effective network/SSH review remains
-**operator verification pending** until host, cloud and independent external
-evidence agree. Missing host access leaves this verification incomplete.
-Publish only a sanitized acceptance summary: approved public services, whether each
-administrative/private boundary met its policy, verified image revision/digest,
-evidence timestamps/references and unresolved rows. **Unknown or mismatched rows
-leave the perimeter verification pending.** Issue #242's documentation handoff
-does not certify cloud verification; see the [remaining cloud checks](aliyun-network-verification.md#status-and-access-needed).
-Source defaults and successful collector tests do not meet production acceptance
-criteria. If changes are needed, prepare a separate
-reviewed maintenance plan with recovery console, backup/volume preservation,
-second-session access, rollback and explicit production authorization; this
-read-only procedure authorizes none of those changes.
+Perimeter verification stays **pending** while any row is `unknown` or `mismatch`;
+see [remaining cloud checks](aliyun-network-verification.md#status-and-access-needed).
 
 ## 3. Configure runtime settings and secrets
 
-Run deployment commands from the same VPS checkout (for example `/opt/shbs`)
-throughout its lifetime. Its Compose project name selects the existing named
-volumes; keep the directory/project name stable.
-
-For a **first installation only**:
+Keep the deployment directory (e.g., `/opt/shbs`) and Compose project name stable
+for the stack's lifetime so Compose attaches the same `db-data` and `caddy-data`
+volumes. For a **first installation only**:
 
 ```bash
 cd /opt/shbs
-# Never overwrite an existing .env during an update.
 [ -f .env ] || (umask 077; cp .env.example .env)
 chmod 600 .env
 nano .env
-# Set DOMAIN, APP_IMAGE=ghcr.io/<owner>/shbs-peer-tutoring-website:latest
-# Generate AUTH_SECRET once: openssl rand -base64 32 (at least 32 characters)
-# Choose POSTGRES_USER, POSTGRES_DB, and a URL-safe POSTGRES_PASSWORD once:
-# openssl rand -hex 32
-# Set EMAIL_FROM, SMTP_PASSWORD and the provider's SMTP_HOST / SMTP_PORT.
 docker compose config --quiet
 ```
 
-Keep production values in the private VPS `.env`, not Git, GitHub Actions build
-arguments, Dockerfile `ENV`, or `NEXT_PUBLIC_*` fields. `.dockerignore` excludes
-real `.env` files. CI uses disposable test credentials and builds the image without
-production secrets or branding arguments.
+Keep production secrets strictly in VPS `.env` (never Git, build args, or
+`NEXT_PUBLIC_*`).
 
-| Configuration | Where it is set / default | Apply a change |
+| Configuration | Where set / default | How to apply |
 | --- | --- | --- |
-| Application/UI source, `src/app/icon.png`, repository logos/assets, bundled translations and branding defaults in `src/lib/branding-config.ts` | Git; the tab icon is the single repository-owned PNG | Commit → main → CI → GHCR → pull app image |
-| `APP_TITLE`, `TEAM_TITLE` | VPS `.env`; `SHBS Peer Tutoring`, `SHBS Peer Tutoring Team` | Recreate app; no rebuild |
-| `ORG_NAME`, `SUPPORT_EMAIL`, `PROGRAM_TERM_LABEL` | VPS `.env`; organization falls back to app title, other labels are empty | Recreate app; no rebuild |
-| `MESSAGES_OVERRIDE`, `AUTH_BOOTSTRAP_ADMIN_EMAILS` | VPS `.env`; empty by default | Recreate app; existing published content can override messages |
-| `AUTH_SECRET`, `SMTP_PASSWORD`, `SMTP_SECURITY_PASSWORD`, `SMTP_PROGRAM_PASSWORD` | VPS `.env`; no production secret defaults | Recreate app; keep the auth secret stable across restarts/instances |
-| `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `EMAIL_FROM`, `EMAIL_FROM_NAME`, `EMAIL_SECURITY_FROM`, `SMTP_SECURITY_USER`, `EMAIL_PROGRAM_FROM`, `SMTP_PROGRAM_USER` | Server-only VPS `.env`; host `smtpdm.aliyun.com`, port `465`, login falls back to sender address, display name to `APP_TITLE`; sender/password unset | Recreate app; verify real delivery |
-| `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DB` | VPS `.env`, chosen at database initialization | Preserve for existing volume; credential changes need a separate database operation |
-| `DATABASE_URL`, `AUTH_URL`, `AUTH_TRUST_HOST`, `NODE_ENV` | Compose derives database URL from `POSTGRES_*`, sets `https://${DOMAIN}`, `true`, `production` | Do not override derived values in `.env` |
-| `DOMAIN` | VPS `.env`; replace example domain with real DNS name | Update DNS; recreate app **and Caddy** |
-| `APP_IMAGE` | VPS `.env`; replace `OWNER` with lowercase GitHub owner | Pull and recreate app |
-| `BACKUP_DIR`, `BACKUP_RCLONE_REMOTE`, `BACKUP_S3_URI`, `BACKUP_SCP_DEST` | Host `.env`; output defaults to checkout `backups/`, destinations empty | Next host backup invocation; no container recreation |
-| `TRPC_DEV_DELAY` | Local development `.env`; `false` | Restart development server; no effect in production |
+| App source, `src/app/icon.png`, bundled translations, defaults in `src/lib/branding-config.ts` | Git | Commit → `main` → CI → GHCR → pull `app` |
+| `APP_TITLE`, `TEAM_TITLE`, `ORG_NAME`, `SUPPORT_EMAIL`, `PROGRAM_TERM_LABEL` | VPS `.env` (public runtime branding; blank uses defaults; legacy `NEXT_PUBLIC_*` names are ignored) | Recreate `app` (no rebuild) |
+| `MESSAGES_OVERRIDE`, `AUTH_BOOTSTRAP_ADMIN_EMAILS` | VPS `.env` (empty default; `MESSAGES_OVERRIDE` is JSON read outside `src/env.js`) | Recreate `app` |
+| `AUTH_SECRET`, `SMTP_PASSWORD`, `SMTP_SECURITY_PASSWORD`, `SMTP_PROGRAM_PASSWORD` | VPS `.env` (32+ char `AUTH_SECRET`, keep stable across instances/restarts) | Recreate `app` |
+| `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `EMAIL_FROM`, `EMAIL_FROM_NAME`, `EMAIL_SECURITY_FROM`, `SMTP_SECURITY_USER`, `EMAIL_PROGRAM_FROM`, `SMTP_PROGRAM_USER` | VPS `.env` (`smtpdm.aliyun.com`, port `465`, login defaults to sender) | Recreate `app` |
+| `ALIYUN_DM_ACCESS_KEY_ID`, `ALIYUN_DM_ACCESS_KEY_SECRET`, `ALIYUN_DM_QUOTA_RESET_TIME_UTC` | VPS `.env` (read directly from `process.env` outside `src/env.js`; optional dashboard quota card) | Recreate `app` |
+| `SIGNUP_MAIL_*`, `SIGNUP_COMPLETE_*`, `SIGNUP_READ_*`, `SIGNUP_RESEND_SECONDS` | VPS `.env` (optional tuning; see [signup protection](../reference/signup-protection.md#defaults-and-tuning)) | Recreate `app` |
+| `CAPTCHA_PROVIDER`, `ALIYUN_CAPTCHA_*`, `CAPTCHA_BUDGET_*`, `CAPTCHA_CONCURRENCY` | VPS `.env` (optional; see [CAPTCHA reference](../reference/captcha.md)) | Recreate `app` |
+| `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DB` | VPS `.env`, chosen once at empty-volume init | Keep fixed for existing `db-data` volume |
+| `DATABASE_URL`, `AUTH_URL`, `AUTH_TRUST_HOST`, `SIGNUP_TRUST_PROXY`, `NODE_ENV` | Derived by `docker-compose.yml` (`https://${DOMAIN}`, `true`, `true`, `production`) | Do not override in `.env` (non-Compose defaults `SIGNUP_TRUST_PROXY=false`) |
+| `DOMAIN` | VPS `.env` (real DNS hostname) | Update DNS; recreate `app` **and** `caddy` |
+| `APP_IMAGE` | VPS `.env` (`ghcr.io/<owner>/shbs-peer-tutoring-website:latest`) | Pull and recreate `app` |
+| `BACKUP_DIR`, `BACKUP_RCLONE_REMOTE`, `BACKUP_S3_URI`, `BACKUP_SCP_DEST` | Host `.env` (`BACKUP_DIR` defaults to `backups/`) | Next `backup.sh` run |
 
-Only the five branding fields are deliberately projected into the browser. They
-are public information; never place credentials in them. Server-rendered UI,
-client components, page metadata and email subjects use the same runtime titles.
-An explicit `EMAIL_FROM_NAME` overrides only the email sender display name.
-Blank branding values use repository defaults. Rename existing
-`NEXT_PUBLIC_APP_TITLE`, `NEXT_PUBLIC_TEAM_TITLE`, `NEXT_PUBLIC_ORG_NAME`,
-`NEXT_PUBLIC_SUPPORT_EMAIL`, and `NEXT_PUBLIC_PROGRAM_TERM_LABEL` keys by removing
-`NEXT_PUBLIC_`; the old names are no longer read. No GitHub Actions variables are
-needed for branding.
-
-`MESSAGES_OVERRIDE` is JSON read directly by the server, outside the `src/env.js`
-schema; malformed JSON is ignored. Message precedence is bundled locale JSON →
-environment override → database translations edited in `/localization`.
-`SKIP_ENV_VALIDATION` is a build/test escape hatch; leave it unset in production
-(even the string `false` is nonempty and skips validation). Local build controls
-`SHBS_WORKSPACE_ROOT`, `SHBS_BUILD_CPUS` and `SHBS_DISABLE_BUILD_CACHE` are not
-required VPS runtime settings.
-
-PostgreSQL applies `POSTGRES_*` only when initializing an **empty** data directory.
-Editing those values later does not rename the database/user or change its password;
-it instead breaks app connections or backups. Preserve the existing `.env` and
-`db-data` volume. Do not regenerate credentials, rename the Compose project, run
-`docker compose down -v`, delete volumes, or reseed as part of an application update.
-If a credential must change, back up first and plan a coordinated PostgreSQL role
-change and app/backup configuration update separately.
-
-The application, Prisma migration CLI, seed/demo utilities and administrator bootstrap enforce UTC on every database connection through a shared URL policy. This is independent of the school's program timezone and the host operating-system timezone. Deploying this policy requires restarting the application so its pool uses new connections; it does not require a schema migration or timestamp rewrite. For manual SQL or external import tools, explicitly use a UTC session (`SET TIME ZONE 'UTC'`) because existing `TIMESTAMP(3)` instant fields follow the UTC convention. Previously written data is not repaired automatically; audit any suspected historical offset before correcting it.
-
-> **Accepted applicants self-register:** accepting a tutor application issues a single-use
-> registration code (bound to their email, re-viewable on `/admin/registration-codes`); the recruit
-> redeems it at `/register` to verify their email and set their own password. No shared default
-> password is involved.
-
-`DATABASE_URL`, `AUTH_URL`, and `AUTH_TRUST_HOST` are set automatically in `docker-compose.yml`.
+- Leave `SKIP_ENV_VALIDATION` unset in production (any non-empty string disables validation).
+- Editing `POSTGRES_*` after volume initialization does **not** change Postgres credentials — it breaks app connections and backups.
+- All app/Prisma/CLI connections enforce **UTC** sessions independently of the school program timezone or host OS timezone; use `SET TIME ZONE 'UTC'` for manual SQL.
 
 ## Email — Aliyun Direct Mail (邮件推送)
 
-Transactional email — password-reset and tutor-setup links, emailed sign-in and password-change
-2FA codes, and registration / viewer one-time codes — is sent through **Aliyun Direct Mail** over SMTP
-(`src/server/email/sender.ts`: a pooled, TLS-enforced, timeout-bounded transporter that logs each
-send and failure). Every call declares its category; sender choice is centralized and never inferred
-from the subject. Each category uses its own complete sender account, falling back to the legacy
-`EMAIL_FROM` + `SMTP_PASSWORD` pair. Without either, the app logs that category
-in development and rejects production flows that require it. SMTP is optional for a first boot only if those
-flows remain unused; it is **required** for password resets, registration/viewer verification, and
-any emailed code. The `EMAIL_2FA` feature defaults on; users opt into sign-in 2FA in Settings.
-The same program feature requires an emailed verification code for password changes, regardless
-of personal sign-in 2FA enrollment. Enrollment and emailed-code flows require configured delivery
-in production. Explicitly saved program feature settings are preserved when upgrading.
+Transactional email uses Aliyun Direct Mail over pooled, TLS-enforced SMTP
+(`src/server/email/sender.ts`). Every send declares a category (`SECURITY` or
+`PROGRAM`), using its dedicated sender pair or falling back to legacy
+`EMAIL_FROM` + `SMTP_PASSWORD`. SMTP is required in production for password
+resets, registration/viewer verification, and emailed codes (`EMAIL_2FA` defaults
+on and requires emailed codes for password changes even if sign-in 2FA is off).
 
-**Set it up in the Aliyun console** (https://dm.console.aliyun.com):
+**Console setup** (`https://dm.console.aliyun.com`):
+1. Pick a region (Hangzhou → `smtpdm.aliyun.com`; Singapore → `smtpdm-ap-southeast-1.aliyuncs.com`).
+2. Add and verify a sending subdomain (**Email Domains → New Domain**) with Aliyun's exact DNS records.
+3. Create **Triggered/Transactional** sender addresses and generate a dedicated SMTP password for **each** address.
 
-1. **Open Direct Mail** (邮件推送 / DirectMail) and pick a **region** near your users. The region
-   decides your SMTP host: Hangzhou → `smtpdm.aliyun.com`; new Singapore endpoint → `smtpdm-ap-southeast-1.aliyuncs.com`.
-2. **Email Domains → New Domain** (发信域名): add a subdomain you control, e.g. `mail.your-school.edu`.
-   Copy the exact DNS names, types and values generated by Aliyun for that domain and region,
-   including its required verification and mail-authentication records. Do not substitute guide
-   examples. Add them, then click **Verify** until all required checks pass.
-3. **Sender Addresses → New Sender Address** (发信地址): create e.g. `noreply@mail.your-school.edu`,
-   type **Triggered/Transactional** (触发).
-4. On that sender address, **set an SMTP password** (设置 SMTP 密码). This is a dedicated password,
-   **not** your Aliyun account password — copy it once.
-5. (Recommended) Raise the address's daily quota / verify a **reply-to** if you want replies.
+**Recommended separate senders in `.env`:**
 
-**Then fill `.env`:**
-
-```bash
-SMTP_HOST="smtpdm.aliyun.com"            # or your region's host
-SMTP_PORT="465"                          # 465 = implicit TLS; Aliyun also lists 25/80 with STARTTLS
-EMAIL_FROM="noreply@mail.your-school.edu" # the verified sender address
-EMAIL_FROM_NAME="SHBS Peer Tutoring"     # optional From display name
-SMTP_PASSWORD="<the SMTP password from step 4>"
-# SMTP_USER is optional — it defaults to EMAIL_FROM (Aliyun logs in as the sender address).
-```
-
-**Separate sender identities (recommended):**
-
-| Category | Messages | Dedicated account |
+| Category | Messages | Dedicated env vars |
 | --- | --- | --- |
-| `SECURITY` | Account/tutor setup and reset links; sign-in and step-up codes; email changes and binding; registration, Viewer and Crew mailbox verification; account security notices | `EMAIL_SECURITY_FROM`, `SMTP_SECURITY_PASSWORD`, optional `SMTP_SECURITY_USER` |
-| `PROGRAM` | Student signup confirmation links and already-confirmed reminders; program, information, and private-message notification emails | `EMAIL_PROGRAM_FROM`, `SMTP_PROGRAM_PASSWORD`, optional `SMTP_PROGRAM_USER` |
+| `SECURITY` | Setup/reset links, 2FA/step-up codes, email binding, registration/Viewer/Crew mailbox codes, security alerts | `EMAIL_SECURITY_FROM`, `SMTP_SECURITY_PASSWORD` (optional `SMTP_SECURITY_USER`) |
+| `PROGRAM` | Tutee signup confirmation, program/information/message notices, session notices, school reports | `EMAIL_PROGRAM_FROM`, `SMTP_PROGRAM_PASSWORD` (optional `SMTP_PROGRAM_USER`) |
 
-Viewer registration proves account ownership, so it is security mail. Student signup confirmation
-belongs to program intake and remains program mail, including the link into student account creation.
-The signup transport deadline is independent of sender purpose: viewer mail still uses the security
-identity even though it runs on a bounded signup connection.
-
-Repeat sender creation, verification and SMTP-password setup for **each** address. Aliyun passwords
-belong to individual sender addresses; never assume they can be shared. Add these server-only
-settings to the VPS `.env` (the existing `env_file` passes them to the app):
-
-```bash
-EMAIL_SECURITY_FROM="credentials@mail.your-school.edu"
-SMTP_SECURITY_PASSWORD="<that sender's SMTP password>"
-# SMTP_SECURITY_USER defaults to EMAIL_SECURITY_FROM.
-EMAIL_PROGRAM_FROM="noreply@mail.your-school.edu"
-SMTP_PROGRAM_PASSWORD="<that sender's own SMTP password>"
-# SMTP_PROGRAM_USER defaults to EMAIL_PROGRAM_FROM.
-```
-
-Both use `SMTP_HOST`, `SMTP_PORT`, and the optional `EMAIL_FROM_NAME` display name. Dedicated
-passwords and usernames are never inherited from the legacy account. Each category switches as
-soon as its own address **and** password are present; the other category can keep using the legacy
-account during rollout. A partial dedicated configuration falls back to the **entire** legacy
-account, including its From address. If neither complete account exists, only that category is
-unavailable in production. Keep the legacy pair until both dedicated senders pass their inbox tests;
-afterward it may be removed. Changing `.env` requires recreating the app container. A configured
-account with a bad password fails delivery; the application does **not** silently retry through a
-different identity. Failed essential/security sends never report successful delivery. Deferred
-notification jobs retain their existing bounded retry policy; an unconfigured category stays pending.
-
-**Real-inbox smoke test (operator action, after configuring real sender secrets):**
-
-1. Recreate the app with `docker compose up -d --force-recreate app`.
-2. **Security:** use Forgot password for a known test account with an inbox you control. Check inbox
-   and spam, open the received message, confirm From is `credentials@...`, and follow the reset link
-   to verify that it is accepted. Exercise viewer registration with another controlled address and
-   verify its code comes from the same security sender. Do not use participant accounts for testing.
-3. **Program:** during an open intake window, submit a test student signup using a controlled inbox.
-   Confirm From is `noreply@...`, follow the confirmation link, and confirm the request successfully.
-   Clean up the test request through the management interface afterward.
-4. Check each message's raw headers for the expected sender and provider authentication results
-   (SPF/DKIM/DMARC); record only sender identity, timestamp, and success in the release evidence.
-   Never copy OTPs, reset links, participant addresses, or credentials into reports or logs.
-5. In staging, temporarily give only the security sender an invalid SMTP password and repeat its
-   test: the flow must fail without exposing credentials, while a program signup still sends.
-   Restore the correct secret and recreate the app. Test legacy fallback in staging by removing a
-   dedicated pair while keeping a valid legacy pair; From should become the legacy address.
-
-These inbox checks are separate from mocked automated tests and must be completed by the deployment
-operator; automated tests do not establish real Aliyun delivery. If mail does not arrive, confirm the
-domain and each sender show verified, From exactly matches the account, and outbound SMTP is allowed.
-Application logs identify the category and failure without printing provider exceptions or secrets.
+Partial dedicated config falls back to the complete legacy pair; bad credentials
+fail closed without switching identities. Recreate `app` after editing `.env`,
+then run a real-inbox smoke test (Forgot password for `SECURITY`, test tutee
+signup for `PROGRAM`) verifying `From` and SPF/DKIM/DMARC headers on controlled
+test inboxes.
 
 ### Show the Direct Mail quota on the dashboard
 
-The **Email Quota** card on the dashboard and in **Program Settings → Deployment
-Configurations → Delivery settings** shows how many free emails are available today
-out of the published daily cap of 200, plus the total free allowance left. It reads
-`DailyRemainFreeQuota` and `RemainFreeQuota` from the mainland China (Hangzhou)
-Direct Mail account. Paid resource plans and pay-as-you-go are tracked separately in
-Aliyun. Only Admin and Head accounts can see the card. It groups the reset time
-with the daily quota and shows the one-time free balance separately. A low quota
-notice appears at 40 daily emails or 200 total emails remaining. Reaching the daily
-cap and exhausting the one-time free balance have distinct notices. [Account summary API](https://help.aliyun.com/en/direct-mail/api-dm-2015-11-23-descaccountsummary) · [Direct Mail limits](https://help.aliyun.com/en/direct-mail/product-overview/limits)
+The **Email Quota** card (visible to Admin/Head on `/admin` and **Administration
+→ Program Settings → Deployment Configurations → Delivery settings**) queries
+`DescAccountSummary` at `https://dm.aliyuncs.com/` (`cn-hangzhou`) for
+`DailyRemainFreeQuota` (200/day free cap) and `RemainFreeQuota` (one-time free
+balance), caching results for 60 s with a 2 s connect / 3 s read timeout and no
+retries. Warnings appear at `<= 40` daily or `<= 200` balance remaining
+([API docs](https://help.aliyun.com/en/direct-mail/api-dm-2015-11-23-descaccountsummary) ·
+[limits](https://help.aliyun.com/en/direct-mail/product-overview/limits)).
 
-Set `ALIYUN_DM_ACCESS_KEY_ID` and `ALIYUN_DM_ACCESS_KEY_SECRET` in the app's `.env`
-using a dedicated RAM identity in the same Aliyun account as the SMTP sender. Grant
-`dm:DescAccountSummary` on resource `*`, as required by this API. Keep these keys
-separate from SMTP passwords. To display a confirmed daily reset time, set
-`ALIYUN_DM_QUOTA_RESET_TIME_UTC` to `HH:mm` in UTC. The dashboard displays that time
-in China time. Aliyun's public API documentation does not give an exact reset time,
-so leave this setting blank until you confirm it for the account.
-
-After recreating the app container, sign in as an Admin or Head and compare the
-figures with the Direct Mail console in Hangzhou without sending an email. Reload
-the dashboard after a minute to refresh a cached result. An incomplete credential pair or
-failed lookup shows **Email quota is currently unavailable**. Check the RAM policy,
-account, and regional endpoint if the status persists. To hide the card, clear both
-keys and recreate the app. Quota lookups have no effect on SMTP delivery.
+Set `ALIYUN_DM_ACCESS_KEY_ID` and `ALIYUN_DM_ACCESS_KEY_SECRET` (dedicated RAM
+user with `dm:DescAccountSummary` on `*`) and optional
+`ALIYUN_DM_QUOTA_RESET_TIME_UTC` (`HH:mm` 24-hour UTC, displayed in
+`Asia/Shanghai`; malformed values are treated as unconfigured). Recreate `app`
+and compare against the Aliyun console. Clear both keys to hide the card. Lookup
+failures never affect SMTP delivery.
 
 ## 4. Image build (CI → GHCR)
 
-Pushing to `main` triggers `.github/workflows/docker-build.yml`, which builds and pushes
-`ghcr.io/<owner>/shbs-peer-tutoring-website:latest`.
+Pushing to `main` triggers [`.github/workflows/docker-build.yml`](../../.github/workflows/docker-build.yml),
+which runs static checks + 3 parallel test shards, unpacks CI-baked Help
+screenshots via `scripts/unpack-help-assets.mjs` from the rolling
+`help-assets-latest` release (override via `HELP_ASSETS_RELEASE_TAG`; see
+[Help CI baking](help/README.md#ci-baked-screenshots-clean-git-repository)),
+builds and smoke-tests the production image, runs scoped `image-storage` checks,
+and promotes the verified image artifact by exact ID to `:sha-<7-char>` and
+`:latest` (rechecking `origin/main` before each push).
 
-Only a push or manual dispatch for the `main` ref can publish. Runs for the same pull request or
-ref cancel older runs. Three isolated test shards start alongside static checks.
-After the static checks pass, CI builds and smoke-tests the production image.
-The scoped storage comparison follows a successful image job. Publication
-requires the `verify` gate to confirm success for every shard and all three
-other jobs. [CI capacity budget](../contributing/verification.md#ci-capacity-and-queue-discipline).
-
-The image job applies OCI metadata before building and smoke-testing. On publishable runs,
-it saves that image as a one-day artifact. The publishing job downloads that exact artifact
-by ID from the same run, loads it, and checks its image ID against the build output. It does
-not rebuild or export a second build cache. It pushes the SHA tag first, then `latest`,
-rechecking `origin/main` immediately before each push. A stale commit or image mismatch
-fails closed. As with any check followed by a registry write, the remote check and push
-are not atomic; concurrency cancellation also limits superseded runs.
-
-PR runs exercise the full build and smoke checks without uploading the image or publishing.
-Test JSON reports are retained for seven days; use them to investigate failures and shard
-imbalance. If the one-day image artifact has expired, rerun image verification before
-retrying publication. A publish-only retry reuses the original successful image job's artifact.
-
-If the package is private, authenticate the VPS to GHCR once:
-
-```bash
-echo <GITHUB_PAT_with_read:packages> | docker login ghcr.io -u <github-user> --password-stdin
-```
+- CI imports build cache (`cache-from: type=gha`) with **no `cache-to` export**.
+- Local/source Docker builds (`docker compose up --build`) fall back cleanly to
+  text-only Help unless you first run `node scripts/unpack-help-assets.mjs` or
+  `npm run help:capture`.
+- For private GHCR packages, authenticate once on the VPS:
+  `echo <GITHUB_PAT_with_read:packages> | docker login ghcr.io -u <github-user> --password-stdin`.
 
 ## 5. Deploy
 
-Complete the [storage preflight](#storage-capacity-preflight) before these commands.
+Run [storage preflight](#storage-capacity-preflight) first, then:
 
 ```bash
-docker compose pull            # pull the prebuilt app image (+ postgres, caddy)
-docker compose up -d           # start everything; app runs migrations on boot
-docker compose ps              # all services should be "running"/"healthy"
-docker compose logs -f app     # watch migrations + startup
+docker compose pull
+docker compose up -d
+docker compose ps
+docker compose logs -f app
 ```
-
-Visit `https://<your-domain>` — Caddy issues the cert on first request, then sign in with
-email + password at `/signin` after the bootstrap command below.
 
 ### Storage capacity preflight
 
-Before every image pull or deployment, budget the **additional peak allocation**
-on each affected filesystem. Include compressed downloads and unpacked image layers
-coexisting with retained images, container writable layers/logs, temporary staging,
-database/WAL growth and any overlapping [backup or restore](#7-backups). Builds run
-in CI, not on the VPS. Use measured release sizes and growth with margin; image
-virtual sizes can share layers, and Docker's reported reclaimable space is neither
-free space nor guaranteed safe to reclaim.
-
-Privately identify the actual Docker data root and any separate containerd image
-store, deployment/staging directory, backup destination and database-volume mount.
-Do not assume all data lives under `/var/lib/docker` or on the root filesystem.
-Map those locations to filesystems and **sum simultaneous peak allocations on the
-same filesystem**; check each distinct filesystem separately. Supply an existing
-directory on that filesystem, rounding its additional peak estimate up to whole GiB:
+Before every image pull or deployment, budget **additional peak allocation** per
+distinct filesystem (downloads, unpacked layers, writable layers/logs, DB/WAL
+growth, overlapping backups) and run the read-only helper (requires Bash + GNU
+`df`/`timeout`/`head`; never touches Docker or `.env`; `PEAK_GIB` in `1..1048576`):
 
 ```bash
-# Example only: replace the directory and 8 GiB budget with reviewed local values.
 bash scripts/check-storage-capacity.sh /existing/directory/on/target/filesystem 8
 ```
 
-The [read-only helper](../../scripts/check-storage-capacity.sh) needs Bash and GNU
-`df`, `timeout` and `head`. It performs two serial `df` reads (bytes and inodes),
-each limited to five seconds plus a one-second termination grace and 4 KiB of
-output. It never calls Docker/Compose, reads `.env`, pulls images, deletes files
-or changes volumes. `PEAK_GIB` accepts whole positive integers from 1 to 1048576;
-one GiB is 1,073,741,824 bytes. The required available bytes are:
-
-```text
-additional peak bytes + max(5 GiB, ceil(20% of filesystem capacity))
-```
-
-It uses `df`'s available bytes, which exclude reserved blocks, and refuses zero
-free inodes. Exit **0** (`HEADROOM_OK`) establishes this numeric headroom at the
-observation time only; it neither reserves space nor validates the estimate,
-mount mapping, permissions, quotas, storage health or sufficient inode growth.
-Exit **1** means insufficient bytes or no free inodes; **2** means unknown,
-including unsupported/malformed measurements, missing tools, timeout or oversized
-output; **64** means invalid usage. Stop the pull/deploy on every nonzero result
-and resolve the capacity or evidence gap. Recheck if allocations or plans change.
-Keep host-specific paths, measurements and image identities in private operator
-notes, not public issues.
+Requires `additional peak + max(5 GiB, ceil(20% filesystem capacity))` available
+bytes and nonzero free inodes. Exit `0` = `HEADROOM_OK`; `1` = insufficient;
+`2` = unknown/error; `64` = bad usage. Stop on any nonzero exit.
 
 ### Create the first admin (first deploy)
 
-You need at least one `User` with a password before anyone can sign in. The first address in
-`AUTH_BOOTSTRAP_ADMIN_EMAILS` is promoted to the singleton `HEAD` when no HEAD exists; later
-addresses are promoted to `ADMIN`. This promotion applies when an existing account signs in—it
-does not create the account.
+> ⚠️ **Never run `prisma/seed.ts` in production.** It creates demo accounts with
+> `Password123!`.
 
-> ⚠️ **Do not run the bundled `prisma/seed.ts` as-is in production.** It creates sample
-> people _and_ demo login accounts (`admin@example.edu`, `alice@example.edu`) with the
-> well-known dev password `Password123!`. That's strictly for local development.
-
-Run the bootstrap command inside the deployed image. The Compose network supplies the database
-connection; no database port needs to be published and no demo seed is needed:
+Run the packaged bootstrap CLI inside `app` (requires a **12–1,024** character
+password validated before hashing or opening a database connection, preserving
+exact leading/trailing spaces; optional `BOOTSTRAP_ADMIN_NAME` defaults to
+`"Program Head"`; creates Head and initial active period when missing, or
+promotes a second account to Admin / resets password on rerun;
+`AUTH_BOOTSTRAP_ADMIN_EMAILS` only promotes existing accounts on sign-in):
 
 ```bash
 export BOOTSTRAP_ADMIN_EMAIL='you@school.edu'
@@ -671,592 +331,207 @@ docker compose exec -e BOOTSTRAP_ADMIN_EMAIL -e BOOTSTRAP_ADMIN_PASSWORD \
 unset BOOTSTRAP_ADMIN_PASSWORD
 ```
 
-The command requires at least 12 password characters. It creates one HEAD and an active period
-when missing; rerunning it preserves the HEAD and existing active period while deliberately
-resetting the named account's password. A second account becomes ADMIN. Without period arguments,
-the school year defaults at the August boundary and the initial quarter is Q1. Set them explicitly
-for the first deployment. No tutors, students, subjects, rooms or sample content are seeded.
-
-After signing in, configure Subjects & Levels, Time Slots, Rooms, signup timing and public content
-through the website. The existing development database is disposable and is not copied to the VM.
-Production migrations still run on every boot so later upgrades preserve production data.
-
-The image includes the complete production Prisma CLI dependency tree plus the bootstrap script.
-CI boots that exact image against an empty `shbs_boot_test` database, verifies the health and
-sign-in routes, runs bootstrap twice, checks default and runtime branding, metadata and public-bundle secret exclusion, and recreates that same image with changed branding to verify record preservation and automatic expiry of overdue unverified assignments. Image publishing depends on that gate passing. The integrated test suite uses only the loopback `shbs_shipping_test` database; never point destructive fixtures at production.
-
-> Password reset works once Aliyun Direct Mail is configured (see "Email" above). After the first
-> HEAD exists, tutor accounts and setup links can be managed from the admin UI.
+Then sign in and configure Subjects & Levels, Time Slots, Rooms, recruitment,
+policies and public content through the website.
 
 ## 6. Updates
 
 ### Application, UI and repository assets
 
-Edit locally, including `src/app/icon.png` or logos when needed → commit → push or
-merge to `main` → wait for successful CI publication → GHCR → update the VPS:
-
-Before pulling, complete the [storage preflight](#storage-capacity-preflight) and
-record the [retained image identities](#retain-current-and-previous-tested-images).
+Run [storage preflight](#storage-capacity-preflight) and record current/previous
+image IDs first, then:
 
 ```bash
 cd /opt/shbs
+# Only if Compose/Caddy/scripts changed: git pull --ff-only
 docker compose pull app
 docker compose up -d app
 ```
 
-Do not edit application source inside the VPS checkout or running containers to
-change the deployed UI. The app runs the published image, not that checkout's
-source. If a release changes Compose, Caddy or host scripts, also update those
-tracked deployment files with `git pull --ff-only` after reviewing the release;
-preserve `.env` and keep the Compose project name unchanged. An image update
-reruns pending migrations and preserves the database volume and existing records.
-The pairing-scheduling migration preserves all existing copied schedules as confirmed, including records with no catalog link. Their historical provenance is unknown, so it does not guess which old values were placeholders or rewrite attendance. New assignments default to **Awaiting schedule** until a slot is selected. Deploy the migration and application together; do not replace the migration chain with `db push`, which omits the room guards.
-
-A customized runtime title takes precedence over a changed repository default.
-Database-managed landing content/translations remain as published; update those
-through their administration screens when required.
+`app` applies pending Prisma migrations automatically while preserving `db-data`,
+`.env`, published policies/landing content and translations.
 
 ### Retain current and previous tested images
 
-Keep the current tested release and the previous tested release available for
-recovery. Before pulling a moving tag such as `latest`, record each release's
-**full local image ID**, immutable registry digest, source revision and successful
-verification evidence privately. Identify the images actually used by containers,
-including stopped containers and other Compose projects; a tag alone is not a
-stable identity. On a first installation, record that no previous tested release
-exists until a subsequent release has been verified. Read-only examples,
-substituting reviewed exact identifiers:
-
-```bash
-docker ps -a --no-trunc --format '{{.ID}} {{.Image}} {{.Names}}'
-docker inspect --format '{{.Id}} {{.Image}}' <exact-container-id>
-docker image inspect --format '{{.Id}} {{json .RepoDigests}}' <exact-image-id>
-```
-
-1. Mark the running tested release as current and preserve the previous tested
-   release. Keep both images and their deployment configuration/recovery evidence
-   while evaluating the incoming release; an untested pull does not replace either.
-2. After [deployment verification](#verify-either-update), promote the verified new
-   release to current and the former current to previous. Preserve additional
-   images under an incident/investigation hold or needed by any container.
-3. Check recovery against the **current database schema and persisted contracts**.
-   Retaining an older image does not make migrations reversible. Rehearse compatible
-   recovery in isolation with a verified [backup](#7-backups); when the previous
-   app cannot read current data, use a compatible corrective release or a separately
-   reviewed data-recovery plan. Never remove migrations or records to force rollback.
-4. If removal is needed, obtain separate approval for a bounded list of exact full
-   image IDs outside the retained/held sets. Recheck every container reference and
-   hold immediately before removing each approved ID with `docker image rm`
-   **without force**; stop on conflicts. Preserve database and Caddy volumes and
-   backups. Do not use broad image/system/volume prune or age/dangling status as
-   authorization. Layer sharing means removed image sizes do not guarantee the
-   same number of freed bytes; rerun the [preflight](#storage-capacity-preflight).
-
-### Password-session revocation release
-
-Apply migration `20260922200000_session_revocation` before serving this release; the standard container startup runs it automatically. No database reset is needed. The migration adds a database-maintained credential generation. Every password change, reset or setup invalidates all prior sessions, including the browser making the change. Sessions created before this release lack the generation and must sign in once again. Keep `AUTH_SECRET` stable; do not rotate it to perform this migration.
-
-Email two-factor requirements and preferences remain unchanged. Legacy onboarding sends a setup link only to the stored primary address, and the account owner must open it before any password or verification state changes. Account data and history are preserved. Revocation is checked on subsequent authenticated requests; already-running work is not cancelled.
+Keep both the current and previous verified images on disk (`docker inspect`
+image ID + `RepoDigests`, not mutable `:latest`). Retaining an old image does not
+make non-reversible migrations safe to downgrade — test rollback against a backup
+or deploy a corrective release. When pruning approved unreferenced images, remove
+exact full IDs with `docker image rm` (no `--force`, no broad prune).
 
 ### App runtime settings and branding
+
+`docker compose restart` does **not** reload `.env`. Recreate `app` (and `caddy`
+if `DOMAIN` changed):
 
 ```bash
 cd /opt/shbs
 nano .env
-# Validate interpolation without printing secrets.
 docker compose config --quiet
-docker compose up -d --force-recreate app
+docker compose up -d --force-recreate app         # add `caddy` if DOMAIN changed
 ```
-
-This applies `APP_TITLE`, `TEAM_TITLE`, contact labels, SMTP and other server
-settings without rebuilding. `docker compose restart` alone does not reload the
-container environment. Compose validation checks structure/interpolation; app
-startup validates required runtime values and logs connection/migration failures.
-
-For a domain change, update DNS and `DOMAIN`, then recreate both consumers:
-
-```bash
-docker compose config --quiet
-docker compose up -d --force-recreate app caddy
-```
-
-Caddy keeps ports 80/443 and its certificate volume. Host backup settings are read
-by `scripts/backup.sh` on its next run; edit `.env`, keep values shell-compatible
-and quoted, and run `./scripts/backup.sh` to verify a changed destination. Provider
-CLI credentials stay in the host's private provider configuration, never the image.
 
 ### Verify either update
 
 ```bash
 docker compose ps
 docker compose logs --since=10m --tail=100 app
-docker compose logs --since=10m --tail=50 caddy
-# Substitute the actual DOMAIN; do not use --insecure to bypass TLS validation.
 curl --fail --show-error --silent https://tutoring.example.edu/signin -o /dev/null
 curl --fail --show-error --silent https://tutoring.example.edu/api/trpc/health
 curl --fail --show-error --silent https://tutoring.example.edu/icon.png -o /dev/null
 ```
 
-Confirm app startup completed after successful Prisma migrations (or no pending
-migrations), `db` is healthy, Caddy is running, and health returns
-`result.data.json.ok: true`. Open the HTTPS homepage and signup pages, check their
-titles and browser tab icon, then sign in and check the management title and an
-existing record. Refresh open tabs after runtime changes. For a replaced icon,
-close/reopen the tab or clear cached site data. Check a password-reset email's
-subject and sender after changing branding/SMTP. Keep operational evidence private.
-The public icon smoke test can also target the deployment from your local checkout:
-
-```bash
-TEST_BASE_URL=https://tutoring.example.edu node --test scripts/test-tab-icon.mjs
-```
+Expect `result.data.json.ok: true`, clean migration status, expected titles/tab
+icon (`TEST_BASE_URL=https://... node --test scripts/test-tab-icon.mjs`), and
+verified email sender/subject after SMTP or branding edits.
 
 ### Browser response policy and rollout
 
-The public policy lives in [Caddyfile](../../Caddyfile), with deferred header writes
-so upstream headers cannot undo it. `next.config.js` also disables `X-Powered-By`
-at source. The same policy applies in Caddy's error handler when an upstream
-connection fails, preserving the error status without exposing internal details.
-Direct access to the app still bypasses the proxy policy and must stay
-private. The existing `X-Signup-Client-IP {remote_host}` request-header overwrite
-is unchanged; never turn it into an append or trust a visitor-provided value.
+[Caddyfile](../../Caddyfile) writes deferred headers (also on upstream errors)
+and `next.config.js` disables `X-Powered-By`:
 
 | Policy | Current behavior |
 | --- | --- |
-| HTTPS/HSTS | Automatic HTTPS stays enabled. `max-age=86400` initially remembers HTTPS for one day on the exact hostname, without `includeSubDomains` or `preload`. Increase only after certificate renewal/HTTPS stability is verified. |
-| Framing and document context | Enforced CSP `frame-ancestors 'none'; object-src 'none'; base-uri 'self'` plus `X-Frame-Options: DENY`. Pages cannot be embedded, even by the same origin. No current application workflow requires embedding. |
-| MIME/referrer | `X-Content-Type-Options: nosniff` and `Referrer-Policy: strict-origin-when-cross-origin`. Cross-origin navigation sends the origin rather than account/signup URL paths or queries. |
-| Resource CSP | **Report-only**, not an XSS-prevention claim: first-party resources, the known Aliyun CAPTCHA script origin, image data/blob URLs and existing inline styles are listed. Inline scripts and additional CAPTCHA endpoints intentionally remain visible as violations for inventory. |
-| Cookies and TLS | No cookie header rewriting, TLS relaxation, or authentication change. Verify Secure, HttpOnly and SameSite on disposable authenticated sessions. |
+| HTTPS/HSTS | Auto HTTPS; `max-age=86400` on exact host (no `includeSubDomains`/`preload`) |
+| Framing/context | Enforced `frame-ancestors 'none'; object-src 'none'; base-uri 'self'` + `X-Frame-Options: DENY` |
+| MIME/referrer | `X-Content-Type-Options: nosniff`, `Referrer-Policy: strict-origin-when-cross-origin` |
+| Resource CSP | **Report-only** (no collector; lists first-party, Aliyun CAPTCHA script, `data:`/`blob:`, inline styles) — do not flip to enforced without per-request nonces |
+| Proxy IP header | Overwrites `X-Signup-Client-IP {remote_host}` (never append) |
 
-The report-only policy has **no reporting collector** or `report-to` endpoint.
-It does not collect production telemetry or block resource loads. Inspect browser
-console/`securitypolicyviolation` events during the controlled rehearsal; preserve
-only sanitized evidence. The optional CAPTCHA SDK dynamically loads resources,
-so its full destination set must be observed with synthetic provider test settings.
-See [Caddy headers](https://caddyserver.com/docs/caddyfile/directives/header) and
-[Next.js CSP guidance](https://nextjs.org/docs/app/guides/content-security-policy).
-Next emits inline framework scripts; a strict enforced script policy needs fresh
-per-request nonces integrated with rendering/caching. Do not simply rename the
-report-only header to an enforced CSP or add a static nonce. A future reporting
-collector needs explicit retention/privacy and rate/size limits; reports can
-contain sensitive document URLs.
+Validate and reload after editing `Caddyfile` (keep prior copy for rollback;
+recreate only `caddy` if a replaced bind-mount inode is stale):
 
-Before rollout, run `npm run test:deployment`, `npm run check`, `npm run docs:check`
-and a production build, then rehearse the exact Caddy config with an isolated
-application/database on loopback. Use a local test domain/certificate trusted only
-for that rehearsal; preserve production TLS verification. Validate/adapt the
-config with the selected Caddy version and ensure only test web ports are bound.
-Do not repurpose a production database or start a shared daemon just for this test.
-
-1. Run `TEST_BASE_URL=https://<test-host> node --test scripts/test-security-headers.mjs`
-   through Caddy, not the internal app port. Check HTTP→HTTPS redirect separately.
-   The probe uses unauthenticated GETs and does not establish authenticated page behavior.
-2. In one bounded browser session, capture desktop/mobile screenshots and exercise
-   sign-in/sign-out, each signup flow (including CAPTCHA off/on), language switching,
-   `/localization`, management navigation/writes and uploaded images. Use disposable
-   accounts and local email capture. Inspect final HTML, assets, redirects, 404s,
-   MIME types, CSP console events and cookie attributes. Confirm hydration/navigation
-   works and an embedding test is blocked by the enforced frame policy.
-3. Check a request with a synthetic `X-Signup-Client-IP` at an isolated upstream:
-   Caddy must replace it with the connection address. Check a mock upstream response
-   carrying conflicting policy headers: the final public values must win, while
-   `Set-Cookie` attributes and TLS remain intact. Include an upstream failure response.
-4. Only after approval, update the host checkout/config and verify it with
-   `docker compose exec caddy caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile`.
-   Reload with `docker compose exec caddy caddy reload --config /etc/caddy/Caddyfile --adapter caddyfile`
-   and repeat the public/interactive checks. If the bind-mounted file was replaced
-   and the running container sees an old inode, recreate **only Caddy** with the
-   existing project/volumes. App header suppression additionally needs the new image.
-
-Retain the prior Caddyfile for rollback and validate/reload it if compatibility
-breaks. HSTS already stored by a browser cannot be undone over HTTP: keep HTTPS
-working; an approved `max-age=0` response over valid HTTPS clears it on the next
-visit. Keep report-only CSP until the nonce/resource work and browser matrix pass.
-Repository checks alone do not prove the new policy is deployed or resolve the
-operational verification items.
+```bash
+docker compose exec caddy caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile
+docker compose exec caddy caddy reload --config /etc/caddy/Caddyfile --adapter caddyfile
+# Optional external header probe:
+TEST_BASE_URL=https://<host> node --test scripts/test-security-headers.mjs
+```
 
 ## 7. Backups
 
 ```bash
-./scripts/backup.sh            # private validated daily dump; rotate after configured uploads
-# Schedule daily:
-#   crontab -e
-#   0 3 * * *  /opt/shbs/scripts/backup.sh >> /var/log/shbs-backup.log 2>&1
+./scripts/backup.sh            # validated private daily dump + configured offload + rotation
+# Cron example (03:00 daily):
+# 0 3 * * *  /opt/shbs/scripts/backup.sh >> /var/log/shbs-backup.log 2>&1
 ```
 
-The host needs Bash, Docker Compose, gzip, awk and GNU-compatible core utilities
-(including `mktemp`, `find` and `ln`). The script reads the existing shell-compatible
-`.env` and requires `POSTGRES_DB` and `POSTGRES_USER`. `BACKUP_DIR` defaults to
-checkout `backups/`; use an operator-owned directory on a filesystem supporting
-same-filesystem hard links, with private access and enough space for the new dump
-alongside retained recovery points. A newly created backup directory is mode 700;
-the script does not change permissions of an existing directory or old archives.
+- **Atomic validation:** Holds `BACKUP_DIR/.backup.lock`, writes mode-600
+  `pg_dump | gzip` inside the mode-700 lock dir, verifies `gzip -t` and plain SQL
+  header/footer markers, and hard-links `<db>-daily-YYYYMMDD-HHMMSS-<10chars>.sql.gz`.
+- **Off-host copy:** Optional `BACKUP_RCLONE_REMOTE`, `BACKUP_S3_URI`, or
+  `BACKUP_SCP_DEST` in `.env` (host CLI required). All configured uploads must
+  succeed before local rotation runs.
+- **Retention & `.hold` markers:** Rotates only top-level daily files for the
+  current DB older than `find -mtime +14` (15 completed 24-hour periods), always
+  keeping the newest file. Any `<daily-filename>.hold` marker (including symlinks),
+  legacy filenames, and subdirectories (`recovery-hold/`) are exempt from
+  rotation. Pause cron before adding/removing holds.
+- **Interrupted runs:** Handled signals clean up temp files and lock. After
+  `SIGKILL`/power loss, `.backup.lock` deliberately blocks subsequent runs until
+  an operator confirms no dump/upload child is running and moves the stale lock
+  directory to quarantine.
 
-Each run holds `BACKUP_DIR/.backup.lock` through dump, validation, publication,
-configured uploads and rotation. An overlapping run exits nonzero without touching
-the owner's staging or existing backups. New dump data is mode 600 in a private
-temporary file inside the mode-700 lock directory. Only a successful `pg_dump |
-gzip`, gzip integrity check and plain PostgreSQL dump header/completion check
-permit publication. A hard link atomically publishes the validated file without
-replacing an existing name; the temporary link is then removed. Daily filenames
-are `<database>-daily-YYYYMMDD-HHMMSS-<10 random characters>.sql.gz`, so retries in
-the same second do not overwrite each other. Validation establishes archive
-integrity and expected framing; it does not prove a successful restoration.
-
-Set one or more optional destinations in `.env` to copy each successful dump off-box:
-`BACKUP_RCLONE_REMOTE`, `BACKUP_S3_URI`, or `BACKUP_SCP_DEST`. The matching CLI must
-be installed on the host. The existing `rclone copy`, `aws s3 cp` and `scp` commands
-retain their destination semantics; use a destination directory/prefix when keeping
-multiple recovery points. Every configured command must complete successfully
-before retention begins. Missing tools or failed uploads exit nonzero and skip
-retention. An upload failure preserves the validated local backup and all older
-backups; inspect any partial remote copy and retry the transfer or scheduled run.
-CLI success is a transfer receipt, not independent proof of remote restorability
-or provider retention. Review remote access controls, retention and restoration
-separately. With no destination configured, successful local publication permits
-local retention; this does not establish an off-host recovery point.
-
-### Daily rotation and recovery holds
-
-Rotation owns only top-level regular files matching the exact daily naming format
-for the current database. It preserves the existing `find -mtime +14` boundary:
-eligibility starts after **15 completed 24-hour periods**, based on file modification
-time. The newly published file is always preserved, even if its timestamp changes.
-Old `<database>-YYYYMMDD-HHMMSS.sql.gz` archives, `database-before-RELEASE.sql.gz`
-release checkpoints, other databases, symlinks, nested directories, configuration
-copies and evidence files are outside automatic rotation. Review legacy archives
-explicitly; adoption does not silently delete private backup history.
-
-An adjacent `<daily-filename>.hold` marker protects a daily backup regardless of
-age; any marker type, including a dangling symlink, is treated as a hold. Record
-the release/checkpoint, owner, reason and review conditions in a private marker.
-Held pre-migration dumps can instead live in a private `recovery-hold/` subdirectory
-or retain their distinct `database-before-RELEASE.sql.gz` names. Normal rotation
-never traverses those directories or removes markers. Keep configuration snapshots
-and recovery evidence private and separate from disposable daily archives.
-
-Before establishing or releasing a hold, stop scheduling and confirm the active
-backup has finished, or acquire the same `.backup.lock` directory exclusively.
-Do not add/remove holds concurrently with rotation. Release a hold only after
-the operator has reviewed restoration evidence, the schema transition and the
-remaining local/off-host recovery points. Removing a marker makes an otherwise
-eligible daily file deletable on the next successful run; it does not delete it
-immediately. Do not rename release checkpoints into the daily namespace as a disk
-cleanup shortcut.
-
-### Interruption and retry
-
-Ordinary failures and handled HUP/INT/TERM remove only this run's exact temporary
-paths and release its lock. Bash may defer a signal while dump/compression or an
-upload child finishes; ownership remains held until that command returns. Never
-remove the lock to force an overlapping retry. Published valid backups remain
-available if a later step fails.
-
-SIGKILL, host power loss or a cleanup error can leave `.backup.lock` and partial
-files. Subsequent runs deliberately refuse to proceed; no PID-only stale-lock
-guessing or automatic partial-file sweep occurs. Pause the scheduler, identify
-the interrupted invocation and confirm **all** its dump/compressor/upload children
-have stopped. Preserve and inspect its exact private staging directory, then move
-that confirmed stale directory to a private quarantine location on the same
-filesystem before retrying. Do not quarantine an active lock, overwrite an earlier
-quarantine, or delete unrelated temporary files. Unvalidated partial data is not a
-recovery point. Review it separately under the operator retention plan.
-
-The daemon-free regression suite runs in `npm run test:deployment`; run it alone with `node --test --test-concurrency=1
-scripts/backup.test.mjs` (on Windows set `SHBS_TEST_BASH` to Git Bash). It invokes
-the real script with synthetic Docker/upload commands and isolated temporary
-directories, never a production database or off-host service.
-
-Restore:
+**Rehearse restore into a new disposable database** (never overlay live DB):
 
 ```bash
-# Rehearse restoration into a NEW disposable database first; never overlay a running database.
 docker compose exec -T db sh -c 'createdb -U "$POSTGRES_USER" shbs_restore_test'
 gunzip -c backups/<file>.sql.gz | docker compose exec -T db sh -c 'psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" shbs_restore_test'
-# Check restored records and application behavior before planning a production recovery.
 ```
-
-The quoted commands read `POSTGRES_USER` inside the database container; Compose's
-`.env` interpolation does not export that variable into the host shell.
 
 ## Troubleshooting
 
-- **Cert not issued:** confirm DNS A record resolves to the VPS and ports 80/443 are open.
-- **App restarting:** `docker compose logs app` — usually a bad `.env` value or DB not reachable.
-- **Fresh sign-ins fail or alternate between servers:** confirm every instance uses the same stable `AUTH_SECRET`, canonical `AUTH_URL` and HTTPS proxy settings.
-- **DB healthcheck failing:** `docker compose logs db`; ensure `POSTGRES_*` match across `.env`.
+- **Cert not issued:** Verify DNS A record and ports 80/443.
+- **App restarting:** `docker compose logs app` (usually `.env` validation or DB connectivity).
+- **Sessions drop across instances:** Confirm identical stable `AUTH_SECRET`, canonical `AUTH_URL` and HTTPS proxy settings.
+- **DB healthcheck failing:** `docker compose logs db`; verify `POSTGRES_*` match volume init.
 
 ## Public QR domain and regeneration
 
-The four public QR exports in **Program Settings → Recruitment and Refresh →
-Share Signup Links** use `AUTH_URL` as their canonical public origin. Compose
-already sets this to `https://${DOMAIN}`. Source deployments must set it explicitly
-in production: use an absolute public HTTPS origin with no credentials, path,
-query or fragment. HTTP and loopback origins are rejected in production. Only
-development may use the `http://localhost:3000` fallback; do not distribute those
-local rehearsal images.
-
-The export never derives its origin from the browser address, request `Host` or
-forwarded headers. A missing or invalid production origin produces a generic
-configuration error rather than a PNG containing an internal address. Correct the
-configuration and restart the application before retrying. No participant or
-account information belongs in the public origin.
-
-After changing `DOMAIN`/`AUTH_URL`, regenerate all four PNGs and replace previously
-distributed assets. Responses use `Cache-Control: no-store`; downloaded files and
-printed posters cannot update automatically. Decode each replacement and confirm
-the expected origin and `/tutor`, `/tutee`, `/crew` or `/` path. Then follow the
-short links to verify current recruitment and Crew availability on the deployment.
-Images use packaged local fonts and require no external font service. The PNG
-background, light modules and four-module quiet zone are transparent. Place them
-over a plain, light surface and keep the quiet zone free of other artwork when
-resizing or printing.
-
-The existing sign-in QR download remains a separate interface. These exports
-do not enable recruitment, modify settings or bypass verification/access checks.
+**Administration → Program Settings → Recruitment and Refresh → Share Signup Links**
+encodes `AUTH_URL` (`https://${DOMAIN}` in Compose; strict public HTTPS origin
+required in production — never derived from request `Host`). Regenerate and
+replace all four transparent PNGs (`/tutor`, `/tutee`, `/crew`, `/`) after any
+domain change and verify each with a scanner over a plain light background.
 
 ## Optional notification delivery
 
-Email actions require `AUTH_URL` to be the canonical public HTTPS origin in production (no path, query, credentials or localhost). Notification, password/setup and signup link builders share this validation; invalid configuration fails delivery instead of emailing a localhost link. Development alone may fall back to `http://localhost:3000`.
+All emailed links require canonical HTTPS `AUTH_URL` in production. Outgoing
+mail uses the shared Graphite dark renderer with plain-text alternatives, selects
+maintained English or Chinese copy from the recipient's saved **Email language**
+preference (default English; public signups use selected page language until an
+account preference exists), and formats timestamps in the program timezone.
+School notifications also use the shared Graphite renderer with **View Month
+Report** and omit individual hour rows. See
+[notification events](../reference/notification-events.md) and
+[program configuration](program-configuration.md#optional-email-notifications).
 
-Apply `20260929120000_email_notification_destinations` and regenerate Prisma before starting the updated worker. It retains each notification's internal destination in the outbox, in the same transaction as the event. Legacy program-update rows without a destination fall back to the home page. Account notices retain account settings; message notices use the role-aware inbox entry. A role downgrade falls back from staff-only links, and destination pages still enforce current access. Query parameters and fragments survive the notification's sign-in link, password/2FA completion, and expired-session recovery.
+The `notification-delivery` worker polls every 30 s, runs calendar and event
+reminder sweeps in isolated `try/catch` blocks, and drains serial batches of 10
+up to a **20-second budget or 100 batches (1,000 rows)** (5-minute row lease):
 
-The event and request-service worker also requires `20261014010000_notification_events`, `20261014020000_request_notice_delivery`, `20261014030000_request_invalidity_appeal` and `20261014040000_request_delivery_admission`. Apply all migrations and regenerate Prisma before rollout. Applied request flags and clears create an essential PROGRAM receipt even without an account or optional-mail consent; proposals alone do not. Staff inspect delivery and appeal status in the request's invalidity review. Verify masked unverified notices, exact request-specific ownership proof, missing-address status, clear/reflag cancellation, concurrent retries and expired/interrupted sends using synthetic mail. The public `/request-appeal` capability expires after 90 days and permits only an appeal for its current flag; its read requests do not submit anything. Keep capability links out of logs and analytics. See the [notification event inventory](../reference/notification-events.md) and [request notice contract](program-configuration.md#optional-email-notifications) for recipient and privacy boundaries.
-
-Outgoing mail includes a shared branded HTML layout plus the original plain-text content. Its Graphite design uses a neutral charcoal canvas (`#181B20`), graphite card (`#272D35`), pale blue highlights and primary blue `#0D59E6` for the action and short signature rule. Sans-serif headings, a divided message area and a separate copyable-link panel keep the content readable. The same dark palette is requested in light and dark clients, with inline color and table-background fallbacks; clients that force their own color conversion still need inbox verification. The runtime brand (normally **SHBS Peer Tutoring**) appears both above the card and in the centered footer. A centered 48 px site icon from the canonical application's `/icon.png` appears above the footer brand, followed by the privacy reminder. It is the only external image; all essential content remains readable with images blocked, and no external fonts or scripts are needed. Inspect representative clients, mobile widths, dark mode and images-disabled mode before rollout. Notification timestamps use the configured program timezone. Production mail selects maintained English or Chinese copy from the established recipient's saved email-language choice, with English fallback. Public signup sources retain their supported page language until an established account preference takes precedence. Configure and test the separate SECURITY and PROGRAM senders under [Email](#email--aliyun-direct-mail-邮件推送); each category needs a complete dedicated account or the complete legacy fallback.
-
-Generate synthetic, offline previews with `npx tsx scripts/preview-emails.ts`; output defaults to `.validation/email-previews`. These files never use the database or live SMTP. Browser previews supplement, but do not replace, the real-inbox checks below.
-
-The preview gallery uses production copy builders and includes plain-text siblings,
-code and legacy invitations, signup deadlines, historical claims, appeals, request
-status, session changes and school-report corrections. HTML shows codes in one panel
-and links as named actions; text-only copies retain complete codes and URLs. Check
-the distinct code-expiry and request-verification deadlines, proposed versus confirmed
-session times, both language variants, and the version in a correction email's subject.
-School notifications retain their light layout and **View Month Report** action,
-but contain no individual hour report. Amounts, carried balances and posting
-instructions are presented in the linked compact monthly report and CSV. Verify
-both HTML and plain text omit participant lists and individual amounts. School
-notifications use the shared Graphite push-email renderer, including the canonical
-site-icon footer and copyable report link. Preview-only mail has no active report
-action or URL.
-
-Optional notification mail includes an **Unsubscribe** footer link and a plain-text equivalent. `/unsubscribe` is a public confirmation page: link scanners and GET requests do not change preferences. The signed link expires after 90 days and permits only disabling its notification category or all optional categories for the account, including included secondary destinations. Security alerts and essential direct mail never include this control; student signup confirmation is essential even though it uses the PROGRAM sender. No SMTP provider subscription list is involved. Treat unsubscribe URLs as private capabilities and do not add them to logs or analytics. Verify confirmation, expired/invalid links, category-only and all-optional changes, and continued security delivery before rollout.
-
-Apply `20261108010000_notification_choice_locks` and regenerate Prisma with the
-updated application before using **Required notifications**. The additive migration
-defaults every category to unlocked and updates the transactional email-preference
-helper; it changes no personal opt-ins and replays no skipped mail. Verify a locked
-message-email choice with a personal off preference, a badge lock, unlock restoration
-and an unsubscribe that stops unlocked categories while required notices continue.
-The program email switch and recipient-access checks still apply. See
-[notification requirements](program-configuration.md#optional-email-notifications).
-
-For the supplied Docker deployment, pull and recreate the app as above: the image
-contains the generated Prisma client and its entrypoint runs migrations. For a
-source-based deployment outside Docker, apply all migrations with `npm run db:migrate`,
-regenerate Prisma with `npx prisma generate`, build the application and restart the
-persistent Node process before enabling optional notifications. The account-email migration atomically backfills primary addresses and recovery-token destinations; normalized collisions abort instead of merging accounts. Resolve legacy collisions before retrying. The follow-up migration releases any unverified secondary claims created by an earlier version and revokes their grants, preserving primary and verified secondary addresses. Affected users can request a new verification code.
-
-The worker polls every 30 seconds and leases up to ten deliveries per batch for five minutes. Row locking coordinates concurrent workers. Delivery classes have different recovery rules:
-
-| Delivery class | Automatic attempts and recovery |
+| Delivery class | Retries & recovery |
 | --- | --- |
-| Ordinary optional account information, messages, reviewer notices and event reminders | One admitted SMTP attempt. A rejected or abandoned admitted attempt becomes `UNCERTAIN`; it may already have been accepted. Neither the worker nor **Resend stuck emails** replays it. Failures before transport admission can retry with exponential backoff, up to five attempts. |
-| Essential account-security notices | Up to five attempts with exponential backoff. Eligible failed/previously attempted pending rows can be requeued. |
-| Essential request-service notices and current school-hour reports | Their source-owned admission and completion rules allow up to five attempts. Source state, ownership, report versions and availability remain authoritative. |
-| Essential session-planning notices | A separate `SessionNotice` worker owns five-attempt delivery and its participant/staff retry actions. These receipts are outside the general outbox totals. |
-| Direct authentication, setup and signup mail | The caller owns acceptance/failure and any explicit resend. There is no general outbox retry cycle or complete direct-send history in the status panel. |
+| Optional account, message, reviewer & reminder mail | 1 admitted SMTP attempt (failed/abandoned admitted attempt becomes `UNCERTAIN`, never auto-replayed); up to 5 pre-admission retries |
+| Essential account security (`security`) | Up to 5 attempts with exponential backoff; independent of `emailNotificationsEnabled` |
+| Essential request-service (`request_service`) & school reports | Up to 5 attempts under source/version fences; `request_service` stays independent of `emailNotificationsEnabled` |
+| Essential `SessionNotice` | Separate worker (30 s poll, batch of 10, 5 attempts, requires `PROGRAM` SMTP); outside general outbox counts |
+| Direct auth/setup/signup mail | Caller owns immediate send/resend |
 
-The legacy monthly overview workflow is retired; its unsent receipts are skipped rather than retried. Recipient self-service recovery for personal school-report reminders in `BLOCKED` or `FAILED` is cancellation and a new schedule. Admin bulk retry can also requeue an eligible `FAILED` reminder; `BLOCKED` rows are excluded and source eligibility is always rechecked.
-
-**Program Settings → Deployment Configurations → Email delivery status** separates retrying, exhausted and uncertain outcomes. Untouched `PENDING` rows with zero attempts are not counted, so zero displayed failures do not establish an empty or healthy queue. Inspect bounded `EmailDelivery` aggregates, safe failure summaries and the owning workflow's receipts when investigating a missing email. Do not reset an admitted uncertain row to force another send. A stable Message-ID is useful evidence but cannot guarantee exactly-once SMTP delivery. Short-lived deployments need an external scheduler calling the dispatcher.
-
-The same panel checks SECURITY and PROGRAM SMTP connection/authentication separately, including when optional notifications are off. Missing production configuration and unsuccessful checks show warnings; development logging is identified as local-only delivery. Each check has a 15-second deadline and uses an isolated connection, with concurrent checks shared and results cached for 60 seconds per application process. The visible page refreshes status once a minute; **Refresh status** reads the latest available status and fresh queue counts without sending mail, retrying deliveries or changing settings. After correcting credentials, recreate the app; after a network repair, allow the cache to expire and refresh. `READY` confirms connectivity/authentication. With configured production transport, `SENT` records SMTP acceptance; local development logging can also complete a receipt and is not SMTP delivery. Neither status proves inbox receipt: complete the real-inbox smoke test above. Dedicated `SessionNotice` receipts and direct signup/authentication delivery history are outside these queue counts. Provider errors, credentials and recipient details are never returned by this panel.
-
-After correcting the transport, ADMIN/HEAD can use **Resend stuck emails** to queue up to 100 oldest eligible failed or retrying deliveries for the normal worker. This starts a fresh retry cycle; the result reports how many were queued, not delivered. Admitted ordinary notices, uncertain outcomes, active leases, completed/skipped mail and untouched pending mail are excluded. Unconfigured production categories and disabled optional notifications stay excluded; security notices remain independent. The worker rechecks current preferences and recipient ownership before sending and retains each message's existing ID. Repeated or concurrent clicks cannot requeue a row that is already waiting with a fresh retry budget. Each request records an aggregate audit entry. Specialized request/report and session-planning recovery retains its own source and admission rules. If queuing succeeds but status refresh fails, use the read-only **Refresh status** recovery rather than submitting the resend again.
-
-Configure and test the real email transport before enabling optional notifications. Admin and Head apply switch changes directly; Coordinators request Admin approval. Disabling cancels queued optional notices without discarding preferences; security alerts continue through the same worker, and essential authentication mail remains independent. The optional-email availability migration adds the independent secondary-binding flag (default on) without changing stored addresses or preferences, and updates enqueue rules so security alerts cannot be suppressed. Apply the migration and updated dispatcher together; legacy `emailSecurity` values are retained but no longer control delivery. See [notification controls](program-configuration.md#optional-email-notifications) and [personal preferences](user-guide.md#optional-email-notifications).
+**Email delivery status** (in Delivery settings) tests `SECURITY` and `PROGRAM`
+SMTP independently (15 s timeout, 60 s cache) and separates retrying, exhausted
+and uncertain outcomes. After restoring SMTP, Admin/Head can click **Resend stuck
+emails** (queues up to 100 eligible failed/retrying rows; excludes uncertain,
+active leases, untouched pending, unconfigured categories, and disabled optional
+mail while keeping `security` and `request_service` eligible). Keep `/unsubscribe`
+and `/request-appeal` capability URLs out of logs and analytics.
 
 ## Monthly service-hours delivery
 
-Apply the complete migration chain, including
-`20261103020000_hours_recovery_baseline`, and regenerate Prisma before starting
-the updated application. This adds the individual school reporting chain and
-outbox relation, disables the legacy monthly overview schedule and retires its
-unsent receipts. Sent historical evidence remains intact. Node instrumentation
-starts the school generator at boot and once per minute. PostgreSQL retains the
-cursor, individual baselines, snapshots and receipts across restarts.
+Active school service-hours reporting runs via the persistent `school-hours-worker`
+(boot + every 60 s; see [school-hours reference](../reference/school-hours.md)).
+Legacy monthly overviews are retired.
 
-Tenth-hour posting stores exact signed carry in the existing report JSON, so it
-needs no additional database columns. Replace the application with the updated
-version before generating new editions. On multiple instances, drain old school
-generators and upgrade every writer together: earlier binaries ignore carry or
-apply the superseded signed-posting rule. They must not generate after the first
-`TENTH_HOUR_CARRY_NONNEGATIVE` edition. Recovery after that
-point requires a release compatible with this persisted carry contract, rather
-than a pre-carry binary rollback. Historical editions remain unchanged and readable.
-
-The reporting recovery migrations preserve compatible existing journal triggers
-and reject disabled or incompatible coverage for operator inspection. They also
-register privacy-safe metadata for preexisting rows connected to unfinished
-recovery actions. This baseline does not rewrite reports or reconstruct historical
-event order; it conservatively prevents automatic compensation of those report
-consequences. Report bodies, recipients and access-link hashes are excluded.
-
-Automation is disabled by default. In **Service Hours → School reports**, review
-each individual's already-reported opening balance and school-account reference,
-then configure school recipient addresses and the PROGRAM sender. The default is
-month-end noon in the saved program timezone; admins can override each occurrence.
-Global program mail and the Service Hours module must be enabled. School mailboxes
-need no site accounts; retrieval uses a revocable report-only link. Saving settings
-sends no report. Protect AUTH_SECRET, which derives report capabilities, and do not
-include capability URLs in public logs or validation artifacts.
-Configure reverse-proxy/access-log redaction for `/reports/service-hours/*` paths:
-the path carries the report capability. Application diagnostics do not log it.
-
-Use persistent Node hosting, such as the supplied Docker stack. Short-lived
-hosting needs a separately operated persistent worker; this feature supplies no
-public scheduler endpoint. Catchup is bounded to enabled-period due months and
-uses data available at actual generation time. Retry preserves the saved report
-and Message-ID, but SMTP acceptance followed by a process crash can still result
-in duplicate delivery. Confirm real sender/inbox delivery on the intended host
-before enabling its schedule; synthetic tests do not establish SMTP readiness.
-See [school report contracts](../reference/school-hours.md).
+- Automation starts disabled: review opening balances and configure school
+  recipients under **Tutors → Service Hours → School reports** before enabling
+  (requires Service Hours module, global program mail, and `PROGRAM` SMTP).
+- **Log redaction:** Configure reverse-proxy access logs to redact
+  `/reports/service-hours/*` paths (they carry the report capability token) and
+  protect `AUTH_SECRET`.
+- **No pre-carry downgrade:** Once a `TENTH_HOUR_CARRY_NONNEGATIVE` edition is
+  generated, upgrade all instances together and never roll back to a pre-carry
+  binary.
 
 ## Verify before opening intake
 
-Complete these checks on the actual host after bootstrap or an update:
-
-1. Confirm the canonical HTTPS domain, application health and a successful container restart with all migrations applied.
-2. Confirm PostgreSQL and uploaded media persist after replacing the app container.
-3. Deliver signup, password-reset and verified email-change messages to real inboxes; check sender identity and usable links.
-4. Publish the [reviewed policies](policies/README.md#publish-a-revision) and school-specific public content. Review translations before enabling hidden languages.
-5. Configure the current school year/intake, subjects, slots, rooms, tutor qualifications, opening time, school calendar and feedback visibility using the [program reference](program-configuration.md). Check a test participant's signup and consent flow.
-6. Restore a backup into a separate database and confirm usable records. Check backup retention and off-host copies.
-
-A successful build or published GHCR image does not verify target-host TLS, persistence, delivery or restore readiness. Use current CI results for code verification and record operational evidence privately.
-
-### Public application forms show a loading error
-
-On a fresh deployment, inspect the public `tutee.signupOptions`, `application.options`, `tutee.surveyPolicy`, and `application.policy` requests. Before the recruitment-preview fix, an unpublished English policy returned HTTP 412 and appeared as a generic “could not load” error. Empty subjects or required tutee slots are separate setup gaps. Retrying or restarting does not create this configuration.
-
-Apply migration `20260922140000_recruitment_windows` with the release, regenerate the Prisma client when running from source, and restart the app. The updated public policy reads return an explicit absent-policy state; forms render a read-only preview with the missing prerequisites listed. Database/network failures still surface as loading errors. Use **Policy Documents**, **Subjects & Levels**, **Time Slots**, and the separate recruitment panels in **Program Settings → Recruitment and Refresh** to complete setup. Publish reviewed school policy content; do not seed demo data in production. Verify both public forms before and after their configured opening/closing boundaries.
-
-## Public signup abuse controls
-
-Apply `20261009210000_crew_signup_verification` before deploying Crew application verification. The additive table stores pending drafts, mailbox challenges and private-status proof state; existing reviewed Crew applications and registration codes remain unchanged. No migration approves applications or creates accounts. Crew mail submission/status checks require the same trusted signup proxy configuration as tutee and Viewer signup. If CAPTCHA is enabled, Crew reuses the configured tutee scene with its own action-bound grants; no additional provider scene or paid service activation is required by this change.
-
-Apply migrations and review [public signup protection](../reference/signup-protection.md) for
-quota defaults, the trusted Caddy boundary, SMTP deadlines and outage troubleshooting.
-Keep the application port private. No paid external service is required.
-
-## Optional CAPTCHA
-
-See [Aliyun CAPTCHA configuration and rollout](../reference/captcha.md) before enabling the
-management switch. Install provider credentials as deployment secrets, apply the
-migration, and perform the bounded operator smoke check after separate service
-activation. The switch defaults off and is independent of period refresh.
-
-## School departure migration
-
-After deploying the school-departure schema, inspect existing graduated tutor accounts:
-
-```powershell
-npx tsx scripts/backfill-school-departures.ts
-```
-
-This defaults to a dry run. After reviewing its counts and account IDs, apply with
-`npx tsx scripts/backfill-school-departures.ts --apply`. Repeating the command skips
-accounts already confirmed. Revoked/suspended accounts, standalone Viewers and accounts
-with active learning participation are reported for individual Admin/Head review.
-
-The migration preserves account roles and historical records. Self-reported academic
-graduation, ordinary archives and opt-outs do not grant access. New imports never run this
-migration automatically. Review later-linked historical accounts explicitly.
-
-The new `TRANSFERRED` tutor enum requires compatible application code. To disable the
-feature, revoke departure-based observer grants or deploy a compatible corrective release;
-do not run an older application that cannot read the enum or remove departure data to
-restore participation implicitly.
-
-Combine records can group identities with departure history while preserving their
-separate logins and restrictions in Review required state. Credential retirement still
-requires a supported reviewed resolution that keeps departure events and explicit access
-revocations; do not delete departure rows to bypass its blockers.
-
-## Combined-account identity retention
-
-Deploy `20260929010000_combine_accounts` and
-`20260929020000_retired_credential_grants` before running code with the Admin/Head
-account-combine workflow. The nullable `User.mergedIntoId` self-reference records an
-explicit historical ownership relationship. Existing accounts remain active.
-The database guards reject deleting either side of a combined identity, restoring
-retired credentials/links, and issuing new recovery or verification grants to a retired
-login. Duplicate primary/secondary addresses and usernames remain reserved; they are
-not aliases of the surviving login. The unified record workflow can append another
-retirement edge; history and patrol-credit readers traverse the complete chain without
-rewriting protected original edges. A Person group containing several live logins is
-not such a retirement chain and never grants their private history to one another.
-
-Rollback of a completed combine is not an ordinary account edit or audit undo. Preserve
-the original accounts, messages, policy evidence and audit records; use a reviewed data
-migration if the ownership decision needs correction. Never remove the database guards
-or reuse a retired identifier as a shortcut. The application checks retirement on login,
-JWT validation, recovery, signup and live API authorization. Concurrent credential issuance
-is fenced by a User-row lock, and the merge's actor/evidence audit commits atomically.
+1. Confirm canonical HTTPS, `/api/trpc/health`, migrations, and DB/image persistence across container recreate.
+2. Deliver test signup, password-reset and email-change messages to controlled inboxes (check sender & headers).
+3. Publish [reviewed policies](policies/README.md#publish-a-revision) and public content; configure period, subjects, slots, rooms, qualifications, openings and school calendar per [program configuration](program-configuration.md).
+4. Rehearse a backup restore into a disposable database and confirm off-host copies.
 
 ### Unified person identity migration
 
-Apply `20261021020000_person_identity` and regenerate Prisma before running the unified
-Combine records UI. It adds nullable source associations, Person grouping and durable
-combination receipts. Existing current pointers, retained ownership and recorded
-retirement are the only backfill evidence. Every remaining accountless source receives
-its own person; no credentials or memberships are created.
-
-The migration stops on orphaned retained student ownership or contradictory current and
-retained ownership. Inspect and correct those through a reviewed process before retrying;
-do not automatically pick an owner. Back up the database and rehearse against an isolated
-copy first. New archive imports cannot write person IDs or combination receipts.
-
-New source writers and archive imports initialize missing directory identities in
-their owning transaction, without name/mailbox matching or changing original
-source evidence. The deployed image includes the read-only reconciliation command:
+The production image ships the read-only identity reconciliation CLI (`REPEATABLE
+READ`, `READ ONLY`, exit `0` clean / `2` findings, no mutations):
 
 ```bash
 docker compose exec -T app npm run --silent identity:reconcile > identity-reconciliation.json
 ```
 
-From a trusted checkout with the matching generated Prisma client, use
-`npm run --silent identity:reconcile > identity-reconciliation.json`.
-Both inspect a consistent, database-enforced read-only snapshot. The silent npm
-option keeps its script headers out of the JSON output. Exit `2` means findings
-need review; it does not repair them.
-Follow the [authority inventory and cutover comparison](../reference/identity-lifecycle.md#cutover-comparison-and-rollback-limits),
-retain reports securely, and review conflicts through existing ownership/grouping
-workflows before rollout. The command is an operator tool with no public endpoint.
-Image smoke verifies the packaged CLI and its production dependencies against
-clean and missing-identity fixtures without application authentication settings.
+See [identity lifecycle](../reference/identity-lifecycle.md#cutover-comparison-and-rollback-limits)
+for cutover comparison and rollback limits. Keep private output secure and roll
+back only via compatible corrective releases (never delete `Person` metadata,
+retirement guards, or audit receipts).
 
-Older application code does not maintain canonical grouping, recognize review-required
-groups or traverse new retirement chains. Roll back with a compatible corrective release,
-not by deleting Person metadata, receipts or credential guards. Preserve all source rows
-and reviewed evidence. Grouping alone does not resolve assignments, qualifications,
-consent, departure or suspension; those remain explicit operational decisions.
-
-## Historical tutor ownership migration
-
-Before deploying historical tutor linking, apply `20261007010000_tutor_history_ownership`
-and regenerate Prisma. It adds explicit retained ownership with restrictive foreign keys
-and guards against a different current login claiming the same tutor. It performs no
-automatic matching or historical data rewrite. These ownership decisions and their
-audit evidence require a full database backup; Program Records CSV exports are not an
-ownership backup. Keep the new table and guards during application rollback; an older
-application will not display retained tutor links. Review any ownership correction through
-the staff workflow, and never remove guards to force a conflicting account attachment.
-
-## Patrol credit migration
-
-Apply `20261002010000_patrol_credit_budget` before starting the updated application. It adds server award timestamps and unique UTC 20-minute evidence reservations. Existing positive-hour patrols retain their hours, notes, observations and update timestamps; their recorded creation time becomes the historical award time. All observed intervals are reserved. A patrol without observations reserves its creation interval. For overlapping legacy awards, the earliest submission owns the reservation, with ID as the tie-breaker. No duplicates are deleted and no historical totals are reduced. Zero-hour records receive no award time or reservation.
-
-Combined identities retain their original authors and reservations; the application checks their union. Corrections retain original reservations and add corrected intervals without creating another award. Program-record exports include the interval ledger. Importing an older archive backfills reservations and missing award times in the same transaction without changing its hour totals or update timestamps. Back up before migration and review legacy duplicate totals separately if needed. Do not run older application code after migrating: it would create unbudgeted awards without reservations. Test the migration and schema agreement on a disposable database before deployment.
+**Upgrade & rollback constraints:**
+- Only `scripts/create-admin.ts`, `scripts/reconcile-person-sources.ts`, and
+  `scripts/recovery.ts` are packaged in the Docker image. Checkout-only scripts
+  such as `scripts/backfill-school-departures.ts` (dry run by default; `--apply`
+  to commit) must be run from a trusted source checkout with `DATABASE_URL`:
+  ```bash
+  npx tsx scripts/backfill-school-departures.ts
+  ```
+- Do not downgrade application binaries across additive schema/enum contracts
+  (`TRANSFERRED` tutor status, `User.mergedIntoId` guards, `Person` grouping,
+  patrol interval reservations, or `TENTH_HOUR_CARRY_NONNEGATIVE` reports) —
+  always use a compatible corrective release.

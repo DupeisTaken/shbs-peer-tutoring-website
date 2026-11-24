@@ -2,8 +2,14 @@ import { portalAccess } from "~/lib/portal-access";
 import { assertHistoryAccessGeneration } from "~/server/history-access-generation";
 import { projectManagementRead } from "~/server/management-read-models";
 import { SignupRetry } from "~/server/signup-admission";
+import { EmailDeliveryError } from "~/server/email/sender";
 import { accountPolicyIds } from "~/server/policy-acceptance";
 import { ApprovalQueued, queueProposal, proposalAuthority } from "~/server/approvals";
+import {
+  lockAccountAppealDecisionReview,
+  parseAccountAppealDecisionReview,
+} from "~/server/account-appeals";
+import { inTransaction } from "~/server/transactions";
 import { databaseScope, isTranslationPublication } from "~/server/db-scope";
 import { runAuditedMutation, recordAuditAttempt, auditAttemptRecorded } from "~/server/audit/evidence";
 import {
@@ -76,6 +82,7 @@ export function formatTRPCErrorShape<
       zodError: zodError ? zodError.flatten() : null,
       validationSummary: summary,
       retryAfterSeconds: error.cause instanceof SignupRetry ? error.cause.retryAfterSeconds : null,
+      emailDeliveryFailed: error.cause instanceof EmailDeliveryError,
     },
   };
 }
@@ -315,14 +322,22 @@ export const protectedProcedure = t.procedure
             throw new TRPCError({ code: "FORBIDDEN", message: "Only Admin or Head may review qualification requests." });
           if (path !== "admin.assignInterviewers")
             throw new TRPCError({ code: "FORBIDDEN", message: "Use the qualification request decision controls. Request history cannot be deleted." });
-          if (app.status !== "PENDING")
+          // Open panels have an explicit, reasoned repair in the resolver. Final
+          // decisions and recalls remain immutable, including legacy entry points.
+          if (!["PENDING", "INTERVIEW"].includes(app.status))
             throw new TRPCError({ code: "CONFLICT", message: "This request already has a review or final decision; its panel history must be retained." });
         }
       }
     }
-    // Keep source-aware completion conflicts behind the existing staff boundary.
-    if (type === "mutation" && path === "interviewManagement.complete" &&
-        !["HEAD", "ADMIN", "COORDINATOR"].includes(account.role))
+    // Preserve management authorization before the source-aware version check:
+    // forbidden callers must not inspect private source ownership through conflicts.
+    if (
+      type === "mutation" &&
+      ["interviewManagement.complete", "admin.deleteAdjustment"].includes(
+        path,
+      ) &&
+      !["HEAD", "ADMIN", "COORDINATOR"].includes(account.role)
+    )
       throw new TRPCError({ code: "FORBIDDEN", message: "Admin access required." });
     // Text-only translator mutations validate and create destination-bound drafts in
     // their resolvers. Other coordinator website changes use the general approval queue.
@@ -335,13 +350,30 @@ export const protectedProcedure = t.procedure
     ].includes(path);
     if (type === "mutation" && !translationDraftWrite && Object.hasOwn(APPROVAL_OPERATIONS, path)) {
       const raw = await getRawInput();
+      const appealReview =
+        path === "admin.decideAppeal"
+          ? parseAccountAppealDecisionReview(raw)
+          : null;
       const authority = await proposalAuthority(ctx.db, path, raw);
       if (authority && !authority.directRoles.includes(account.role)) {
         // This check precedes queuing and resolver-specific gates, so a forbidden role
         // cannot turn an inaccessible management mutation into a request/replay loophole.
         if (!authority.requesterRoles.includes(account.role))
           throw new TRPCError({ code: "FORBIDDEN", message: "Your current role cannot submit this change." });
-        const request = await queueProposal({ ...ctx.session, role: account.role }, path, raw);
+        const request = appealReview
+          ? await inTransaction(ctx.db, (tx) =>
+              databaseScope.run(tx, async () => {
+                // Queue the original reviewed evidence while its source fences are
+                // held. Throw ApprovalQueued only after this transaction commits.
+                await lockAccountAppealDecisionReview(tx, appealReview);
+                return queueProposal(
+                  { ...session, role: account.role },
+                  path,
+                  raw,
+                );
+              }),
+            )
+          : await queueProposal({ ...ctx.session, role: account.role }, path, raw);
         throw new TRPCError({ code: "PRECONDITION_FAILED",
           message: authority.reviewerRoles.includes("HEAD") && !authority.reviewerRoles.includes("ADMIN")
             ? "Submitted for Head approval. No live changes have been applied."
@@ -389,6 +421,26 @@ export const protectedProcedure = t.procedure
           // correction cannot turn a Coordinator retry into a new hours write.
           const { lockApplicationReview } =
             await import("~/server/request-invalidity");
+          const { lockUsernameNamespace } =
+            await import("~/server/auth/username");
+          // Completion's live actor check follows the same namespace-before-
+          // application order as panel repair and lifecycle writers.
+          try {
+            await lockUsernameNamespace(auditedDb);
+          } catch (cause) {
+            const { isSerializationFailure } =
+              await import("~/server/auth/username-snapshot");
+            // The namespace fence rejects a pre-wait Serializable snapshot.
+            // Surface that refusal as a stale review; never retry its write.
+            if (isSerializationFailure(cause))
+              throw new TRPCError({
+                code: "CONFLICT",
+                message:
+                  "Interview service changed while this review waited. Reload the current evidence.",
+                cause,
+              });
+            throw cause;
+          }
           await lockApplicationReview(auditedDb, raw.applicationId);
         }
       }

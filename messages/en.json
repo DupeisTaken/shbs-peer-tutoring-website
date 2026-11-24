@@ -32,6 +32,7 @@
     "calendarCreate": "Create private link",
     "calendarRevoke": "Revoke private link",
     "calendarUnavailable": "A calendar subscription is unavailable without eligible current participation.",
+    "calendarCreateHelp": "Creates a private read-only link for your tutoring calendar. Keep it confidential; anyone with the link can view your schedule.",
     "calendarRotateHelp": "Creating a new link revokes all previous links. Existing calendar subscriptions using an old link stop updating.",
     "calendarRevokeHelp": "This turns off your private calendar link so calendar apps stop updating. Your tutoring sessions stay unchanged.",
     "publicationUnavailable": "{count} weekly arrangement(s) need review and could not be prepared as dated sessions.",
@@ -239,7 +240,8 @@
       "NEXT_RECRUITMENT_CLOSING_CONFLICT": "The opening must be earlier than the destination’s existing closing time."
     },
     "featureAfterRefreshEnabled": "After refresh: On",
-    "featureAfterRefreshDisabled": "After refresh: Off"
+    "featureAfterRefreshDisabled": "After refresh: Off",
+    "embeddedHelp": "Apply on refresh. Editing after scheduling requires renewed review."
   },
   "historicalInvitation": {
     "claimUncertain": "The claim result is unknown. Read the invitation again to check its result; do not repeat the claim.",
@@ -561,7 +563,13 @@
         "enable": "Enable 2FA",
         "disable": "Disable 2FA",
         "saving": "Saving…",
-        "saved": "Two-factor settings updated."
+        "saved": "Two-factor settings updated.",
+        "loading": "Loading two-factor settings…",
+        "loadFailed": "Two-factor settings could not be loaded.",
+        "refreshFailed": "Two-factor settings could not be refreshed. Your password draft is kept; try again before saving.",
+        "refreshing": "Refreshing two-factor settings…",
+        "accessDenied": "Two-factor settings are unavailable.",
+        "savedRefreshFailed": "Saved, but two-factor settings could not refresh. Try refreshing."
       }
     },
     "forgotPassword": "Forgot password?",
@@ -594,7 +602,8 @@
         "confirmPassword": "Confirm New Password"
       },
       "submit": "Set New Password",
-      "saving": "Saving…"
+      "saving": "Saving…",
+      "passwordLength": "Use {min}–{max} characters."
     },
     "onboarding": {
       "proofRequired": "Open the link sent to your email to confirm your address and set a password. Contact the program team if you cannot access this email.",
@@ -1126,7 +1135,7 @@
       "programTotals": "Selected-period program totals",
       "programTotalsHelp": "All tutors, including inactive tutors; roster filters do not change these totals.",
       "filteredSubtotal": "Filtered subtotal · {count} tutors",
-      "hiddenInactive": "{count} inactive tutors with records are hidden by the status filter.",
+      "hiddenInactive": "{count, plural, one {# inactive tutor with records is hidden by the status filter.} other {# inactive tutors with records are hidden by the status filter.}}",
       "viewInactive": "View inactive contributors",
       "viewLabel": "Roster view",
       "viewSummary": "Summary",
@@ -1189,7 +1198,7 @@
       "noPeriod": "No active program period. Seed or create one first.",
       "currentPeriod": "Current Period",
       "semester": "Semester {semester}",
-      "refreshHeading": "Refresh to the Next Quarter",
+      "refreshHeading": "Program Refresh",
       "advancesTo": "This advances the program to {name} and:",
       "effectPending": "Clears the pending tutee signup queue (archived to inactive).",
       "effectTutees": "Archives all pending and active tutees, including those without a pairing. They must sign up again to continue.",
@@ -1346,7 +1355,22 @@
         "deny": "Deny",
         "review": "Review appeal",
         "message": "Original appeal",
-        "refreshFailed": "The appeal decision was saved, but the account or appeal list could not be refreshed. Retry refresh; do not submit the decision again."
+        "refreshFailed": "The appeal decision was saved, but the account or appeal list could not be refreshed. Retry refresh; do not submit the decision again.",
+        "restrictionHeading": "Current Account Restriction",
+        "restricted": "Suspended",
+        "active": "Already active",
+        "restrictedAt": "Suspended {date}",
+        "submittedAt": "Appeal submitted {date}",
+        "noReason": "No suspension reason recorded.",
+        "coResolveHelp": "Approve restores access and closes all pending appeals for this account with one notice.",
+        "activeHelp": "This account is already active. Approve closes all pending appeals without changing access. Deny is unavailable.",
+        "reloadReview": "Reload restriction review",
+        "reviewChanged": "This appeal or account restriction changed. Reload the review before deciding.",
+        "reviewUnavailable": "Current review details could not be loaded. Try again before deciding.",
+        "approveClose": "Approve and close appeals",
+        "accessRestored": "Account access restored and all pending appeals approved.",
+        "closedActive": "Pending appeals closed. Account access was already active and did not change.",
+        "deniedReceipt": "Appeal denied. The account remains suspended."
       }
     },
     "registrationCodes": {
@@ -1417,7 +1441,7 @@
     },
     "tutorRequests": {
       "title": "Tutor Status Requests",
-      "help": "Tutor-initiated membership changes. Opt-out requests can only be approved after a one-week cooldown; reentry is immediate.",
+      "help": "Tutor-initiated membership changes. Opt-out requests can only be approved after a one-week cooldown; staff can review reentry requests immediately, and reentry takes effect after approval.",
       "kind": {
         "OPT_OUT": "Opt-Out",
         "REENTRY": "Reentry"
@@ -1745,7 +1769,18 @@
         "consequence": "This permanently removes the adjustment and changes the tutor’s service-hour total. Review the tutor, month and amount before continuing.",
         "confirm": "Delete adjustment"
       },
-      "create": "New hour adjustment"
+      "create": "New hour adjustment",
+      "source": {
+        "label": "Source",
+        "other": "Other hour adjustment",
+        "interview": "Interview source",
+        "orphaned": "Interview record unavailable",
+        "unresolved": "Unresolved interview source",
+        "conflicting": "Conflicting interview source",
+        "correct": "Correct interview hours",
+        "help": "These hours come from recorded interview service. Review the interview to correct its completion, duration or attendance.",
+        "unavailable": "An interview completion correction is unavailable for this row."
+      }
     },
     "applications": {
       "title": "Tutor Applications",
@@ -1839,7 +1874,21 @@
         "unavailable": "{name} (unavailable — replace this selection)",
         "chairSlot": "Choose panelist {n} as chair"
       },
-      "setupTargetUnavailable": "The linked tutor record is unavailable. Refresh this application before setting up the account."
+      "setupTargetUnavailable": "The linked tutor record is unavailable. Refresh this application before setting up the account.",
+      "panelDraft": {
+        "changed": "The panel changed while this draft was open. Reload to review the current panel.",
+        "reloadHelp": "Reload replaces this draft with the current saved panel.",
+        "reload": "Reload panel",
+        "loading": "Loading panel…",
+        "retry": "Retry loading panel",
+        "reloadError": "The current panel could not be loaded. Your draft is unchanged.",
+        "refreshError": "The panel change was submitted, but the current panel could not be loaded. Retry loading before making another change."
+      },
+      "panelRepair": {
+        "reason": "Reason for panel repair",
+        "save": "Repair panel",
+        "consequence": "Replacing this open panel clears its votes. Recorded completion and earned hours stay as history; new panelists receive no automatic credit. Every replacement panelist must vote again."
+      }
     },
     "cards": {
       "title": "Tutee Discipline",
@@ -2541,7 +2590,10 @@
       "panel": "Panel: {members}",
       "headSuffix": "(Chair)",
       "scheduled": "Scheduled: {time}",
-      "awaitingSchedule": "Awaiting the chair to schedule a time."
+      "awaitingSchedule": "Awaiting the chair to schedule a time.",
+      "chairHelp": "Interviews you chair. Schedule times, review panel votes, and record final decisions here. Cast your own vote from the interview event in Schedule.",
+      "voteInSchedule": "Vote in Schedule",
+      "updateVoteInSchedule": "Update vote in Schedule"
     },
     "announcements": {
       "label": "Announcements",
@@ -2566,7 +2618,7 @@
       "currentPassword": "Current Password",
       "newPassword": "New Password",
       "confirmPassword": "Confirm New Password",
-      "pwHelp": "At least 8 characters.",
+      "pwHelp": "Use 8–1024 characters.",
       "changePasswordBtn": "Change Password",
       "changing": "Changing…",
       "passwordChanged": "Password changed.",
@@ -2586,7 +2638,8 @@
       "reentryBtn": "Request Reentry",
       "recall": "Recall Request",
       "statusNote": "Your tutor status is {status}. This is read-only access — contact an admin for changes.",
-      "profileSyncFailed": "Saved, but we could not reload your profile. Try refreshing."
+      "profileSyncFailed": "Saved, but we could not reload your profile. Try refreshing.",
+      "pwTooLong": "Use no more than {max} characters."
     },
     "dashboard": {
       "pending": {
@@ -2646,7 +2699,8 @@
       "schedule": "Schedule",
       "pairings": "Pairings",
       "preferences": "Preferences",
-      "history": "History & hours"
+      "history": "History & hours",
+      "chair": "Interview chair"
     }
   },
   "public": {
@@ -2959,7 +3013,8 @@
       "codeSent": "We emailed a code to {email}. Enter it below to finish.",
       "codeLabel": "Email verification code",
       "resend": "Resend Code",
-      "cancel": "Cancel"
+      "cancel": "Cancel",
+      "deliveryFailed": "Email delivery failed. Please try again later."
     }
   },
   "crew": {
@@ -3056,7 +3111,10 @@
     "send": "Send Verification Code",
     "code": "Email verification code",
     "confirm": "Verify and Change Email",
-    "success": "Your email has been changed."
+    "success": "Your email has been changed.",
+    "sentTo": "Enter the verification code sent to {email}.",
+    "changeAddress": "Use another email",
+    "savedRefreshFailed": "Email changed, but account details could not refresh. Try refreshing."
   },
   "profileCorrection": {
     "edit": "Edit Details",
@@ -4083,6 +4141,7 @@
       },
       "entities": {
         "ImportedRecordProvenance": "Imported historical record provenance",
+        "ArchiveProvenanceReceipt": "Archive provenance reconciliation receipt",
         "SchedulingMaintenanceState": "Scheduling maintenance state",
         "SchedulingDirtyEvent": "Scheduling invalidation event",
         "PersonPartitionReceipt": "Identity separation receipt",
@@ -7157,7 +7216,21 @@
     "reloadEvidence": "Reload current evidence (replace draft)",
     "historyFollowups": "{count, plural, one {# finalized interview still needs} other {# finalized interviews still need}} management to record completion and hours.",
     "accessDenied": "Interview access is no longer available. Reload to check your current permissions.",
-    "chairNeedsUpdate": "This panel needs an Admin or Head chair. Ask management to update the panel."
+    "chairNeedsUpdate": "This panel needs an Admin or Head chair. Ask management to update the panel.",
+    "noChairInterviews": "No interviews assigned to you as chair.",
+    "refresh": "Refresh",
+    "refreshing": "Refreshing…",
+    "correctionEvidence": {
+      "readUnavailable": "Current interview evidence must load successfully before you review or submit. Your draft is retained.",
+      "missingEvidence": "Load the recorded interview participants and current source credits before reviewing this change.",
+      "historyHelp": "Attendance and credits belong to the recorded interview. Replacing the decision panel does not make its new members interview attendees.",
+      "decisionPanel": "Current decision panel: {names}",
+      "participants": "Attendance from the recorded interview panel",
+      "formerPanelist": "Former panelist",
+      "loading": "Loading completion evidence…",
+      "totalChange": "Total credit: {before} → {after} hours (change {delta})",
+      "retryArrival": "Retry interview record"
+    }
   },
   "applicationAccountSetup": {
     "title": "Account Setup · {name}",
@@ -7199,7 +7272,8 @@
     "reload": "Reload interview (replace draft)",
     "unavailable": "This interview is no longer available for your approval.",
     "waitingVotes": "Every panelist must vote before approval.",
-    "changed": "Interview evidence changed. Reload to review current information."
+    "changed": "Interview evidence changed. Reload to review current information.",
+    "retainedService": "This approval reuses the recorded interview completion, attendance and service-hour credits, including authorized corrections. The current panel may differ from the recorded attendees. This approval adds or removes no service hours."
   },
   "personPartition": {
     "refreshFailed": "The separation was saved, but the directory has not refreshed. Retry the read only.",
@@ -7868,7 +7942,7 @@
     "denied": "Access to this planning source is no longer available.",
     "retry": "Retry",
     "interviewAttention": "These interviews still need attention, even when they have no upcoming date.",
-    "interviewHelp": "Assigned interview dates appear in your agenda. Your chair workspace remains on the dashboard.",
+    "interviewHelp": "Assigned interview dates appear in your agenda. Open any interview to cast your vote; chair duties live in the Interview chair tab.",
     "meetingHelp": "Upcoming dates appear in your agenda. Open meetings for absence excuses and personal history.",
     "calendarScope": "Calendar subscriptions currently include tutoring sessions only. Interviews and meetings appear here in the portal.",
     "task": {
@@ -8002,7 +8076,49 @@
       "SCHEDULED_REFRESH_REVIEW_CHANGED": "The reviewed refresh conditions changed. Reload and review a new schedule.",
       "SCHEDULED_REFRESH_EXECUTION_FAILED": "The refresh could not complete after repeated attempts. Check the deployment, then review a new schedule or cancel this one.",
       "SCHEDULED_REFRESH_AFTER_OPENING": "Choose a refresh time no later than the prepared tutee signup opening time, or update that preparation first."
-    }
+    },
+    "subtitle": "{current} → {next} · {mode} · {zone}",
+    "notScheduledBadge": "Not scheduled",
+    "dueBadge": "Due now",
+    "retryingBadge": "Retrying ({attempts}/5)",
+    "statusReady": "Scheduled — will run automatically",
+    "statusDue": "Scheduled time reached — running soon",
+    "statusRetrying": "Retrying automatic refresh (attempt {attempts} of 5)",
+    "statusPaused": "Will not run automatically",
+    "statusReadyHelp": "Runs automatically when due (checked every 30s, with catch-up) while period, openings, staged features, timezone, and Head approval stay unchanged.",
+    "statusDueHelp": "Scheduled time reached. Server checks every 30s and runs once reviewed conditions are verified.",
+    "statusRetryingHelp": "Temporary error; retrying automatically up to 5 attempts while conditions stay valid.",
+    "completedAt": "Completed at {time} ({zone}).",
+    "noneHelp": "Schedule a refresh below to advance automatically when all conditions are met, or choose Refresh now.",
+    "conditionsHeading": "Refresh Conditions & Review",
+    "conditionsHelp": "A scheduled refresh runs automatically only while every reviewed condition stays unchanged.",
+    "conditionSync": "Settings and review sync",
+    "conditionSyncReady": "Up to date",
+    "conditionSyncChanged": "Reload required",
+    "conditionSyncError": "Unavailable",
+    "conditionOpenings": "Next-period opening bindings",
+    "conditionOpeningsReady": "Ready",
+    "conditionOpeningsStale": "Needs attention",
+    "conditionFeatures": "Staged optional features",
+    "conditionFeaturesPending": "{count} pending",
+    "conditionFeaturesNone": "No pending changes",
+    "conditionAuth": "Authorization",
+    "conditionAuthApproved": "Authorized by Head",
+    "conditionAuthPending": "Pending Head approval",
+    "conditionAuthDirect": "Head applies directly",
+    "conditionAuthRequest": "Requires Head approval",
+    "conditionAuthReadOnly": "Admin & Head only",
+    "conditionAuthChanged": "Renewed review required",
+    "effectsDisclosure": "Effects & full refresh details",
+    "entranceHeading": "Authorize Refresh",
+    "timingModeLabel": "When should this refresh run?",
+    "modeScheduled": "Schedule for later",
+    "modeImmediate": "Refresh now",
+    "openingBound": "Must be on or before the prepared tutee signup opening ({time}, {zone}).",
+    "immediateHelp": "Advances immediately to {target} after confirmation instead of waiting for a scheduled time.",
+    "immediateSupersedes": "Running a refresh now will advance the period immediately and supersede the currently scheduled refresh.",
+    "immediateReviewTitle": "Review Immediate Refresh",
+    "reschedule": "Review & reschedule"
   },
   "signupTransition": {
     "currentClosed": "{period} tutee signup is closed. The next intake is shown below.",

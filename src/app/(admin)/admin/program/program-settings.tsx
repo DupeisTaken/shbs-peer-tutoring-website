@@ -285,17 +285,14 @@ function ProgramPeriodSettings({
       </ProgramWriteAdmissionProvider>
       <ProgramPublicQrLinks />
       {canReadSettings && (
-        <>
-          <NextRecruitmentSettings />
-          <ProgramWriteAdmissionProvider allowed={!readFailed}>
-            <ProgramRefresh
-              period={period}
-              canEdit={canEditPeriod}
-              canApply={canApplyPeriod}
-              onActivated={setActivatedPeriod}
-            />
-          </ProgramWriteAdmissionProvider>
-        </>
+        <ProgramRefresh
+          period={period}
+          canEdit={canEditPeriod}
+          canApply={canApplyPeriod}
+          periodReadFailed={readFailed}
+          onActivated={setActivatedPeriod}
+          nextOpenings={<NextRecruitmentSettings embedded />}
+        />
       )}
     </>
   );

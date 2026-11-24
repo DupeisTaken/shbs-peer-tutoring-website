@@ -3,7 +3,7 @@ import Image from "next/image";
 /**
  * Official peer-tutoring brand emblem served from the single repository-owned
  * `src/app/icon.png` asset (shared with the browser tab icon and email footer).
- * Kept decorative (`aria-hidden` + empty `alt`) so adjacent header links
+ * Kept decorative (`aria-hidden` + empty `alt`) so adjacent header title links
  * announce the brand name once.
  */
 export function BrandMark({ className = "h-8 w-8" }: { className?: string }) {
