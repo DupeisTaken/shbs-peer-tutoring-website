@@ -11,7 +11,7 @@ describe("BrandMark", () => {
     const wrapper = container.querySelector<HTMLElement>("[data-brand-mark]");
     expect(wrapper).toBeTruthy();
     expect(wrapper?.getAttribute("aria-hidden")).toBe("true");
-    expect(wrapper?.className).toContain("h-7 w-7");
+    expect(wrapper?.className).toContain("h-8 w-8");
 
     const image = wrapper?.querySelector<HTMLImageElement>("img");
     expect(image).toBeTruthy();

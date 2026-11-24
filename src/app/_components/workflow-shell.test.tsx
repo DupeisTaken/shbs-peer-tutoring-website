@@ -17,6 +17,9 @@ const state = vi.hoisted(() => ({
 vi.mock("~/server/auth", () => ({
   auth: async () => (state.signedIn ? { user: { id: "account" } } : null),
 }));
+vi.mock("~/server/program/features", () => ({
+  getFeatures: async () => ({ CREW: true }),
+}));
 vi.mock("~/server/db", () => ({
   db: {
     user: {
@@ -45,6 +48,7 @@ vi.mock("next/navigation", () => ({
     throw new Error(path);
   },
 }));
+vi.mock("./help-link", () => ({ HelpLink: () => null }));
 vi.mock("./notification-bell", () => ({ NotificationBell: () => null }));
 vi.mock("./language-switcher", () => ({ LanguageSwitcher: () => null }));
 vi.mock("./sign-out-button", () => ({ SignOutButton: () => null }));
@@ -71,11 +75,13 @@ it.each(["VIEWER", "HEAD", "ADMIN", "COORDINATOR", "TUTOR", "STUDENT", "CREW"])(
     render(
       await WorkflowShell({ title: "Messages", children: <div>Inbox</div> }),
     );
-    const tuteeLink = screen.queryByRole("link", { name: "enterTutee" });
+    const tuteeLink = screen.queryByRole("link", {
+      name: "components.workspaceTitles.tutee",
+    });
     if (role === "VIEWER") expect(tuteeLink).toBeNull();
     else expect(tuteeLink?.getAttribute("href")).toBe("/student");
     expect(
-      screen.getByRole("link", { name: "settings" }).getAttribute("href"),
+      screen.getByRole("link", { name: "workflows.settings" }).getAttribute("href"),
     ).toBe("/my-account");
   },
 );
@@ -96,7 +102,9 @@ it.each([
     const view = render(
       await WorkflowShell({ title: "Messages", children: <div>Inbox</div> }),
     );
-    expect(!!screen.queryByRole("link", { name: "enterTutor" })).toBe(expected);
+    expect(
+      !!screen.queryByRole("link", { name: "components.workspaceTitles.tutor" }),
+    ).toBe(expected);
     expect(
       screen.getAllByRole("button", { name: "Account menu" }),
     ).toHaveLength(1);
@@ -106,7 +114,7 @@ it.each([
   },
 );
 
-it("provides the existing read-only management return for a departed observer", async () => {
+it("provides the read-only Program Overview entry for a departed observer", async () => {
   state.role = "STUDENT";
   state.departure = {
     reason: "Graduated",
@@ -116,11 +124,15 @@ it("provides the existing read-only management return for a departed observer", 
   render(
     await WorkflowShell({ title: "Account", children: <div>Own account</div> }),
   );
-  expect(screen.getByRole("link", { name: "enter" }).getAttribute("href")).toBe(
-    "/admin",
-  );
   expect(
-    screen.getByRole("link", { name: "enterTutee" }).getAttribute("href"),
+    screen
+      .getByRole("link", { name: "components.workspaceTitles.viewer" })
+      .getAttribute("href"),
+  ).toBe("/admin");
+  expect(
+    screen
+      .getByRole("link", { name: "components.workspaceTitles.tutee" })
+      .getAttribute("href"),
   ).toBe("/student");
 });
 

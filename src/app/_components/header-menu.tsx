@@ -75,7 +75,7 @@ export function HeaderMenu({
 }: {
   label: string;
   items: HeaderMenuItem[];
-  tone?: "primary" | "secondary";
+  tone?: "primary" | "secondary" | "ghost";
   align?: "left" | "right";
   className?: string;
   showDisclosure?: boolean;
@@ -136,9 +136,15 @@ export function HeaderMenu({
         aria-expanded={open}
         aria-haspopup="dialog"
         onClick={toggle}
-        className={`btn-sm flex max-w-full cursor-pointer items-center gap-2 whitespace-normal ${
-          compact ? "min-h-11 lg:min-h-8 lg:py-0" : "min-h-11"
-        } ${tone === "primary" ? "btn-primary" : "btn-secondary"}`}
+        className={`flex max-w-full cursor-pointer items-center gap-1.5 whitespace-normal ${
+          tone === "ghost"
+            ? `focus-visible:ring-accent-500 rounded-md px-2.5 text-[13px] font-medium text-slate-600 transition hover:bg-slate-100 hover:text-slate-950 focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-hidden ${
+                compact ? "min-h-11 lg:min-h-8" : "min-h-11"
+              }`
+            : `btn-sm gap-2 ${
+                compact ? "min-h-11 lg:min-h-8 lg:py-0" : "min-h-11"
+              } ${tone === "primary" ? "btn-primary" : "btn-secondary"}`
+        }`}
       >
         <span className="min-w-0 break-words">{label}</span>
         {showDisclosure ? <DisclosureIcon open={open} /> : null}

@@ -1,6 +1,6 @@
 {
   "helpNav": {
-    "title": "Ayuda y guías",
+    "title": "Centro de ayuda",
     "downloads": "Manuales PDF"
   },
   "recoveryWorkflow": {
@@ -689,7 +689,8 @@
       "teamSignin": "Iniciar sesión",
       "becomeCrew": "Unirse a la ronda",
       "viewerSignup": "Seguir el Programa",
-      "landmark": "Navegación del sitio"
+      "landmark": "Navegación del sitio",
+      "signInAndJoin": "Acceder y unirse"
     },
     "tagline": "Programa de Tutoría entre Pares",
     "heroTitle": "Aprendamos juntos. Crezcamos juntos.",
@@ -2928,7 +2929,12 @@
       "enterTutor": "Entrar a la página de tutor",
       "enterAdmin": "Entrar al área de administración",
       "enterTutee": "Entrar a la página de estudiante",
-      "backToManagement": "Volver a gestión"
+      "backToManagement": "Volver a gestión",
+      "groups": {
+        "workspaces": "Espacios de trabajo",
+        "tools": "Herramientas",
+        "account": "Cuenta"
+      }
     },
     "theme": {
       "label": "Tema",
@@ -2940,6 +2946,20 @@
         "amber": "Ámbar",
         "sky": "Cielo"
       }
+    },
+    "workspaceTitles": {
+      "management": "Gestión",
+      "viewer": "Resumen del programa",
+      "tutor": "Tutor",
+      "tutee": "Estudiante",
+      "patrol": "Equipo de ronda",
+      "translations": "Traducciones",
+      "programHome": "Inicio del programa"
+    },
+    "workspaceSwitcher": {
+      "label": "Cambiar página",
+      "workspaces": "Espacios",
+      "general": "General"
     }
   },
   "localization": {

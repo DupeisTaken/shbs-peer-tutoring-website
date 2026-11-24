@@ -5,24 +5,24 @@ export const participantArticles: HelpArticle[] = [
   {
     slug: "use-help-catalogue",
     audience: "public",
-    title: t("Use Help & How-to", "使用帮助与操作指南"),
+    title: t("Use the Help Center", "使用帮助中心"),
     summary: t(
-      "Find a task, follow its real screens and check what should happen next.",
-      "查找任务、跟随真实界面，并检查接下来应出现的结果。",
+      "Find a task, follow its real screens, download offline PDF handbooks and check what happens next.",
+      "查找任务、跟随真实界面、下载离线PDF手册并检查接下来应出现的结果。",
     ),
     route: "/help",
     prerequisites: [
       t(
-        "Public getting-started guides are available without signing in; sign in to see collections for your current access.",
-        "无需登录即可阅读公开入门指南；登录后可查看当前权限对应的指南集。",
+        "Public getting-started guides and their PDF handbook are available from the top-bar Help Center button without signing in; sign in to see collections for your current access.",
+        "无需登录即可通过顶部“帮助中心”按钮阅读公开入门指南并下载对应PDF手册；登录后可查看当前权限对应的指南集。",
       ),
     ],
     steps: [
       {
         title: t("Search or filter the catalogue", "搜索或筛选目录"),
         body: t(
-          "Open Help & How-to. Search a task or symptom such as password, attendance or approval; search includes instructions and troubleshooting. Use Guide audience and Browse by task to narrow results, and Clear filters to reset search and both filters.",
-          "打开帮助与操作指南。搜索任务或症状，例如密码、出勤或审核；搜索范围包括步骤及故障排查。使用指南适用对象及按任务浏览缩小结果，再用清除筛选重置搜索和两类筛选。",
+          "Open Help Center from the top bar on any page or from the landing-page footer. Search a task or symptom such as password, attendance or approval; search includes instructions and troubleshooting. Use Guide audience and Browse by task to narrow results, and Clear filters to reset search and both filters.",
+          "在任意页面顶部栏或首页页脚打开“帮助中心”。搜索任务或症状，例如密码、出勤或审核；搜索范围包括步骤及故障排查。使用指南适用对象及按任务浏览缩小结果，再用清除筛选重置搜索和两类筛选。",
         ),
         screenshot: "help-catalogue",
       },
@@ -43,12 +43,12 @@ export const participantArticles: HelpArticle[] = [
       },
       {
         title: t(
-          "Find your role collection or an offline handbook",
-          "查找本人职责指南集或离线手册",
+          "Download an offline PDF handbook",
+          "下载离线 PDF 手册",
         ),
         body: t(
-          "Sign in to reveal current account, participation and assigned-role guides. Staff can use administration → PDF handbooks to download the editions available to their account. Old FAQ links continue to this catalogue. Use the catalogue's GitHub link for its maintained repository copy.",
-          "登录后显示当前账号、参与资格及分工对应指南。工作人员可从管理区→PDF操作手册下载本人可用版本。旧常见问题链接会继续进入本目录。可通过目录的GitHub链接查看仓库中维护的副本。",
+          "Sign in to reveal current account, participation and assigned-role guides. Select PDF handbooks in Help Center to download English or Chinese handbooks for every collection available to you, stamped with the download date and time. Staff can also open Administration → PDF handbooks to distribute training editions. Old FAQ links continue to this catalogue.",
+          "登录后显示当前账号、参与资格及分工对应指南。在帮助中心选择PDF操作手册，可下载本人可用指南集的中英文PDF，并附带下载日期与时间。工作人员也可在系统管理→PDF操作手册分发培训版本。旧常见问题链接会继续进入本目录。",
         ),
       },
     ],
@@ -744,15 +744,15 @@ export const participantArticles: HelpArticle[] = [
     ],
     steps: [
       {
-        title: t("Open the account menu", "打开账号菜单"),
+        title: t("Open the grouped account menu", "打开分组账号菜单"),
         body: t(
-          "Choose the workspace offered for your access: Enter Tutor Page, Enter Tutee Page, Patrol, Translations or management. Back to Management returns eligible staff and observers. A shortcut does not grant a missing membership.",
-          "按自身权限选择“进入辅导伙伴页面”、“进入学习伙伴页面”、巡查、翻译或管理区。符合条件的工作人员和观察员可用“返回管理区”。快捷入口不会授予缺失的参与资格。",
+          "Use the header shortcuts or open your avatar menu to see links grouped under Workspaces, Tools and Account: Enter Tutor Page, Enter Tutee Page, Patrol, Translations or Back to Management. Use the top-bar Help Center button on any page for task guides. A shortcut does not grant a missing membership.",
+          "使用顶部快捷入口或打开头像菜单查看按“工作区”“常用功能”“账号”分组的入口：进入辅导伙伴主页、进入学习伙伴主页、巡查、翻译或返回管理主页。任意页面顶部栏均可打开“帮助中心”。快捷入口不会授予缺失的参与资格。",
         ),
         screenshot: "account",
         focus: t(
-          "Account menu and available workspace links",
-          "账号菜单与可用工作区链接",
+          "Grouped account menu and top-bar Help Center button",
+          "分组账号菜单与顶部帮助中心按钮",
         ),
       },
       {

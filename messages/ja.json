@@ -1,6 +1,6 @@
 {
   "helpNav": {
-    "title": "ヘルプと操作ガイド",
+    "title": "ヘルプセンター",
     "downloads": "PDF マニュアル"
   },
   "recoveryWorkflow": {
@@ -689,7 +689,8 @@
       "teamSignin": "サインイン",
       "becomeCrew": "巡回班に参加",
       "viewerSignup": "プログラムをフォロー",
-      "landmark": "サイトナビゲーション"
+      "landmark": "サイトナビゲーション",
+      "signInAndJoin": "ログイン・参加"
     },
     "tagline": "ピアチュータリングプログラム",
     "heroTitle": "一緒に学ぼう。一緒に成長しよう。",
@@ -2928,7 +2929,12 @@
       "enterTutor": "チューターページへ",
       "enterAdmin": "管理者エリアへ",
       "enterTutee": "学習者ページへ",
-      "backToManagement": "管理ページに戻る"
+      "backToManagement": "管理ページに戻る",
+      "groups": {
+        "workspaces": "ワークスペース",
+        "tools": "ツール",
+        "account": "アカウント"
+      }
     },
     "theme": {
       "label": "テーマ",
@@ -2940,6 +2946,20 @@
         "amber": "アンバー",
         "sky": "スカイ"
       }
+    },
+    "workspaceTitles": {
+      "management": "管理",
+      "viewer": "プログラム概要",
+      "tutor": "チューター",
+      "tutee": "受講者",
+      "patrol": "巡回チーム",
+      "translations": "翻訳",
+      "programHome": "プログラムホーム"
+    },
+    "workspaceSwitcher": {
+      "label": "ページを切り替え",
+      "workspaces": "ワークスペース",
+      "general": "一般"
     }
   },
   "localization": {

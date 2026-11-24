@@ -26,6 +26,7 @@ it("does not read private membership state for a visitor", async () => {
   mock.auth.mockResolvedValue(null);
   expect(await getHelpAccess()).toEqual({
     audiences: ["public"],
+    downloadableAudiences: ["public"],
     canDownload: false,
   });
   expect(mock.findUnique).not.toHaveBeenCalled();
@@ -42,10 +43,12 @@ it("uses the current account instead of an older elevated session role and rerea
     .mockResolvedValueOnce({ role: "HEAD", suspendedAt: new Date() });
   expect(await getHelpAccess()).toEqual({
     audiences: ["public", "account", "student"],
+    downloadableAudiences: ["public", "account", "student"],
     canDownload: false,
   });
   expect(await getHelpAccess()).toEqual({
     audiences: ["public", "account"],
+    downloadableAudiences: ["public", "account"],
     canDownload: false,
   });
   expect(mock.findUnique).toHaveBeenCalledTimes(2);
@@ -62,6 +65,7 @@ it("removes crew guidance after module disablement and treats deleted accounts a
   expect((await getHelpAccess()).audiences).not.toContain("crew");
   expect(await getHelpAccess()).toEqual({
     audiences: ["public"],
+    downloadableAudiences: ["public"],
     canDownload: false,
   });
 });

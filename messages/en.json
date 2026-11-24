@@ -1,6 +1,6 @@
 {
   "helpNav": {
-    "title": "Help & How-to",
+    "title": "Help Center",
     "downloads": "PDF handbooks"
   },
   "recoveryWorkflow": {
@@ -689,7 +689,8 @@
       "teamSignin": "Sign In",
       "becomeCrew": "Join the Crew",
       "viewerSignup": "Follow the Program",
-      "landmark": "Site Navigation"
+      "landmark": "Site Navigation",
+      "signInAndJoin": "Sign In & Join"
     },
     "tagline": "Peer Tutoring Program",
     "heroTitle": "Learn together. Grow together.",
@@ -2928,7 +2929,12 @@
       "enterTutor": "Enter Tutor Page",
       "enterAdmin": "Enter Admin Area",
       "enterTutee": "Enter Tutee Page",
-      "backToManagement": "Back to Management"
+      "backToManagement": "Back to Management",
+      "groups": {
+        "workspaces": "Workspaces",
+        "tools": "Tools",
+        "account": "Account"
+      }
     },
     "theme": {
       "label": "Theme",
@@ -2940,6 +2946,20 @@
         "amber": "Amber",
         "sky": "Sky"
       }
+    },
+    "workspaceTitles": {
+      "management": "Management",
+      "viewer": "Program Overview",
+      "tutor": "Tutor",
+      "tutee": "Tutee",
+      "patrol": "Crew",
+      "translations": "Translations",
+      "programHome": "Program Home"
+    },
+    "workspaceSwitcher": {
+      "label": "Switch page",
+      "workspaces": "Workspaces",
+      "general": "General"
     }
   },
   "localization": {

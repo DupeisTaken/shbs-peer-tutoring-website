@@ -1,6 +1,6 @@
 {
   "helpNav": {
-    "title": "도움말 및 사용 안내",
+    "title": "도움말 센터",
     "downloads": "PDF 설명서"
   },
   "recoveryWorkflow": {
@@ -689,7 +689,8 @@
       "teamSignin": "로그인",
       "becomeCrew": "순찰조 지원",
       "viewerSignup": "프로그램 팔로우",
-      "landmark": "사이트 탐색"
+      "landmark": "사이트 탐색",
+      "signInAndJoin": "로그인 및 참여"
     },
     "tagline": "또래 튜터링 프로그램",
     "heroTitle": "함께 배우고, 함께 성장하세요.",
@@ -2928,7 +2929,12 @@
       "enterTutor": "튜터 페이지로 이동",
       "enterAdmin": "관리자 영역으로 이동",
       "enterTutee": "학습자 페이지로 이동",
-      "backToManagement": "관리 페이지로 돌아가기"
+      "backToManagement": "관리 페이지로 돌아가기",
+      "groups": {
+        "workspaces": "작업 공간",
+        "tools": "도구",
+        "account": "계정"
+      }
     },
     "theme": {
       "label": "테마",
@@ -2940,6 +2946,20 @@
         "amber": "앰버",
         "sky": "스카이"
       }
+    },
+    "workspaceTitles": {
+      "management": "관리",
+      "viewer": "프로그램 개요",
+      "tutor": "튜터",
+      "tutee": "튜티",
+      "patrol": "순찰팀",
+      "translations": "번역",
+      "programHome": "프로그램 홈"
+    },
+    "workspaceSwitcher": {
+      "label": "페이지 전환",
+      "workspaces": "작업 공간",
+      "general": "일반"
     }
   },
   "localization": {

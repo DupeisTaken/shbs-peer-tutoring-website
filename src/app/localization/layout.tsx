@@ -1,13 +1,19 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getTranslations } from "next-intl/server";
 
 import { auth } from "~/server/auth";
 import { db } from "~/server/db";
+import { getFeatures } from "~/server/program/features";
 import { WorkspaceHeader } from "~/app/_components/workspace-header";
-import { SignOutButton } from "~/app/_components/sign-out-button";
+import { UserAvatar } from "~/app/_components/user-avatar";
 import { NavSidebar, NavMobileRow } from "~/app/_components/admin-nav";
-import { TEAM_TITLE } from "~/lib/branding";
 import { translationAccess } from "~/lib/translation-access";
+import {
+  resolveWorkspaceNavigation,
+  workspaceNavLabels,
+  workspaceSwitcherLabels,
+} from "~/lib/workspace-navigation";
 
 /**
  * The integrated editor admits assigned translators and management reviewers separately.
@@ -24,12 +30,18 @@ export default async function LocalizationLayout({
   const me = await db.user.findUnique({
     where: { id: session.user.id },
     select: {
+      name: true,
+      email: true,
+      username: true,
       canTranslate: true,
       role: true,
+      crewStatus: true,
       tutorId: true,
       tutorAccessRevoked: true,
       suspendedAt: true,
-      tutor: { select: { username: true } },
+      mergedIntoId: true,
+      schoolDeparture: true,
+      tutor: { select: { username: true, status: true } },
     },
   });
   if (!me) redirect("/signin");
@@ -38,16 +50,37 @@ export default async function LocalizationLayout({
   if (!access.enter) redirect("/");
   const elevated = access.publish || access.request;
 
-  const t = await getTranslations();
-  // Where "home"/back goes: admin-area roles to /admin, a linked tutor to their dashboard.
-  const adminArea = ["HEAD", "ADMIN", "COORDINATOR", "VIEWER"].includes(
-    me.role,
-  );
-  const home = adminArea
-    ? "/admin"
-    : me.tutorId && !me.tutorAccessRevoked
-      ? "/dashboard"
-      : "/";
+  const [t, features] = await Promise.all([getTranslations(), getFeatures(db)]);
+  const nav = resolveWorkspaceNavigation({
+    account: me,
+    crewEnabled: features.CREW,
+    currentArea: "translations",
+    labels: workspaceNavLabels(t),
+  });
+  const accountHref = elevated ? "/admin/account" : "/my-account";
+  const accountItems = [
+    {
+      href: elevated ? "/admin/messages" : "/messages",
+      label: t("workflows.messages"),
+      group: "tools" as const,
+    },
+    ...(elevated
+      ? [
+          {
+            href: "/admin/student-support",
+            label: t("workflows.support"),
+            group: "tools" as const,
+          },
+        ]
+      : []),
+    {
+      href: accountHref,
+      label: t(elevated ? "account.title" : "components.userMenu.settings"),
+      group: "account" as const,
+    },
+  ];
+  const displayName = me.name ?? session.user.name ?? me.email ?? me.role;
+  const username = me.username ?? me.tutor?.username;
 
   return (
     <div
@@ -58,32 +91,37 @@ export default async function LocalizationLayout({
       }
     >
       <WorkspaceHeader
-        href={home}
-        title={TEAM_TITLE}
+        href="/localization"
+        title={t("components.workspaceTitles.translations")}
+        switcherItems={nav.items}
+        switcherLabels={workspaceSwitcherLabels(t)}
         skipLabel={t("common.skipToContent")}
         skipToId={elevated ? "admin-content" : "main-content"}
-        items={
-          elevated
-            ? []
-            : [
-                { href: home, label: t("localization.back") },
-                { href: "/help", label: t("helpNav.title") },
-              ]
-        }
         navigation={
           elevated ? <NavMobileRow role={me.role} embedded /> : undefined
         }
         identity={
-          <div className="text-right leading-tight">
-            <p className="text-sm font-medium">{session.user.name}</p>
-            <p className="muted text-xs">
-              {me.tutor?.username ? `@${me.tutor.username} · ` : ""}
+          <Link
+            href={accountHref}
+            className="hidden shrink-0 rounded-md px-2 py-0.5 text-right leading-tight hover:bg-slate-100 lg:block"
+            title={t("account.title")}
+          >
+            <p className="text-[13px] font-medium text-slate-900">{displayName}</p>
+            <p className="muted text-[11px]">
+              {username ? `@${username} · ` : ""}
               {t(`admin.users.roles.${me.role}`)}
             </p>
-          </div>
+          </Link>
         }
         account={
-          <SignOutButton className="btn-secondary btn-sm min-h-11 lg:min-h-8 lg:py-0" />
+          <UserAvatar
+            name={displayName}
+            username={username}
+            email={me.email ?? session.user.email}
+            role={me.role}
+            items={accountItems}
+            compactAtDesktop
+          />
         }
       />
 

@@ -41,6 +41,14 @@ export function NavigationRecipes({ locale }: { locale: "en" | "zh" }) {
         sticky={false}
         skipLabel={zh ? "跳到主要内容" : "Skip to main content"}
         skipToId="ui-gallery-main"
+        help={
+          <Link
+            href="/help"
+            className="btn-secondary btn-sm min-h-11 lg:min-h-8 lg:py-0"
+          >
+            {zh ? "帮助中心" : "Help Center"}
+          </Link>
+        }
         language={
           <select
             key={locale}

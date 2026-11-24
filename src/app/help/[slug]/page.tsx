@@ -42,7 +42,11 @@ export default async function HelpArticlePage({
   ];
 
   return (
-    <main lang={locale} className="mx-auto max-w-6xl px-4 py-6 sm:py-10">
+    <main
+      id="main-content"
+      lang={locale}
+      className="mx-auto max-w-6xl px-4 py-6 sm:py-10"
+    >
       <Link
         href="/help"
         className="link inline-flex min-h-11 items-center text-sm"
