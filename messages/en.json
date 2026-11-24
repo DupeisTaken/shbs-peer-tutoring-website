@@ -4091,6 +4091,7 @@
       },
       "entities": {
         "ImportedRecordProvenance": "Imported historical record provenance",
+        "ArchiveProvenanceReceipt": "Archive provenance reconciliation receipt",
         "SchedulingMaintenanceState": "Scheduling maintenance state",
         "SchedulingDirtyEvent": "Scheduling invalidation event",
         "PersonPartitionReceipt": "Identity separation receipt",

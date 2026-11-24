@@ -4091,6 +4091,7 @@
       },
       "entities": {
         "ImportedRecordProvenance": "Provenance de l’enregistrement historique importé",
+        "ArchiveProvenanceReceipt": "Reçu de rapprochement de provenance d’archive",
         "SchedulingMaintenanceState": "État de maintenance de la planification",
         "SchedulingDirtyEvent": "Événement d’invalidation de la planification",
         "PersonPartitionReceipt": "Reçu de séparation d’identité",
