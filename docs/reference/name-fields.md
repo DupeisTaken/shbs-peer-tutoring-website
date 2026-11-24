@@ -1,6 +1,6 @@
 # Name fields and display wording
 
-Current name-policy, display and compatibility behavior. For contributor wording and layout rules, see [name field conventions](../contributing/design.md#name-field-wording-and-layout); for staff configuration, see the [program guide](../guides/program-configuration.md).
+Current name-policy, display and compatibility behavior. Core implementation: [person-name.ts](../../src/lib/person-name.ts), [name-fields.ts](../../src/server/program/name-fields.ts), and [person-name-fields.tsx](../../src/app/_components/person-name-fields.tsx). For contributor wording and layout rules, see [name field conventions](../contributing/design.md#name-field-wording-and-layout); for staff configuration, see the [program guide](../guides/program-configuration.md).
 
 ## Field labels
 

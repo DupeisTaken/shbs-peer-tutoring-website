@@ -66,12 +66,7 @@ No credentials enter browser configuration or the management status response.
 This adapter uses explicit credentials; it does not automatically discover an ECS
 role or refresh STS credentials. Rotate secrets/restart through normal deployment.
 
-In **Management → Program Settings → Deployment Configurations → CAPTCHA Verification**, Admin and Head apply
-enable/disable changes directly; Coordinators can inspect status and request
-Admin approval for changes. Enabling validates local configuration; readiness is **not** an
-external health check. Disabling never contacts Aliyun. Version comparisons reject
-stale concurrent updates, including off/on/off changes. Audit entries include the
-actor, time, prior and new values. Period refresh preserves this independent setting.
+In **Administration → Program Settings → Deployment Configurations → CAPTCHA Verification**, Admin and Head apply enable/disable changes directly; Coordinators can inspect status and submit proposals for Admin/Head review. Enabling validates local configuration; readiness is **not** an external health check. Disabling never contacts Aliyun. Version comparisons reject stale concurrent updates, including off/on/off changes. Audit entries record actor, time, prior and new values. Period refresh preserves this setting.
 
 Each protected mutation reads current database state. Open forms poll every 15
 seconds and refresh before submission. Changes preserve entered values; enabling
@@ -121,12 +116,7 @@ resources. Before enforcing resource restrictions, inventory Aliyun's required
 script/frame/connect/image origins in a bounded real session. The script processes device/network/interaction
 signals in mainland China; the English/Chinese public privacy notice describes it.
 
-Automated tests mock Aliyun and send no paid requests. They cover config errors,
-denial/outage/malformed responses, test-mode refusal, server enforcement, single-use
-action/email binding, concurrent replay, budgets, stale settings and open-form UI.
-[Archived verification evidence](https://github.com/DupeisTaken/shbs-peer-tutoring-website/tree/6357007373d1efd177e36140d9e0ba7c80d2f237/docs/evidence/issues-181-182) records management and signup
-states at desktop/mobile widths for the implementation revision. Mocks cannot
-prove provider connectivity, challenge keyboard support or mainland accessibility.
+Automated tests (`src/server/captcha/`) mock Aliyun and send no paid requests; they cover config errors, denial/outage/malformed responses, test-mode refusal, server enforcement, single-use action/email binding, concurrent replay, budgets, stale settings and open-form UI. Mocks cannot prove live provider connectivity, challenge keyboard support or mainland accessibility.
 
 After separately activating the service, perform a bounded operator smoke check:
 one tutee and one viewer signup/resend using test mailboxes on the target school

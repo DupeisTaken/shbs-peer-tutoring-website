@@ -100,7 +100,7 @@ Open: `/student?view=requests`
 
 2. **Give the reason and review** Enter your reason, review which participation ends, wait for the three-second confirmation and submit. Cancel or Escape before submission leaves participation unchanged.
 
-3. **Follow the decision** Check the pending request and later approval or decline. Assignment remains active while review is pending. If accepted submission cannot refresh, use the read-only retry.
+3. **Follow the decision** Check the pending request and later approval or decline. Assignment remains active while review is pending. A declined request leaves participation in place and lets you submit a fresh request. If a submission response is interrupted, use Check submission to confirm whether it was saved, or Start fresh review with your retained reason if it was not. If an accepted submission cannot refresh, use the read-only retry.
 
 ### What happens next
 
@@ -196,7 +196,7 @@ Open: `/student?view=requests`
 
 ### Walkthrough
 
-1. **Select owned previous pairings** On Dashboard or Requests read the continuation deadline in program timezone. Select the prior tutor/subject pairings you want and choose Review selected pairings.
+1. **Select owned previous pairings** On Dashboard or Requests read the continuation deadline in program timezone. Select the prior tutor/subject pairings you want and choose Review selected pairings. The shortcut hides automatically once the one-hour window ends, while preserving any filed receipt or in-flight submission.
 
    Look for: Eligible continuation choices and named deadline when offered
 
