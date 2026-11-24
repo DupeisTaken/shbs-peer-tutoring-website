@@ -1,8 +1,9 @@
 import { TRPCError } from "@trpc/server";
 import { rateLimit } from "~/server/rate-limit";
 import { verifyPassword } from "./password";
+import { PASSWORD_MAX_LENGTH } from "~/lib/password-contract";
 
-export const PASSWORD_CONFIRMATION_MAX_LENGTH = 1024;
+export const PASSWORD_CONFIRMATION_MAX_LENGTH = PASSWORD_MAX_LENGTH;
 export const PASSWORD_CONFIRMATION_MAX_ATTEMPTS = 10;
 export const PASSWORD_CONFIRMATION_WINDOW_MS = 15 * 60_000;
 

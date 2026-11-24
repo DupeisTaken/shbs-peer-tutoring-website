@@ -1,5 +1,10 @@
 import { cardReviewInput, reviewCard } from "~/server/corrections/card";
 import {
+  accountAppealDecisionInput,
+  lockAccountAppealDecisionReview,
+  parseAccountAppealDecisionReview,
+} from "~/server/account-appeals";
+import {
   assertOperationalPairing,
   executionParticipantId,
   supersededPairingIds,
@@ -6112,6 +6117,10 @@ export const adminRouter = createTRPCRouter({
       z.object({ userId: cuid, reason: z.string().trim().max(500).optional() }),
     )
     .mutation(async ({ ctx, input }) => {
+      await lockUsernameNamespace(ctx.db);
+      await lockEntity(ctx.db, "program:leadership");
+      await activeManagementActor(ctx.db, ctx.session.user.id);
+      await lockAccountProfile(ctx.db, input.userId);
       const target = await ctx.db.user.findUniqueOrThrow({
         where: { id: input.userId },
         select: { id: true, role: true, name: true },
@@ -6127,24 +6136,34 @@ export const adminRouter = createTRPCRouter({
         data: {
           suspendedAt: new Date(),
           suspendedReason: input.reason?.trim() ? input.reason.trim() : null,
+          // The DB trigger assigns OLD + 1 when the timestamp changes; the
+          // explicit increment also fences a same-millisecond reason edit.
+          refreshAuthorityRevision: { increment: 1 },
         },
       });
-      await notifyUsers([target.id], {
-        ...notificationInAppEvent("account_suspended", undefined, {
-          en: "Your viewer access is suspended. You can submit an appeal.",
-          zh: "你的观察员权限已暂停，你可以提交申诉。",
-        }),
-        title: "Account suspended",
-        body: "Your account access was suspended pending review. You can submit an appeal.",
-        link: "/suspended",
-      });
-      await recordAudit({
-        userId: ctx.session.user.id,
-        userName: ctx.session.user.name,
-        action: `Suspended viewer ${target.name ?? target.id}`,
-        entity: "User",
-        entityId: target.id,
-      });
+      await notifyUsers(
+        [target.id],
+        {
+          ...notificationInAppEvent("account_suspended", undefined, {
+            en: "Your viewer access is suspended. You can submit an appeal.",
+            zh: "你的观察员权限已暂停，你可以提交申诉。",
+          }),
+          title: "Account suspended",
+          body: "Your account access was suspended pending review. You can submit an appeal.",
+          link: "/suspended",
+        },
+        ctx.db,
+      );
+      await recordAudit(
+        {
+          userId: ctx.session.user.id,
+          userName: ctx.session.user.name,
+          action: `Suspended viewer ${target.name ?? target.id}`,
+          entity: "User",
+          entityId: target.id,
+        },
+        ctx.db,
+      );
       return { ok: true };
     }),
 
@@ -6152,36 +6171,45 @@ export const adminRouter = createTRPCRouter({
   reinstateUser: adminProcedure
     .input(z.object({ userId: cuid }))
     .mutation(async ({ ctx, input }) => {
-      await ctx.db.$transaction(async (tx) => {
-        await tx.user.update({
-          where: { id: input.userId },
-          data: { suspendedAt: null, suspendedReason: null },
-        });
-        await tx.accountAppeal.updateMany({
-          where: { userId: input.userId, state: "PENDING" },
-          data: {
-            state: "APPROVED",
-            decidedByName: ctx.session.user.name,
-            decidedAt: new Date(),
-          },
-        });
+      await lockUsernameNamespace(ctx.db);
+      await lockEntity(ctx.db, "program:leadership");
+      await activeManagementActor(ctx.db, ctx.session.user.id);
+      await lockAccountProfile(ctx.db, input.userId);
+      await ctx.db.user.update({
+        where: { id: input.userId },
+        data: { suspendedAt: null, suspendedReason: null },
       });
-      await notifyUsers([input.userId], {
-        ...notificationInAppEvent("account_reinstated", undefined, {
-          en: "Your account is active again.",
-          zh: "你的账号已恢复使用。",
-        }),
-        title: "Account reinstated",
-        body: "Your account access has been restored.",
-        link: "/",
+      await ctx.db.accountAppeal.updateMany({
+        where: { userId: input.userId, state: "PENDING" },
+        data: {
+          state: "APPROVED",
+          decidedByName: ctx.session.user.name,
+          decidedAt: new Date(),
+        },
       });
-      await recordAudit({
-        userId: ctx.session.user.id,
-        userName: ctx.session.user.name,
-        action: "Reinstated a suspended account",
-        entity: "User",
-        entityId: input.userId,
-      });
+      await notifyUsers(
+        [input.userId],
+        {
+          ...notificationInAppEvent("account_reinstated", undefined, {
+            en: "Your account is active again.",
+            zh: "你的账号已恢复使用。",
+          }),
+          title: "Account reinstated",
+          body: "Your account access has been restored.",
+          link: "/",
+        },
+        ctx.db,
+      );
+      await recordAudit(
+        {
+          userId: ctx.session.user.id,
+          userName: ctx.session.user.name,
+          action: "Reinstated a suspended account",
+          entity: "User",
+          entityId: input.userId,
+        },
+        ctx.db,
+      );
       return { ok: true };
     }),
 
@@ -6196,7 +6224,15 @@ export const adminRouter = createTRPCRouter({
           message: true,
           createdAt: true,
           user: {
-            select: { id: true, name: true, username: true, affiliation: true },
+            select: {
+              id: true,
+              name: true,
+              username: true,
+              affiliation: true,
+              suspendedAt: true,
+              suspendedReason: true,
+              refreshAuthorityRevision: true,
+            },
           },
         },
       })
@@ -6208,67 +6244,124 @@ export const adminRouter = createTRPCRouter({
           userId: r.user.id,
           name: r.user.name ?? r.user.username ?? "—",
           affiliation: r.user.affiliation,
+          restriction: {
+            suspendedAt: r.user.suspendedAt,
+            reason: r.user.suspendedReason,
+            authorityRevision: r.user.refreshAuthorityRevision,
+          },
         })),
       ),
   ),
 
   /** Decide an appeal: APPROVE reinstates the account; DENY keeps it suspended. User notified. */
   decideAppeal: adminProcedure
-    .input(z.object({ appealId: cuid, action: z.enum(["APPROVE", "DENY"]) }))
+    .input(accountAppealDecisionInput)
     .mutation(async ({ ctx, input }) => {
-      const appeal = await ctx.db.accountAppeal.findUniqueOrThrow({
-        where: { id: input.appealId },
-        select: { id: true, state: true, userId: true, createdAt: true },
-      });
-      if (appeal.state !== "PENDING") {
+      const review = parseAccountAppealDecisionReview(input);
+      // Match identity/role writers before taking the account and appeal rows.
+      // Re-read terminal state only after the account fence shared with submit.
+      await lockUsernameNamespace(ctx.db);
+      await lockEntity(ctx.db, "program:leadership");
+      await activeManagementActor(ctx.db, ctx.session.user.id);
+      const { appeal, account } = await lockAccountAppealDecisionReview(
+        ctx.db,
+        review,
+      );
+      // Approval reconciles legacy duplicate requests at the account boundary,
+      // preserving each original and every already-terminal historical decision.
+      const coResolvedAppealIds =
+        input.action === "APPROVE"
+          ? (
+              await ctx.db.accountAppeal.findMany({
+                where: { userId: appeal.userId, state: "PENDING" },
+                orderBy: { id: "asc" },
+                select: { id: true },
+              })
+            ).map((row) => row.id)
+          : [appeal.id];
+      if (!coResolvedAppealIds.includes(appeal.id))
         throw new TRPCError({
           code: "BAD_REQUEST",
           message: "This appeal is already decided.",
         });
-      }
-      await ctx.db.$transaction(async (tx) => {
-        await tx.accountAppeal.update({
-          where: { id: appeal.id },
-          data: {
-            state: input.action === "APPROVE" ? "APPROVED" : "DENIED",
-            decidedByName: ctx.session.user.name,
-            decidedAt: new Date(),
-          },
+      const accessRestored =
+        input.action === "APPROVE" && !!account.suspendedAt;
+      const decided = await ctx.db.accountAppeal.updateMany({
+        where: {
+          id: { in: coResolvedAppealIds },
+          userId: appeal.userId,
+          state: "PENDING",
+        },
+        data: {
+          state: input.action === "APPROVE" ? "APPROVED" : "DENIED",
+          decidedByName: ctx.session.user.name,
+          decidedAt: new Date(),
+        },
+      });
+      if (decided.count !== coResolvedAppealIds.length)
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "This appeal is already decided.",
         });
-        if (input.action === "APPROVE") {
-          await tx.user.update({
-            where: { id: appeal.userId },
-            data: { suspendedAt: null, suspendedReason: null },
-          });
-        }
-      });
-      await notifyUsers([appeal.userId], {
-        title:
-          input.action === "APPROVE" ? "Appeal approved" : "Appeal declined",
-        ...notificationInAppEvent(
-          input.action === "APPROVE"
-            ? "account_appeal_approved"
-            : "account_appeal_declined",
-          undefined,
-          {
-            en: `Your appeal from ${programDateKey(appeal.createdAt, await getProgramTimeZone(ctx.db))} was ${input.action === "APPROVE" ? "approved. Your account is active again" : "declined. Your account stays suspended"}.`,
-            zh: `你 ${programDateKey(appeal.createdAt, await getProgramTimeZone(ctx.db))} 提交的申诉${input.action === "APPROVE" ? "已通过，账号已恢复使用" : "未通过，账号仍处于暂停状态"}。`,
-          },
-        ),
-        body:
-          input.action === "APPROVE"
-            ? "Your account access has been restored."
-            : "Your appeal was declined; your account stays suspended.",
-        link: input.action === "APPROVE" ? "/" : "/suspended",
-      });
-      await recordAudit({
-        userId: ctx.session.user.id,
-        userName: ctx.session.user.name,
-        action: `${input.action === "APPROVE" ? "Approved" : "Denied"} an account appeal`,
-        entity: "AccountAppeal",
-        entityId: appeal.id,
-      });
-      return { ok: true };
+      if (accessRestored) {
+        await ctx.db.user.update({
+          where: { id: appeal.userId },
+          data: { suspendedAt: null, suspendedReason: null },
+        });
+      }
+      const submittedOn = programDateKey(
+        appeal.createdAt,
+        await getProgramTimeZone(ctx.db),
+      );
+      const detail =
+        input.action === "DENY"
+          ? {
+              en: `Your appeal from ${submittedOn} was declined. Your account stays suspended.`,
+              zh: `你 ${submittedOn} 提交的申诉未通过，账号仍处于暂停状态。`,
+            }
+          : accessRestored
+            ? {
+                en: `Your appeal from ${submittedOn} was approved with all pending account appeals. Your account is active again.`,
+                zh: `你 ${submittedOn} 提交的申诉及其他待处理账号申诉均已通过，账号已恢复使用。`,
+              }
+            : {
+                en: `Your appeal from ${submittedOn} was approved with all pending account appeals. Your account was already active and access did not change.`,
+                zh: `你 ${submittedOn} 提交的申诉及其他待处理账号申诉均已通过；你的账号原本已正常，权限未更改。`,
+              };
+      await notifyUsers(
+        [appeal.userId],
+        {
+          title:
+            input.action === "APPROVE" ? "Appeal approved" : "Appeal declined",
+          ...notificationInAppEvent(
+            input.action === "APPROVE"
+              ? "account_appeal_approved"
+              : "account_appeal_declined",
+            undefined,
+            detail,
+          ),
+          body:
+            input.action === "APPROVE"
+              ? accessRestored
+                ? "All pending account appeals were approved and account access was restored."
+                : "All pending account appeals were approved. Your account was already active; access was unchanged."
+              : "Your appeal was declined; your account stays suspended.",
+          link: input.action === "APPROVE" ? "/" : "/suspended",
+        },
+        ctx.db,
+      );
+      await recordAudit(
+        {
+          userId: ctx.session.user.id,
+          userName: ctx.session.user.name,
+          action: `${input.action === "APPROVE" ? "Approved" : "Denied"} an account appeal`,
+          entity: "AccountAppeal",
+          entityId: appeal.id,
+          effects: { coResolvedAppealIds, accessRestored },
+        },
+        ctx.db,
+      );
+      return { ok: true, coResolvedAppealIds, accessRestored };
     }),
 
   /**
