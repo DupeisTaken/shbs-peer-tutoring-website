@@ -643,3 +643,26 @@ it("hides resend for read-only staff and disables it without trustworthy queue/s
   );
   expect(mock.resend).not.toHaveBeenCalled();
 });
+
+it.each([
+  { chinese: false, enabled: true },
+  { chinese: false, enabled: false },
+  { chinese: true, enabled: true },
+  { chinese: true, enabled: false },
+])(
+  "keeps the secondary-email binding badge on one line alongside wrapping text (Chinese=$chinese, enabled=$enabled, #842)",
+  ({ chinese, enabled }) => {
+    mock.settings!.secondaryEmailBindingEnabled = enabled;
+    render(content(chinese));
+    const copy = chinese ? zh.programEmail : en.programEmail;
+    const heading = screen.getByRole("heading", { name: copy.bindingTitle });
+    const textCol = heading.parentElement!;
+    expect(textCol.className).toContain("min-w-0");
+    expect(textCol.className).toContain("flex-1");
+    const headerRow = textCol.parentElement!;
+    const badge = within(headerRow).getByText(enabled ? copy.on : copy.off);
+    expect(badge.className).toContain("shrink-0");
+    expect(badge.className).toContain("whitespace-nowrap");
+    expect(badge.className).toContain(enabled ? "badge-green" : "badge-slate");
+  },
+);

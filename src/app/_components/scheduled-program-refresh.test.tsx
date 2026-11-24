@@ -13,17 +13,15 @@ import { NextIntlClientProvider } from "next-intl";
 import type { ComponentProps } from "react";
 import en from "../../../messages/en.json";
 import zh from "../../../messages/zh.json";
-import {
-  ScheduledProgramRefresh,
-  ScheduledRefreshEditor,
-} from "./scheduled-program-refresh";
+import { ProgramRefresh, UnifiedProgramRefreshEditor } from "./program-refresh";
 import type { NextRecruitmentSettingsData } from "./next-recruitment-settings";
 
-type Props = ComponentProps<typeof ScheduledRefreshEditor>;
+type Props = ComponentProps<typeof UnifiedProgramRefreshEditor>;
 type Schedule = NonNullable<Props["data"]["schedule"]>;
 const mocks = vi.hoisted(() => ({
   save: vi.fn(),
   cancel: vi.fn(),
+  refreshNow: vi.fn(),
   scheduleFetch: vi.fn(),
   nextFetch: vi.fn(),
   currentFetch: vi.fn(),
@@ -53,6 +51,7 @@ vi.mock("~/trpc/react", () => ({
       refreshSchedule: { useQuery: mocks.scheduleQuery },
       scheduleRefresh: { useMutation: () => ({ mutateAsync: mocks.save }) },
       cancelRefresh: { useMutation: () => ({ mutateAsync: mocks.cancel }) },
+      refresh: { useMutation: () => ({ mutateAsync: mocks.refreshNow }) },
     },
     program: { nextRecruitment: { useQuery: mocks.nextQuery } },
   },
@@ -107,8 +106,9 @@ function schedule(overrides: Partial<Schedule> = {}): Schedule {
     ...target,
     blockedReason: null,
     completedAt: null,
+    attempts: 0,
     ...overrides,
-  } as Schedule;
+  };
 }
 const data = (row: Schedule | null = null): Props["data"] => ({
   schedule: row,
@@ -124,7 +124,7 @@ function tree(overrides: Partial<Props> = {}, locale: "en" | "zh" = "en") {
       messages={locale === "en" ? en : zh}
       timeZone="Asia/Shanghai"
     >
-      <ScheduledRefreshEditor
+      <UnifiedProgramRefreshEditor
         period={period}
         canEdit
         canApply
@@ -138,11 +138,12 @@ function tree(overrides: Partial<Props> = {}, locale: "en" | "zh" = "en") {
   );
 }
 function open(locale: "en" | "zh" = "en") {
-  const text = (locale === "en" ? en : zh).scheduledRefresh;
+  const copy = locale === "en" ? en : zh;
+  const text = copy.scheduledRefresh;
   fireEvent.change(screen.getByLabelText(text.timeLabel), {
     target: { value: "2026-11-01T09:00" },
   });
-  fireEvent.change(screen.getByLabelText(text.confirmLabel), {
+  fireEvent.change(screen.getByLabelText(copy.admin.program.confirmLabel), {
     target: { value: "REFRESH" },
   });
   const button = screen.getByRole("button", { name: text.review });
@@ -184,7 +185,7 @@ it("retains the completed prior-source receipt after polling observes the new ac
   });
   const renderPage = () => (
     <NextIntlClientProvider locale="en" messages={en} timeZone="Asia/Shanghai">
-      <ScheduledProgramRefresh period={period} canEdit canApply />
+      <ProgramRefresh period={period} canEdit canApply />
     </NextIntlClientProvider>
   );
   const view = render(renderPage());
@@ -196,7 +197,13 @@ it("retains the completed prior-source receipt after polling observes the new ac
   );
   current = { ...data(), activeSourceTermId: "destination" };
   historical = {
-    ...data(schedule({ state: "COMPLETED", version: 2 })),
+    ...data(
+      schedule({
+        state: "COMPLETED",
+        version: 2,
+        completedAt: new Date("2026-11-01T01:00:15Z"),
+      }),
+    ),
     activeSourceTermId: "destination",
   };
   view.rerender(renderPage());
@@ -233,6 +240,34 @@ it("retains the completed prior-source receipt after polling observes the new ac
   expect(mocks.cancel).not.toHaveBeenCalled();
 });
 
+it("promptly refetches an active schedule when next-period recruitment evidence changes", () => {
+  const scheduleRefetch = vi.fn();
+  let currentNext = next();
+  mocks.scheduleQuery.mockImplementation(() => ({
+    data: data(schedule()),
+    error: null,
+    refetch: scheduleRefetch,
+    isFetching: false,
+  }));
+  mocks.nextQuery.mockImplementation(() => ({
+    data: currentNext,
+    error: null,
+    refetch: vi.fn(),
+    isFetching: false,
+  }));
+  const renderPage = () => (
+    <NextIntlClientProvider locale="en" messages={en} timeZone="Asia/Shanghai">
+      <ProgramRefresh period={period} canEdit canApply />
+    </NextIntlClientProvider>
+  );
+  const view = render(renderPage());
+  expect(scheduleRefetch).not.toHaveBeenCalled();
+  currentNext = next();
+  currentNext.refreshEvidence.timeZone = "UTC";
+  view.rerender(renderPage());
+  expect(scheduleRefetch).toHaveBeenCalledTimes(1);
+});
+
 it("recovers polled schedule reads after denial without refetching unchanged recruitment evidence", () => {
   const deniedError = { data: { code: "FORBIDDEN" } };
   const nextRead = {
@@ -260,35 +295,165 @@ it("recovers polled schedule reads after denial without refetching unchanged rec
   );
   const page = () => (
     <NextIntlClientProvider locale="en" messages={en} timeZone="Asia/Shanghai">
-      <ScheduledProgramRefresh period={period} canEdit canApply />
+      <ProgramRefresh period={period} canEdit canApply />
     </NextIntlClientProvider>
   );
   const view = render(page());
   expect(screen.getByText(en.scheduledRefresh.states.SCHEDULED)).toBeTruthy();
   Object.assign(currentRead, {
-    error: deniedError, isSuccess: false, errorUpdatedAt: 2,
+    error: deniedError,
+    isSuccess: false,
+    errorUpdatedAt: 2,
   });
   Object.assign(receiptRead, {
-    error: deniedError, isSuccess: false, errorUpdatedAt: 2,
+    error: deniedError,
+    isSuccess: false,
+    errorUpdatedAt: 2,
   });
   view.rerender(page());
   expect(screen.queryByText(en.scheduledRefresh.states.SCHEDULED)).toBeNull();
   Object.assign(currentRead, {
-    error: null, isSuccess: true, dataUpdatedAt: 3,
+    error: null,
+    isSuccess: true,
+    dataUpdatedAt: 3,
   });
   Object.assign(receiptRead, {
-    error: { message: "Offline" }, isSuccess: false, errorUpdatedAt: 3,
+    error: { message: "Offline" },
+    isSuccess: false,
+    errorUpdatedAt: 3,
   });
   view.rerender(page());
   expect(screen.queryByText(en.scheduledRefresh.states.SCHEDULED)).toBeNull();
   Object.assign(receiptRead, {
-    error: null, isSuccess: true, dataUpdatedAt: 4,
+    error: null,
+    isSuccess: true,
+    dataUpdatedAt: 4,
   });
   view.rerender(page());
   expect(screen.getByText(en.scheduledRefresh.states.SCHEDULED)).toBeTruthy();
   expect(nextRead.refetch).not.toHaveBeenCalled();
   expect(mocks.save).not.toHaveBeenCalled();
   expect(mocks.cancel).not.toHaveBeenCalled();
+});
+
+it("clearly denotes scheduled readiness, due/retrying states, blocked reasons and staged feature conditions", () => {
+  const withStaged = next();
+  withStaged.refreshEvidence.stagedFeatures = [
+    { key: "MEETINGS", enabled: true, pendingEnabled: false, revision: 1 },
+  ];
+  const view = render(
+    tree({ data: data(schedule()), next: withStaged }),
+  );
+  expect(screen.getByText(en.scheduledRefresh.statusReady)).toBeTruthy();
+  expect(
+    screen.getByText(
+      `${en.admin.program.features.name.MEETINGS}: ${en.admin.program.features.off}`,
+    ),
+  ).toBeTruthy();
+
+  // Due state (scheduled time reached)
+  view.rerender(
+    tree({
+      data: {
+        ...data(schedule({ executeAt: new Date("2026-10-30T00:59:00Z") })),
+      },
+      next: withStaged,
+    }),
+  );
+  expect(screen.getByText(en.scheduledRefresh.dueBadge)).toBeTruthy();
+  expect(screen.getByText(en.scheduledRefresh.statusDue)).toBeTruthy();
+
+  // Retrying state after transient failure
+  view.rerender(
+    tree({
+      data: data(schedule({ attempts: 2 })),
+      next: withStaged,
+    }),
+  );
+  expect(
+    screen.getByText(
+      en.scheduledRefresh.retryingBadge.replace("{attempts}", "2"),
+    ),
+  ).toBeTruthy();
+  expect(
+    screen.getByText(
+      en.scheduledRefresh.statusRetrying.replace("{attempts}", "2"),
+    ),
+  ).toBeTruthy();
+
+  // Blocked state due to Head change (freshly loaded snapshot exposes Review & reschedule)
+  view.unmount();
+  render(
+    tree({
+      data: data(
+        schedule({
+          state: "BLOCKED",
+          blockedReason: "SCHEDULED_REFRESH_HEAD_CHANGED",
+        }),
+      ),
+      next: withStaged,
+    }),
+  );
+  expect(
+    screen.getByText(
+      `${en.scheduledRefresh.statusPaused} — ${en.scheduledRefresh.states.BLOCKED}`,
+    ),
+  ).toBeTruthy();
+  expect(
+    screen.getByText(en.scheduledRefresh.errors.SCHEDULED_REFRESH_HEAD_CHANGED),
+  ).toBeTruthy();
+  expect(
+    screen.getByRole("button", { name: en.scheduledRefresh.reschedule }),
+  ).toBeTruthy();
+});
+
+it("shows the prepared tutee opening bound inline and blocks scheduling after it", () => {
+  const prepared = next();
+  const opensAt = new Date("2026-11-01T01:00:00Z"); // 2026-11-01 09:00 Asia/Shanghai
+  prepared.preparations.tutee = {
+    target,
+    version: 1,
+    opensAt,
+    timeZone: "Asia/Shanghai",
+    matchesTarget: true,
+  };
+  prepared.refreshEvidence.preparations.tutee = {
+    target,
+    version: 1,
+    opensAt,
+    timeZone: "Asia/Shanghai",
+  };
+  render(tree({ next: prepared }));
+  fireEvent.change(screen.getByLabelText(en.scheduledRefresh.timeLabel), {
+    target: { value: "2026-11-01T10:00" },
+  });
+  fireEvent.change(screen.getByLabelText(en.admin.program.confirmLabel), {
+    target: { value: "REFRESH" },
+  });
+  expect(
+    screen.getByText(en.scheduledRefresh.errors.SCHEDULED_REFRESH_AFTER_OPENING),
+  ).toBeTruthy();
+  expect(
+    screen.getByRole<HTMLButtonElement>("button", {
+      name: en.scheduledRefresh.review,
+    }).disabled,
+  ).toBe(true);
+  expect(mocks.save).not.toHaveBeenCalled();
+
+  // Updating time to on or before the prepared tutee opening clears the warning.
+  fireEvent.change(screen.getByLabelText(en.scheduledRefresh.timeLabel), {
+    target: { value: "2026-11-01T09:00" },
+  });
+  expect(
+    screen.queryByText(
+      en.scheduledRefresh.errors.SCHEDULED_REFRESH_AFTER_OPENING,
+    ),
+  ).toBeNull();
+  expect(
+    screen.getByRole<HTMLButtonElement>("button", {
+      name: en.scheduledRefresh.review,
+    }).disabled,
+  ).toBe(false);
 });
 
 it.each(["en", "zh"] as const)(
@@ -512,7 +677,7 @@ it("rejects a past program time without opening a review", () => {
   fireEvent.change(screen.getByLabelText(en.scheduledRefresh.timeLabel), {
     target: { value: "2026-10-01T09:00" },
   });
-  fireEvent.change(screen.getByLabelText(en.scheduledRefresh.confirmLabel), {
+  fireEvent.change(screen.getByLabelText(en.admin.program.confirmLabel), {
     target: { value: "REFRESH" },
   });
   fireEvent.click(
@@ -533,7 +698,7 @@ it("rejects a repeated daylight-saving hour in the program timezone", () => {
   fireEvent.change(screen.getByLabelText(en.scheduledRefresh.timeLabel), {
     target: { value: "2026-11-01T01:30" },
   });
-  fireEvent.change(screen.getByLabelText(en.scheduledRefresh.confirmLabel), {
+  fireEvent.change(screen.getByLabelText(en.admin.program.confirmLabel), {
     target: { value: "REFRESH" },
   });
   fireEvent.click(

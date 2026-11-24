@@ -4433,24 +4433,24 @@ export const managementArticles: HelpArticle[] = [
     ],
     steps: [
       [
-        t("Review preparation", "审核准备"),
+        t("Review status and openings", "核对状态与开放时间"),
         t(
-          "Open Program Settings → Recruitment and Refresh. Read the current period, named destination, both prepared recruitment openings, their timezone and all staged feature switches.",
-          "打开项目设置→招募及换期。阅读当前学期、具体目标、两类已准备招募开启时间及其时区，还有全部暂存功能开关。",
+          "Open Program Settings → Recruitment and Refresh and find the unified Program Refresh card. Check the transition header, live schedule status, any staged optional features, and the compact embedded Next-Period Recruitment openings.",
+          "打开项目设置→招募与刷新中的统一“项目刷新”卡片。核对周期推进标题、实时预约状态、暂存可选功能变更以及内嵌的下一周期报名开放时间。",
         ),
       ],
       [
         t("Read all refresh effects", "阅读全部换期影响"),
         t(
-          "Inspect the displayed participation, scheduling and destination consequences. Resolve stale preparations and review current mail, policies, subjects, rooms and operator readiness before admitting the refresh.",
-          "检查显示的参与、排课及目标后果。接受换期前解决过时准备，并审核当前邮件、政策、科目、教室及操作员就绪。",
+          "Expand Effects & full refresh details to inspect participation, scheduling and destination consequences. Resolve stale preparations and review current mail, policies, subjects, rooms and operator readiness before admitting the refresh.",
+          "展开“刷新影响与完整详情”查看参与、排课及目标后果。接受换期前解决过时准备，并审核当前邮件、政策、科目、教室及操作员就绪。",
         ),
       ],
       [
-        t("Apply or schedule deliberately", "审慎应用或安排"),
+        t("Schedule or run from one entrance", "在统一入口预约或执行"),
         t(
-          "For an immediate refresh, enter REFRESH and read the final named consequence review before confirming. For a scheduled refresh, review its exact execution time/timezone and target; cancel an unneeded pending schedule through its separate action.",
-          "即时换期需输入REFRESH并在确认前阅读最后明确后果审阅。安排定时换期时审核准确执行时间、时区及目标；不再需要的待执行计划应通过独立操作取消。",
+          "Use Authorize Refresh, which defaults to Schedule for later (or switch to Refresh now in the same entrance when advancing immediately). Enter REFRESH, open the final named consequence review and confirm; use Cancel scheduled refresh to remove an active or paused schedule.",
+          "在“执行或预约刷新”中默认选择“预约定时刷新”（需即时推进时可在同一入口切换为“立即刷新”）。输入REFRESH并核对最终明确后果审阅后确认；如需移除待执行或已暂停预约，请使用“取消定时刷新”。",
         ),
       ],
       [

@@ -32,6 +32,7 @@
     "calendarCreate": "Δημιουργία ιδιωτικού συνδέσμου",
     "calendarRevoke": "Ανάκληση ιδιωτικού συνδέσμου",
     "calendarUnavailable": "Η συνδρομή απαιτεί τρέχουσα επιλέξιμη συμμετοχή.",
+    "calendarCreateHelp": "Δημιουργεί έναν ιδιωτικό σύνδεσμο μόνο για ανάγνωση για το ημερολόγιο καθοδήγησής σου. Κράτησέ τον εμπιστευτικό· όποιος τον έχει μπορεί να δει το πρόγραμμά σου.",
     "calendarRotateHelp": "Ο νέος σύνδεσμος ανακαλεί όλους τους παλιούς. Οι συνδρομές με παλιό σύνδεσμο δεν ενημερώνονται πλέον.",
     "calendarRevokeHelp": "Ο ιδιωτικός σύνδεσμος θα ανακληθεί. Οι υπάρχουσες συνδρομές δεν θα ενημερώνονται. Οι συναντήσεις δεν αλλάζουν.",
     "publicationUnavailable": "{count} εβδομαδιαίες ρυθμίσεις χρειάζονται έλεγχο και δεν μπόρεσαν να γίνουν συναντήσεις με ημερομηνία.",
@@ -239,7 +240,8 @@
       "NEXT_RECRUITMENT_CLOSING_CONFLICT": "Η έναρξη πρέπει να προηγείται της υπάρχουσας λήξης στον προορισμό."
     },
     "featureAfterRefreshEnabled": "Μετά την ανανέωση: Ενεργό",
-    "featureAfterRefreshDisabled": "Μετά την ανανέωση: Ανενεργό"
+    "featureAfterRefreshDisabled": "Μετά την ανανέωση: Ανενεργό",
+    "embeddedHelp": "Apply on refresh. Editing after scheduling requires renewed review."
   },
   "historicalInvitation": {
     "claimUncertain": "The claim result is unknown. Read the invitation again to check its result; do not repeat the claim.",
@@ -1125,7 +1127,7 @@
       "programTotals": "Σύνολα προγράμματος επιλεγμένης περιόδου",
       "programTotalsHelp": "Όλοι οι εκπαιδευτές, συμπεριλαμβανομένων των ανενεργών· τα φίλτρα δεν αλλάζουν αυτά τα σύνολα.",
       "filteredSubtotal": "Φιλτραρισμένο υποσύνολο · {count} εκπαιδευτές",
-      "hiddenInactive": "Το φίλτρο κατάστασης κρύβει {count} ανενεργούς εκπαιδευτές με εγγραφές.",
+      "hiddenInactive": "{count, plural, one {Το φίλτρο κατάστασης κρύβει # ανενεργό εκπαιδευτή με εγγραφές.} other {Το φίλτρο κατάστασης κρύβει # ανενεργούς εκπαιδευτές με εγγραφές.}}",
       "viewInactive": "Προβολή ανενεργών συντελεστών",
       "viewLabel": "Προβολή καταλόγου",
       "viewSummary": "Σύνοψη",
@@ -1188,7 +1190,7 @@
       "noPeriod": "Δεν υπάρχει ενεργή περίοδος προγράμματος. Εκτελέστε τη διαδικασία αρχικοποίησης ή δημιουργήστε μία πρώτα.",
       "currentPeriod": "Τρέχουσα περίοδος",
       "semester": "Εξάμηνο {semester}",
-      "refreshHeading": "Ανανέωση στο επόμενο τρίμηνο",
+      "refreshHeading": "Program Refresh",
       "advancesTo": "Αυτό μεταβιβάζει το πρόγραμμα στο {name} και:",
       "effectPending": "Διαγράφει την εκκρεμή ουρά εγγραφών μαθητών (αρχειοθετούνται ως ανενεργές).",
       "effectTutees": "Αρχειοθετεί όλους τους μαθητές σε εκκρεμότητα και τους ενεργούς μαθητές, ακόμη και χωρίς αντιστοίχιση. Πρέπει να εγγραφούν ξανά για να συνεχίσουν.",
@@ -1416,7 +1418,7 @@
     },
     "tutorRequests": {
       "title": "Αιτήματα κατάστασης βοηθού",
-      "help": "Αλλαγές συμμετοχής με πρωτοβουλία βοηθών. Τα αιτήματα αποχώρησης μπορούν να εγκριθούν μόνο μετά από αναμονή μίας εβδομάδας· η επανένταξη είναι άμεση.",
+      "help": "Αλλαγές συμμετοχής με πρωτοβουλία βοηθών. Τα αιτήματα αποχώρησης μπορούν να εγκριθούν μόνο μετά από αναμονή μίας εβδομάδας· τα αιτήματα επανένταξης μπορούν να εξεταστούν άμεσα και ισχύουν μετά την έγκριση.",
       "kind": {
         "OPT_OUT": "Αποχώρηση",
         "REENTRY": "Επανένταξη"
@@ -2939,7 +2941,8 @@
       "codeSent": "Στείλαμε έναν κωδικό στο {email}. Εισαγάγετέ τον παρακάτω για ολοκλήρωση.",
       "codeLabel": "Κωδικός επαλήθευσης email",
       "resend": "Επαναποστολή κωδικού",
-      "cancel": "Άκυρο"
+      "cancel": "Άκυρο",
+      "deliveryFailed": "Η αποστολή του email απέτυχε. Δοκιμάστε ξανά αργότερα."
     }
   },
   "crew": {
@@ -7982,7 +7985,49 @@
       "SCHEDULED_REFRESH_REVIEW_CHANGED": "The reviewed refresh conditions changed. Reload and review a new schedule.",
       "SCHEDULED_REFRESH_EXECUTION_FAILED": "The refresh could not complete after repeated attempts. Check the deployment, then review a new schedule or cancel this one.",
       "SCHEDULED_REFRESH_AFTER_OPENING": "Choose a refresh time no later than the prepared tutee signup opening time, or update that preparation first."
-    }
+    },
+    "subtitle": "{current} → {next} · {mode} · {zone}",
+    "notScheduledBadge": "Not scheduled",
+    "dueBadge": "Due now",
+    "retryingBadge": "Retrying ({attempts}/5)",
+    "statusReady": "Scheduled — will run automatically",
+    "statusDue": "Scheduled time reached — running soon",
+    "statusRetrying": "Retrying automatic refresh (attempt {attempts} of 5)",
+    "statusPaused": "Will not run automatically",
+    "statusReadyHelp": "Runs automatically when due (checked every 30s, with catch-up) while period, openings, staged features, timezone, and Head approval stay unchanged.",
+    "statusDueHelp": "Scheduled time reached. Server checks every 30s and runs once reviewed conditions are verified.",
+    "statusRetryingHelp": "Temporary error; retrying automatically up to 5 attempts while conditions stay valid.",
+    "completedAt": "Completed at {time} ({zone}).",
+    "noneHelp": "Schedule a refresh below to advance automatically when all conditions are met, or choose Refresh now.",
+    "conditionsHeading": "Refresh Conditions & Review",
+    "conditionsHelp": "A scheduled refresh runs automatically only while every reviewed condition stays unchanged.",
+    "conditionSync": "Settings and review sync",
+    "conditionSyncReady": "Up to date",
+    "conditionSyncChanged": "Reload required",
+    "conditionSyncError": "Unavailable",
+    "conditionOpenings": "Next-period opening bindings",
+    "conditionOpeningsReady": "Ready",
+    "conditionOpeningsStale": "Needs attention",
+    "conditionFeatures": "Staged optional features",
+    "conditionFeaturesPending": "{count} pending",
+    "conditionFeaturesNone": "No pending changes",
+    "conditionAuth": "Authorization",
+    "conditionAuthApproved": "Authorized by Head",
+    "conditionAuthPending": "Pending Head approval",
+    "conditionAuthDirect": "Head applies directly",
+    "conditionAuthRequest": "Requires Head approval",
+    "conditionAuthReadOnly": "Admin & Head only",
+    "conditionAuthChanged": "Renewed review required",
+    "effectsDisclosure": "Effects & full refresh details",
+    "entranceHeading": "Authorize Refresh",
+    "timingModeLabel": "When should this refresh run?",
+    "modeScheduled": "Schedule for later",
+    "modeImmediate": "Refresh now",
+    "openingBound": "Must be on or before the prepared tutee signup opening ({time}, {zone}).",
+    "immediateHelp": "Advances immediately to {target} after confirmation instead of waiting for a scheduled time.",
+    "immediateSupersedes": "Running a refresh now will advance the period immediately and supersede the currently scheduled refresh.",
+    "immediateReviewTitle": "Review Immediate Refresh",
+    "reschedule": "Review & reschedule"
   },
   "signupTransition": {
     "currentClosed": "{period} tutee signup is closed. The next intake is shown below.",

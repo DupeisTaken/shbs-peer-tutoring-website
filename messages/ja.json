@@ -32,6 +32,7 @@
     "calendarCreate": "非公開リンクを作成",
     "calendarRevoke": "非公開リンクを無効化",
     "calendarUnavailable": "購読には現在の有効な参加資格が必要です。",
+    "calendarCreateHelp": "チュータリング予定表の読み取り専用非公開リンクを作成します。リンクを知っている人は誰でも予定を閲覧できるため、慎重に管理してください。",
     "calendarRotateHelp": "新しいリンクを作ると、以前のリンクはすべて無効になります。古いリンクを使う購読は更新されなくなります。",
     "calendarRevokeHelp": "非公開リンクを無効にします。既存の購読は更新されなくなります。セッションの予定は変わりません。",
     "publicationUnavailable": "{count} 件の定期予定は確認が必要なため、日付別の予定を準備できませんでした。",
@@ -239,7 +240,8 @@
       "NEXT_RECRUITMENT_CLOSING_CONFLICT": "開始時刻は対象期間の既存の締切時刻より前である必要があります。"
     },
     "featureAfterRefreshEnabled": "更新後：有効",
-    "featureAfterRefreshDisabled": "更新後：無効"
+    "featureAfterRefreshDisabled": "更新後：無効",
+    "embeddedHelp": "Apply on refresh. Editing after scheduling requires renewed review."
   },
   "historicalInvitation": {
     "claimUncertain": "The claim result is unknown. Read the invitation again to check its result; do not repeat the claim.",
@@ -1188,7 +1190,7 @@
       "noPeriod": "有効なプログラム期間がありません。まずシードを実行するか、新規作成してください。",
       "currentPeriod": "現在の期間",
       "semester": "学期 {semester}",
-      "refreshHeading": "次の四半期へリフレッシュ",
+      "refreshHeading": "Program Refresh",
       "advancesTo": "プログラムを {name} に進め、次の処理を行います：",
       "effectPending": "保留中の生徒申請キューをクリアします（非アクティブとしてアーカイブ）。",
       "effectTutees": "ペアリングの有無にかかわらず、保留中および活動中の生徒をすべてアーカイブします。継続するには再申請が必要です。",
@@ -1416,7 +1418,7 @@
     },
     "tutorRequests": {
       "title": "チューター状態申請",
-      "help": "チューターからの会員変更申請です。離脱申請は1週間のクールダウン後にのみ承認できます。復帰は即時承認できます。",
+      "help": "チューターからの会員変更申請です。離脱申請は1週間のクールダウン後にのみ承認できます。復帰申請はすぐに審査でき、承認後に有効になります。",
       "kind": {
         "OPT_OUT": "離脱",
         "REENTRY": "復帰"
@@ -2939,7 +2941,8 @@
       "codeSent": "{email} に確認コードを送信しました。下に入力して完了してください。",
       "codeLabel": "メール確認コード",
       "resend": "コードを再送",
-      "cancel": "キャンセル"
+      "cancel": "キャンセル",
+      "deliveryFailed": "メールの送信に失敗しました。しばらくしてからもう一度お試しください。"
     }
   },
   "crew": {
@@ -7982,7 +7985,49 @@
       "SCHEDULED_REFRESH_REVIEW_CHANGED": "The reviewed refresh conditions changed. Reload and review a new schedule.",
       "SCHEDULED_REFRESH_EXECUTION_FAILED": "The refresh could not complete after repeated attempts. Check the deployment, then review a new schedule or cancel this one.",
       "SCHEDULED_REFRESH_AFTER_OPENING": "Choose a refresh time no later than the prepared tutee signup opening time, or update that preparation first."
-    }
+    },
+    "subtitle": "{current} → {next} · {mode} · {zone}",
+    "notScheduledBadge": "Not scheduled",
+    "dueBadge": "Due now",
+    "retryingBadge": "Retrying ({attempts}/5)",
+    "statusReady": "Scheduled — will run automatically",
+    "statusDue": "Scheduled time reached — running soon",
+    "statusRetrying": "Retrying automatic refresh (attempt {attempts} of 5)",
+    "statusPaused": "Will not run automatically",
+    "statusReadyHelp": "Runs automatically when due (checked every 30s, with catch-up) while period, openings, staged features, timezone, and Head approval stay unchanged.",
+    "statusDueHelp": "Scheduled time reached. Server checks every 30s and runs once reviewed conditions are verified.",
+    "statusRetryingHelp": "Temporary error; retrying automatically up to 5 attempts while conditions stay valid.",
+    "completedAt": "Completed at {time} ({zone}).",
+    "noneHelp": "Schedule a refresh below to advance automatically when all conditions are met, or choose Refresh now.",
+    "conditionsHeading": "Refresh Conditions & Review",
+    "conditionsHelp": "A scheduled refresh runs automatically only while every reviewed condition stays unchanged.",
+    "conditionSync": "Settings and review sync",
+    "conditionSyncReady": "Up to date",
+    "conditionSyncChanged": "Reload required",
+    "conditionSyncError": "Unavailable",
+    "conditionOpenings": "Next-period opening bindings",
+    "conditionOpeningsReady": "Ready",
+    "conditionOpeningsStale": "Needs attention",
+    "conditionFeatures": "Staged optional features",
+    "conditionFeaturesPending": "{count} pending",
+    "conditionFeaturesNone": "No pending changes",
+    "conditionAuth": "Authorization",
+    "conditionAuthApproved": "Authorized by Head",
+    "conditionAuthPending": "Pending Head approval",
+    "conditionAuthDirect": "Head applies directly",
+    "conditionAuthRequest": "Requires Head approval",
+    "conditionAuthReadOnly": "Admin & Head only",
+    "conditionAuthChanged": "Renewed review required",
+    "effectsDisclosure": "Effects & full refresh details",
+    "entranceHeading": "Authorize Refresh",
+    "timingModeLabel": "When should this refresh run?",
+    "modeScheduled": "Schedule for later",
+    "modeImmediate": "Refresh now",
+    "openingBound": "Must be on or before the prepared tutee signup opening ({time}, {zone}).",
+    "immediateHelp": "Advances immediately to {target} after confirmation instead of waiting for a scheduled time.",
+    "immediateSupersedes": "Running a refresh now will advance the period immediately and supersede the currently scheduled refresh.",
+    "immediateReviewTitle": "Review Immediate Refresh",
+    "reschedule": "Review & reschedule"
   },
   "signupTransition": {
     "currentClosed": "{period} tutee signup is closed. The next intake is shown below.",
