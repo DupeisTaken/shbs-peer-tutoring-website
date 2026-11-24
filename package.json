@@ -32,6 +32,7 @@
     "typecheck": "tsc --noEmit",
     "docs:check": "node scripts/check-docs.mjs && node --test scripts/docs.test.mjs && npm run help:check",
     "help:capture": "tsx --conditions=react-server scripts/capture-help-screenshots.ts --write-manifest",
+    "help:unpack": "node scripts/unpack-help-assets.mjs --default-repo",
     "help:export": "tsx scripts/export-help.ts",
     "help:check": "tsx scripts/export-help.ts --check && tsx scripts/check-help-captures.ts",
     "help:check-sources": "tsx scripts/check-help-captures.ts --strict-sources"
