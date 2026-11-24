@@ -14,9 +14,10 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 import { createHash } from "node:crypto";
-import { execSync } from "node:child_process";
+import { execFileSync, execSync } from "node:child_process";
 import { createRequire } from "node:module";
 import { helpArticles } from "../src/lib/help/catalogue";
+import { validatePublishedCaptureRoute } from "../src/lib/help/capture-route";
 import type { HelpAudience, HelpLocale } from "../src/lib/help/types";
 import {
   encodeWithinBudget,
@@ -24,7 +25,14 @@ import {
 } from "../src/lib/help/image-budget";
 import { directionsSha256 } from "./help-capture-validation";
 
-export type DemoAccountKey = "guest" | "tutor" | "crew" | "head";
+export type DemoAccountKey =
+  | "guest"
+  | "student"
+  | "tutor"
+  | "crew"
+  | "observer"
+  | "translator"
+  | "head";
 
 export type CaptureRecipe = {
   id: string;
@@ -45,10 +53,15 @@ export type CaptureRecipe = {
   }>;
 };
 
-const DEMO_ACCOUNTS: Record<
+export const DEMO_ACCOUNTS: Record<
   Exclude<DemoAccountKey, "guest">,
   { identifier: string; password: string; role: string }
 > = {
+  student: {
+    identifier: "emma@example.test",
+    password: "Password123!",
+    role: "STUDENT",
+  },
   tutor: {
     identifier: "alice@example.edu",
     password: "Password123!",
@@ -59,6 +72,16 @@ const DEMO_ACCOUNTS: Record<
     password: "Password123!",
     role: "CREW",
   },
+  observer: {
+    identifier: "parent@example.edu",
+    password: "Password123!",
+    role: "VIEWER",
+  },
+  translator: {
+    identifier: "translator@example.test",
+    password: "Password123!",
+    role: "TRANSLATOR",
+  },
   head: {
     identifier: "admin@example.edu",
     password: "Password123!",
@@ -66,7 +89,7 @@ const DEMO_ACCOUNTS: Record<
   },
 };
 
-function accountForAudience(audience: HelpAudience): {
+export function accountForAudience(audience: HelpAudience): {
   accountKey: DemoAccountKey;
   role: string;
 } {
@@ -76,37 +99,59 @@ function accountForAudience(audience: HelpAudience): {
     case "account":
     case "tutor":
       return { accountKey: "tutor", role: "TUTOR" };
+    case "student":
+      return { accountKey: "student", role: "STUDENT" };
     case "crew":
       return { accountKey: "crew", role: "CREW" };
-    case "student":
     case "observer":
+      return { accountKey: "observer", role: "VIEWER" };
+    case "translator":
+      return { accountKey: "translator", role: "TRANSLATOR" };
     case "staff":
     case "admin":
     case "head":
-    case "translator":
       return { accountKey: "head", role: "HEAD" };
   }
 }
 
-/** Focused crop overrides for pages where a specific form/card makes a sharper frame. */
-const ROUTE_CROP_OVERRIDES: Record<
-  string,
-  { cropSelector: string; readySelector?: string; callouts?: CaptureRecipe["callouts"] }
-> = {
+type CaptureOverride = {
+  route?: string;
+  cropSelector?: string;
+  readySelector?: string;
+  callouts?: CaptureRecipe["callouts"];
+};
+
+/** Focused crop & callout overrides for routes where a specific form/card makes a sharper frame. */
+const ROUTE_CROP_OVERRIDES: Record<string, CaptureOverride> = {
   "/help": {
     cropSelector: "main",
     readySelector: "input[type='search']",
     callouts: [
-      { selector: "input[type='search']", label: { en: "Search guides", zh: "搜索指南" } },
+      {
+        selector: "input[type='search']",
+        label: { en: "Search guides", zh: "搜索指南" },
+      },
     ],
   },
   "/signin": {
     cropSelector: "main form",
     readySelector: "form",
+    callouts: [
+      {
+        selector: "main form button[type='submit']",
+        label: { en: "Sign in", zh: "登录" },
+      },
+    ],
   },
-  "/settings#associated-emails": {
-    cropSelector: "#associated-emails",
-    readySelector: "#associated-emails",
+  "/forgot-password": {
+    cropSelector: "main form",
+    readySelector: "main form",
+    callouts: [
+      {
+        selector: "main form button[type='submit']",
+        label: { en: "Request recovery", zh: "申请恢复" },
+      },
+    ],
   },
   "/tutee-signup": {
     cropSelector: "main form",
@@ -120,29 +165,140 @@ const ROUTE_CROP_OVERRIDES: Record<
     cropSelector: "main form",
     readySelector: "main form",
   },
+  "/viewer-signup": {
+    cropSelector: "main form",
+    readySelector: "main form",
+  },
+  "/register-account": {
+    cropSelector: "main form",
+    readySelector: "main form",
+  },
+  "/request-appeal": {
+    cropSelector: "main",
+    readySelector: "main",
+  },
 };
 
-/** Derive a deterministic capture plan across the catalogue's navigable guides. */
+/** Exact route/framing overrides for secondary steps in multi-screenshot guides. */
+const STEP_CAPTURE_OVERRIDES: Record<string, CaptureOverride> = {
+  "use-help-catalogue-step-2": {
+    route: "/help/use-help-catalogue",
+    cropSelector: "main article",
+    readySelector: "#guide-title",
+    callouts: [
+      {
+        selector: "#walkthrough",
+        label: { en: "Step-by-step walkthrough", zh: "分步操作" },
+      },
+    ],
+  },
+  "request-tutoring-step-3": {
+    route: "/register-account",
+    cropSelector: "main form",
+    readySelector: "main form",
+  },
+  "sign-in-recover-step-3": {
+    route: "/forgot-password",
+    cropSelector: "main form",
+    readySelector: "main form",
+    callouts: [
+      {
+        selector: "main form button[type='submit']",
+        label: { en: "Request recovery", zh: "申请恢复" },
+      },
+    ],
+  },
+  "account-security-step-2": {
+    route: "/my-account#account-twofactor",
+    cropSelector: "#account-twofactor",
+    readySelector: "#account-twofactor",
+  },
+  "tutee-workspace-step-2": {
+    route: "/student?view=schedule",
+    cropSelector: "main",
+    readySelector: "main",
+  },
+  "tutee-feedback-appeals-step-2": {
+    route: "/student?view=attendance",
+    cropSelector: "main",
+    readySelector: "main",
+  },
+  "tutee-feedback-appeals-step-3": {
+    route: "/student?view=support",
+    cropSelector: "main",
+    readySelector: "main",
+  },
+  "combine-split-pairings-step-2": {
+    route: "/dashboard#tutor-pairings",
+    cropSelector: "#tutor-pairings",
+    readySelector: "#tutor-pairings",
+  },
+  "record-attendance-step-2": {
+    route: "/dashboard#sessions",
+    cropSelector: "#sessions",
+    readySelector: "#sessions",
+  },
+  "plan-dated-session-step-2": {
+    route: "/dashboard#sessions",
+    cropSelector: "#sessions",
+    readySelector: "#sessions",
+  },
+  "tutor-membership-hours-step-4": {
+    route: "/history",
+    cropSelector: "main",
+    readySelector: "main",
+  },
+  "tutor-program-information-step-2": {
+    route: "/dashboard#tutor-pairings",
+    cropSelector: "#tutor-pairings",
+    readySelector: "#tutor-pairings",
+  },
+};
+
+function anchorSelectorForRoute(route: string): string | undefined {
+  const hashIndex = route.indexOf("#");
+  if (hashIndex < 0) return undefined;
+  const fragment = route.slice(hashIndex + 1);
+  return /^[a-z0-9-]+$/i.test(fragment) ? `#${fragment}` : undefined;
+}
+
+/** Derive a deterministic capture plan with unique canonical step IDs across
+ * every guide step that declares a screenshot. */
 export function buildCaptureRecipes(limit?: number): CaptureRecipe[] {
   const recipes: CaptureRecipe[] = [];
   for (const article of helpArticles) {
-    if (article.requiresPrivateLink || article.externalAction) continue;
-    const firstStep = article.steps[0];
-    if (!firstStep?.screenshot) continue;
     const { accountKey, role } = accountForAudience(article.audience);
-    const override = ROUTE_CROP_OVERRIDES[article.route];
-    recipes.push({
-      id: firstStep.screenshot,
-      guideSlug: article.slug,
-      stepIndex: 0,
-      route: article.route,
-      role,
-      accountKey,
-      cropSelector: override?.cropSelector ?? "main",
-      readySelector: override?.readySelector ?? "main",
-      callouts: override?.callouts,
-    });
-    if (limit && recipes.length >= limit) break;
+    for (let stepIndex = 0; stepIndex < article.steps.length; stepIndex++) {
+      const step = article.steps[stepIndex];
+      if (!step?.screenshot) continue;
+      const id = `${article.slug}-step-${stepIndex + 1}`;
+      const stepOverride = STEP_CAPTURE_OVERRIDES[id];
+      const route = validatePublishedCaptureRoute(
+        stepOverride?.route ?? article.route,
+      );
+      const routeOverride = ROUTE_CROP_OVERRIDES[route];
+      const anchorSelector = anchorSelectorForRoute(route);
+      recipes.push({
+        id,
+        guideSlug: article.slug,
+        stepIndex,
+        route,
+        role,
+        accountKey,
+        cropSelector:
+          stepOverride?.cropSelector ??
+          routeOverride?.cropSelector ??
+          anchorSelector ??
+          "main",
+        readySelector:
+          stepOverride?.readySelector ??
+          routeOverride?.readySelector ??
+          anchorSelector ??
+          "main",
+        callouts: stepOverride?.callouts ?? routeOverride?.callouts,
+      });
+      if (limit && recipes.length >= limit) return recipes;
+    }
   }
   return recipes;
 }
@@ -206,11 +362,21 @@ async function signIn(
   account: { identifier: string; password: string },
 ) {
   await page.goto(`${baseUrl}/signin`, { waitUntil: "networkidle" });
-  await page.evaluate(
+  const outcome = await page.evaluate(
     async ({ id, pw }: { id: string; pw: string }) => {
-      const { csrfToken } = (await (await fetch("/api/auth/csrf")).json()) as {
-        csrfToken: string;
+      const csrfRes = await fetch("/api/auth/csrf");
+      if (!csrfRes.ok) {
+        return {
+          ok: false as const,
+          reason: `CSRF endpoint failed with HTTP ${csrfRes.status} (ensure AUTH_TRUST_HOST=true for local next start)`,
+        };
+      }
+      const { csrfToken } = (await csrfRes.json()) as {
+        csrfToken?: string;
       };
+      if (!csrfToken) {
+        return { ok: false as const, reason: "Missing csrfToken from /api/auth/csrf" };
+      }
       const body = new URLSearchParams({
         identifier: id,
         password: pw,
@@ -218,14 +384,55 @@ async function signIn(
         callbackUrl: "/",
         json: "true",
       });
-      await fetch("/api/auth/callback/credentials", {
+      const loginRes = await fetch("/api/auth/callback/credentials", {
         method: "POST",
         headers: { "content-type": "application/x-www-form-urlencoded" },
         body: body.toString(),
       });
+      const sessionRes = await fetch("/api/auth/session");
+      const session = sessionRes.ok
+        ? ((await sessionRes.json()) as { user?: { email?: string } } | null)
+        : null;
+      if (!session?.user) {
+        return {
+          ok: false as const,
+          reason: `Credentials login did not establish a session (HTTP ${loginRes.status})`,
+        };
+      }
+      return { ok: true as const };
     },
     { id: account.identifier, pw: account.password },
   );
+  if (!outcome.ok) {
+    throw new Error(
+      `Failed to sign in demo account ${account.identifier}: ${outcome.reason}`,
+    );
+  }
+}
+
+function normalizeCalloutBounds(
+  box: { x: number; y: number; width: number; height: number },
+  frameOriginX: number,
+  frameOriginY: number,
+  frameWidth: number,
+  frameHeight: number,
+) {
+  const left = Math.max(0, Math.min(0.98, (box.x - frameOriginX) / frameWidth));
+  const top = Math.max(0, Math.min(0.98, (box.y - frameOriginY) / frameHeight));
+  const right = Math.max(
+    left + 0.01,
+    Math.min(1, (box.x + box.width - frameOriginX) / frameWidth),
+  );
+  const bottom = Math.max(
+    top + 0.01,
+    Math.min(1, (box.y + box.height - frameOriginY) / frameHeight),
+  );
+  return {
+    x: Number(left.toFixed(5)),
+    y: Number(top.toFixed(5)),
+    width: Number((right - left).toFixed(5)),
+    height: Number((bottom - top).toFixed(5)),
+  };
 }
 
 async function run() {
@@ -238,8 +445,12 @@ async function run() {
     process.env.HELP_CAPTURE_BASE_URL ?? "http://127.0.0.1:3027",
   );
   const writeManifest = args.includes("--write-manifest");
+  const allowPartial = args.includes("--allow-partial");
   const outDir = path.resolve(
-    arg("--out=", writeManifest ? "docs/guides/help" : ".validation/ci-help-captures"),
+    arg(
+      "--out=",
+      writeManifest ? "docs/guides/help" : ".validation/ci-help-captures",
+    ),
   );
   const imagesDir = writeManifest
     ? path.join(outDir, "assets")
@@ -286,6 +497,7 @@ async function run() {
 
   const browser = await playwright.chromium.launch({ headless: true });
   const screenshots: Array<Record<string, unknown>> = [];
+  const failures: string[] = [];
   let totalBytes = 0;
 
   try {
@@ -332,24 +544,52 @@ async function run() {
                 .catch(() => undefined);
             }
 
+            const docHeight = await page.evaluate(() =>
+              Math.max(
+                document.documentElement.scrollHeight,
+                document.body.scrollHeight,
+                window.innerHeight,
+              ),
+            );
+
             let clip:
               | { x: number; y: number; width: number; height: number }
               | undefined;
-            if (cropMode === "focused" && recipe.cropSelector) {
-              const box = await page
-                .locator(recipe.cropSelector)
-                .first()
-                .boundingBox();
-              if (box && box.width > 40 && box.height > 40) {
-                const pad = budget.cropPaddingPx;
-                const x = Math.max(0, Math.floor(box.x - pad));
-                const y = Math.max(0, Math.floor(box.y - pad));
-                const width = Math.min(
-                  viewport.width - x,
-                  Math.ceil(box.width + pad * 2),
-                );
-                const height = Math.min(1400, Math.ceil(box.height + pad * 2));
-                clip = { x, y, width, height };
+            if (cropMode === "focused") {
+              const candidates = [
+                ...(recipe.cropSelector ? [recipe.cropSelector] : []),
+                "main",
+              ];
+              for (const selector of candidates) {
+                const box = await page
+                  .locator(selector)
+                  .first()
+                  .boundingBox()
+                  .catch(() => null);
+                if (box && box.width >= 40 && box.height >= 40) {
+                  const pad = budget.cropPaddingPx;
+                  const x = Math.max(
+                    0,
+                    Math.min(viewport.width - 40, Math.floor(box.x - pad)),
+                  );
+                  const y = Math.max(
+                    0,
+                    Math.min(Math.max(0, docHeight - 40), Math.floor(box.y - pad)),
+                  );
+                  const width = Math.min(
+                    viewport.width - x,
+                    Math.ceil(box.width + pad * 2),
+                  );
+                  const height = Math.min(
+                    1400,
+                    Math.max(40, docHeight - y),
+                    Math.ceil(box.height + pad * 2),
+                  );
+                  if (width >= 40 && height >= 40) {
+                    clip = { x, y, width, height };
+                    break;
+                  }
+                }
               }
             }
 
@@ -365,34 +605,60 @@ async function run() {
               const box = await page
                 .locator(calloutDef.selector)
                 .first()
-                .boundingBox();
+                .boundingBox()
+                .catch(() => null);
               if (box && box.width > 0 && box.height > 0) {
-                const x = Math.max(
-                  0,
-                  Math.min(1, (box.x - frameOriginX) / frameWidth),
-                );
-                const y = Math.max(
-                  0,
-                  Math.min(1, (box.y - frameOriginY) / frameHeight),
-                );
-                const width = Math.max(
-                  0.01,
-                  Math.min(1 - x, box.width / frameWidth),
-                );
-                const height = Math.max(
-                  0.01,
-                  Math.min(1 - y, box.height / frameHeight),
-                );
                 measuredCallouts.push({
-                  bounds: {
-                    x: Number(x.toFixed(5)),
-                    y: Number(y.toFixed(5)),
-                    width: Number(width.toFixed(5)),
-                    height: Number(height.toFixed(5)),
-                  },
+                  bounds: normalizeCalloutBounds(
+                    box,
+                    frameOriginX,
+                    frameOriginY,
+                    frameWidth,
+                    frameHeight,
+                  ),
                   label: calloutDef.label,
                 });
               }
+            }
+            if (measuredCallouts.length === 0) {
+              for (const fallbackSelector of [
+                "main h1",
+                "h1",
+                "main form button[type='submit']",
+                "main button",
+                "main input",
+              ]) {
+                const box = await page
+                  .locator(fallbackSelector)
+                  .first()
+                  .boundingBox()
+                  .catch(() => null);
+                if (
+                  box &&
+                  box.width > 12 &&
+                  box.height > 12 &&
+                  box.y + box.height > frameOriginY &&
+                  box.y < frameOriginY + frameHeight
+                ) {
+                  measuredCallouts.push({
+                    bounds: normalizeCalloutBounds(
+                      box,
+                      frameOriginX,
+                      frameOriginY,
+                      frameWidth,
+                      frameHeight,
+                    ),
+                    label: { en: step.title.en, zh: step.title.zh },
+                  });
+                  break;
+                }
+              }
+            }
+            if (measuredCallouts.length === 0) {
+              measuredCallouts.push({
+                bounds: { x: 0.04, y: 0.04, width: 0.35, height: 0.08 },
+                label: { en: step.title.en, zh: step.title.zh },
+              });
             }
 
             const rawPng = await page.screenshot({
@@ -448,9 +714,9 @@ async function run() {
               },
             });
           } catch (error) {
-            console.warn(
-              `Skipped ${recipe.id} (${locale}, ${recipe.route}): ${error instanceof Error ? error.message : String(error)}`,
-            );
+            const detail = `${recipe.id} (${locale}, ${recipe.route}): ${error instanceof Error ? error.message : String(error)}`;
+            failures.push(detail);
+            console.warn(`Failed ${detail}`);
           }
         }
         await context.close();
@@ -458,6 +724,12 @@ async function run() {
     }
   } finally {
     await browser.close();
+  }
+
+  if (screenshots.length === 0 || (failures.length > 0 && !allowPartial)) {
+    throw new Error(
+      `Help screenshot capture failed (${failures.length} failures, ${screenshots.length} captured):\n${failures.slice(0, 20).join("\n")}`,
+    );
   }
 
   const manifest = {
@@ -483,20 +755,19 @@ async function run() {
   );
 
   if (renderPdfs) {
-    const { helpAudiences } = await import("../src/lib/help/catalogue");
-    const { renderHelpPdf } = await import("../src/server/help/pdf");
-    await fs.mkdir(pdfOutDir, { recursive: true });
-    for (const audience of helpAudiences) {
-      for (const locale of locales) {
-        const pdf = await renderHelpPdf(audience, locale);
-        await fs.writeFile(
-          path.join(pdfOutDir, `shbs-help-${audience}-${locale}.pdf`),
-          pdf,
-        );
-      }
-    }
-    console.log(
-      `Rendered ${helpAudiences.length * locales.length} Geist PDF handbooks -> ${pdfOutDir}`,
+    // Run PDF rendering in a fresh Node process so it loads the freshly written
+    // `docs/guides/help/captures.json` rather than this process's cached static import.
+    const tsxCli = require.resolve("tsx/cli");
+    execFileSync(
+      process.execPath,
+      [
+        tsxCli,
+        "--conditions=react-server",
+        path.resolve(import.meta.dirname, "render-help-pdfs.ts"),
+        `--locales=${locales.join(",")}`,
+        `--pdf-out=${pdfOutDir}`,
+      ],
+      { stdio: "inherit" },
     );
   }
 }
