@@ -1511,9 +1511,10 @@ it.each(["en", "zh"] as const)(
 );
 
 it.each(["en", "zh"] as const)(
-  "leaves absent directory handles blank while keeping setup and assignment in %s",
+  "omits absent directory handle lines so single-line names stay aligned in %s",
   (locale) => {
     fixture.locale = locale;
+    fixture.targetRole = "VIEWER";
     fixture.pastTutorUsername = null;
     const text = locale === "zh" ? zhMessages : messages;
     mount();
@@ -1521,11 +1522,12 @@ it.each(["en", "zh"] as const)(
       screen.getByRole("button", { name: text.tuteeHistory.showHistorical }),
     );
 
-    for (const name of ["Verified student", "Past tutor"]) {
+    for (const name of ["Management account", "Verified student", "Past tutor"]) {
       const row = screen.getByText(name).closest("tr")!;
       const identity = row.querySelector("td")!;
-      const handleLine = identity.querySelectorAll("p")[1]!;
-      expect(handleLine.textContent).toBe("");
+      const lines = identity.querySelectorAll("p");
+      expect(lines).toHaveLength(1);
+      expect(lines[0]!.textContent).toBe(name);
       expect(
         within(identity).queryByText(text.academics.usernameMissing),
       ).toBeNull();
@@ -1534,12 +1536,16 @@ it.each(["en", "zh"] as const)(
       ).toBeNull();
       expect(
         within(row).getByText(
-          name === "Verified student"
-            ? text.usersDirectory.setup.registered
-            : text.usersDirectory.setup.none,
+          name === "Past tutor"
+            ? text.usersDirectory.setup.none
+            : text.usersDirectory.setup.registered,
         ),
       ).toBeTruthy();
     }
+    const viewer = screen.getByText("Management account").closest("tr")!;
+    expect(
+      within(viewer).getByText(text.admin.users.roles.VIEWER),
+    ).toBeTruthy();
     const student = screen.getByText("Verified student").closest("tr")!;
     expect(
       within(student).getByRole("button", {
