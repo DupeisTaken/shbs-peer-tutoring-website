@@ -1294,12 +1294,12 @@ export default function UsersPage() {
                       <p className="font-medium text-slate-900">
                         {nameFor(u.name, u.username)}
                       </p>
-                      {/* Reserve the handle line; login status belongs in Login setup. */}
-                      <p className="muted min-h-4 text-xs">
-                        {(u.username ?? u.tutor?.username)
-                          ? `@${u.username ?? u.tutor?.username}`
-                          : null}
-                      </p>
+                      {/* Omit the handle line when unassigned so single-line names stay vertically centered with row badges. */}
+                      {(u.username ?? u.tutor?.username) && (
+                        <p className="muted text-xs">
+                          @{u.username ?? u.tutor?.username}
+                        </p>
+                      )}
                       {u.identityReviewRequired && (
                         <p className="mt-1 text-xs text-amber-800">
                           {t("combineRecords.reviewRequired")}
