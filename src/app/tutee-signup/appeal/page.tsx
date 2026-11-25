@@ -1,6 +1,6 @@
 import { getTranslations } from "next-intl/server";
 import { PublicFormPage } from "~/app/_components/public-form-page";
-import { getSignedInWorkspaceHeader } from "~/app/_components/signed-in-header";
+import { getSignedInWorkspaceHeader } from "~/app/_components/signed-in-workspace-header";
 import { SignupAppeal } from "./signup-appeal";
 
 export const metadata = {
@@ -15,12 +15,13 @@ export default async function SignupAppealPage() {
   const t = await getTranslations();
   const headerTitle = t("components.workspaceTitles.signupForms");
   const signedInHeader = await getSignedInWorkspaceHeader({
+    href: "/",
     title: headerTitle,
   });
   return (
     <PublicFormPage
       headerTitle={headerTitle}
-      header={signedInHeader}
+      header={signedInHeader ?? undefined}
       title={t("signupAppeal.title")}
       description={t("signupAppeal.help")}
       backLabel={t("survey.back")}

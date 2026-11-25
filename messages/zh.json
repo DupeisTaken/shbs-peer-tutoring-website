@@ -51,6 +51,10 @@
     "refreshFailed": "无法刷新辅导安排，保留的详情可能已过期。",
     "denied": "目前无法访问这些辅导安排，已隐藏保留的详情。",
     "retry": "刷新辅导安排",
+    "refreshScheduling": "刷新排课",
+    "refreshed": "已根据当前结对刷新辅导安排。",
+    "refreshedRefreshFailed": "已刷新排课，但当前页面未能重新加载。请重试刷新。",
+    "refreshSchedulingFailed": "无法刷新排课。",
     "thisWeek": "本周",
     "nextWeek": "下周",
     "older": "较早的待记录出勤",
@@ -263,7 +267,9 @@
       "ACCOUNT_CONFLICT": "归属冲突须由管理员审核更正或合并。",
       "ACCOUNT_NOT_READY": "现有归属账号需先完成验证设置或找回流程。",
       "UNKNOWN": "发送前需要进一步审核。"
-    }
+    },
+    "exactRetryHelp": "重试会使用同一份已审核邀请：若尚未记录则发送一次，若已受理则直接加载已保存的结果。",
+    "retryExact": "重试此邀请"
   },
   "personParticipation": {
     "availableAt": "最早审核时间：{date}",
@@ -666,7 +672,7 @@
       }
     },
     "signupRoutes": {
-      "viewerHelp": "验证邮箱后，使用邀请码创建账号或登录。",
+      "viewerHelp": "面向学校教师、家长、高校工作人员及访客的只读概览。",
       "viewerLink": "注册访客账号",
       "invitationHelp": "已收到邮件邀请或工作人员发放的授权码？",
       "invitationLink": "使用邀请码注册",
@@ -692,6 +698,7 @@
       "landmark": "网站导航",
       "signInAndJoin": "登录与加入"
     },
+    "viewerSignupHelp": "学校教师、家长及高校工作人员",
     "tagline": "朋辈辅导项目",
     "heroTitle": "一起学习，共同成长。",
     "intro": "在 {appTitle}，辅导伙伴（Tutor）与学习伙伴（Tutee）都是一起学习、相互支持的同学。你可以在擅长的科目上分享经验，也可以在需要帮助时向同伴请教，在交流中共同进步。",
@@ -2907,7 +2914,7 @@
       "fields": {
         "name": "姓名",
         "affiliation": "你的身份",
-        "affiliationPlaceholder": "例如：学生家长、数学教师、社区成员",
+        "affiliationPlaceholder": "例如：学生家长、数学教师、高校工作人员、社区访客",
         "email": "邮箱",
         "code": "电子邮箱验证码",
         "password": "密码",
@@ -5040,7 +5047,10 @@
     "clear": "清除筛选",
     "noRole": "无账号角色",
     "noTutor": "未关联辅导伙伴",
-    "count": "显示 {count} / {total} 位用户"
+    "count": "显示 {count} / {total} 位用户",
+    "resetFilter": "重置",
+    "removeFilter": "移除 {label}",
+    "selectedCount": "已选 {count} 项"
   },
   "saveErrors": {
     "staleRecord": "此内容自加载后已发生变化。请刷新后重试。"
@@ -5916,7 +5926,14 @@
     "confirm": "确认变更",
     "requests": "我的申请与审核结果",
     "history": "离校记录",
-    "retiredReturnHelp": "仅记录原始来源的返校事实。原登录仍保持停用；参与状态、辅导分配和观察权限限制均不变。"
+    "retiredReturnHelp": "仅记录原始来源的返校事实。原登录仍保持停用；参与状态、辅导分配和观察权限限制均不变。",
+    "reload": "重新加载当前状态",
+    "reloadHelp": "此离校记录已在后台更新。请先重新加载当前状态并核对后再提交，你的审核理由将会保留。",
+    "refreshing": "正在刷新相关记录…",
+    "refreshFailed": "已保存，但相关记录未能刷新。请重试刷新，不要重复提交。",
+    "retryRefresh": "重试刷新",
+    "readFailed": "无法加载最新离校状态。请重试后再进行修改。",
+    "accessDenied": "你无权查看此离校记录。"
   },
   "personName": {
     "firstName": "名",
@@ -6224,7 +6241,7 @@
     "pageTitle": "邀请码",
     "pageHelp": "输入邮件中的邀请码，或使用工作人员提供的邀请密钥申请邀请码。",
     "requestTitle": "观察者注册",
-    "requestHelp": "请填写个人信息并验证邮箱，随后获取邀请码以继续注册。",
+    "requestHelp": "面向学校教师、家长、高校人员及访客的只读概览。验证邮箱即可继续。",
     "receiptTitle": "你的邀请码已准备好",
     "receiptHelp": "邮箱已验证。请保存此邀请码，并继续设置你的账号。",
     "showCode": "查看邀请码",

@@ -13,7 +13,7 @@ import { LandingView } from "~/app/_components/landing-view";
 import {
   renderSignedInWorkspaceHeader,
   SIGNED_IN_HEADER_ACCOUNT_SELECT,
-} from "~/app/_components/signed-in-header";
+} from "~/app/_components/signed-in-workspace-header";
 
 /**
  * Root route (`/`): always lands on Program Home.

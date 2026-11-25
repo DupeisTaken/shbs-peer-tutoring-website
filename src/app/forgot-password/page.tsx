@@ -3,6 +3,7 @@ import {
   PublicFormCard,
   PublicFormRoute,
 } from "~/app/_components/public-form-page";
+import { getSignedInWorkspaceHeader } from "~/app/_components/signed-in-workspace-header";
 import { getTranslations } from "next-intl/server";
 
 import { pageMetadata } from "~/server/branding-metadata";
@@ -16,17 +17,30 @@ export async function generateMetadata() {
 export default async function ForgotPasswordPage() {
   const t = await getTranslations();
   const emailAvailable = isEmailDeliveryAvailable("SECURITY");
+  const signedInHeader = await getSignedInWorkspaceHeader({
+    href: "/forgot-password",
+    title: t("auth.forgot.title"),
+  });
   return (
     <PublicFormPage
       title={t("auth.forgot.title")}
       description={t("auth.forgot.intro")}
       backLabel={t("common.backToMain")}
+      header={signedInHeader ?? undefined}
       footer={
-        <PublicFormRoute href="/signin" label={t("auth.forgot.backToSignIn")} />
+        signedInHeader ? undefined : (
+          <PublicFormRoute
+            href="/signin"
+            label={t("auth.forgot.backToSignIn")}
+          />
+        )
       }
     >
       <PublicFormCard>
-        <ForgotPasswordForm emailAvailable={emailAvailable} />
+        <ForgotPasswordForm
+          emailAvailable={emailAvailable}
+          signedIn={Boolean(signedInHeader)}
+        />
       </PublicFormCard>
     </PublicFormPage>
   );

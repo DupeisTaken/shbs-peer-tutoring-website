@@ -6,7 +6,7 @@ import { SignupIntro } from "./signup-intro";
 import { db } from "~/server/db";
 import { readPublicSignupTransition } from "~/server/program/public-signup-transition";
 import { PublicFormPage } from "~/app/_components/public-form-page";
-import { getSignedInWorkspaceHeader } from "~/app/_components/signed-in-header";
+import { getSignedInWorkspaceHeader } from "~/app/_components/signed-in-workspace-header";
 import { auth } from "~/server/auth";
 import { notFound, redirect } from "next/navigation";
 import { TRPCError } from "@trpc/server";
@@ -77,14 +77,18 @@ export default async function SignupPage({
 
   const headerTitle = t("components.workspaceTitles.signupForms");
   const signedInHeader = session?.user
-    ? await getSignedInWorkspaceHeader({ title: headerTitle })
+    ? await getSignedInWorkspaceHeader({
+        href: "/",
+        title: headerTitle,
+        session,
+      })
     : null;
 
   return (
     <PublicFormPage
       wide
       headerTitle={headerTitle}
-      header={signedInHeader}
+      header={signedInHeader ?? undefined}
       title={t("public.signup.title")}
       backLabel={t("common.backToMain")}
       description={restriction?.blocked ? undefined : <SignupIntro />}

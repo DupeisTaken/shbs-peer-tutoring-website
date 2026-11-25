@@ -2,7 +2,7 @@ import { getTranslations } from "next-intl/server";
 import { StudentRegistration } from "../student-registration";
 import { auth } from "~/server/auth";
 import { PublicFormPage } from "~/app/_components/public-form-page";
-import { getSignedInWorkspaceHeader } from "~/app/_components/signed-in-header";
+import { getSignedInWorkspaceHeader } from "~/app/_components/signed-in-workspace-header";
 
 export const metadata = {
   title: "Confirm Tutee Signup",
@@ -21,12 +21,16 @@ export default async function StudentAccountPage({
   ]);
   const headerTitle = rootT("components.workspaceTitles.signupForms");
   const signedInHeader = session?.user
-    ? await getSignedInWorkspaceHeader({ title: headerTitle })
+    ? await getSignedInWorkspaceHeader({
+        href: "/",
+        title: headerTitle,
+        session,
+      })
     : null;
   return (
     <PublicFormPage
       headerTitle={headerTitle}
-      header={signedInHeader}
+      header={signedInHeader ?? undefined}
       title={rootT("survey.accountTitle")}
       description={rootT("survey.priority")}
       backLabel={rootT("survey.back")}

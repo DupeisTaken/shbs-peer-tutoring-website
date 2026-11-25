@@ -3,7 +3,7 @@ import {
   PublicFormCard,
   PublicFormRoute,
 } from "~/app/_components/public-form-page";
-import { getSignedInWorkspaceHeader } from "~/app/_components/signed-in-header";
+import { getSignedInWorkspaceHeader } from "~/app/_components/signed-in-workspace-header";
 import { redirect } from "next/navigation";
 import { getTranslations } from "next-intl/server";
 
@@ -23,14 +23,19 @@ export default async function ViewerSignupPage() {
   if (!features.VIEWER_SIGNUP) redirect("/");
 
   const [t, session] = await Promise.all([getTranslations(), auth()]);
+  const signedIn = Boolean(session?.user);
   const headerTitle = t("components.workspaceTitles.signupForms");
-  const signedInHeader = session?.user
-    ? await getSignedInWorkspaceHeader({ title: headerTitle })
+  const signedInHeader = signedIn
+    ? await getSignedInWorkspaceHeader({
+        href: "/",
+        title: headerTitle,
+        session,
+      })
     : null;
   return (
     <PublicFormPage
       headerTitle={headerTitle}
-      header={signedInHeader}
+      header={signedInHeader ?? undefined}
       title={t("accountInvitation.requestTitle")}
       description={t("accountInvitation.requestHelp")}
       backLabel={t("common.backToMain")}
@@ -45,20 +50,22 @@ export default async function ViewerSignupPage() {
           <PublicFormRoute href="/tutee" label={t("survey.requestTutor")}>
             {t("auth.signupRoutes.tuteeHelp")}
           </PublicFormRoute>
-          <div className="border-t border-slate-200 pt-4">
-            <p className="text-slate-600">
-              {t("public.viewerSignup.alreadyHave")}
-            </p>
-            <PublicFormRoute
-              href="/signin"
-              label={t("public.viewerSignup.signIn")}
-            />
-          </div>
+          {!signedIn && (
+            <div className="border-t border-slate-200 pt-4">
+              <p className="text-slate-600">
+                {t("public.viewerSignup.alreadyHave")}
+              </p>
+              <PublicFormRoute
+                href="/signin"
+                label={t("public.viewerSignup.signIn")}
+              />
+            </div>
+          )}
         </div>
       }
     >
       <PublicFormCard>
-        <ViewerSignupFlow signedIn={Boolean(session?.user)} />
+        <ViewerSignupFlow signedIn={signedIn} />
       </PublicFormCard>
     </PublicFormPage>
   );

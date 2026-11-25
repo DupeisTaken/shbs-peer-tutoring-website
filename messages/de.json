@@ -51,6 +51,10 @@
     "refreshFailed": "Sitzungen konnten nicht aktualisiert werden. Angezeigte Daten können veraltet sein.",
     "denied": "Der Zugriff auf diese Sitzungen ist nicht verfügbar. Gespeicherte Details sind ausgeblendet.",
     "retry": "Sitzungen aktualisieren",
+    "refreshScheduling": "Planung aktualisieren",
+    "refreshed": "Die Planung wurde anhand deiner aktuellen Zuordnungen aktualisiert.",
+    "refreshedRefreshFailed": "Die Planung wurde aktualisiert, aber diese Seite konnte nicht neu geladen werden. Bitte erneut aktualisieren.",
+    "refreshSchedulingFailed": "Die Planung konnte nicht aktualisiert werden.",
     "thisWeek": "Diese Woche",
     "nextWeek": "Nächste Woche",
     "older": "Ältere Sitzungen ohne Anwesenheitsnachweis",
@@ -263,7 +267,9 @@
       "ACCOUNT_CONFLICT": "Ownership conflicts require Admin-reviewed correction or combination.",
       "ACCOUNT_NOT_READY": "The existing owner must complete verified setup or recovery first.",
       "UNKNOWN": "Further review is required before sending."
-    }
+    },
+    "exactRetryHelp": "Retry sends this same reviewed invitation once if it was not recorded, or loads its saved result.",
+    "retryExact": "Retry this invitation"
   },
   "personParticipation": {
     "availableAt": "Earliest review: {date}",
@@ -672,7 +678,7 @@
     "sessionExpired": "Your session expired or could not be verified. Please sign in again.",
     "passwordChangedSignIn": "Dein Passwort wurde geändert. Alle Sitzungen wurden abgemeldet, auch in diesem Browser. Melde dich mit deinem neuen Passwort erneut an.",
     "signupRoutes": {
-      "viewerHelp": "Bestätigen Sie Ihre E-Mail-Adresse, um eine Einladung zu erhalten. Neue Konten erhalten Beobachterzugriff; bestehende Konten melden sich mit dem per E-Mail gesendeten Code an.",
+      "viewerHelp": "Schreibgeschützte Übersicht für Lehrkräfte, Eltern, Hochschulpersonal und Gäste.",
       "viewerLink": "Als Beobachter registrieren",
       "invitationHelp": "Haben Sie eine Einladung per E-Mail oder einen Autorisierungscode vom Programmteam?",
       "invitationLink": "Mit Einladungscode registrieren",
@@ -692,6 +698,7 @@
       "landmark": "Seitennavigation",
       "signInAndJoin": "Anmelden & Beitreten"
     },
+    "viewerSignupHelp": "Lehrkräfte, Eltern & Hochschulpersonal",
     "tagline": "Peer-Tutoring-Programm",
     "heroTitle": "Gemeinsam lernen. Gemeinsam wachsen.",
     "intro": "Platzhalter-Einleitung – hier folgt ein kurzer Absatz über das {appTitle}-Programm. Beschreiben Sie, für wen es gedacht ist, wobei Schülerinnen und Schüler Hilfe erhalten können und welchen Unterschied Peer-Tutoren machen. Ersetzen Sie diesen Text durch die eigentliche Programmbeschreibung.",
@@ -2907,7 +2914,7 @@
       "fields": {
         "name": "Name",
         "affiliation": "Ihr Bezug",
-        "affiliationPlaceholder": "z. B. Elternteil eines Schülers, Mathe-Lehrkraft, Gemeindemitglied",
+        "affiliationPlaceholder": "z. B. Lehrkraft, Elternteil, Hochschulpersonal, Gast",
         "email": "E-Mail",
         "code": "E-Mail-Bestätigungscode",
         "password": "Passwort",
@@ -5040,7 +5047,10 @@
     "clear": "Clear filters",
     "noRole": "No account role",
     "noTutor": "No linked tutor",
-    "count": "Showing {count} of {total} users"
+    "count": "Showing {count} of {total} users",
+    "resetFilter": "Zurücksetzen",
+    "removeFilter": "{label} entfernen",
+    "selectedCount": "{count} ausgewählt"
   },
   "saveErrors": {
     "staleRecord": "This changed since you loaded it — refresh and try again."
@@ -5882,7 +5892,14 @@
     "confirm": "Confirm change",
     "requests": "My requests and decisions",
     "history": "Departure history",
-    "retiredReturnHelp": "Record the original source’s factual return only. Its login remains retired; participation, assignments and observer restrictions remain unchanged."
+    "retiredReturnHelp": "Record the original source’s factual return only. Its login remains retired; participation, assignments and observer restrictions remain unchanged.",
+    "reload": "Reload current status",
+    "reloadHelp": "This departure record changed in the background. Reload the current status to review it before submitting; your reason will be kept.",
+    "refreshing": "Refreshing related records...",
+    "refreshFailed": "Saved, but related records could not refresh. Retry refreshing instead of submitting again.",
+    "retryRefresh": "Retry refresh",
+    "readFailed": "Could not load the latest departure status. Try again before making changes.",
+    "accessDenied": "You do not have permission to view this departure record."
   },
   "personName": {
     "firstName": "Vorname",
@@ -6190,7 +6207,7 @@
     "pageTitle": "Kontoeinladung",
     "pageHelp": "Geben Sie Ihre E-Mail-Einladung ein oder fordern Sie mit einem Einladungsschlüssel eine an.",
     "requestTitle": "Kontoeinladung anfordern",
-    "requestHelp": "Bestätigen Sie Ihre E-Mail-Adresse, um einen separaten Einladungscode zu erhalten. Neue Konten erhalten Lesezugriff als Viewer. Bei einem bestehenden Konto meldet der per E-Mail gesendete Code Sie an; Passwort, Identität und Mitgliedschaften bleiben erhalten. Aktivierte zusätzliche Prüfungen gelten weiterhin.",
+    "requestHelp": "Schreibgeschützte Übersicht für Lehrkräfte, Eltern, Hochschulpersonal und Gäste. Bestätigen Sie Ihre E-Mail-Adresse, um fortzufahren.",
     "receiptTitle": "Your invitation is ready",
     "receiptHelp": "Keep this code to continue with your account. Your email is verified.",
     "showCode": "Show invitation code",

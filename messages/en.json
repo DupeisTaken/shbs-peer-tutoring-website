@@ -51,6 +51,10 @@
     "refreshFailed": "Could not refresh sessions. Retained details may be out of date.",
     "denied": "Access to these sessions is unavailable. Retained details are hidden.",
     "retry": "Refresh sessions",
+    "refreshScheduling": "Refresh scheduling",
+    "refreshed": "Scheduling refreshed from your current pairings.",
+    "refreshedRefreshFailed": "Scheduling refreshed, but this page could not reload. Retry refreshing.",
+    "refreshSchedulingFailed": "Could not refresh scheduling.",
     "thisWeek": "This week",
     "nextWeek": "Next week",
     "older": "Older sessions needing attendance",
@@ -263,7 +267,9 @@
       "ACCOUNT_CONFLICT": "Ownership conflicts require Admin-reviewed correction or combination.",
       "ACCOUNT_NOT_READY": "The existing owner must complete verified setup or recovery first.",
       "UNKNOWN": "Further review is required before sending."
-    }
+    },
+    "exactRetryHelp": "Retry sends this same reviewed invitation once if it was not recorded, or loads its saved result.",
+    "retryExact": "Retry this invitation"
   },
   "personParticipation": {
     "availableAt": "Earliest review: {date}",
@@ -666,7 +672,7 @@
       }
     },
     "signupRoutes": {
-      "viewerHelp": "Verify your email, then use your invitation to create an account or sign in.",
+      "viewerHelp": "Read-only overview for school faculty, parents, college staff, and guests.",
       "viewerLink": "Register as a Viewer",
       "invitationHelp": "Have an emailed invitation or a staff authorization code?",
       "invitationLink": "Register with an Invitation Code",
@@ -692,6 +698,7 @@
       "landmark": "Site Navigation",
       "signInAndJoin": "Sign In & Join"
     },
+    "viewerSignupHelp": "Faculty, parents & college staff",
     "tagline": "Peer Tutoring Program",
     "heroTitle": "Learn together. Grow together.",
     "intro": "At {appTitle}, tutors and tutees are fellow students who learn together and support one another. Share experience in subjects you know well, ask peers for help where you need it, and grow together.",
@@ -2907,7 +2914,7 @@
       "fields": {
         "name": "Name",
         "affiliation": "Your Affiliation",
-        "affiliationPlaceholder": "e.g. Parent of a tutee, Math faculty, community member",
+        "affiliationPlaceholder": "e.g. School faculty, parent, college staff, community guest",
         "email": "Email",
         "code": "Email verification code",
         "password": "Password",
@@ -5040,7 +5047,10 @@
     "clear": "Clear filters",
     "noRole": "No account role",
     "noTutor": "No linked tutor",
-    "count": "Showing {count} of {total} users"
+    "count": "Showing {count} of {total} users",
+    "resetFilter": "Reset",
+    "removeFilter": "Remove {label}",
+    "selectedCount": "{count} selected"
   },
   "saveErrors": {
     "staleRecord": "This changed since you loaded it — refresh and try again."
@@ -5916,7 +5926,14 @@
     "confirm": "Confirm change",
     "requests": "My requests and decisions",
     "history": "Departure history",
-    "retiredReturnHelp": "Record the original source’s factual return only. Its login remains retired; participation, assignments and observer restrictions remain unchanged."
+    "retiredReturnHelp": "Record the original source’s factual return only. Its login remains retired; participation, assignments and observer restrictions remain unchanged.",
+    "reload": "Reload current status",
+    "reloadHelp": "This departure record changed in the background. Reload the current status to review it before submitting; your reason will be kept.",
+    "refreshing": "Refreshing related records...",
+    "refreshFailed": "Saved, but related records could not refresh. Retry refreshing instead of submitting again.",
+    "retryRefresh": "Retry refresh",
+    "readFailed": "Could not load the latest departure status. Try again before making changes.",
+    "accessDenied": "You do not have permission to view this departure record."
   },
   "personName": {
     "firstName": "First Name",
@@ -6224,7 +6241,7 @@
     "pageTitle": "Invitation Code",
     "pageHelp": "Enter your emailed invitation, or use a staff key to request one.",
     "requestTitle": "Viewer Registration",
-    "requestHelp": "Tell us about yourself and verify your email. You will receive an invitation code to continue.",
+    "requestHelp": "Read-only overview for school faculty, parents, college staff, and guests. Verify your email to continue.",
     "receiptTitle": "Your Invitation Is Ready",
     "receiptHelp": "Keep this code to continue with your account. Your email is verified.",
     "showCode": "Show invitation code",

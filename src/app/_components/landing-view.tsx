@@ -84,7 +84,13 @@ export async function LandingView({
         lang: page.labelLocale,
       })),
     ...(features.VIEWER_SIGNUP
-      ? [{ href: "/viewer", label: t("nav.viewerSignup") }]
+      ? [
+          {
+            href: "/viewer",
+            label: t("nav.viewerSignup"),
+            description: t("viewerSignupHelp"),
+          },
+        ]
       : []),
   ];
   const joinItems = [

@@ -8,6 +8,7 @@ import {
 import {
   readSessionAgenda,
   readSessionAgendaHistory,
+  refreshTutorSessionPlanning,
   suggestSessionTime,
   proposeSession,
   proposeSessionCancellation,
@@ -98,6 +99,12 @@ export const sessionPlanningRouter = createTRPCRouter({
         { includeRecurringSchedule: input.includeRecurringSchedule },
       ),
     ),
+  refreshSchedule: activeTutorProcedure.mutation(({ ctx }) =>
+    refreshTutorSessionPlanning(ctx.db, {
+      id: ctx.session.user.id,
+      tutorId: ctx.session.tutorId,
+    }),
+  ),
   suggest: protectedProcedure
     .input(timeInput)
     .mutation(({ ctx, input }) =>

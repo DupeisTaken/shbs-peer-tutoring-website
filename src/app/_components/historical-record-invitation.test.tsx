@@ -27,8 +27,20 @@ vi.mock("~/trpc/react", () => ({ api: {
 } }));
 vi.mock("./tutee-history", () => ({ HistoryError: ({ message }: { message: string }) => <p role="alert">{message}</p> }));
 
-function view(locale: "en" | "zh" = "en", chosen = sources, accessDenied = false, onClose?: () => void) {
-  const invitation = <HistoricalRecordInvitation sources={chosen} accessDenied={accessDenied} />;
+function view(
+  locale: "en" | "zh" = "en",
+  chosen = sources,
+  accessDenied = false,
+  onClose?: () => void,
+  unavailable = false,
+) {
+  const invitation = (
+    <HistoricalRecordInvitation
+      sources={chosen}
+      accessDenied={accessDenied}
+      unavailable={unavailable}
+    />
+  );
   return <NextIntlClientProvider locale={locale} messages={locale === "en" ? en : zh} timeZone="UTC">
     {onClose ? <ProfileDialog title="Historical setup" onClose={onClose}>{invitation}</ProfileDialog> : invitation}
   </NextIntlClientProvider>;
@@ -271,4 +283,115 @@ it("does not use cached scope evidence to cancel a missing or mismatched receipt
   expect(screen.getByRole("button", { name: en.accountProfile.close }).matches(":disabled")).toBe(true);
   expect(mocks.cancel).not.toHaveBeenCalled();
   expect(mocks.send).toHaveBeenCalledTimes(1);
+});
+
+it.each(["en", "zh"] as const)(
+  "offers an exact same-operation retry after a null receipt and unlocks dismissal on settlement in %s",
+  async (locale) => {
+    const copy = locale === "en" ? en : zh;
+    const close = vi.fn();
+    render(view(locale, sources, false, close, true));
+    // Re-render enabled to create the initial preview/send, then flip unavailable=true while uncertain.
+    cleanup();
+    const mounted = render(view(locale, sources, false, close, false));
+    await review(locale);
+    fireEvent.click(screen.getByLabelText(copy.historicalInvitation.acknowledge));
+    fireEvent.click(screen.getByRole("button", { name: copy.tuteeHistory.sendInvitation }));
+    expect(mocks.send).toHaveBeenCalledTimes(1);
+    const firstIntent = mocks.send.mock.calls[0]![0] as {
+      sources: typeof sources;
+      email: string;
+      reason: string;
+      fingerprint: string;
+      operationId: string;
+    };
+    act(() => {
+      mocks.callbacks!.onError({ message: "network lost before admission" });
+      mocks.callbacks!.onSettled();
+    });
+    // Even if the parent marks controls unavailable during recovery, exact retry must not deadlock.
+    mounted.rerender(view(locale, sources, false, close, true));
+    const closeButton = screen.getByRole<HTMLButtonElement>("button", {
+      name: copy.accountProfile.close,
+    });
+    expect(closeButton.disabled).toBe(true);
+    await act(async () => {
+      fireEvent.click(
+        screen.getByRole("button", { name: copy.historicalInvitation.checkReceipt }),
+      );
+    });
+    expect(screen.getByText(copy.historicalInvitation.notRecorded)).toBeTruthy();
+    expect(screen.getByText(copy.historicalInvitation.exactRetryHelp)).toBeTruthy();
+    expect(screen.getByText(new RegExp(firstIntent.operationId))).toBeTruthy();
+    const retryButton = screen.getByRole<HTMLButtonElement>("button", {
+      name: copy.historicalInvitation.retryExact,
+    });
+    expect(retryButton.disabled).toBe(false);
+    // Same-tick double click admits only one exact retry with identical frozen payload.
+    fireEvent.click(retryButton);
+    fireEvent.click(retryButton);
+    expect(mocks.send).toHaveBeenCalledTimes(2);
+    expect(mocks.send.mock.calls[1]![0]).toEqual(firstIntent);
+    await act(async () => {
+      await mocks.callbacks!.onSuccess({
+        attemptId: firstIntent.operationId,
+        status: "PUBLISHED",
+        expiresAt: new Date(),
+      });
+      mocks.callbacks!.onSettled();
+    });
+    expect(screen.getByText(copy.tuteeHistory.invitation_PUBLISHED)).toBeTruthy();
+    expect(closeButton.disabled).toBe(false);
+  },
+);
+
+it("settles on deterministic stale rejection of an exact retry but retains uncertainty on TOO_MANY_REQUESTS", async () => {
+  const close = vi.fn();
+  render(view("en", sources, false, close));
+  await review();
+  send();
+  const firstIntent = mocks.send.mock.calls[0]![0] as { operationId: string };
+  act(() => {
+    mocks.callbacks!.onError({ message: "request dropped" });
+    mocks.callbacks!.onSettled();
+  });
+  await act(async () => {
+    fireEvent.click(
+      screen.getByRole("button", { name: en.historicalInvitation.checkReceipt }),
+    );
+  });
+  fireEvent.click(
+    screen.getByRole("button", { name: en.historicalInvitation.retryExact }),
+  );
+  // Rate limiting an exact retry cannot prove the original request was not admitted.
+  act(() => {
+    mocks.callbacks!.onError({
+      message: "Too many requests",
+      data: { code: "TOO_MANY_REQUESTS" },
+    });
+    mocks.callbacks!.onSettled();
+  });
+  const closeButton = screen.getByRole<HTMLButtonElement>("button", {
+    name: en.accountProfile.close,
+  });
+  expect(closeButton.disabled).toBe(true);
+  // Check receipt again -> still null -> retry again -> deterministic HISTORY_STALE settles it.
+  await act(async () => {
+    fireEvent.click(
+      screen.getByRole("button", { name: en.historicalInvitation.checkReceipt }),
+    );
+  });
+  fireEvent.click(
+    screen.getByRole("button", { name: en.historicalInvitation.retryExact }),
+  );
+  expect(mocks.send.mock.calls[2]![0]).toEqual(firstIntent);
+  act(() => {
+    mocks.callbacks!.onError({
+      message: "HISTORY_STALE",
+      data: { code: "CONFLICT" },
+    });
+    mocks.callbacks!.onSettled();
+  });
+  expect(closeButton.disabled).toBe(false);
+  expect(screen.queryByText(en.historicalInvitation.uncertain)).toBeNull();
 });

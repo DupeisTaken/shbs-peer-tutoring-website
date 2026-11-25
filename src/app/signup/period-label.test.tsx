@@ -14,7 +14,7 @@ vi.mock("./signup-form", () => ({ SignupForm: ({ initialTransition }: { initialT
   <div>Request form for {initialTransition.current?.label}; next {initialTransition.next?.label ?? "none"}</div> }));
 vi.mock("~/app/_components/language-switcher", () => ({ LanguageSwitcher: () => null }));
 vi.mock("~/app/_components/theme-switcher", () => ({ ThemeSwitcher: () => null }));
-vi.mock("~/app/_components/signed-in-header", () => ({ getSignedInWorkspaceHeader: async () => null }));
+vi.mock("~/app/_components/signed-in-workspace-header", () => ({ getSignedInWorkspaceHeader: async () => null }));
 
 it.each(["2026–27 Q3", "2026–27 S2"])("hands the server period projection to the live form (%s)", async (label) => {
   state.read.mockResolvedValue({ serverNow: "2026-10-30T00:00:00Z", timeZone: "Asia/Shanghai",

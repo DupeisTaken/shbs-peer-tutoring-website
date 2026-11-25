@@ -49,7 +49,7 @@ export function PublicFormPage({
   backHref?: string;
   /** Optional header wordmark beside the PT logo when using the public header. */
   headerTitle?: string;
-  /** Optional replacement header (e.g. signed-in WorkspaceHeader on signup forms). */
+  /** Optional signed-in WorkspaceHeader replacement when an authenticated user visits a shared form. */
   header?: ReactNode;
   skipLabel?: string;
   children: ReactNode;
@@ -80,7 +80,7 @@ export function PublicFormPage({
             {title}
           </h1>
           {description && (
-            <div className="mt-3 text-sm leading-6 text-pretty text-slate-600">
+            <div className="mt-3 text-sm leading-6 text-balance text-slate-600">
               {description}
             </div>
           )}
@@ -120,7 +120,7 @@ export function PublicFormRoute({
         {label}
       </Link>
       {children && (
-        <p className="mx-auto max-w-sm text-sm leading-6 text-pretty text-slate-600">
+        <p className="mx-auto max-w-sm text-sm leading-6 text-balance text-slate-600">
           {children}
         </p>
       )}

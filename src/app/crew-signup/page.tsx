@@ -5,7 +5,8 @@ import { getTranslations } from "next-intl/server";
 import { pageMetadata } from "~/server/branding-metadata";
 import { CrewSignupForm } from "./crew-signup-form";
 import { PublicFormPage } from "~/app/_components/public-form-page";
-import { getSignedInWorkspaceHeader } from "~/app/_components/signed-in-header";
+import { getSignedInWorkspaceHeader } from "~/app/_components/signed-in-workspace-header";
+import { auth } from "~/server/auth";
 import { db } from "~/server/db";
 import { getFeatures } from "~/server/program/features";
 
@@ -18,28 +19,35 @@ export default async function CrewSignupPage() {
   const features = await getFeatures(db);
   if (!features.CREW) redirect("/");
 
-  const t = await getTranslations();
+  const [t, session] = await Promise.all([getTranslations(), auth()]);
+  const signedIn = Boolean(session?.user);
   const headerTitle = t("components.workspaceTitles.signupForms");
-  const signedInHeader = await getSignedInWorkspaceHeader({
-    title: headerTitle,
-  });
+  const signedInHeader = signedIn
+    ? await getSignedInWorkspaceHeader({
+        href: "/",
+        title: headerTitle,
+        session,
+      })
+    : null;
   return (
     <PublicFormPage
       wide
       headerTitle={headerTitle}
-      header={signedInHeader}
+      header={signedInHeader ?? undefined}
       title={t("public.crewSignup.title")}
       description={t("public.crewSignup.intro")}
       backLabel={t("common.backToMain")}
     >
-      <CrewSignupForm />
+      <CrewSignupForm signedIn={signedIn} />
 
-      <p className="muted mt-6 text-center">
-        {t("public.crewSignup.alreadyMember")}{" "}
-        <Link href="/signin" className="link">
-          {t("public.crewSignup.signIn")}
-        </Link>
-      </p>
+      {!signedIn && (
+        <p className="muted mt-6 text-center">
+          {t("public.crewSignup.alreadyMember")}{" "}
+          <Link href="/signin" className="link">
+            {t("public.crewSignup.signIn")}
+          </Link>
+        </p>
+      )}
     </PublicFormPage>
   );
 }

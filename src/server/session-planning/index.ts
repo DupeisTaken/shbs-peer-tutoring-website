@@ -148,6 +148,15 @@ function assignmentRoster(plan: Plan, assignment: Plan["assignments"][number]) {
   ];
 }
 
+const INVALIDATED_SCHEDULE_FINGERPRINT = "invalidated";
+
+function regularPublicationRevision(generationKey: string, baseKey: string) {
+  if (generationKey === baseKey) return 0;
+  if (!generationKey.startsWith(`${baseKey}:r`)) return null;
+  const suffix = generationKey.slice(baseKey.length + 2);
+  return /^[1-9]\d*$/.test(suffix) ? Number(suffix) : null;
+}
+
 function continuationPublication(
   plan: Pick<Plan, "generationKey" | "originalDate">,
 ) {
@@ -456,11 +465,39 @@ async function loadSourceEvidence(tx: TransactionDb, plans: Plan[]) {
         })),
       );
   }
+  const groupIds = [
+    ...new Set(
+      pairings.flatMap((row) => (row.groupId ? [row.groupId] : [])),
+    ),
+  ];
+  const groupMembers = new Map<string, Set<string>>();
+  if (groupIds.length) {
+    const superseded = await supersededPairingIds(tx);
+    for (let offset = 0; offset < groupIds.length; offset += 500) {
+      const members = await tx.pairing.findMany({
+        where: {
+          id: { notIn: superseded },
+          groupId: { in: groupIds.slice(offset, offset + 500) },
+        },
+        select: { id: true, groupId: true },
+      });
+      for (const member of members) {
+        if (!member.groupId) continue;
+        let set = groupMembers.get(member.groupId);
+        if (!set) {
+          set = new Set();
+          groupMembers.set(member.groupId, set);
+        }
+        set.add(member.id);
+      }
+    }
+  }
   return {
     plans: new Map(freshPlans.map((plan) => [plan.id, plan])),
     executions: new Map((await tx.sessionPlanExecution.findMany({ where: { planId: { in: freshPlans.map((plan) => plan.id) } } })).map((row) => [row.planId, row])),
     departed,
     pairings,
+    groupMembers,
     continuations,
   };
 }
@@ -537,7 +574,7 @@ async function sourceIsCurrent(
     return false;
   // Ended, published lessons retain their captured roster instead of using today's enrollment.
   if (!plan.term.active && allowEndedTerm) return true;
-  return assignmentSourceMatches(tx, plan, undefined, evidence);
+  return assignmentSourceMatches(tx, plan, undefined, evidence, allowEndedTerm);
 }
 
 /** Consent deltas preserve a publication; an unrelated roster edit starts a new
@@ -547,8 +584,9 @@ async function assignmentSourceMatches(
   plan: Plan,
   addition?: { pairingId: string; tuteeId: string },
   evidence?: SourceEvidence,
+  allowEndedTerm = false,
 ) {
-  const transferred = await transferredPlanIsCurrent(tx, plan, false, addition, evidence ? evidence.executions.get(plan.id) ?? null : undefined);
+  const transferred = await transferredPlanIsCurrent(tx, plan, allowEndedTerm, addition, evidence ? evidence.executions.get(plan.id) ?? null : undefined);
   if (transferred !== null) return transferred;
   const pairingIds = plan.assignments.map((row) => row.pairingId);
   const rows = evidence
@@ -558,6 +596,36 @@ async function assignmentSourceMatches(
         include: sourcePairingInclude,
         orderBy: { id: "asc" },
       });
+  if (rows.length !== plan.assignments.length) return false;
+  // Live recurring plans must match their current teaching unit: combining an
+  // individual pairing, splitting a group, or changing group membership retires
+  // future plans for the superseded shape while leaving ended/extra sessions intact.
+  if (!allowEndedTerm && plan.kind === "REGULAR") {
+    if (rows.length === 1) {
+      if (rows[0]!.groupId !== null) return false;
+    } else if (rows.length > 1) {
+      const groupId = rows[0]!.groupId;
+      if (!groupId || !rows.every((row) => row.groupId === groupId)) return false;
+      const liveMembers = evidence
+        ? evidence.groupMembers.get(groupId)
+        : new Set(
+            (
+              await tx.pairing.findMany({
+                where: {
+                  id: { notIn: await supersededPairingIds(tx) },
+                  groupId,
+                },
+                select: { id: true },
+              })
+            ).map((member) => member.id),
+          );
+      if (
+        liveMembers?.size !== rows.length ||
+        !rows.every((row) => liveMembers.has(row.id))
+      )
+        return false;
+    }
+  }
   const laterContinuations = evidence
     ? evidence.continuations.filter(
         (row) =>
@@ -574,38 +642,35 @@ async function assignmentSourceMatches(
         },
         select: { targetPairingId: true, tuteeId: true },
       });
-  return (
-    rows.length === plan.assignments.length &&
-    rows.every((row) => {
-      const before = plan.assignments.find(
-        (item) => item.pairingId === row.id,
-      )!;
-      const released = new Set(
-        plan.continuationMembers
-          .filter(
-            (member) =>
-              member.pairingId === row.id && member.releasedAt !== null,
-          )
+  return rows.every((row) => {
+    const before = plan.assignments.find(
+      (item) => item.pairingId === row.id,
+    )!;
+    const released = new Set(
+      plan.continuationMembers
+        .filter(
+          (member) =>
+            member.pairingId === row.id && member.releasedAt !== null,
+        )
+        .map((member) => member.tuteeId),
+    );
+    const expected = [
+      ...new Set([
+        ...assignmentRoster(plan, before).filter((id) => !released.has(id)),
+        ...laterContinuations
+          .filter((member) => member.targetPairingId === row.id)
           .map((member) => member.tuteeId),
-      );
-      const expected = [
-        ...new Set([
-          ...assignmentRoster(plan, before).filter((id) => !released.has(id)),
-          ...laterContinuations
-            .filter((member) => member.targetPairingId === row.id)
-            .map((member) => member.tuteeId),
-          ...(addition?.pairingId === row.id ? [addition.tuteeId] : []),
-        ]),
-      ].sort();
-      return (
-        row.tutorId === plan.tutorId &&
-        row.termId === plan.termId &&
-        row.subject === before.subject &&
-        JSON.stringify(row.tutees.map((item) => item.tuteeId).sort()) ===
-          JSON.stringify(expected)
-      );
-    })
-  );
+        ...(addition?.pairingId === row.id ? [addition.tuteeId] : []),
+      ]),
+    ].sort();
+    return (
+      row.tutorId === plan.tutorId &&
+      row.termId === plan.termId &&
+      row.subject === before.subject &&
+      JSON.stringify(row.tutees.map((item) => item.tuteeId).sort()) ===
+        JSON.stringify(expected)
+    );
+  });
 }
 
 async function ensureWritable(
@@ -1392,7 +1457,7 @@ export async function previewProgramCalendarImpact(
 async function reconcileOrdinaryPlans(
   tx: TransactionDb,
   prefix: string,
-  schedule: { dayOfWeek: number; startMin: number; roomId: string | null },
+  schedule: { dayOfWeek: number; startMin: number; roomId: string | null } | null,
   timeZone: string,
   computation: PlanningComputation,
   now: Date,
@@ -1400,9 +1465,9 @@ async function reconcileOrdinaryPlans(
   const { calendar, parseDateTime } = computation;
   const semanticPauses = tutoringPauseSemanticRanges(computation.tutoringPauses ?? []);
   const scheduleHash = fingerprint([
-    schedule.dayOfWeek,
-    schedule.startMin,
-    schedule.roomId,
+    ...(schedule
+      ? [schedule.dayOfWeek, schedule.startMin, schedule.roomId]
+      : ["unconfirmed"]),
     timeZone,
     calendar.semanticDays(),
     // Keep the ordinary five-element publication identity byte-for-byte stable.
@@ -1411,6 +1476,7 @@ async function reconcileOrdinaryPlans(
   const candidateWhere: Prisma.SessionPlanWhereInput = {
     generationKey: { startsWith: prefix },
     kind: "REGULAR",
+    sourceScheduleFingerprint: { not: INVALIDATED_SCHEDULE_FINGERPRINT },
     OR: [
       { sourceScheduleFingerprint: { not: scheduleHash } },
       { cohorts: { some: { sourceInvalidated: true } } },
@@ -1552,6 +1618,7 @@ async function reconcileOrdinaryPlans(
       const ordinaryTuteeIds = ordinary.map((person) => person.tuteeId);
       const day = calendar.resolve(plan.originalDate);
       const applies =
+        schedule !== null &&
         day.isSchoolDay && day.effectiveTimetableWeekday === schedule.dayOfWeek &&
         !isRegularTutoringPaused(plan.originalDate, computation.tutoringPauses ?? []);
       if (
@@ -1563,7 +1630,7 @@ async function reconcileOrdinaryPlans(
         continue;
       }
       let window: ReturnType<typeof plannedWindow> | null = null;
-      if (applies) {
+      if (applies && schedule) {
         try {
           const target = plannedWindow(
             {
@@ -1708,350 +1775,428 @@ async function reconcileOrdinaryPlans(
 export async function ensureSessionPlanningWindow(
   db: DomainDb,
   now = new Date(),
+  options: { force?: boolean } = {},
 ) {
   return inSchedulingMaintenanceTransaction(db, async (tx) => {
     await lockPlanningEntry(tx);
-    const timeZone = await getProgramTimeZone(tx);
-    const weeks = planningWeeks(now, timeZone);
-    const maintenance = await readSchedulingMaintenance(tx, {
+    return runSessionPlanningWindow(tx, now, options.force === true);
+  });
+}
+
+/** Active tutors can explicitly reconcile dated sessions from current pairings
+ * without exposing program-wide publisher counters. */
+export async function refreshTutorSessionPlanning(
+  db: DomainDb,
+  actor: Actor,
+  now = new Date(),
+) {
+  if (!actor.tutorId)
+    fail("An active tutor account is required.", "FORBIDDEN");
+  return inSchedulingMaintenanceTransaction(db, async (tx) => {
+    await lockPlanningEntry(tx);
+    await requireTutor(tx, actor, actor.tutorId!);
+    const publication = await runSessionPlanningWindow(tx, now, true);
+    return {
+      refreshedAt: now,
+      windowStart: publication.start,
+      windowEnd: publication.end,
+      preparedThrough: publication.prepareEnd,
+    };
+  });
+}
+
+async function runSessionPlanningWindow(
+  tx: TransactionDb,
+  now: Date,
+  force: boolean,
+) {
+  const timeZone = await getProgramTimeZone(tx);
+  const weeks = planningWeeks(now, timeZone);
+  const maintenance = await readSchedulingMaintenance(tx, {
+    ...weeks,
+    timeZone,
+  });
+  if (maintenance.current && !force)
+    return {
       ...weeks,
       timeZone,
-    });
-    if (maintenance.current)
-      return {
-        ...weeks,
-        timeZone,
-        unavailable: maintenance.unavailable,
-        normalized: maintenance.normalized,
-      };
-    const affected = await tx.sessionPlanAssignment.findMany({
-      where: {
-        plan: {
-          cohorts: {
-            some: {
-              startsAt: { gt: now },
-              OR: [
-                { status: "SCHEDULED" },
-                { participants: { some: { OR: [{ calendarSuppressed: true }, { tutoringPauseSuppressed: true }] } } },
-              ],
-            },
+      unavailable: maintenance.unavailable,
+      normalized: maintenance.normalized,
+    };
+  const affected = await tx.sessionPlanAssignment.findMany({
+    where: {
+      plan: {
+        cohorts: {
+          some: {
+            startsAt: { gt: now },
+            OR: [
+              { status: "SCHEDULED" },
+              { participants: { some: { OR: [{ calendarSuppressed: true }, { tutoringPauseSuppressed: true }] } } },
+            ],
           },
         },
       },
-      select: { pairingId: true },
-      distinct: ["pairingId"],
-    });
-    if (affected.length)
-      await invalidateSessionPlansForPairings(
-        tx,
-        affected.map((row) => row.pairingId),
-        now,
-      );
-    const rows = await tx.pairing.findMany({
-      where: {
-        id: { notIn: await supersededPairingIds(tx) },
-        term: { active: true },
-        scheduleConfirmed: true,
-        tutor: { status: "ACTIVE" },
+    },
+    select: { pairingId: true },
+    distinct: ["pairingId"],
+  });
+  if (affected.length)
+    await invalidateSessionPlansForPairings(
+      tx,
+      affected.map((row) => row.pairingId),
+      now,
+    );
+  const rows = await tx.pairing.findMany({
+    where: {
+      id: { notIn: await supersededPairingIds(tx) },
+      term: { active: true },
+      tutor: { status: "ACTIVE" },
+    },
+    include: {
+      group: { select: { primaryPairingId: true } },
+      term: true,
+      tutees: {
+        where: { tutee: { status: { not: "INACTIVE" } } },
+        select: { tuteeId: true },
       },
-      include: {
-        group: { select: { primaryPairingId: true } },
-        term: true,
-        tutees: {
-          where: { tutee: { status: { not: "INACTIVE" } } },
-          select: { tuteeId: true },
-        },
-      },
-      orderBy: { id: "asc" },
-    });
-    let unavailable = 0;
-    let warmUnavailable = 0;
-    let normalized = 0;
-    const overrides = await tx.schoolCalendarDay.findMany();
-    // Reuse immutable calculations within publication. Keep live conflict and
-    // authority reads outside these caches, including the validation calendar.
-    const computation: PlanningComputation = {
-      calendar: createSchoolCalendarSnapshot(overrides),
-      parseDateTime: createProgramDateTimeParser(),
-      tutoringPauses: await pauseRanges(tx),
-      refreshSchedules: await readSessionRefreshSchedules(tx),
-    };
-    await reconcileTutoringPauses(tx, computation.tutoringPauses ?? [], now);
-    await reconcileSessionRefreshBoundaries(tx, computation.refreshSchedules!, now);
-    const publicationNotices: PublicationNotice[] = [];
-    const evidencePairingIds = await pairingEvidenceIds(tx, rows.map((row) => row.id));
-    const continuationPairingIds = await readContinuationPairingIds(tx, evidencePairingIds);
-    const successorRows = await tx.pairingExecutionSuccessor.findMany({ where: { sourcePairingId: { in: evidencePairingIds } } });
-    for (;;) {
-      const before = continuationPairingIds.size;
-      for (const successor of successorRows) if (continuationPairingIds.has(successor.sourcePairingId)) continuationPairingIds.add(successor.targetPairingId);
-      if (before === continuationPairingIds.size) break;
+    },
+    orderBy: { id: "asc" },
+  });
+  let unavailable = 0;
+  let warmUnavailable = 0;
+  let normalized = 0;
+  const overrides = await tx.schoolCalendarDay.findMany();
+  // Reuse immutable calculations within publication. Keep live conflict and
+  // authority reads outside these caches, including the validation calendar.
+  const computation: PlanningComputation = {
+    calendar: createSchoolCalendarSnapshot(overrides),
+    parseDateTime: createProgramDateTimeParser(),
+    tutoringPauses: await pauseRanges(tx),
+    refreshSchedules: await readSessionRefreshSchedules(tx),
+  };
+  await reconcileTutoringPauses(tx, computation.tutoringPauses ?? [], now);
+  await reconcileSessionRefreshBoundaries(tx, computation.refreshSchedules!, now);
+  const publicationNotices: PublicationNotice[] = [];
+  const evidencePairingIds = await pairingEvidenceIds(tx, rows.map((row) => row.id));
+  const continuationPairingIds = await readContinuationPairingIds(tx, evidencePairingIds);
+  const successorRows = await tx.pairingExecutionSuccessor.findMany({ where: { sourcePairingId: { in: evidencePairingIds } } });
+  for (;;) {
+    const before = continuationPairingIds.size;
+    for (const successor of successorRows) if (continuationPairingIds.has(successor.sourcePairingId)) continuationPairingIds.add(successor.targetPairingId);
+    if (before === continuationPairingIds.size) break;
+  }
+  for (const entry of pairingEntries(rows)) {
+    const primary = entry.primary;
+    const prefix = `regular:${primary.termId}:${entry.id}:`;
+    const awaitingSchedule =
+      entry.groupStatus === "awaiting" ||
+      (!entry.groupId && !primary.scheduleConfirmed);
+    if (awaitingSchedule) {
+      // Unconfirmed schedules suppress ordinary future lessons while preserving
+      // explicitly agreed exceptions, without treating awaiting work as broken.
+      await reconcileOrdinaryPlans(tx, prefix, null, timeZone, computation, now);
+      continue;
     }
-    for (const entry of pairingEntries(rows)) {
-      const primary = entry.primary;
-      const currentPairingIds = entry.pairings.map((row) => row.id);
-      const predecessors = (await pairingEvidenceIds(tx, currentPairingIds)).filter((id) => !currentPairingIds.includes(id));
-      const inheritedDates = new Set(predecessors.length ? (await tx.sessionPlan.findMany({ where: { assignments: { some: { pairingId: { in: predecessors } } }, originalDate: { gte: weeks.start, lte: weeks.prepareEnd } }, select: { originalDate: true } })).map((row) => row.originalDate) : []);
+    if (entry.groupStatus === "needsRepair") {
+      await reconcileOrdinaryPlans(tx, prefix, null, timeZone, computation, now);
+      unavailable++;
+      warmUnavailable++;
+      continue;
+    }
+    const currentPairingIds = entry.pairings.map((row) => row.id);
+    const predecessors = (await pairingEvidenceIds(tx, currentPairingIds)).filter((id) => !currentPairingIds.includes(id));
+    const inheritedDates = new Set(predecessors.length ? (await tx.sessionPlan.findMany({ where: { assignments: { some: { pairingId: { in: predecessors } } }, originalDate: { gte: weeks.start, lte: weeks.prepareEnd } }, select: { originalDate: true } })).map((row) => row.originalDate) : []);
+    if (!primary.tutees.length || primary.startMin > 1395) {
+      unavailable++;
+      warmUnavailable++;
+      continue;
+    }
+    if (primary.endMin - primary.startMin !== 45) normalized++;
+    const scheduleHash = await reconcileOrdinaryPlans(
+      tx,
+      prefix,
+      primary,
+      timeZone,
+      computation,
+      now,
+    );
+    const rosterHash = fingerprint(
+      entry.pairings.map((row) => [
+        row.id,
+        row.subject,
+        row.tutees.map((item) => item.tuteeId).sort(),
+      ]),
+    );
+    const candidates: { date: string; generationKey: string }[] = [];
+    let termStart: string | undefined;
+    let termEnd: string | undefined;
+    const continuing = entry.pairings.every((pairing) =>
+      continuationPairingIds.has(pairing.id),
+    );
+    const publications = continuing
+      ? latestContinuationPublications(
+          await tx.sessionPlan.findMany({
+            where: { generationKey: { startsWith: prefix }, kind: "REGULAR" },
+            include: planInclude,
+          }),
+        )
+      : null;
+    const regularPlans = continuing
+      ? []
+      : await tx.sessionPlan.findMany({
+          where: {
+            generationKey: { startsWith: prefix },
+            originalDate: { gte: weeks.start, lte: weeks.prepareEnd },
+            kind: "REGULAR",
+          },
+          select: { generationKey: true, sourceScheduleFingerprint: true },
+        });
+    for (
+      let date = weeks.start;
+      date <= weeks.prepareEnd;
+      date = addPlanningDays(date, 1)
+    ) {
+      // The original publication/event identity survives execution transfer,
+      // including cancelled or moved commitments. Only later dates publish anew.
+      if (inheritedDates.has(date)) continue;
+      const day = computation.calendar.resolve(date);
+      const pausedClosedSource = !day.isSchoolDay &&
+        isRegularTutoringPaused(date, computation.tutoringPauses ?? []) &&
+        (new Date(`${date}T00:00:00Z`).getUTCDay() || 7) === primary.dayOfWeek;
       if (
-        entry.groupStatus === "needsRepair" ||
-        !primary.tutees.length ||
-        primary.startMin > 1395
-      ) {
+        !pausedClosedSource && (!day.isSchoolDay ||
+        day.effectiveTimetableWeekday !== primary.dayOfWeek)
+      )
+        continue;
+      if (
+        (primary.term.startDate &&
+          date <
+            (termStart ??= programDateKey(
+              primary.term.startDate,
+              timeZone,
+            ))) ||
+        (primary.term.endDate &&
+          date > (termEnd ??= programDateKey(primary.term.endDate, timeZone)))
+      )
+        continue;
+      if (continuing) {
+        // Only explicit consent deltas retain the current publication. Manual
+        // roster or grouping edits replace cancelled future plans with a new revision.
+        const continuationKey = `${prefix}${date}:continuation`;
+        const previous = publications?.get(continuationKey);
+        if (
+          previous &&
+          previous.sourceScheduleFingerprint !== INVALIDATED_SCHEDULE_FINGERPRINT &&
+          (await assignmentSourceMatches(tx, previous))
+        )
+          continue;
+        const generationKey = `${continuationKey}:${previous ? continuationPublication(previous)!.revision + 1 : 0}`;
+        candidates.push({ date, generationKey });
+      } else {
+        const baseKey = `${prefix}${date}:${rosterHash}`;
+        let latestRevision = -1;
+        let latestInvalidated = false;
+        for (const existingPlan of regularPlans) {
+          const revision = regularPublicationRevision(
+            existingPlan.generationKey,
+            baseKey,
+          );
+          if (revision !== null && revision > latestRevision) {
+            latestRevision = revision;
+            latestInvalidated =
+              existingPlan.sourceScheduleFingerprint ===
+              INVALIDATED_SCHEDULE_FINGERPRINT;
+          }
+        }
+        // Active, moved, paused and participant-cancelled plans suppress
+        // regeneration; only source-invalidated shapes mint a fresh revision.
+        if (latestRevision >= 0 && !latestInvalidated) continue;
+        const generationKey =
+          latestRevision >= 0 ? `${baseKey}:r${latestRevision + 1}` : baseKey;
+        candidates.push({ date, generationKey });
+      }
+    }
+    // At most 21 keys per entry. Cancelled/moved plans also suppress regeneration.
+    const existing = new Set(
+      candidates.length
+        ? (
+            await tx.sessionPlan.findMany({
+              where: {
+                generationKey: {
+                  in: candidates.map((row) => row.generationKey),
+                },
+              },
+              select: { generationKey: true },
+            })
+          ).map((row) => row.generationKey)
+        : [],
+    );
+    for (const { date, generationKey } of candidates) {
+      if (existing.has(generationKey)) continue;
+      let window: ReturnType<typeof plannedWindow>;
+      try {
+        window = plannedWindow(
+          {
+            date,
+            startMin: primary.startMin,
+            roomId: primary.roomId,
+            online: false,
+          },
+          timeZone,
+          computation.parseDateTime,
+        );
+      } catch {
         unavailable++;
         warmUnavailable++;
         continue;
       }
-      if (primary.endMin - primary.startMin !== 45) normalized++;
-      const prefix = `regular:${primary.termId}:${entry.id}:`;
-      const scheduleHash = await reconcileOrdinaryPlans(
-        tx,
-        prefix,
-        primary,
-        timeZone,
-        computation,
-        now,
-      );
-      const rosterHash = fingerprint(
-        entry.pairings.map((row) => [
-          row.id,
-          row.subject,
-          row.tutees.map((item) => item.tuteeId).sort(),
-        ]),
-      );
-      const candidates: { date: string; generationKey: string }[] = [];
-      let termStart: string | undefined;
-      let termEnd: string | undefined;
-      const continuing = entry.pairings.every((pairing) =>
-        continuationPairingIds.has(pairing.id),
-      );
-      const publications = continuing
-        ? latestContinuationPublications(
-            await tx.sessionPlan.findMany({
-              where: { generationKey: { startsWith: prefix }, kind: "REGULAR" },
-              include: planInclude,
-            }),
-          )
-        : null;
-      for (
-        let date = weeks.start;
-        date <= weeks.prepareEnd;
-        date = addPlanningDays(date, 1)
-      ) {
-        // The original publication/event identity survives execution transfer,
-        // including cancelled or moved commitments. Only later dates publish anew.
-        if (inheritedDates.has(date)) continue;
-        const day = computation.calendar.resolve(date);
-        const pausedClosedSource = !day.isSchoolDay &&
-          isRegularTutoringPaused(date, computation.tutoringPauses ?? []) &&
-          (new Date(`${date}T00:00:00Z`).getUTCDay() || 7) === primary.dayOfWeek;
-        if (
-          !pausedClosedSource && (!day.isSchoolDay ||
-          day.effectiveTimetableWeekday !== primary.dayOfWeek)
-        )
-          continue;
-        if (
-          (primary.term.startDate &&
-            date <
-              (termStart ??= programDateKey(
-                primary.term.startDate,
-                timeZone,
-              ))) ||
-          (primary.term.endDate &&
-            date > (termEnd ??= programDateKey(primary.term.endDate, timeZone)))
-        )
-          continue;
-        // Only explicit consent deltas retain the current publication. Manual
-        // roster edits replace cancelled future plans with a new revision.
-        const continuationKey = `${prefix}${date}:continuation`;
-        const previous = publications?.get(continuationKey);
-        if (previous && (await assignmentSourceMatches(tx, previous))) continue;
-        const generationKey = continuing
-          ? `${continuationKey}:${previous ? continuationPublication(previous)!.revision + 1 : 0}`
-          : `${prefix}${date}:${rosterHash}`;
-        candidates.push({ date, generationKey });
-      }
-      // At most 21 keys per entry. Cancelled/moved plans also suppress regeneration.
-      const existing = new Set(
-        candidates.length
-          ? (
-              await tx.sessionPlan.findMany({
-                where: {
-                  generationKey: {
-                    in: candidates.map((row) => row.generationKey),
-                  },
-                },
-                select: { generationKey: true },
-              })
-            ).map((row) => row.generationKey)
-          : [],
-      );
-      for (const { date, generationKey } of candidates) {
-        if (existing.has(generationKey)) continue;
-        let window: ReturnType<typeof plannedWindow>;
-        try {
-          window = plannedWindow(
-            {
-              date,
-              startMin: primary.startMin,
-              roomId: primary.roomId,
-              online: false,
-            },
-            timeZone,
-            computation.parseDateTime,
-          );
-        } catch {
-          unavailable++;
-          warmUnavailable++;
-          continue;
-        }
-        // Launch/catch-up never fabricates past appointments or duplicate old attendance.
-        if (window.endsAt <= now) continue;
-        // A reviewed future refresh bounds automatic commitments without turning
-        // an expected period boundary into a publication failure/tombstone.
-        if (sessionExceedsRefresh(window, computation.refreshSchedules?.get(primary.termId))) continue;
-        const planId = randomUUID(),
-          cohortId = randomUUID();
-        const roster = [
-          ...new Set(
-            entry.pairings.flatMap((row) =>
-              row.tutees.map((item) => item.tuteeId),
-            ),
+      // Launch/catch-up never fabricates past appointments or duplicate old attendance.
+      if (window.endsAt <= now) continue;
+      // A reviewed future refresh bounds automatic commitments without turning
+      // an expected period boundary into a publication failure/tombstone.
+      if (sessionExceedsRefresh(window, computation.refreshSchedules?.get(primary.termId))) continue;
+      const planId = randomUUID(),
+        cohortId = randomUUID();
+      const roster = [
+        ...new Set(
+          entry.pairings.flatMap((row) =>
+            row.tutees.map((item) => item.tuteeId),
           ),
-        ];
-        // Both inserts keep database defaults and recovery triggers. No returned
-        // plan row is needed: validation uses these immutable publication facts.
-        await tx.sessionPlan.createMany({
-          data: {
-            id: planId,
-            generationKey,
-            tutorId: primary.tutorId,
-            termId: primary.termId,
-            originalDate: date,
-            timeZone,
-            sourceScheduleFingerprint: scheduleHash,
-            sourceFingerprint: rosterHash,
-          },
-        });
-        await tx.sessionPlanAssignment.createMany({
-          data: entry.pairings.map((row, index) => ({
-            planId,
-            pairingId: row.id,
-            subject: row.subject,
-            tuteeIds: row.tutees.map((item) => item.tuteeId),
-            primary: index === 0,
-          })),
-        });
-        existing.add(generationKey);
-        const tutoringPaused = isRegularTutoringPaused(date, computation.tutoringPauses ?? []);
-        const schoolSuppressed = !computation.calendar.resolve(date).isSchoolDay;
-        let available = !tutoringPaused;
-        // Validation needs only immutable publication facts; don't hydrate the
-        // complete plan/roster/account graph twice for each newly inserted date.
-        const plan: ValidationPlan = {
+        ),
+      ];
+      // Both inserts keep database defaults and recovery triggers. No returned
+      // plan row is needed: validation uses these immutable publication facts.
+      await tx.sessionPlan.createMany({
+        data: {
           id: planId,
+          generationKey,
           tutorId: primary.tutorId,
           termId: primary.termId,
           originalDate: date,
           timeZone,
-          term: primary.term,
-          assignments: entry.pairings.map((row) => ({ pairingId: row.id })),
-        };
-        const candidate = {
+          sourceScheduleFingerprint: scheduleHash,
+          sourceFingerprint: rosterHash,
+        },
+      });
+      await tx.sessionPlanAssignment.createMany({
+        data: entry.pairings.map((row, index) => ({
+          planId,
+          pairingId: row.id,
+          subject: row.subject,
+          tuteeIds: row.tutees.map((item) => item.tuteeId),
+          primary: index === 0,
+        })),
+      });
+      existing.add(generationKey);
+      const tutoringPaused = isRegularTutoringPaused(date, computation.tutoringPauses ?? []);
+      const schoolSuppressed = !computation.calendar.resolve(date).isSchoolDay;
+      let available = !tutoringPaused;
+      // Validation needs only immutable publication facts; don't hydrate the
+      // complete plan/roster/account graph twice for each newly inserted date.
+      const plan: ValidationPlan = {
+        id: planId,
+        tutorId: primary.tutorId,
+        termId: primary.termId,
+        originalDate: date,
+        timeZone,
+        term: primary.term,
+        assignments: entry.pairings.map((row) => ({ pairingId: row.id })),
+      };
+      const candidate = {
+        id: cohortId,
+        planId,
+        ...window,
+        rescheduled: false,
+        sourceInvalidated: false,
+        refreshSuppressed: false,
+        status: "SCHEDULED",
+        version: 1,
+        createdAt: now,
+        updatedAt: now,
+      };
+      try {
+        // Read a fresh coherent context after this plan's assignment and all
+        // preceding reservations. Never preinsert later candidate assignments:
+        // their existence would hide unmaterialized recurring commitments.
+        const publication = await readPublicationValidationSnapshot(tx, {
+          tutorId: plan.tutorId,
+          termId: plan.termId,
+          originalDate: plan.originalDate,
+          participantIds: roster,
+          // A narrowing hint only: the statement rereads the calendar and
+          // falls back to an unfiltered snapshot if the hint is no longer true.
+          weekdayHint:
+            computation.calendar.resolve(date).effectiveTimetableWeekday ?? 0,
+          ...window,
+        });
+        if (!tutoringPaused) await validateTarget(
+          tx,
+          plan,
+          window,
+          roster,
+          candidate,
+          "ALL",
+          undefined,
+          now,
+          computation,
+          false,
+          publication,
+        );
+      } catch {
+        available = false;
+        unavailable++;
+      }
+      const published = await tx.sessionPlanCohort.create({
+        data: {
           id: cohortId,
           planId,
           ...window,
-          rescheduled: false,
-          sourceInvalidated: false,
-          refreshSuppressed: false,
-          status: "SCHEDULED",
-          version: 1,
-          createdAt: now,
-          updatedAt: now,
-        };
-        try {
-          // Read a fresh coherent context after this plan's assignment and all
-          // preceding reservations. Never preinsert later candidate assignments:
-          // their existence would hide unmaterialized recurring commitments.
-          const publication = await readPublicationValidationSnapshot(tx, {
-            tutorId: plan.tutorId,
-            termId: plan.termId,
-            originalDate: plan.originalDate,
-            participantIds: roster,
-            // A narrowing hint only: the statement rereads the calendar and
-            // falls back to an unfiltered snapshot if the hint is no longer true.
-            weekdayHint:
-              computation.calendar.resolve(date).effectiveTimetableWeekday ?? 0,
-            ...window,
-          });
-          if (!tutoringPaused) await validateTarget(
-            tx,
-            plan,
-            window,
-            roster,
-            candidate,
-            "ALL",
-            undefined,
-            now,
-            computation,
-            false,
-            publication,
-          );
-        } catch {
-          available = false;
-          unavailable++;
-        }
-        const published = await tx.sessionPlanCohort.create({
-          data: {
-            id: cohortId,
-            planId,
-            ...window,
-            status: available ? "SCHEDULED" : "CANCELLED",
-            sourceInvalidated: !available && (!tutoringPaused || schoolSuppressed),
-          },
-        });
-        await tx.sessionPlanParticipant.createMany({
-          data: roster.map((tuteeId) => ({
-            planId,
-            tuteeId,
-            cohortId,
-            status: available ? "SCHEDULED" : "CANCELLED",
-            calendarSuppressed: (!available && !tutoringPaused) || schoolSuppressed,
-            tutoringPauseSuppressed: tutoringPaused,
-          })),
-        });
-        publicationNotices.push(
-          capturePublicationNotice({
-            tutorId: primary.tutorId,
-            timeZone,
-            subjects: entry.pairings.map((row) => row.subject),
-            tuteeIds: roster,
-            cohort: published,
-            event: available ? "schedule_updated" : "cancelled",
-            ...(tutoringPaused && !schoolSuppressed ? {
-              tutoringPause: tutoringPauseNoticeRange(date, computation.tutoringPauses ?? []),
-            } : {}),
-          }),
-        );
-      }
+          status: available ? "SCHEDULED" : "CANCELLED",
+          sourceInvalidated: !available && (!tutoringPaused || schoolSuppressed),
+        },
+      });
+      await tx.sessionPlanParticipant.createMany({
+        data: roster.map((tuteeId) => ({
+          planId,
+          tuteeId,
+          cohortId,
+          status: available ? "SCHEDULED" : "CANCELLED",
+          calendarSuppressed: (!available && !tutoringPaused) || schoolSuppressed,
+          tutoringPauseSuppressed: tutoringPaused,
+        })),
+      });
+      publicationNotices.push(
+        capturePublicationNotice({
+          tutorId: primary.tutorId,
+          timeZone,
+          subjects: entry.pairings.map((row) => row.subject),
+          tuteeIds: roster,
+          cohort: published,
+          event: available ? "schedule_updated" : "cancelled",
+          ...(tutoringPaused && !schoolSuppressed ? {
+            tutoringPause: tutoringPauseNoticeRange(date, computation.tutoringPauses ?? []),
+          } : {}),
+        }),
+      );
     }
-    // Only non-actionable new-publication notices are deferred. Resolve current
-    // contact destinations once at finalization; delivery rechecks admission.
-    // Any failure still rolls back the complete publication transaction.
-    await queuePublicationNotices(tx, publicationNotices);
-    // Preserve the old next-call counters: a newly published cancellation is
-    // counted on this call only; invalid unmaterialized groups/clocks recur.
-    // Only pre-pass IDs are acknowledged. Our own dated writes remain dirty for
-    // one further pass; concurrently committed or late-ID events cannot be lost.
-    await acknowledgeSchedulingPublication(tx, {
-      eventIds: maintenance.eventIds,
-      stateRevision: maintenance.stateRevision,
-      ...weeks,
-      timeZone,
-      unavailable: warmUnavailable,
-      normalized,
-    });
-    return { ...weeks, timeZone, unavailable, normalized };
+  }
+  // Only non-actionable new-publication notices are deferred. Resolve current
+  // contact destinations once at finalization; delivery rechecks admission.
+  // Any failure still rolls back the complete publication transaction.
+  await queuePublicationNotices(tx, publicationNotices);
+  // Preserve the old next-call counters: a newly published cancellation is
+  // counted on this call only; invalid unmaterialized groups/clocks recur.
+  // Only pre-pass IDs are acknowledged. Our own dated writes remain dirty for
+  // one further pass; concurrently committed or late-ID events cannot be lost.
+  await acknowledgeSchedulingPublication(tx, {
+    eventIds: maintenance.eventIds,
+    stateRevision: maintenance.stateRevision,
+    ...weeks,
+    timeZone,
+    unavailable: warmUnavailable,
+    normalized,
   });
+  return { ...weeks, timeZone, unavailable, normalized };
 }
 
 async function makeOffer(
@@ -4539,6 +4684,22 @@ export async function invalidateSessionPlansForPairings(
     });
     for (const request of requests)
       await closeRequest(tx, request, "STALE", "stale", now);
+    if (plan.kind === "REGULAR" && cohorts.length > 0) {
+      const retainedCohorts = await tx.sessionPlanCohort.count({
+        where: {
+          planId: plan.id,
+          OR: [
+            { startsAt: { lte: now } },
+            { status: { in: ["SCHEDULED", "RECORDED"] } },
+          ],
+        },
+      });
+      if (retainedCohorts === 0)
+        await tx.sessionPlan.update({
+          where: { id: plan.id },
+          data: { sourceScheduleFingerprint: INVALIDATED_SCHEDULE_FINGERPRINT },
+        });
+    }
   }
 }
 

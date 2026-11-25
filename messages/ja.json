@@ -51,6 +51,10 @@
     "refreshFailed": "予定を更新できませんでした。表示中の情報は古い可能性があります。",
     "denied": "この予定にはアクセスできません。保持していた詳細は非表示になっています。",
     "retry": "予定を更新",
+    "refreshScheduling": "スケジュールを更新",
+    "refreshed": "現在のペアリングに合わせてスケジュールを更新しました。",
+    "refreshedRefreshFailed": "スケジュールを更新しましたが、このページを再読み込みできませんでした。更新を再試行してください。",
+    "refreshSchedulingFailed": "スケジュールを更新できませんでした。",
     "thisWeek": "今週",
     "nextWeek": "来週",
     "older": "以前の出欠未記録セッション",
@@ -263,7 +267,9 @@
       "ACCOUNT_CONFLICT": "Ownership conflicts require Admin-reviewed correction or combination.",
       "ACCOUNT_NOT_READY": "The existing owner must complete verified setup or recovery first.",
       "UNKNOWN": "Further review is required before sending."
-    }
+    },
+    "exactRetryHelp": "Retry sends this same reviewed invitation once if it was not recorded, or loads its saved result.",
+    "retryExact": "Retry this invitation"
   },
   "personParticipation": {
     "availableAt": "Earliest review: {date}",
@@ -672,7 +678,7 @@
     "sessionExpired": "Your session expired or could not be verified. Please sign in again.",
     "passwordChangedSignIn": "パスワードを変更しました。このブラウザーを含むすべてのセッションからログアウトしました。新しいパスワードでもう一度ログインしてください。",
     "signupRoutes": {
-      "viewerHelp": "メールアドレスを確認すると招待が届きます。新規アカウントには閲覧者権限が付与され、既存アカウントはメールのコードでログインできます。",
+      "viewerHelp": "学校教職員、保護者、大学関係者、地域の方など向けの閲覧専用概要です。",
       "viewerLink": "閲覧者として登録",
       "invitationHelp": "メールで届いた招待、または運営チームの認可コードをお持ちですか？",
       "invitationLink": "招待コードで登録",
@@ -692,6 +698,7 @@
       "landmark": "サイトナビゲーション",
       "signInAndJoin": "ログイン・参加"
     },
+    "viewerSignupHelp": "教職員・保護者・大学関係者向け",
     "tagline": "ピアチュータリングプログラム",
     "heroTitle": "一緒に学ぼう。一緒に成長しよう。",
     "intro": "プレースホルダー紹介文 — {appTitle} プログラムについての短い段落がここに入ります。対象者、生徒が支援を受けられる内容、ピアチューターがどのような違いをもたらすかを説明してください。この文章を実際のプログラム概要に置き換えてください。",
@@ -2907,7 +2914,7 @@
       "fields": {
         "name": "氏名",
         "affiliation": "ご関係",
-        "affiliationPlaceholder": "例：生徒の保護者、数学教員、地域の方",
+        "affiliationPlaceholder": "例：学校教職員、保護者、大学関係者、地域の方",
         "email": "メール",
         "code": "メール確認コード",
         "password": "パスワード",
@@ -5040,7 +5047,10 @@
     "clear": "Clear filters",
     "noRole": "No account role",
     "noTutor": "No linked tutor",
-    "count": "Showing {count} of {total} users"
+    "count": "Showing {count} of {total} users",
+    "resetFilter": "リセット",
+    "removeFilter": "{label}を削除",
+    "selectedCount": "{count}件選択"
   },
   "saveErrors": {
     "staleRecord": "This changed since you loaded it — refresh and try again."
@@ -5882,7 +5892,14 @@
     "confirm": "Confirm change",
     "requests": "My requests and decisions",
     "history": "Departure history",
-    "retiredReturnHelp": "Record the original source’s factual return only. Its login remains retired; participation, assignments and observer restrictions remain unchanged."
+    "retiredReturnHelp": "Record the original source’s factual return only. Its login remains retired; participation, assignments and observer restrictions remain unchanged.",
+    "reload": "Reload current status",
+    "reloadHelp": "This departure record changed in the background. Reload the current status to review it before submitting; your reason will be kept.",
+    "refreshing": "Refreshing related records...",
+    "refreshFailed": "Saved, but related records could not refresh. Retry refreshing instead of submitting again.",
+    "retryRefresh": "Retry refresh",
+    "readFailed": "Could not load the latest departure status. Try again before making changes.",
+    "accessDenied": "You do not have permission to view this departure record."
   },
   "personName": {
     "firstName": "名",
@@ -6190,7 +6207,7 @@
     "pageTitle": "アカウント招待",
     "pageHelp": "メールで届いた招待コードを入力するか、スタッフの招待キーを使ってコードを受け取ってください。",
     "requestTitle": "アカウントの招待を申請",
-    "requestHelp": "メールアドレスを確認すると、別の招待コードが届きます。新規アカウントには閲覧専用のViewer権限が付与されます。既存アカウントではメールのコードでログインし、パスワード、本人情報、参加資格は維持されます。有効な追加認証は引き続き必要です。",
+    "requestHelp": "学校教職員、保護者、大学関係者、地域の方など向けの閲覧専用概要です。メールアドレスを確認して続けてください。",
     "receiptTitle": "Your invitation is ready",
     "receiptHelp": "Keep this code to continue with your account. Your email is verified.",
     "showCode": "Show invitation code",

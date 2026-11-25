@@ -11,6 +11,10 @@ import { lockPlannedRoomSchedule } from "~/server/room-bookings";
 import { lockSessionPlanning } from "~/server/session-planning";
 import { standingFromCounts } from "~/lib/discipline";
 import {
+  canReinstatePunishmentRemoval,
+  punishmentRemovalSnapshot,
+} from "~/server/discipline/punishment-restoration";
+import {
   executionParticipantId,
   executionSourceIds,
 } from "~/server/participant-execution";
@@ -26,10 +30,7 @@ export const correctionParticipant = z.object({
   memberships: z.array(correctionMembership),
   groupPairingIds: z.array(z.string()),
 });
-const removalSnapshot = z.object({
-  pairingIds: z.array(z.string()),
-  status: z.enum(["ACTIVE", "PENDING", "INACTIVE"]),
-});
+const removalSnapshot = punishmentRemovalSnapshot;
 
 /** Fingerprints bind retained assignments and enrollment consent, not credentials.
  * A correction may recompute standing; it cannot invent consent to a new roster. */
@@ -99,8 +100,7 @@ export async function correctionParticipantState(
   const restoration =
     latest &&
     previous.success &&
-    record.status === "INACTIVE" &&
-    latest.resolvedAt?.getTime() === record.updatedAt.getTime()
+    (await canReinstatePunishmentRemoval(tx, record, latest))
       ? {
           requestId: latest.id,
           pairingIds: previous.data.pairingIds,

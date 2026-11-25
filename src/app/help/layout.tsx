@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { getTranslations } from "next-intl/server";
 
 import { auth } from "~/server/auth";
@@ -61,7 +60,7 @@ export default async function HelpLayout({
       labels: workspaceNavLabels(t),
     });
 
-    const accountHref = staff
+    const accountHref = elevated
       ? "/admin/account"
       : canTutor
         ? "/settings"
@@ -83,7 +82,15 @@ export default async function HelpLayout({
               group: "tools" as const,
             },
           ]
-        : []),
+        : me.role === "VIEWER"
+          ? [
+              {
+                href: "/student-support",
+                label: t("workflows.support"),
+                group: "tools" as const,
+              },
+            ]
+          : []),
       ...(canTutor
         ? [
             {
@@ -95,7 +102,7 @@ export default async function HelpLayout({
         : []),
       {
         href: accountHref,
-        label: t(staff ? "account.title" : "components.userMenu.settings"),
+        label: t(elevated ? "account.title" : "components.userMenu.settings"),
         group: "account" as const,
       },
     ];
@@ -112,23 +119,6 @@ export default async function HelpLayout({
           switcherLabels={workspaceSwitcherLabels(t)}
           skipLabel={t("common.skipToContent")}
           containerClassName="mx-auto max-w-6xl"
-          identity={
-            <Link
-              href={accountHref}
-              className="hidden shrink-0 rounded-md px-2 py-0.5 text-right leading-tight hover:bg-slate-100 lg:block"
-              title={t("account.title")}
-            >
-              <p className="text-[13px] font-medium text-slate-900">
-                {displayName}
-              </p>
-              <p className="muted text-[11px]">
-                {username ? `@${username} · ` : ""}
-                {t.has(`admin.users.roles.${me.role}`)
-                  ? t(`admin.users.roles.${me.role}`)
-                  : me.role}
-              </p>
-            </Link>
-          }
           account={
             <UserAvatar
               name={displayName}

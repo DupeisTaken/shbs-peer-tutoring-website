@@ -236,7 +236,11 @@ import {
   quarterSemester,
   semesterQuarters,
 } from "~/lib/period";
-import { getActivePeriod, getActivePeriodOrNull } from "~/server/period";
+import {
+  getActivePeriod,
+  getActivePeriodOrNull,
+  getActiveSemesterPatrolScope,
+} from "~/server/period";
 import { assertFeatureEnabled, getFeatures } from "~/server/program/features";
 import { applyUndo, recordAudit } from "~/server/audit/log";
 import { expectedUpdatedAt, staleConflict } from "~/server/concurrency";
@@ -3778,6 +3782,8 @@ export const adminRouter = createTRPCRouter({
     .mutation(async ({ ctx, input }) => {
       await assertFeatureEnabled(ctx.db, "MEETINGS");
       return inTransaction(ctx.db, async (tx) => {
+        await lockEntity(tx, "program:period");
+        await assertFeatureEnabled(tx, "MEETINGS");
         await lockEntity(tx, `meeting-record:${input.id}`);
         const participants = await tx.meetingAttendance.findMany({
           where: { meetingId: input.id },
@@ -3790,15 +3796,15 @@ export const adminRouter = createTRPCRouter({
             recordId: row.id,
           })),
         ]);
-        for (const id of [
+        const tutorIds = [
           ...new Set(participants.map((p) => p.tutorId)),
-        ].sort())
-          await lockEntity(tx, `meeting-hours:${id}`);
+        ].sort();
+        for (const id of tutorIds) await lockEntity(tx, `meeting-hours:${id}`);
+        await tx.$queryRaw`SELECT id FROM "TutorMeeting" WHERE id=${input.id} FOR SHARE`;
         const removed = await tx.tutorMeeting.delete({
           where: { id: input.id },
         });
-        for (const p of participants)
-          await reconcileMeetingHours(tx, p.tutorId);
+        for (const id of tutorIds) await reconcileMeetingHours(tx, id);
         return removed;
       });
     }),
@@ -3813,31 +3819,28 @@ export const adminRouter = createTRPCRouter({
       }),
     )
     .mutation(async ({ ctx, input }) => {
-      await assertFeatureEnabled(ctx.db, "MEETINGS");
-      const meeting = await ctx.db.tutorMeeting.findUnique({
-        where: { id: input.meetingId },
-        select: {
-          date: true,
-          term: { select: { schoolYear: true, quarter: true } },
-        },
-      });
-      if (!meeting)
-        throw new TRPCError({
-          code: "NOT_FOUND",
-          message: "Meeting not found.",
-        });
-      // Deductions land in the meeting's month, scoped to its term (or the active period).
-
-      await ctx.db.$transaction(async (tx) => {
+      await inTransaction(ctx.db, async (tx) => {
+        await lockEntity(tx, "program:period");
+        await assertFeatureEnabled(tx, "MEETINGS");
         await lockEntity(tx, `meeting-record:${input.meetingId}`);
-        for (const id of [
+        const tutorIds = [
           ...new Set(input.entries.map((e) => e.tutorId)),
-        ].sort())
-          await lockEntity(tx, `meeting-hours:${id}`);
+        ].sort();
+        for (const id of tutorIds) await lockEntity(tx, `meeting-hours:${id}`);
+        await tx.$queryRaw`SELECT id FROM "TutorMeeting" WHERE id=${input.meetingId} FOR SHARE`;
+        const meeting = await tx.tutorMeeting.findUnique({
+          where: { id: input.meetingId },
+          select: { id: true },
+        });
+        if (!meeting)
+          throw new TRPCError({
+            code: "NOT_FOUND",
+            message: "Meeting not found.",
+          });
         const recorded = await tx.meetingAttendance.findMany({
           where: {
             meetingId: input.meetingId,
-            tutorId: { in: input.entries.map((entry) => entry.tutorId) },
+            tutorId: { in: tutorIds },
           },
           select: { id: true },
         });
@@ -3849,6 +3852,15 @@ export const adminRouter = createTRPCRouter({
           })),
         ]);
         for (const e of input.entries) {
+          const previous = await tx.meetingAttendance.findUnique({
+            where: {
+              meetingId_tutorId: {
+                meetingId: input.meetingId,
+                tutorId: e.tutorId,
+              },
+            },
+            select: { excusedAt: true },
+          });
           await tx.meetingAttendance.upsert({
             where: {
               meetingId_tutorId: {
@@ -3856,16 +3868,22 @@ export const adminRouter = createTRPCRouter({
                 tutorId: e.tutorId,
               },
             },
-            update: { status: e.status },
+            // A staff save adopts the row even when its status did not change.
+            // Superseded self-service text must not become a staff audit note.
+            update: {
+              status: e.status,
+              excusedAt: null,
+              ...(previous?.excusedAt ? { reason: null } : {}),
+            },
             create: {
               meetingId: input.meetingId,
               tutorId: e.tutorId,
               status: e.status,
+              excusedAt: null,
             },
           });
-
-          await reconcileMeetingHours(tx, e.tutorId);
         }
+        for (const id of tutorIds) await reconcileMeetingHours(tx, id);
       });
       return { ok: true };
     }),
@@ -4696,58 +4714,79 @@ export const adminRouter = createTRPCRouter({
    */
   cancelTuteeOptOut: adminProcedure
     .input(z.object({ requestId: cuid }))
-    .mutation(async ({ ctx, input }) => {
-      const req = await ctx.db.tuteeRemovalRequest.findUniqueOrThrow({
-        where: { id: input.requestId },
-        select: {
-          id: true,
-          state: true,
-          kind: true,
-          requestedByTutorId: true,
-          tutee: { select: { englishName: true } },
-        },
-      });
-      if (req.state !== "PENDING" || req.kind !== "VOLUNTARY") {
-        throw new TRPCError({
-          code: "BAD_REQUEST",
-          message: "No in-flight opt-out to cancel.",
+    .mutation(async ({ ctx, input }) =>
+      inTransaction(ctx.db, async (tx) => {
+        await lockEntity(tx, "program:period");
+        const initial = await tx.tuteeRemovalRequest.findUniqueOrThrow({
+          where: { id: input.requestId },
+          select: { id: true, tuteeId: true },
         });
-      }
-      await ctx.db.tuteeRemovalRequest.update({
-        where: { id: req.id },
-        data: {
-          state: "DENIED",
-          resolvedAt: new Date(),
-          resolvedById: ctx.session.user.id,
-          resolvedByName: ctx.session.user.name,
-        },
-      });
-      if (req.requestedByTutorId) {
-        const tutor = await ctx.db.tutor.findUnique({
-          where: { id: req.requestedByTutorId },
-          select: { user: { select: { id: true } } },
+        await lockEntity(tx, `tutee:${initial.tuteeId}`);
+        const req = await tx.tuteeRemovalRequest.findUniqueOrThrow({
+          where: { id: input.requestId },
+          select: {
+            id: true,
+            state: true,
+            kind: true,
+            requestedByTutorId: true,
+            tutee: { select: { englishName: true } },
+          },
         });
-        if (tutor?.user?.id) {
-          await notifyUsers([tutor.user.id], {
-            ...notificationInAppEvent("tutee_optout_cancelled", undefined, {
-              en: `Management cancelled the opt-out request for tutee ${req.tutee.englishName}.`,
-              zh: `管理人员已取消学习伙伴 ${req.tutee.englishName} 的退出申请。`,
-            }),
-            title: "Tutee opt-out cancelled",
-            body: `An admin cancelled the opt-out for ${req.tutee.englishName}.`,
-            link: "/dashboard",
+        if (req.state !== "PENDING" || req.kind !== "VOLUNTARY") {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "No in-flight opt-out to cancel.",
           });
         }
-      }
-      await recordAudit({
-        userId: ctx.session.user.id,
-        userName: ctx.session.user.name,
-        action: `Cancelled opt-out for ${req.tutee.englishName}`,
-        entity: "TuteeRemovalRequest",
-        entityId: req.id,
-      });
-      return { ok: true };
-    }),
+        const cancelled = await tx.tuteeRemovalRequest.updateMany({
+          where: { id: req.id, kind: "VOLUNTARY", state: "PENDING" },
+          data: {
+            state: "DENIED",
+            resolvedAt: new Date(),
+            resolvedById: ctx.session.user.id,
+            resolvedByName: ctx.session.user.name,
+          },
+        });
+        if (cancelled.count !== 1) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "No in-flight opt-out to cancel.",
+          });
+        }
+        if (req.requestedByTutorId) {
+          const tutor = await tx.tutor.findUnique({
+            where: { id: req.requestedByTutorId },
+            select: { user: { select: { id: true } } },
+          });
+          if (tutor?.user?.id) {
+            await notifyUsers(
+              [tutor.user.id],
+              {
+                ...notificationInAppEvent("tutee_optout_cancelled", undefined, {
+                  en: `Management cancelled the opt-out request for tutee ${req.tutee.englishName}.`,
+                  zh: `管理人员已取消学习伙伴 ${req.tutee.englishName} 的退出申请。`,
+                }),
+                title: "Tutee opt-out cancelled",
+                body: `An admin cancelled the opt-out for ${req.tutee.englishName}.`,
+                link: "/dashboard",
+              },
+              tx,
+            );
+          }
+        }
+        await recordAudit(
+          {
+            userId: ctx.session.user.id,
+            userName: ctx.session.user.name,
+            action: `Cancelled opt-out for ${req.tutee.englishName}`,
+            entity: "TuteeRemovalRequest",
+            entityId: req.id,
+          },
+          tx,
+        );
+        return { ok: true };
+      }),
+    ),
 
   /**
    * Reinstate a removed tutee (opted-out or discipline-removed): set them ACTIVE again and mark
@@ -4759,6 +4798,11 @@ export const adminRouter = createTRPCRouter({
     .mutation(async ({ ctx, input }) =>
       inTransaction(ctx.db, async (tx) => {
         await lockEntity(tx, "program:period");
+        const initial = await tx.tuteeRemovalRequest.findUniqueOrThrow({
+          where: { id: input.requestId },
+          select: { id: true, tuteeId: true },
+        });
+        await lockEntity(tx, `tutee:${initial.tuteeId}`);
         const req = await tx.tuteeRemovalRequest.findUniqueOrThrow({
           where: { id: input.requestId },
           select: {
@@ -4776,18 +4820,24 @@ export const adminRouter = createTRPCRouter({
         }
         await requireStudentSchoolParticipation(tx, req.tuteeId);
         await preserveHistoricalAcademics(tx, "TUTEE", req.tuteeId);
-        await tx.tutee.update({
-          where: { id: req.tuteeId },
-          data: { status: "PENDING" },
-        });
-        await tx.tuteeRemovalRequest.update({
-          where: { id: req.id },
+        const transitioned = await tx.tuteeRemovalRequest.updateMany({
+          where: { id: req.id, state: "APPROVED" },
           data: {
             state: "REINSTATED",
             resolvedAt: new Date(),
             resolvedById: ctx.session.user.id,
             resolvedByName: ctx.session.user.name,
           },
+        });
+        if (transitioned.count !== 1) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "This removal isn't in effect.",
+          });
+        }
+        await tx.tutee.update({
+          where: { id: req.tuteeId },
+          data: { status: "PENDING" },
         });
         await recordAudit(
           {
@@ -4902,6 +4952,7 @@ export const adminRouter = createTRPCRouter({
   /** Crew members (anyone with a crewStatus) + their patrol tally. Crew hours are separate from
    *  tutoring. Crew-only logins (role CREW) can be hard-deleted; tutor-crew are managed via status. */
   crewRoster: viewerProcedure.query(async ({ ctx }) => {
+    const scope = await getActiveSemesterPatrolScope(ctx.db);
     const [users, agg, retired] = await Promise.all([
       ctx.db.user.findMany({
         where: { crewStatus: { not: null }, mergedIntoId: null },
@@ -4917,11 +4968,20 @@ export const adminRouter = createTRPCRouter({
           tutor: { select: { englishName: true } },
         },
       }),
-      ctx.db.patrol.groupBy({
-        by: ["crewUserId"],
-        _sum: { hours: true },
-        _count: { _all: true },
-      }),
+      scope
+        ? ctx.db.patrol.groupBy({
+            by: ["crewUserId"],
+            where: { termId: { in: scope.termIds } },
+            _sum: { hours: true },
+            _count: { _all: true },
+          })
+        : Promise.resolve(
+            [] as {
+              crewUserId: string;
+              _sum: { hours: number | null };
+              _count: { _all: number };
+            }[],
+          ),
       ctx.db.user.findMany({
         where: { mergedIntoId: { not: null } },
         select: { id: true, mergedIntoId: true },
@@ -4981,15 +5041,22 @@ export const adminRouter = createTRPCRouter({
       return { ok: true };
     }),
 
-  /** Headline crew totals for the dashboard + activity: patrols, crew hours, open discrepancy
-   *  flags, active members, and the pending application / opt-out request counts. */
+  /** Headline current-semester crew totals for the dashboard + activity: patrols, crew hours,
+   *  open discrepancy flags, active members, and pending application / opt-out request counts. */
   crewSummary: viewerProcedure.query(async ({ ctx }) => {
+    const scope = await getActiveSemesterPatrolScope(ctx.db);
     const [patrolAgg, flagCount, crewCount, appCount, reqCount] =
       await Promise.all([
-        ctx.db.patrol.aggregate({
-          _sum: { hours: true },
-          _count: { _all: true },
-        }),
+        scope
+          ? ctx.db.patrol.aggregate({
+              where: { termId: { in: scope.termIds } },
+              _sum: { hours: true },
+              _count: { _all: true },
+            })
+          : Promise.resolve({
+              _sum: { hours: 0 },
+              _count: { _all: 0 },
+            }),
         ctx.db.sessionFlag.count({ where: { state: "PENDING" } }),
         ctx.db.user.count({ where: { crewStatus: "ACTIVE" } }),
         ctx.db.crewApplication.count({ where: { status: "PENDING" } }),

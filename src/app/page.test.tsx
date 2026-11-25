@@ -1,6 +1,6 @@
 import type { ReactElement } from "react";
 import { beforeEach, expect, it, vi } from "vitest";
-import type * as SignedInHeaderModule from "~/app/_components/signed-in-header";
+import type * as SignedInHeaderModule from "~/app/_components/signed-in-workspace-header";
 import type { SignedInLinkMap } from "~/lib/signed-in-landing-links";
 import Home from "./page";
 
@@ -13,10 +13,7 @@ const mocks = vi.hoisted(() => ({
   auth: vi.fn(),
   account: vi.fn(),
   features: vi.fn(),
-  landingView: vi.fn((_props: {
-    signedInHeader?: unknown;
-    signedInLinks?: SignedInLinkMap;
-  }) => null),
+  landingView: vi.fn((_props: LandingViewProps) => null),
   renderHeader: vi.fn((_opts: unknown) => "signed-in-header"),
 }));
 vi.mock("~/server/auth", () => ({ auth: mocks.auth }));
@@ -29,7 +26,7 @@ vi.mock("next-intl/server", () => ({
 vi.mock("~/app/_components/landing-view", () => ({
   LandingView: mocks.landingView,
 }));
-vi.mock("~/app/_components/signed-in-header", async (importOriginal) => {
+vi.mock("~/app/_components/signed-in-workspace-header", async (importOriginal) => {
   const actual = await importOriginal<typeof SignedInHeaderModule>();
   return {
     ...actual,
@@ -183,4 +180,17 @@ it("preserves independent tutee entry for a former tutor whose tutor link was re
     href: "/student",
     label: "components.userMenu.enterTutee",
   });
+});
+
+it("omits /crew replacement when the crew module is disabled", async () => {
+  mocks.features.mockResolvedValue({ CREW: false });
+  mocks.auth.mockResolvedValue({ user: { id: "crew" }, role: "CREW" });
+  mocks.account.mockResolvedValue({
+    ...baseAccount,
+    role: "CREW",
+    crewStatus: "ACTIVE",
+  });
+  const el = (await Home()) as ReactElement<LandingViewProps>;
+  const links = el.props.signedInLinks!;
+  expect(links.byPath["/crew"]).toBeUndefined();
 });

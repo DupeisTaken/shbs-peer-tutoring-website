@@ -920,7 +920,15 @@ function AttendanceEditor({
               if (admitted.current || pending || refreshFailed || readOnly)
                 return;
               const entries = tutors
-                .filter((tu) => tu.active && draft[tu.id])
+                .filter(
+                  (tu) =>
+                    tu.active &&
+                    draft[tu.id] &&
+                    !(
+                      draft[tu.id] === "EXCUSED_ABSENT" &&
+                      current[tu.id] === "EXCUSED_ABSENT"
+                    ),
+                )
                 .map((tu) => ({ tutorId: tu.id, status: draft[tu.id]! }));
               admitted.current = true;
               save.mutate({ meetingId, entries });

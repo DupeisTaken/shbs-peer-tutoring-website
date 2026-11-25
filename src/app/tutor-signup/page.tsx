@@ -4,23 +4,29 @@ import { getTranslations } from "next-intl/server";
 import { pageMetadata } from "~/server/branding-metadata";
 import { TutorSignupForm } from "./tutor-signup-form";
 import { PublicFormPage } from "~/app/_components/public-form-page";
-import { getSignedInWorkspaceHeader } from "~/app/_components/signed-in-header";
+import { getSignedInWorkspaceHeader } from "~/app/_components/signed-in-workspace-header";
+import { auth } from "~/server/auth";
 
 export async function generateMetadata() {
   return pageMetadata("public.tutorSignup.title");
 }
 
 export default async function TutorSignupPage() {
-  const t = await getTranslations();
+  const [t, session] = await Promise.all([getTranslations(), auth()]);
+  const signedIn = Boolean(session?.user);
   const headerTitle = t("components.workspaceTitles.signupForms");
-  const signedInHeader = await getSignedInWorkspaceHeader({
-    title: headerTitle,
-  });
+  const signedInHeader = signedIn
+    ? await getSignedInWorkspaceHeader({
+        href: "/",
+        title: headerTitle,
+        session,
+      })
+    : null;
   return (
     <PublicFormPage
       wide
       headerTitle={headerTitle}
-      header={signedInHeader}
+      header={signedInHeader ?? undefined}
       title={t("public.tutorSignup.title")}
       description={t("public.tutorSignup.intro")}
       backLabel={t("common.backToMain")}
@@ -45,12 +51,14 @@ export default async function TutorSignupPage() {
       </ol>
       <TutorSignupForm />
 
-      <p className="muted mt-6 text-center">
-        {t("public.tutorSignup.alreadyTutor")}{" "}
-        <Link href="/signin" className="link">
-          {t("public.tutorSignup.signIn")}
-        </Link>
-      </p>
+      {!signedIn && (
+        <p className="muted mt-6 text-center">
+          {t("public.tutorSignup.alreadyTutor")}{" "}
+          <Link href="/signin" className="link">
+            {t("public.tutorSignup.signIn")}
+          </Link>
+        </p>
+      )}
     </PublicFormPage>
   );
 }

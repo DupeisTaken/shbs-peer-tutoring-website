@@ -45,7 +45,7 @@ vi.mock("next/navigation", () => ({
 }));
 vi.mock("./signup-form", () => ({ SignupForm: mocks.form }));
 vi.mock("./signup-intro", () => ({ SignupIntro: () => <p>survey.intro</p> }));
-vi.mock("~/app/_components/signed-in-header", () => ({
+vi.mock("~/app/_components/signed-in-workspace-header", () => ({
   getSignedInWorkspaceHeader: vi.fn(async () => null),
 }));
 vi.mock("~/app/_components/public-form-page", () => ({

@@ -75,6 +75,7 @@ function IntentRegistration({ intentId }: { intentId: string }) {
  * an invitation; credentials and access are reviewed in the shared redemption flow. */
 function LegacyStudentRegistration({
   token,
+  signedInEmail,
 }: {
   token: string;
   signedInEmail?: string | null;
@@ -121,9 +122,11 @@ function LegacyStudentRegistration({
     return (
       <section className="card space-y-4 p-6">
         <p role="alert">{t("invalidLink")}</p>
-        <Link href="/signin" className="link">
-          {t("signIn")}
-        </Link>
+        {!signedInEmail && (
+          <Link href="/signin" className="link">
+            {t("signIn")}
+          </Link>
+        )}
         <SurveyResend />
         <p className="muted text-sm">{w("expiredHelp")}</p>
         <Link href="/tutee" className="link">
@@ -160,14 +163,16 @@ function LegacyStudentRegistration({
       <h2 className="section-title">{invitation("verifyTuteeTitle")}</h2>
       <p className="muted">{invitation("verifyTuteeHelp")}</p>
       {info.verificationDueAt && (
-        <p className="rounded-lg bg-amber-50 p-3 text-sm text-amber-900">
-          {w("deadline", {
-            time: format.dateTime(new Date(info.verificationDueAt), {
-              dateStyle: "medium",
-              timeStyle: "short",
-            }),
-          })}
-        </p>
+        <InlineNotice tone="warning">
+          <p>
+            {w("deadline", {
+              time: format.dateTime(new Date(info.verificationDueAt), {
+                dateStyle: "medium",
+                timeStyle: "short",
+              }),
+            })}
+          </p>
+        </InlineNotice>
       )}
       <div className="rounded-lg bg-slate-50 p-4 break-words">
         {info.period && (

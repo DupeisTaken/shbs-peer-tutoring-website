@@ -58,8 +58,9 @@ export function PublicHeader({
 }
 
 /** Balanced, tidy public header: official PT logo + bold brand-lockup title anchor the left
- * (clicking returns to `href`, defaulting to Program Home `/`), and ?, Theme, Language, plus an
- * optional far-right action/menu stay grouped on the right. */
+ * on desktop and center cleanly on mobile row 1 (clicking returns to `href`, defaulting to
+ * Program Home `/`), optional navigation sits beside the title on desktop or left on mobile
+ * row 2, and ?, Theme, Language, plus an optional far-right action/menu stay grouped together. */
 export function PublicHeaderFrame({
   href = "/",
   navigation,
@@ -87,8 +88,6 @@ export function PublicHeaderFrame({
   skipLabel?: string;
   skipToId?: string;
 }) {
-  const unifiedTrailing = !navigation && !!trailingAction;
-
   return (
     <header
       data-sticky-header={sticky || undefined}
@@ -100,81 +99,81 @@ export function PublicHeaderFrame({
         </a>
       ) : null}
 
-      {unifiedTrailing ? (
-        <div className="mx-auto flex max-w-5xl min-w-0 flex-col gap-1.5 px-3 py-2 sm:px-4 lg:flex-row lg:items-center lg:gap-1.5 lg:py-2.5">
-          <div className="flex min-w-0 items-center lg:contents">
-            <Link
-              href={href}
-              title={linkTitle ?? title}
-              aria-label={hideTitle ? title : undefined}
-              className="focus-visible:ring-accent-500 flex min-h-11 min-w-0 items-center gap-2.5 rounded-md text-xl font-bold tracking-tight text-slate-900 transition hover:text-slate-700 focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-hidden lg:min-h-8 lg:shrink-0 lg:text-lg"
-            >
-              <BrandMark className="h-8 w-8" />
-              {!hideTitle ? (
-                <span className="min-w-0 truncate">{title}</span>
-              ) : null}
-            </Link>
-          </div>
-          <div aria-hidden="true" className="h-px bg-slate-100 lg:hidden" />
-          <div aria-hidden="true" className="hidden lg:block lg:flex-1" />
-          <div className="flex min-w-0 flex-wrap items-center justify-between gap-2 lg:contents">
-            <div className="flex shrink-0 items-center gap-1 lg:gap-1.5">
-              {help ? <div className="shrink-0">{help}</div> : null}
-              <div className="shrink-0">{theme}</div>
-            </div>
-            <div className="flex shrink-0 items-center gap-2 lg:contents">
-              <div className="shrink-0 lg:ml-1.5">{language}</div>
-              <span
-                aria-hidden="true"
-                className="mx-2 hidden h-5 w-px shrink-0 bg-slate-200 lg:block"
-              />
-              <div className="shrink-0">{trailingAction}</div>
-            </div>
-          </div>
-        </div>
-      ) : (
-        <div className="mx-auto grid max-w-5xl grid-cols-[minmax(0,1fr)_auto] items-center gap-x-2 gap-y-2 px-4 py-2 lg:flex lg:gap-2 lg:py-2.5">
+      <div className="mx-auto flex max-w-5xl min-w-0 flex-col gap-1.5 px-3 py-2 sm:px-4 lg:flex-row lg:items-center lg:gap-1.5 lg:py-2.5">
+        <div className="flex min-w-0 items-center justify-center lg:contents">
           <Link
             href={href}
             title={linkTitle ?? title}
             aria-label={hideTitle ? title : undefined}
-            className="focus-visible:ring-accent-500 col-start-1 row-start-1 flex min-h-11 min-w-0 items-center gap-2.5 rounded-md text-xl font-bold tracking-tight text-slate-900 transition hover:text-slate-700 focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-hidden lg:min-h-8 lg:shrink-0 lg:text-lg"
+            className="focus-visible:ring-accent-500 flex min-h-11 max-w-full min-w-0 items-center gap-2.5 rounded-md text-xl font-bold tracking-tight text-slate-900 transition hover:text-slate-700 focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-hidden lg:min-h-8 lg:shrink-0 lg:text-lg"
           >
             <BrandMark className="h-8 w-8" />
             {!hideTitle ? (
               <span className="min-w-0 truncate">{title}</span>
             ) : null}
           </Link>
+        </div>
+
+        {navigation ? (
+          <span
+            aria-hidden="true"
+            className="mx-1 hidden h-4 w-px shrink-0 bg-slate-200 lg:block"
+          />
+        ) : null}
+
+        <div aria-hidden="true" className="h-px bg-slate-100 lg:hidden" />
+
+        <div className="flex min-w-0 flex-wrap items-center justify-between gap-2 lg:contents">
           {navigation ? (
             <>
-              <span
-                aria-hidden="true"
-                className="hidden h-4 w-px shrink-0 bg-slate-200 lg:block"
-              />
-              <div className="col-start-1 row-start-2 min-w-0 lg:row-start-auto">
-                {navigation}
+              <div className="min-w-0">{navigation}</div>
+              <div aria-hidden="true" className="hidden lg:block lg:flex-1" />
+              <div className="ml-auto flex shrink-0 flex-wrap items-center justify-end gap-1.5 lg:contents">
+                <div className="flex shrink-0 items-center gap-1 lg:gap-1.5">
+                  {help ? (
+                    <div className="shrink-0 empty:hidden">{help}</div>
+                  ) : null}
+                  <div className="shrink-0">{theme}</div>
+                </div>
+                <div className="flex shrink-0 items-center gap-2 lg:contents">
+                  <div className="shrink-0 lg:ml-1.5">{language}</div>
+                  {trailingAction ? (
+                    <>
+                      <span
+                        aria-hidden="true"
+                        className="mx-2 hidden h-5 w-px shrink-0 bg-slate-200 lg:block"
+                      />
+                      <div className="shrink-0">{trailingAction}</div>
+                    </>
+                  ) : null}
+                </div>
               </div>
             </>
-          ) : null}
-          <div aria-hidden="true" className="hidden lg:block lg:flex-1" />
-          <div className="col-start-2 row-start-2 flex items-center justify-end gap-0.5 justify-self-end lg:contents">
-            {help ? <div className="shrink-0">{help}</div> : null}
-            <div className="shrink-0">{theme}</div>
-          </div>
-          <div className="col-start-2 row-start-1 flex items-center justify-end gap-1.5 justify-self-end lg:contents">
-            <div className="shrink-0 lg:ml-1">{language}</div>
-            {trailingAction ? (
-              <>
-                <span
-                  aria-hidden="true"
-                  className="mx-1 hidden h-4 w-px shrink-0 bg-slate-200 lg:block"
-                />
-                <div className="shrink-0">{trailingAction}</div>
-              </>
-            ) : null}
-          </div>
+          ) : (
+            <>
+              <div aria-hidden="true" className="hidden lg:block lg:flex-1" />
+              <div className="flex shrink-0 items-center gap-1 lg:gap-1.5">
+                {help ? (
+                  <div className="shrink-0 empty:hidden">{help}</div>
+                ) : null}
+                <div className="shrink-0">{theme}</div>
+              </div>
+              <div className="flex shrink-0 items-center gap-2 lg:contents">
+                <div className="shrink-0 lg:ml-1.5">{language}</div>
+                {trailingAction ? (
+                  <>
+                    <span
+                      aria-hidden="true"
+                      className="mx-2 hidden h-5 w-px shrink-0 bg-slate-200 lg:block"
+                    />
+                    <div className="shrink-0">{trailingAction}</div>
+                  </>
+                ) : null}
+              </div>
+            </>
+          )}
         </div>
-      )}
+      </div>
     </header>
   );
 }

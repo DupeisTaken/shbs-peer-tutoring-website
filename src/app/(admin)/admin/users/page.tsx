@@ -31,7 +31,6 @@ import { getQueryKey } from "@trpc/react-query";
 import { Button, ChoiceButton } from "~/app/_components/ui/button";
 import {
   FormActions,
-  FilterToolbar,
   InlineNotice,
   StatePanel,
 } from "~/app/_components/ui/patterns";
@@ -51,7 +50,10 @@ import { TuteeEditor } from "~/app/_components/tutee-editor";
 import { AccountProfileEditor } from "~/app/_components/account-profile-editor";
 import { TutorProfileEditor } from "~/app/_components/tutor-profile-editor";
 import { TutorDetailsButton } from "~/app/_components/tutor-details";
-import { MultiFilter } from "~/app/_components/multi-filter";
+import {
+  ActiveFilterChips,
+  MultiFilter,
+} from "~/app/_components/multi-filter";
 import {
   emptyUserFilters,
   isTutorStatusApplicable,
@@ -636,136 +638,225 @@ export default function UsersPage() {
           />
         </div>
       )}
-      <fieldset
-        hidden={!!linkedTutorId}
-        disabled={!!linkedTutorId || (isAdminTier && combinePending)}
-        className="card min-w-0 space-y-3 p-4"
-      >
-        <FilterToolbar
-          label={t("rosterSearch.label")}
-          summary={t("rosterSearch.results", {
-            count: rows.length,
-            total: linkedTutorId ? rows.length : scopedRows.length,
-          })}
-        >
-          <label className="min-w-0 flex-1">
-            <span className="label">{t("rosterSearch.label")}</span>
-            <input
-              ref={directorySearch}
-              type="search"
-              className="input w-full"
-              value={search}
-              onChange={(event) => setSearch(event.target.value)}
-              placeholder={t("rosterSearch.placeholder")}
-            />
-          </label>
-          {search && (
-            <Button size="compact" onClick={() => setSearch("")}>
-              {t("rosterSearch.clear")}
-            </Button>
-          )}
-        </FilterToolbar>
-        {!linkedTutorId &&
-          search.trim() &&
-          rows.length === 0 &&
-          scopedRows.length > 0 && (
-            <p role="status" className="muted">
-              {t("rosterSearch.noMatches")}
-            </p>
-          )}
-        <p className="muted text-sm">{t("userMultiFilters.hint")}</p>
-        <p className="muted text-sm">{t("usersDirectory.visibility")}</p>
-        <div
-          className={`grid items-start gap-3 ${isTutorStatusApplicable(filters.role) ? "md:grid-cols-3" : "md:grid-cols-2"}`}
-        >
-          <MultiFilter
-            label={t("admin.users.filters.role")}
-            options={[
-              ...ALL_ROLES.map((value) => ({
-                value,
-                label:
-                  value === "TRANSLATOR"
-                    ? t("membership.translator")
-                    : t(`admin.users.roles.${value}`),
-              })),
-              { value: "__none__", label: t("userMultiFilters.noRole") },
-            ]}
-            value={filters.role}
-            onChange={(role) => updateFilters({ ...filters, role })}
-          />
-          {isTutorStatusApplicable(filters.role) && (
-            <MultiFilter
-              label={t("admin.users.filters.status")}
-              options={[
-                ...TUTOR_STATUSES.map((value) => ({
-                  value,
-                  label: t(`admin.tutorStatus.${value}`),
-                })),
-                { value: "__none__", label: t("userMultiFilters.noTutor") },
+      {(() => {
+        const filtersDisabled =
+          !!linkedTutorId || (isAdminTier && combinePending);
+        const roleOptions = [
+          ...ALL_ROLES.map((value) => ({
+            value,
+            label:
+              value === "TRANSLATOR"
+                ? t("membership.translator")
+                : t(`admin.users.roles.${value}`),
+          })),
+          { value: "__none__", label: t("userMultiFilters.noRole") },
+        ];
+        const statusApplicable = isTutorStatusApplicable(filters.role);
+        const statusOptions = [
+          ...TUTOR_STATUSES.map((value) => ({
+            value,
+            label: t(`admin.tutorStatus.${value}`),
+          })),
+          { value: "__none__", label: t("userMultiFilters.noTutor") },
+        ];
+        const accountOptions = ACCOUNT_STATES.map((value) => ({
+          value,
+          label: t(`usersDirectory.setup.${value}`),
+        }));
+        const hasActiveFilters =
+          filters.role.include.length > 0 ||
+          filters.role.exclude.length > 0 ||
+          filters.status.include.length > 0 ||
+          filters.status.exclude.length > 0 ||
+          filters.account.include.length > 0 ||
+          filters.account.exclude.length > 0 ||
+          filters.showUnverified ||
+          filters.showPastTutors;
+        return (
+          <fieldset
+            hidden={!!linkedTutorId}
+            disabled={filtersDisabled}
+            className="card min-w-0 space-y-3 p-4 sm:p-5"
+          >
+            <section
+              aria-label={t("rosterSearch.label")}
+              className="min-w-0 space-y-2"
+            >
+              <div className="flex flex-wrap items-end justify-between gap-3">
+                <div className="flex min-w-0 flex-[2_1_16rem] items-end gap-2">
+                  <label className="min-w-0 flex-1">
+                    <span className="label">{t("rosterSearch.label")}</span>
+                    <span className="relative mt-1 block">
+                      <svg
+                        aria-hidden="true"
+                        viewBox="0 0 20 20"
+                        className="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-slate-400"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="1.8"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      >
+                        <circle cx="9" cy="9" r="5.5" />
+                        <path d="m16 16-3.2-3.2" />
+                      </svg>
+                      <input
+                        ref={directorySearch}
+                        type="search"
+                        className="input w-full rounded-lg border-slate-200/90 pl-9 shadow-2xs transition-colors hover:border-slate-300"
+                        value={search}
+                        onChange={(event) => setSearch(event.target.value)}
+                        placeholder={t("rosterSearch.placeholder")}
+                      />
+                    </span>
+                  </label>
+                  {search && (
+                    <Button
+                      variant="ghost"
+                      size="compact"
+                      onClick={() => setSearch("")}
+                    >
+                      {t("rosterSearch.clear")}
+                    </Button>
+                  )}
+                </div>
+                <div className="flex flex-wrap items-center gap-2.5 lg:pb-0.5">
+                  <p
+                    role="status"
+                    className="text-xs font-medium text-slate-500 tabular-nums"
+                  >
+                    {t("usersDirectory.count", {
+                      count: rows.length,
+                      total: directoryRows.length,
+                      hidden: directoryRows.length - rows.length,
+                    })}
+                  </p>
+                  <Button
+                    variant="ghost"
+                    size="compact"
+                    disabled={!hasActiveFilters}
+                    onClick={() => updateFilters(emptyUserFilters())}
+                  >
+                    {t("userMultiFilters.clear")}
+                  </Button>
+                </div>
+              </div>
+              {!linkedTutorId &&
+                search.trim() &&
+                rows.length === 0 &&
+                scopedRows.length > 0 && (
+                  <p role="status" className="muted">
+                    {t("rosterSearch.noMatches")}
+                  </p>
+                )}
+            </section>
+
+            <div className="relative flex flex-wrap items-center justify-between gap-2 border-t border-slate-100 pt-3">
+              <div className="flex flex-wrap items-center gap-2">
+                <MultiFilter
+                  label={t("admin.users.filters.role")}
+                  options={roleOptions}
+                  value={filters.role}
+                  disabled={filtersDisabled}
+                  onChange={(role) => updateFilters({ ...filters, role })}
+                />
+                {statusApplicable && (
+                  <MultiFilter
+                    label={t("admin.users.filters.status")}
+                    options={statusOptions}
+                    value={filters.status}
+                    disabled={filtersDisabled}
+                    onChange={(status) => updateFilters({ ...filters, status })}
+                  />
+                )}
+                <MultiFilter
+                  label={t("admin.users.filters.account")}
+                  options={accountOptions}
+                  value={filters.account}
+                  disabled={filtersDisabled}
+                  onChange={(account) => updateFilters({ ...filters, account })}
+                />
+              </div>
+              <div
+                role="group"
+                aria-label={t("usersDirectory.visibility")}
+                className="flex flex-wrap items-center gap-2"
+              >
+                <ChoiceButton
+                  selected={filters.showUnverified}
+                  className="rounded-lg border-slate-200/90 tracking-[-0.01em] shadow-2xs transition-colors hover:border-slate-300 hover:bg-slate-50/80 hover:text-slate-900"
+                  onClick={() =>
+                    updateFilters({
+                      ...filters,
+                      showUnverified: !filters.showUnverified,
+                    })
+                  }
+                >
+                  {t(
+                    filters.showUnverified
+                      ? "tuteeHistory.hideUnverified"
+                      : "tuteeHistory.showUnverified",
+                  )}
+                </ChoiceButton>
+                <ChoiceButton
+                  selected={filters.showPastTutors}
+                  className="rounded-lg border-slate-200/90 tracking-[-0.01em] shadow-2xs transition-colors hover:border-slate-300 hover:bg-slate-50/80 hover:text-slate-900"
+                  onClick={() =>
+                    updateFilters({
+                      ...filters,
+                      showPastTutors: !filters.showPastTutors,
+                    })
+                  }
+                >
+                  {t(
+                    filters.showPastTutors
+                      ? "tuteeHistory.hideHistorical"
+                      : "tuteeHistory.showHistorical",
+                  )}
+                </ChoiceButton>
+              </div>
+            </div>
+
+            <ActiveFilterChips
+              disabled={filtersDisabled}
+              groups={[
+                {
+                  id: "role",
+                  label: t("admin.users.filters.role"),
+                  options: roleOptions,
+                  value: filters.role,
+                  onChange: (role) => updateFilters({ ...filters, role }),
+                },
+                ...(statusApplicable
+                  ? [
+                      {
+                        id: "status",
+                        label: t("admin.users.filters.status"),
+                        options: statusOptions,
+                        value: filters.status,
+                        onChange: (status: UserFilters["status"]) =>
+                          updateFilters({ ...filters, status }),
+                      },
+                    ]
+                  : []),
+                {
+                  id: "account",
+                  label: t("admin.users.filters.account"),
+                  options: accountOptions,
+                  value: filters.account,
+                  onChange: (account) => updateFilters({ ...filters, account }),
+                },
               ]}
-              value={filters.status}
-              onChange={(status) => updateFilters({ ...filters, status })}
             />
-          )}
-          <MultiFilter
-            label={t("admin.users.filters.account")}
-            options={ACCOUNT_STATES.map((value) => ({
-              value,
-              label: t(`usersDirectory.setup.${value}`),
-            }))}
-            value={filters.account}
-            onChange={(account) => updateFilters({ ...filters, account })}
-          />
-        </div>
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <p role="status" className="muted text-sm">
-            {t("usersDirectory.count", {
-              count: rows.length,
-              total: directoryRows.length,
-              hidden: directoryRows.length - rows.length,
-            })}
-          </p>
-          <FilterToolbar label={t("usersDirectory.visibility")}>
-            <ChoiceButton
-              selected={filters.showUnverified}
-              onClick={() =>
-                updateFilters({
-                  ...filters,
-                  showUnverified: !filters.showUnverified,
-                })
-              }
-            >
-              {t(
-                filters.showUnverified
-                  ? "tuteeHistory.hideUnverified"
-                  : "tuteeHistory.showUnverified",
-              )}
-            </ChoiceButton>
-            <ChoiceButton
-              selected={filters.showPastTutors}
-              onClick={() =>
-                updateFilters({
-                  ...filters,
-                  showPastTutors: !filters.showPastTutors,
-                })
-              }
-            >
-              {t(
-                filters.showPastTutors
-                  ? "tuteeHistory.hideHistorical"
-                  : "tuteeHistory.showHistorical",
-              )}
-            </ChoiceButton>
-            <button
-              type="button"
-              className="btn-secondary btn-sm min-h-11 lg:min-h-8"
-              onClick={() => updateFilters(emptyUserFilters())}
-            >
-              {t("userMultiFilters.clear")}
-            </button>
-          </FilterToolbar>
-        </div>
-      </fieldset>
+
+            {(!filters.showUnverified || !filters.showPastTutors) && (
+              <p className="text-xs text-slate-600">
+                {t("usersDirectory.visibility")}
+              </p>
+            )}
+          </fieldset>
+        );
+      })()}
       {sendSetup.error && (
         <InlineNotice tone="error" announcement="alert">
           {sendSetup.error.message}

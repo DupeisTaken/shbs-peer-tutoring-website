@@ -416,10 +416,7 @@ it("keeps attendance choices as a draft until Save and restores them on Cancel",
   );
   expect(mocks.saveAttendance).toHaveBeenCalledExactlyOnceWith({
     meetingId: "meeting-1",
-    entries: [
-      { tutorId: "active", status: "UNEXCUSED_ABSENT" },
-      { tutorId: "excused", status: "EXCUSED_ABSENT" },
-    ],
+    entries: [{ tutorId: "active", status: "UNEXCUSED_ABSENT" }],
   });
   expect(screen.queryByRole("group", { name: /Bailey Tutor/ })).toBeNull();
   expect(screen.queryByRole("group", { name: /Charlie Tutor/ })).toBeNull();

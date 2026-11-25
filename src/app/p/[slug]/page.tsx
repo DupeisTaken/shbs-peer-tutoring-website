@@ -12,11 +12,11 @@ import { APP_TITLE } from "~/lib/branding";
 import type { LandingEditorView } from "~/lib/landing-editor-view";
 import { Markdown } from "~/app/_components/markdown";
 import { PageBlocks } from "~/app/_components/page-blocks";
+import { PublicHeader } from "~/app/_components/public-header";
 import {
   getSignedInLandingLinks,
   getSignedInWorkspaceHeader,
-} from "~/app/_components/signed-in-header";
-import { PublicHeader } from "~/app/_components/public-header";
+} from "~/app/_components/signed-in-workspace-header";
 
 /**
  * Public page at /p/<slug>. The slug resolves to either a standalone custom page (a block layout) or
@@ -41,7 +41,11 @@ export default async function SlugPage({
       editorView ? Promise.resolve(undefined) : getSignedInLandingLinks(),
       editorView
         ? Promise.resolve(null)
-        : getSignedInWorkspaceHeader({ href: "/", title: APP_TITLE }),
+        : getSignedInWorkspaceHeader({
+            href: "/",
+            title: APP_TITLE,
+            containerClassName: "mx-auto max-w-5xl",
+          }),
     ]);
     return (
       <Shell
@@ -66,7 +70,11 @@ export default async function SlugPage({
       ? [undefined, null]
       : await Promise.all([
           getSignedInLandingLinks(),
-          getSignedInWorkspaceHeader({ href: "/", title: APP_TITLE }),
+          getSignedInWorkspaceHeader({
+            href: "/",
+            title: APP_TITLE,
+            containerClassName: "mx-auto max-w-5xl",
+          }),
         ]);
     return (
       <Shell
@@ -107,11 +115,11 @@ async function Shell({
   signedInHeader?: ReactNode;
   children: ReactNode;
 }) {
-  const [t, tc] = await Promise.all([
+  const [t, tc, help] = await Promise.all([
     getTranslations("landing"),
     getTranslations("common"),
+    getTranslations("helpNav"),
   ]);
-  const help = await getTranslations("helpNav");
   return (
     <div className="flex min-h-screen flex-col">
       {signedInHeader ?? (

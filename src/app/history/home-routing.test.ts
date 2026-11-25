@@ -1,6 +1,6 @@
 import type { ReactElement } from "react";
 import { expect, it, vi } from "vitest";
-import type * as SignedInHeaderModule from "~/app/_components/signed-in-header";
+import type * as SignedInHeaderModule from "~/app/_components/signed-in-workspace-header";
 import type { SignedInLinkMap } from "~/lib/signed-in-landing-links";
 
 type LandingViewProps = {
@@ -44,7 +44,7 @@ vi.mock("next-intl/server", () => ({
 vi.mock("~/app/_components/landing-view", () => ({
   LandingView: () => null,
 }));
-vi.mock("~/app/_components/signed-in-header", async (importOriginal) => {
+vi.mock("~/app/_components/signed-in-workspace-header", async (importOriginal) => {
   const actual = await importOriginal<typeof SignedInHeaderModule>();
   return {
     ...actual,

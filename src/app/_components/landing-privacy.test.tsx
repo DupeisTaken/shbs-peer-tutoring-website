@@ -12,6 +12,7 @@ import { LandingView } from "./landing-view";
 const mocks = vi.hoisted(() => ({
   locale: "en",
   timeZone: "Asia/Shanghai",
+  features: { VIEWER_SIGNUP: false },
   blocks: [] as { id: string; type: "HERO" | "NEWS" }[],
   news: [] as {
     id: string;
@@ -28,7 +29,9 @@ vi.mock("next-intl/server", () => ({
   getTranslations: async () => (key: string) => key,
 }));
 vi.mock("~/server/db", () => ({ db: {} }));
-vi.mock("~/server/program/features", () => ({ getFeatures: async () => ({}) }));
+vi.mock("~/server/program/features", () => ({
+  getFeatures: async () => mocks.features,
+}));
 vi.mock("~/server/home/content", () => ({
   getHomeOverrides: async () => ({}),
   applyHomeVars: (text: string) => text,
@@ -64,6 +67,7 @@ afterEach(() => {
   cleanup();
   mocks.locale = "en";
   mocks.timeZone = "Asia/Shanghai";
+  mocks.features = { VIEWER_SIGNUP: false };
   mocks.blocks = [];
   mocks.news = [];
   mocks.navPages = [];
@@ -187,4 +191,15 @@ it("replaces hero CTA links for signed-in roles on Program Home but leaves previ
   expect(
     screen.getByRole("link", { name: "ctaSecondary" }).getAttribute("href"),
   ).toBe("/tutor");
+});
+
+it("includes the viewer role background description under Follow the Program when viewer signup is enabled", async () => {
+  mocks.features = { VIEWER_SIGNUP: true };
+  render(await LandingView({}));
+  const menuName = "nav.signInAndJoin";
+  fireEvent.click(screen.getByRole("button", { name: menuName }));
+  const menu = within(screen.getByRole("dialog", { name: menuName }));
+  const link = menu.getByRole("link", { name: /nav\.viewerSignup/ });
+  expect(link.getAttribute("href")).toBe("/viewer");
+  expect(link.textContent).toContain("viewerSignupHelp");
 });

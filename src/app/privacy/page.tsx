@@ -1,6 +1,7 @@
 import { getLocale, getTranslations } from "next-intl/server";
 
 import { PublicHeader } from "~/app/_components/public-header";
+import { getSignedInWorkspaceHeader } from "~/app/_components/signed-in-workspace-header";
 import { APP_TITLE, ORG_NAME, SUPPORT_EMAIL } from "~/lib/branding";
 import { getPrivacyPolicy, PRIVACY_POLICY_UPDATED } from "~/lib/privacy-policy";
 
@@ -19,15 +20,22 @@ export default async function PrivacyPage() {
     getTranslations("common"),
   ]);
   const policy = getPrivacyPolicy(locale);
+  const signedInHeader = await getSignedInWorkspaceHeader({
+    href: "/privacy",
+    title: policy.title,
+    containerClassName: "mx-auto max-w-5xl",
+  });
 
   return (
     <div className="min-h-screen">
-      <PublicHeader
-        href="/"
-        linkTitle={t("backToMain")}
-        sticky={false}
-        skipLabel={t("skipToContent")}
-      />
+      {signedInHeader ?? (
+        <PublicHeader
+          href="/"
+          linkTitle={t("backToMain")}
+          sticky={false}
+          skipLabel={t("skipToContent")}
+        />
+      )}
 
       <main id="main-content" className="mx-auto max-w-5xl px-4 py-8 sm:py-12">
         {/* Explicit language keeps the English fallback accessible in other interface locales. */}

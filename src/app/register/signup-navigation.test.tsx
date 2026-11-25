@@ -57,7 +57,7 @@ vi.mock("~/app/_components/language-switcher", () => ({
 vi.mock("~/app/_components/theme-switcher", () => ({
   ThemeSwitcher: () => null,
 }));
-vi.mock("~/app/_components/signed-in-header", () => ({
+vi.mock("~/app/_components/signed-in-workspace-header", () => ({
   getSignedInWorkspaceHeader: async () => null,
 }));
 vi.mock("./register-flow", () => ({
@@ -77,6 +77,20 @@ vi.mock("../viewer-signup/viewer-signup-flow", () => ({
 }));
 vi.mock("../signin/sign-in-form", () => ({
   SignInForm: () => <div>Sign-in form</div>,
+}));
+vi.mock("~/app/_components/signed-in-workspace-header", () => ({
+  getSignedInWorkspaceHeader: async ({
+    title,
+    session,
+  }: {
+    title: string;
+    session?: { user?: { id?: string } } | null;
+  }) =>
+    session?.user ? (
+      <header data-header="workspace" data-title={title}>
+        Workspace header
+      </header>
+    ) : null,
 }));
 
 import RegisterPage from "../register-account/page";
@@ -244,6 +258,9 @@ it.each(["en", "zh"])(
         .getByRole("link", { name: copy.auth.signupRoutes.viewerLink })
         .getAttribute("href"),
     ).toBe("/viewer");
+    expect(
+      screen.getByText(copy.auth.signupRoutes.viewerHelp, { exact: false }),
+    ).toBeTruthy();
   },
 );
 
@@ -267,6 +284,24 @@ it("omits closed viewer registration without hiding member or tutee routes", asy
   await expect(ViewerSignupPage()).rejects.toThrow("redirect:/");
 });
 
+it("renders WorkspaceHeader and hides guest sign-in links when signed in via Add access", async () => {
+  state.signedIn = true;
+  render(await RegisterPage());
+  expect(document.querySelector('[data-header="workspace"]')).toBeTruthy();
+  expect(
+    screen.queryByRole("link", { name: en.auth.register.backToSignIn }),
+  ).toBeNull();
+  expect(
+    screen.queryByRole("link", { name: en.auth.signupRoutes.viewerLink }),
+  ).toBeNull();
+  cleanup();
+  render(await ViewerSignupPage());
+  expect(document.querySelector('[data-header="workspace"]')).toBeTruthy();
+  expect(
+    screen.queryByRole("link", { name: en.public.viewerSignup.signIn }),
+  ).toBeNull();
+});
+
 it("provides signup navigation copy in every bundled language", () => {
   const directory = resolve("messages");
   for (const filename of readdirSync(directory).filter((file) =>
@@ -274,11 +309,32 @@ it("provides signup navigation copy in every bundled language", () => {
   )) {
     const messages = JSON.parse(
       readFileSync(resolve(directory, filename), "utf8"),
-    ) as { auth: { signupRoutes: Record<string, string> } };
+    ) as {
+      auth: { signupRoutes: Record<string, string> };
+      accountInvitation: { requestHelp: string };
+      landing: { viewerSignupHelp: string };
+      public: {
+        viewerSignup: {
+          fields: { affiliationPlaceholder: string };
+        };
+      };
+    };
     for (const key of Object.keys(en.auth.signupRoutes)) {
       expect(messages.auth.signupRoutes[key], `${filename}: ${key}`).toMatch(
         /\S/,
       );
     }
+    expect(
+      messages.accountInvitation.requestHelp,
+      `${filename}: accountInvitation.requestHelp`,
+    ).toMatch(/\S/);
+    expect(
+      messages.public.viewerSignup.fields.affiliationPlaceholder,
+      `${filename}: public.viewerSignup.fields.affiliationPlaceholder`,
+    ).toMatch(/\S/);
+    expect(
+      messages.landing.viewerSignupHelp,
+      `${filename}: landing.viewerSignupHelp`,
+    ).toMatch(/\S/);
   }
 });

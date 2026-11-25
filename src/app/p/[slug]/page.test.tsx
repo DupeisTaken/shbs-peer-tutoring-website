@@ -62,7 +62,7 @@ vi.mock("~/app/_components/page-blocks", () => ({
     <div data-testid="page-blocks" lang={locale} />
   ),
 }));
-vi.mock("~/app/_components/signed-in-header", () => ({
+vi.mock("~/app/_components/signed-in-workspace-header", () => ({
   getSignedInLandingLinks: async () => undefined,
   getSignedInWorkspaceHeader: async () => null,
 }));

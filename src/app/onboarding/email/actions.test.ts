@@ -102,7 +102,7 @@ it("lets an email-verified account complete a required password rotation without
   await expect(OnboardingPage()).resolves.toBeTruthy();
   expect(await completeOnboardingAction(undefined, new FormData())).toEqual({ sent: true });
   await resetPassword(emailedToken(), "OwnerChosenPassword456!");
-  await expect(OnboardingPage()).rejects.toThrow("redirect:/dashboard");
+  await expect(OnboardingPage()).rejects.toThrow("redirect:/admin");
 });
 
 it("cannot use a paused onboarding form to overwrite a recovered password or reuse its proof", async () => {
