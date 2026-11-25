@@ -1,5 +1,4 @@
 import { expect, it, vi } from "vitest";
-vi.mock("~/server/auth", () => ({ auth: vi.fn() }));
 vi.mock("~/server/db", () => ({ db: {} }));
 vi.mock("next-intl/server", () => ({ getTranslations: vi.fn() }));
 vi.mock("./admin-mobile-navigation", () => ({
@@ -37,10 +36,11 @@ it("keeps archival, audit and recovery routes in Data & Recovery rather than Ove
     "/admin/recovery",
     "/admin/database",
   ]);
-  expect(overview?.items.map((item) => item.href)).not.toContain("/help");
-  expect(overview?.items.map((item) => item.href)).not.toContain("/admin/help");
-  const administration = NAV_SECTIONS.find(
-    (section) => section.titleKey === "admin.nav.sections.administration",
+  const allHrefs = NAV_SECTIONS.flatMap((section) =>
+    section.items.map((item) => item.href),
   );
-  expect(administration?.items.map((item) => item.href)).toContain("/admin/help");
+  // Translations and Help Center live in the top-bar workspace switcher, not the management sidebar.
+  expect(allHrefs).not.toContain("/help");
+  expect(allHrefs).not.toContain("/admin/help");
+  expect(allHrefs).not.toContain("/localization");
 });
