@@ -19,10 +19,17 @@ const mocks = vi.hoisted(() => ({
   request: vi.fn(),
   confirm: vi.fn(),
   manage: vi.fn(),
+  manageSuccess: null as null | (() => Promise<void>),
+  requestEmailChange: vi.fn(),
+  confirmEmailChange: vi.fn(),
+  routerRefresh: vi.fn(),
   preferences: vi.fn(),
   program: vi.fn(),
   binding: vi.fn(),
   canEdit: true,
+}));
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({ refresh: mocks.routerRefresh }),
 }));
 vi.mock("~/trpc/react", () => ({
   api: {
@@ -38,7 +45,14 @@ vi.mock("~/trpc/react", () => ({
       },
     }),
     account: {
-      emailSettings: { useQuery: () => ({ data: mocks.data }) },
+      emailSettings: {
+        useQuery: () => ({
+          data: mocks.data,
+          isSuccess: true,
+          isFetching: false,
+          refetch: vi.fn().mockResolvedValue({ isSuccess: true, data: mocks.data }),
+        }),
+      },
       notificationPreferences: {
         useQuery: () => ({ data: mocks.preferenceData }),
       },
@@ -49,7 +63,16 @@ vi.mock("~/trpc/react", () => ({
         useMutation: () => ({ mutate: mocks.confirm, reset: vi.fn() }),
       },
       manageSecondaryEmail: {
-        useMutation: () => ({ mutate: mocks.manage, reset: vi.fn() }),
+        useMutation: (opts?: { onSuccess?: () => Promise<void> }) => {
+          mocks.manageSuccess = opts?.onSuccess ?? null;
+          return { mutate: mocks.manage, reset: vi.fn() };
+        },
+      },
+      requestEmailChange: {
+        useMutation: () => ({ mutate: mocks.requestEmailChange, reset: vi.fn(), isPending: false }),
+      },
+      confirmEmailChange: {
+        useMutation: () => ({ mutate: mocks.confirmEmailChange, reset: vi.fn(), isPending: false }),
       },
       setNotificationPreferences: {
         useMutation: () => ({ mutate: mocks.preferences }),
@@ -604,6 +627,23 @@ it("blocks additions and pending verification while keeping existing addresses m
     action: "remove",
   });
   expect(screen.getByText(/Secondary emails are optional/)).toBeTruthy();
+  expect(screen.getByText(messages.emailChange.title)).toBeTruthy();
+});
+
+it("refreshes the server shell after promoting a verified secondary email to primary", async () => {
+  mocks.routerRefresh.mockClear();
+  view(<AccountEmails />);
+  fireEvent.change(screen.getByLabelText("Current password"), {
+    target: { value: "synthetic-password" },
+  });
+  fireEvent.click(screen.getByRole("button", { name: "Make primary" }));
+  expect(mocks.manage).toHaveBeenCalledWith({
+    email: "secondary@example.test",
+    currentPassword: "synthetic-password",
+    action: "primary",
+  });
+  await mocks.manageSuccess?.();
+  expect(mocks.routerRefresh).toHaveBeenCalledOnce();
 });
 
 it("supports accounts without secondary addresses and does not offer a security opt-out", () => {

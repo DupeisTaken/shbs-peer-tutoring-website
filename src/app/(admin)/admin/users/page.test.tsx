@@ -10,7 +10,8 @@ import {
   within,
 } from "@testing-library/react";
 import { NextIntlClientProvider } from "next-intl";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { QueryClientProvider } from "@tanstack/react-query";
+import { createQueryClient } from "~/trpc/query-client";
 import type { ComponentProps } from "react";
 import type * as UserDetailsModule from "./user-details";
 import type * as TutorDetailsModule from "~/app/_components/tutor-details";
@@ -86,6 +87,7 @@ const fixture = vi.hoisted(() => {
     identityReviewRequired: false,
     realDetails: false,
     realTutorDetails: false,
+    realAppealQueries: false,
     tutorDetailRead: vi.fn(),
     profileWrite: vi.fn(),
     membershipEditor: vi.fn(),
@@ -121,10 +123,20 @@ const fixture = vi.hoisted(() => {
       affiliation: string | null;
       createdAt: Date;
       userId: string;
+      restriction: {
+        suspendedAt: Date | null;
+        reason: string | null;
+        authorityRevision: number;
+      };
     }[],
     appealError: null as null | { message: string; data?: { code?: string } },
-    decisionError: null as null | { message: string },
+    decisionError: null as null | { message: string; data?: { code?: string } },
     decisionPending: false,
+    decisionResult: {
+      ok: true as const,
+      coResolvedAppealIds: ["appeal"],
+      accessRestored: true,
+    },
     decision: vi.fn(),
     refresh: vi.fn<() => Promise<void>>(),
     refetch: vi.fn(),
@@ -132,9 +144,12 @@ const fixture = vi.hoisted(() => {
     combineRows: vi.fn(),
   };
 });
-vi.mock("@trpc/react-query", () => ({ getQueryKey: () => ["appeal-test"] }));
+vi.mock("@trpc/react-query", () => ({
+  getQueryKey: (procedure: { __key?: readonly unknown[] }) =>
+    procedure.__key ?? ["appeal-test"],
+}));
 vi.mock("~/trpc/react", async () => {
-  const { useMutation } = await import("@tanstack/react-query");
+  const { useMutation, useQuery } = await import("@tanstack/react-query");
   const { nameFieldPolicyQueries } =
     await import("~/test/name-field-policy-fixtures");
   const mutation = {
@@ -237,129 +252,161 @@ vi.mock("~/trpc/react", async () => {
           }),
         },
         accounts: {
-          useQuery: () => ({
-            error: fixture.accountsError,
-            isSuccess: !fixture.accountsError && !fixture.accountsLoading,
-            refetch: fixture.accountsRefetch,
-            isFetching: fixture.accountsLoading,
-            data: fixture.accountsLoading
-              ? undefined
-              : {
-                  caller: { id: fixture.viewerId, role: fixture.role },
-                  rows: [
-                    {
-                      userId: null,
-                      name: "Past tutor",
-                      role: null,
-                      tutorId: "archived",
-                      tutorStatus: "ARCHIVED",
-                      tuteeMember: false,
-                      tutorAccessRevoked: false,
-                      account: "none",
-                      tutorHasEmail: false,
-                      tutor: {
-                        englishName: "Past tutor",
-                        username: fixture.pastTutorUsername,
+          __key: ["accounts-test"] as const,
+          useQuery: () => {
+            const snapshot = {
+              error: fixture.accountsError,
+              isSuccess: !fixture.accountsError && !fixture.accountsLoading,
+              refetch: fixture.accountsRefetch,
+              isFetching: fixture.accountsLoading,
+              data: fixture.accountsLoading
+                ? undefined
+                : {
+                    caller: { id: fixture.viewerId, role: fixture.role },
+                    rows: [
+                      {
+                        userId: null,
+                        name: "Past tutor",
+                        role: null,
+                        tutorId: "archived",
+                        tutorStatus: "ARCHIVED",
+                        tuteeMember: false,
+                        tutorAccessRevoked: false,
+                        account: "none",
+                        tutorHasEmail: false,
+                        tutor: {
+                          englishName: "Past tutor",
+                          username: fixture.pastTutorUsername,
+                        },
+                        academic: {},
                       },
-                      academic: {},
-                    },
-                    {
-                      userId: fixture.combinedUserId,
-                      name: "Combined account",
-                      username: fixture.combinedUsername,
-                      combinedRecordCount: fixture.combinedRecordCount,
-                      identityReviewRequired: fixture.identityReviewRequired,
-                      role: "ADMIN",
-                      tutorId: "synthetic-tutor",
-                      tutorStatus: "ACTIVE",
-                      tuteeMember: false,
-                      tutorAccessRevoked: false,
-                      account: fixture.combinedAccount,
-                      tutorHasEmail: true,
-                      emailVerifiedAt: fixture.combinedVerified,
-                      tutor: null,
-                      academic: {
-                        status: "REPORTED",
-                        gradeLevel: 10,
-                        schoolYear: "26-27",
-                        expectedGraduationYear: 2029,
-                        needsConfirmation: false,
+                      {
+                        userId: fixture.combinedUserId,
+                        name: "Combined account",
+                        username: fixture.combinedUsername,
+                        combinedRecordCount: fixture.combinedRecordCount,
+                        identityReviewRequired: fixture.identityReviewRequired,
+                        role: "ADMIN",
+                        tutorId: "synthetic-tutor",
+                        tutorStatus: "ACTIVE",
+                        tuteeMember: false,
+                        tutorAccessRevoked: false,
+                        account: fixture.combinedAccount,
+                        tutorHasEmail: true,
+                        emailVerifiedAt: fixture.combinedVerified,
+                        tutor: null,
+                        academic: {
+                          status: "REPORTED",
+                          gradeLevel: 10,
+                          schoolYear: "26-27",
+                          expectedGraduationYear: 2029,
+                          needsConfirmation: false,
+                        },
                       },
-                    },
-                    {
-                      userId: "synthetic-management",
-                      name: "Management account",
-                      isSelf: fixture.targetSelf,
-                      role: fixture.targetRole,
-                      tutorId: null,
-                      tutorStatus: null,
-                      tuteeMember: false,
-                      tutorAccessRevoked: false,
-                      account: "registered",
-                      tutor: null,
-                      academic: {
-                        status: "REPORTED",
-                        gradeLevel: 8,
-                        schoolYear: "26-27",
-                        expectedGraduationYear: 2031,
-                        needsConfirmation: true,
+                      {
+                        userId: "synthetic-management",
+                        name: "Management account",
+                        isSelf: fixture.targetSelf,
+                        role: fixture.targetRole,
+                        tutorId: null,
+                        tutorStatus: null,
+                        tuteeMember: false,
+                        tutorAccessRevoked: false,
+                        account: "registered",
+                        tutor: null,
+                        academic: {
+                          status: "REPORTED",
+                          gradeLevel: 8,
+                          schoolYear: "26-27",
+                          expectedGraduationYear: 2031,
+                          needsConfirmation: true,
+                        },
                       },
-                    },
-                    {
-                      userId: "synthetic-student",
-                      name: "Verified student",
-                      role: "STUDENT",
-                      username: null,
-                      emailVerifiedAt: new Date(),
-                      tutorId: null,
-                      tuteeMember: true,
-                      account: "registered",
-                      tutor: null,
-                    },
-                    {
-                      userId: "synthetic-unverified",
-                      name: "Unverified student",
-                      role: "STUDENT",
-                      username: null,
-                      emailVerifiedAt: null,
-                      tutorId: null,
-                      tuteeMember: true,
-                      account: "registered",
-                      tutor: null,
-                    },
-                  ].map((row) => ({
-                    ...row,
-                    tutorDestinations: [
-                      ...(row.tutorId
-                        ? [
-                            {
-                              tutorId: row.tutorId,
-                              name: row.name,
-                              username: row.tutor?.username ?? null,
-                              status: row.tutorStatus,
-                              account: row.account,
-                              hasEmail: row.tutorHasEmail,
-                              suspended: false,
-                              retainedOwnerName: null,
-                            },
-                          ]
-                        : []),
-                      ...(row.tutorId === "synthetic-tutor"
-                        ? fixture.extraTutorDestinations
-                        : []),
-                    ],
-                  })),
-                },
-          }),
+                      {
+                        userId: "synthetic-student",
+                        name: "Verified student",
+                        role: "STUDENT",
+                        username: null,
+                        emailVerifiedAt: new Date(),
+                        tutorId: null,
+                        tuteeMember: true,
+                        account: "registered",
+                        tutor: null,
+                      },
+                      {
+                        userId: "synthetic-unverified",
+                        name: "Unverified student",
+                        role: "STUDENT",
+                        username: null,
+                        emailVerifiedAt: null,
+                        tutorId: null,
+                        tuteeMember: true,
+                        account: "registered",
+                        tutor: null,
+                      },
+                    ].map((row) => ({
+                      ...row,
+                      tutorDestinations: [
+                        ...(row.tutorId
+                          ? [
+                              {
+                                tutorId: row.tutorId,
+                                name: row.name,
+                                username: row.tutor?.username ?? null,
+                                status: row.tutorStatus,
+                                account: row.account,
+                                hasEmail: row.tutorHasEmail,
+                                suspended: false,
+                                retainedOwnerName: null,
+                              },
+                            ]
+                          : []),
+                        ...(row.tutorId === "synthetic-tutor"
+                          ? fixture.extraTutorDestinations
+                          : []),
+                      ],
+                    })),
+                  },
+            };
+            const live = useQuery({
+              queryKey: ["accounts-test"],
+              queryFn: async () => {
+                if (fixture.accountsError)
+                  throw Object.assign(
+                    new Error(fixture.accountsError.message),
+                    fixture.accountsError,
+                  );
+                return snapshot.data;
+              },
+              enabled: fixture.realAppealQueries,
+            });
+            return fixture.realAppealQueries ? live : snapshot;
+          },
         },
         appeals: {
-          useQuery: () => ({
-            data: fixture.appeals,
-            error: fixture.appealError,
-            isSuccess: !fixture.appealError,
-            isFetching: false,
-            refetch: fixture.refetch,
-          }),
+          __key: ["appeal-test"] as const,
+          useQuery: (_input?: unknown, options?: { enabled?: boolean }) => {
+            const live = useQuery({
+              queryKey: ["appeal-test"],
+              queryFn: async () => {
+                if (fixture.appealError)
+                  throw Object.assign(
+                    new Error(fixture.appealError.message),
+                    fixture.appealError,
+                  );
+                return fixture.appeals;
+              },
+              enabled: fixture.realAppealQueries && options?.enabled !== false,
+            });
+            if (fixture.realAppealQueries) return live;
+            return {
+              data: fixture.appeals,
+              error: fixture.appealError,
+              isSuccess: !fixture.appealError,
+              isFetching: false,
+              refetch: fixture.refetch,
+            };
+          },
         },
         backfillStudentUsernames: {
           useMutation: () => ({ mutate: fixture.assign, isPending: false }),
@@ -375,15 +422,27 @@ vi.mock("~/trpc/react", async () => {
         decideAppeal: {
           useMutation: (options: {
             onSuccess: (
-              result: unknown,
-              input: { appealId: string; action: string },
+              result: {
+                ok: true;
+                coResolvedAppealIds: string[];
+                accessRestored: boolean;
+              },
+              input: {
+                appealId: string;
+                action: string;
+                expectedAuthorityRevision?: number;
+              },
             ) => Promise<void>;
             onSettled: () => void;
           }) => ({
-            mutate: (input: { appealId: string; action: string }) => {
+            mutate: (input: {
+              appealId: string;
+              action: string;
+              expectedAuthorityRevision?: number;
+            }) => {
               fixture.decision(input);
               fixture.completion = async () => {
-                await options.onSuccess({}, input);
+                await options.onSuccess(fixture.decisionResult, input);
                 options.onSettled();
               };
             },
@@ -422,8 +481,7 @@ vi.mock("~/app/_components/acceptance-records", () => ({
   AcceptanceRecords: () => null,
 }));
 vi.mock("~/app/_components/tutor-details", async (importOriginal) => {
-  const actual =
-    await importOriginal<typeof TutorDetailsModule>();
+  const actual = await importOriginal<typeof TutorDetailsModule>();
   return {
     TutorDetailsButton: (
       props: ComponentProps<typeof actual.TutorDetailsButton>,
@@ -438,10 +496,7 @@ vi.mock("~/app/_components/tutor-details", async (importOriginal) => {
   };
 });
 vi.mock("~/app/_components/account-profile-editor", async (importOriginal) => {
-  const actual =
-    await importOriginal<
-      typeof AccountProfileModule
-    >();
+  const actual = await importOriginal<typeof AccountProfileModule>();
   return {
     AccountProfileEditor: (
       props: ComponentProps<typeof actual.AccountProfileEditor>,
@@ -451,16 +506,17 @@ vi.mock("~/app/_components/account-profile-editor", async (importOriginal) => {
 });
 // Independent profile sections are outside this name-draft/navigation contract.
 vi.mock("~/app/_components/academic-profile", async (importOriginal) => ({
-  ...(await importOriginal<
-    typeof AcademicProfileModule
-  >()),
+  ...(await importOriginal<typeof AcademicProfileModule>()),
   AcademicPanel: () => null,
 }));
 vi.mock("~/app/_components/school-departure", () => ({
   SchoolDeparturePanel: () => null,
 }));
 vi.mock("~/app/_components/membership-editor", () => ({
-  MembershipEditor: (props: { isHead?: boolean; canApply?: boolean }) => { fixture.membershipEditor(props); return null; },
+  MembershipEditor: (props: { isHead?: boolean; canApply?: boolean }) => {
+    fixture.membershipEditor(props);
+    return null;
+  },
 }));
 vi.mock("~/app/_components/account-username-editor", () => ({
   AccountUsernameEditor: () => null,
@@ -495,7 +551,7 @@ const storedFilters = () =>
   userDirectoryFilters(
     JSON.parse(sessionStorage.getItem(storageKey)!) as UserDirectoryView,
   );
-let queryClient: QueryClient;
+let queryClient: ReturnType<typeof createQueryClient>;
 const wrapper = ({ children }: { children: React.ReactNode }) => (
   <QueryClientProvider client={queryClient}>
     <NextIntlClientProvider
@@ -524,9 +580,8 @@ const openRole = () =>
     }),
   );
 beforeEach(() => {
-  queryClient = new QueryClient({
-    defaultOptions: { queries: { retry: false } },
-  });
+  queryClient = createQueryClient();
+  queryClient.setDefaultOptions({ queries: { retry: false } });
   localStorage.clear();
   sessionStorage.clear();
   window.history.replaceState(null, "", "/admin/users");
@@ -543,6 +598,7 @@ beforeEach(() => {
   fixture.identityReviewRequired = false;
   fixture.realDetails = false;
   fixture.realTutorDetails = false;
+  fixture.realAppealQueries = false;
   fixture.tutorDetailRead.mockClear();
   fixture.profileWrite.mockClear();
   fixture.membershipEditor.mockClear();
@@ -1132,44 +1188,41 @@ it("preserves a usable focus target chosen as the directory reader closes", asyn
   expect(focus).not.toHaveBeenCalled();
 });
 
-it(
-  "withholds initial accountless provisioning from Coordinators while preserving existing setup resends",
-  () => {
-    fixture.role = "COORDINATOR";
-    fixture.combinedUserId = null;
-    fixture.combinedAccount = "none";
-    directoryArrival("synthetic-tutor");
-    const page = mount();
-    // Hash navigation preserves hidden browsing rows and their editor owners.
-    // Check the accessible source table so its message cannot be satisfied by
-    // the same text retained in the hidden directory.
-    const sourceTable = within(
-      screen.getByRole("table", { name: messages.admin.users.title }),
-    );
-    expect(
-      sourceTable.getByText(messages.usersDirectory.setupHeadRequired),
-    ).toBeTruthy();
-    expect(
-      screen.queryByRole("button", {
-        name: messages.admin.tutors.account.sendSetup,
-      }),
-    ).toBeNull();
-    fixture.combinedUserId = "existing-login";
-    fixture.combinedAccount = "setup";
-    page.rerender(<UsersPage />);
-    expect(
-      sourceTable.queryByText(messages.usersDirectory.setupHeadRequired),
-    ).toBeNull();
-    fireEvent.click(
-      screen.getByRole("button", {
-        name: messages.admin.tutors.account.sendSetup,
-      }),
-    );
-    expect(fixture.sendSetup).toHaveBeenCalledExactlyOnceWith({
-      tutorId: "synthetic-tutor",
-    });
-  },
-);
+it("withholds initial accountless provisioning from Coordinators while preserving existing setup resends", () => {
+  fixture.role = "COORDINATOR";
+  fixture.combinedUserId = null;
+  fixture.combinedAccount = "none";
+  directoryArrival("synthetic-tutor");
+  const page = mount();
+  // Hash navigation preserves hidden browsing rows and their editor owners.
+  // Check the accessible source table so its message cannot be satisfied by
+  // the same text retained in the hidden directory.
+  const sourceTable = within(
+    screen.getByRole("table", { name: messages.admin.users.title }),
+  );
+  expect(
+    sourceTable.getByText(messages.usersDirectory.setupHeadRequired),
+  ).toBeTruthy();
+  expect(
+    screen.queryByRole("button", {
+      name: messages.admin.tutors.account.sendSetup,
+    }),
+  ).toBeNull();
+  fixture.combinedUserId = "existing-login";
+  fixture.combinedAccount = "setup";
+  page.rerender(<UsersPage />);
+  expect(
+    sourceTable.queryByText(messages.usersDirectory.setupHeadRequired),
+  ).toBeNull();
+  fireEvent.click(
+    screen.getByRole("button", {
+      name: messages.admin.tutors.account.sendSetup,
+    }),
+  );
+  expect(fixture.sendSetup).toHaveBeenCalledExactlyOnceWith({
+    tutorId: "synthetic-tutor",
+  });
+});
 
 it.each(["en", "zh"] as const)(
   "reports a negative setup delivery receipt without inventing its cause in %s",
@@ -1197,32 +1250,37 @@ it.each(["en", "zh"] as const)(
     );
     expect(failure).toBeTruthy();
     expect(failure.textContent).not.toMatch(/not configured|尚未配置/);
-    expect(screen.queryByText(text.admin.tutors.account.linkEmailed)).toBeNull();
+    expect(
+      screen.queryByText(text.admin.tutors.account.linkEmailed),
+    ).toBeNull();
     expect(document.getElementById("tutor-synthetic-tutor")).not.toBeNull();
   },
 );
 
-it.each(["HEAD", "ADMIN"])("lets %s deliberately start accountless setup and retains the target beside a visible failure", (role) => {
-  fixture.role = role;
-  fixture.combinedUserId = null;
-  fixture.combinedAccount = "none";
-  directoryArrival("synthetic-tutor");
-  const page = mount();
-  fireEvent.click(
-    screen.getByRole("button", {
-      name: messages.admin.tutors.account.sendSetup,
-    }),
-  );
-  expect(fixture.sendSetup).toHaveBeenCalledExactlyOnceWith({
-    tutorId: "synthetic-tutor",
-  });
-  fixture.sendSetupError = { message: "Synthetic setup delivery failed." };
-  page.rerender(<UsersPage />);
-  expect(screen.getByRole("alert").textContent).toContain(
-    fixture.sendSetupError.message,
-  );
-  expect(document.getElementById("tutor-synthetic-tutor")).not.toBeNull();
-});
+it.each(["HEAD", "ADMIN"])(
+  "lets %s deliberately start accountless setup and retains the target beside a visible failure",
+  (role) => {
+    fixture.role = role;
+    fixture.combinedUserId = null;
+    fixture.combinedAccount = "none";
+    directoryArrival("synthetic-tutor");
+    const page = mount();
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: messages.admin.tutors.account.sendSetup,
+      }),
+    );
+    expect(fixture.sendSetup).toHaveBeenCalledExactlyOnceWith({
+      tutorId: "synthetic-tutor",
+    });
+    fixture.sendSetupError = { message: "Synthetic setup delivery failed." };
+    page.rerender(<UsersPage />);
+    expect(screen.getByRole("alert").textContent).toContain(
+      fixture.sendSetupError.message,
+    );
+    expect(document.getElementById("tutor-synthetic-tutor")).not.toBeNull();
+  },
+);
 
 const fullAppeal =
   "Original appeal first paragraph.\n\n" +
@@ -1230,14 +1288,24 @@ const fullAppeal =
     12,
   );
 const seedAppeal = () => {
+  fixture.decisionResult = {
+    ok: true,
+    coResolvedAppealIds: ["appeal"],
+    accessRestored: true,
+  };
   fixture.appeals = [
     {
       id: "appeal",
       name: "Appealing student",
       message: fullAppeal,
       affiliation: "Grade 10",
-      createdAt: new Date(),
+      createdAt: new Date("2026-10-01T08:00:00Z"),
       userId: "student",
+      restriction: {
+        suspendedAt: new Date("2026-09-30T08:00:00Z"),
+        reason: "Unverified observer activity",
+        authorityRevision: 3,
+      },
     },
   ];
 };
@@ -1255,6 +1323,7 @@ it("reads the complete appeal before offering decisions and restores its opener 
   expect(
     within(dialog).getByText(/Original appeal first paragraph/).textContent,
   ).toBe(fullAppeal);
+  expect(within(dialog).getByText("Unverified observer activity")).toBeTruthy();
   expect(fixture.decision).not.toHaveBeenCalled();
   fireEvent(dialog, new Event("cancel", { bubbles: true, cancelable: true }));
   expect(screen.queryByRole("dialog")).toBeNull();
@@ -1271,6 +1340,7 @@ it("blocks dismissal and repeated decisions while the appeal write is pending", 
   expect(fixture.decision).toHaveBeenCalledExactlyOnceWith({
     appealId: "appeal",
     action: "APPROVE",
+    expectedAuthorityRevision: 3,
   });
   fixture.decisionPending = true;
   view.rerender(<UsersPage />);
@@ -1281,6 +1351,42 @@ it("blocks dismissal and repeated decisions while the appeal write is pending", 
   const dialog = screen.getByRole("dialog");
   fireEvent(dialog, new Event("cancel", { bubbles: true, cancelable: true }));
   expect(screen.getByRole("dialog")).toBe(dialog);
+});
+
+it("pauses decisions when restriction revision changes and hides Deny on an already-active account", () => {
+  seedAppeal();
+  const view = mount();
+  fireEvent.click(screen.getByRole("button", { name: "Review appeal" }));
+  expect(screen.getByRole("button", { name: "Deny" })).toBeTruthy();
+
+  // Restriction changes in background: decision is paused until explicit reload.
+  fixture.appeals = [
+    {
+      ...fixture.appeals[0]!,
+      restriction: {
+        suspendedAt: null,
+        reason: null,
+        authorityRevision: 4,
+      },
+    },
+  ];
+  view.rerender(<UsersPage />);
+  expect(
+    screen.getByText(messages.admin.users.appeals.reviewChanged),
+  ).toBeTruthy();
+  expect(
+    screen.getByRole<HTMLButtonElement>("button", { name: "Approve" }).disabled,
+  ).toBe(true);
+
+  // Close and reopen on already-active account: Deny is hidden, Approve offers Approve and close appeals.
+  fireEvent.click(screen.getByRole("button", { name: "Close" }));
+  fireEvent.click(screen.getByRole("button", { name: "Review appeal" }));
+  expect(screen.queryByRole("button", { name: "Deny" })).toBeNull();
+  expect(
+    screen.getByRole("button", {
+      name: messages.admin.users.appeals.approveClose,
+    }),
+  ).toBeTruthy();
 });
 
 it("retains a failed decision and recovers an accepted decision with reads only", async () => {
@@ -1312,21 +1418,35 @@ it("retains a failed decision and recovers an accepted decision with reads only"
   expect(fixture.decision).toHaveBeenCalledOnce();
 });
 
-it("evicts denied appeals and does not reveal stale evidence after a network failure", () => {
+it("evicts denied appeals and does not reveal stale evidence after a network failure", async () => {
+  fixture.realAppealQueries = true;
   seedAppeal();
-  queryClient.setQueryData(["appeal-test"], fixture.appeals);
-  const view = mount();
-  fireEvent.click(screen.getByRole("button", { name: "Review appeal" }));
+  mount();
+  fireEvent.click(await screen.findByRole("button", { name: "Review appeal" }));
+  expect(screen.getByText(/Original appeal first paragraph/)).toBeTruthy();
+
   fixture.appealError = { message: "Denied", data: { code: "FORBIDDEN" } };
-  view.rerender(<UsersPage />);
-  expect(screen.queryByText(/Original appeal first paragraph/)).toBeNull();
-  expect(queryClient.getQueryData(["appeal-test"])).toBeUndefined();
+  await act(async () => {
+    await queryClient.refetchQueries({ queryKey: ["appeal-test"] });
+  });
+  await waitFor(() => {
+    expect(screen.queryByText(/Original appeal first paragraph/)).toBeNull();
+    expect(queryClient.getQueryData(["appeal-test"])).toBeUndefined();
+  });
+
   fixture.appealError = { message: "Network failure" };
-  view.rerender(<UsersPage />);
+  await act(async () => {
+    fireEvent.click(screen.getByRole("button", { name: /Retry/i }));
+  });
   expect(screen.queryByRole("button", { name: "Review appeal" })).toBeNull();
+
   fixture.appealError = null;
-  view.rerender(<UsersPage />);
-  expect(screen.getByRole("button", { name: "Review appeal" })).toBeTruthy();
+  await act(async () => {
+    fireEvent.click(screen.getByRole("button", { name: /Retry/i }));
+  });
+  expect(
+    await screen.findByRole("button", { name: "Review appeal" }),
+  ).toBeTruthy();
   // Restored authority permits a new selection; it must not resurrect the
   // private review that was open before denial.
   expect(screen.queryByRole("dialog")).toBeNull();
@@ -1409,7 +1529,9 @@ it.each(["en", "zh"] as const)(
       expect(
         within(identity).queryByText(text.academics.usernameMissing),
       ).toBeNull();
-      expect(within(identity).queryByText(text.tuteeHistory.noAccount)).toBeNull();
+      expect(
+        within(identity).queryByText(text.tuteeHistory.noAccount),
+      ).toBeNull();
       expect(
         within(row).getByText(
           name === "Verified student"
@@ -1420,7 +1542,9 @@ it.each(["en", "zh"] as const)(
     }
     const student = screen.getByText("Verified student").closest("tr")!;
     expect(
-      within(student).getByRole("button", { name: text.identityUsername.assign }),
+      within(student).getByRole("button", {
+        name: text.identityUsername.assign,
+      }),
     ).toBeTruthy();
   },
 );
@@ -1626,28 +1750,45 @@ it("releases the filter restriction when a role change removes pending combine c
   expect(screen.getByRole("searchbox").matches(":disabled")).toBe(false);
 });
 
-it.each(["HEAD", "ADMIN", "COORDINATOR"])("offers %s the permitted profile action while preserving management-rank authority", (role) => {
-  fixture.role = role;
-  fixture.realDetails = true;
-  mount();
-  const management = screen.getByText("Management account").closest("tr")!;
-  fireEvent.click(within(management).getByRole("button", { name: messages.accountProfile.editProfile }));
-  const dialog = within(screen.getByRole("dialog", { name: messages.accountProfile.editProfile }));
-  expect(dialog.getByRole("button", {
-    name: role === "COORDINATOR" ? messages.approvals.requestAdmin : messages.accountProfile.save,
-  })).toBeTruthy();
-  if (role === "COORDINATOR") {
-    // The production profile form suppresses membership editing for an existing
-    // management rank; opening identity evidence never grants role authority.
-    expect(fixture.membershipEditor).not.toHaveBeenCalled();
-  } else {
-    expect(fixture.membershipEditor).toHaveBeenCalledWith(expect.objectContaining({
-      canApply: true, isHead: role === "HEAD",
-    }));
-  }
-  expect(fixture.profileWrite).not.toHaveBeenCalled();
-  expect(fixture.delete).not.toHaveBeenCalled();
-});
+it.each(["HEAD", "ADMIN", "COORDINATOR"])(
+  "offers %s the permitted profile action while preserving management-rank authority",
+  (role) => {
+    fixture.role = role;
+    fixture.realDetails = true;
+    mount();
+    const management = screen.getByText("Management account").closest("tr")!;
+    fireEvent.click(
+      within(management).getByRole("button", {
+        name: messages.accountProfile.editProfile,
+      }),
+    );
+    const dialog = within(
+      screen.getByRole("dialog", { name: messages.accountProfile.editProfile }),
+    );
+    expect(
+      dialog.getByRole("button", {
+        name:
+          role === "COORDINATOR"
+            ? messages.approvals.requestAdmin
+            : messages.accountProfile.save,
+      }),
+    ).toBeTruthy();
+    if (role === "COORDINATOR") {
+      // The production profile form suppresses membership editing for an existing
+      // management rank; opening identity evidence never grants role authority.
+      expect(fixture.membershipEditor).not.toHaveBeenCalled();
+    } else {
+      expect(fixture.membershipEditor).toHaveBeenCalledWith(
+        expect.objectContaining({
+          canApply: true,
+          isHead: role === "HEAD",
+        }),
+      );
+    }
+    expect(fixture.profileWrite).not.toHaveBeenCalled();
+    expect(fixture.delete).not.toHaveBeenCalled();
+  },
+);
 
 it("composes saved identity search with existing roster scope and restores it on clear", () => {
   mount();
@@ -1779,30 +1920,47 @@ it.each(["COORDINATOR", "VIEWER"])(
     ).toBeNull();
   },
 );
-it.each(["HEAD", "ADMIN"])("lets %s review account deletion while requiring a fresh password before any write", (role) => {
-  fixture.role = role;
-  mount();
-  openDeletion();
-  const dialog = within(screen.getByRole("dialog", { name: messages.admin.users.confirm.deleteTitle }));
-  expect(dialog.getByRole<HTMLButtonElement>("button", { name: messages.admin.users.delete }).disabled).toBe(true);
-  expect(dialog.getByLabelText<HTMLInputElement>(messages.admin.users.confirm.passwordLabel).value).toBe("");
-  expect(fixture.delete).not.toHaveBeenCalled();
-});
-it.each([["HEAD", "self"], ["HEAD", "head"], ["ADMIN", "self"], ["ADMIN", "head"]])(
-  "withholds %s account deletion for a %s target",
-  (role, kind) => {
+it.each(["HEAD", "ADMIN"])(
+  "lets %s review account deletion while requiring a fresh password before any write",
+  (role) => {
     fixture.role = role;
-    fixture.targetSelf = kind === "self";
-    fixture.targetRole = kind === "head" ? "HEAD" : "ADMIN";
     mount();
+    openDeletion();
+    const dialog = within(
+      screen.getByRole("dialog", {
+        name: messages.admin.users.confirm.deleteTitle,
+      }),
+    );
     expect(
-      within(screen.getByText("Management account").closest("tr")!).queryByRole(
-        "button",
-        { name: messages.admin.users.delete },
-      ),
-    ).toBeNull();
+      dialog.getByRole<HTMLButtonElement>("button", {
+        name: messages.admin.users.delete,
+      }).disabled,
+    ).toBe(true);
+    expect(
+      dialog.getByLabelText<HTMLInputElement>(
+        messages.admin.users.confirm.passwordLabel,
+      ).value,
+    ).toBe("");
+    expect(fixture.delete).not.toHaveBeenCalled();
   },
 );
+it.each([
+  ["HEAD", "self"],
+  ["HEAD", "head"],
+  ["ADMIN", "self"],
+  ["ADMIN", "head"],
+])("withholds %s account deletion for a %s target", (role, kind) => {
+  fixture.role = role;
+  fixture.targetSelf = kind === "self";
+  fixture.targetRole = kind === "head" ? "HEAD" : "ADMIN";
+  mount();
+  expect(
+    within(screen.getByText("Management account").closest("tr")!).queryByRole(
+      "button",
+      { name: messages.admin.users.delete },
+    ),
+  ).toBeNull();
+});
 
 it("recovers only account reads after accepted deletion followed by refresh failure", async () => {
   const view = mount();

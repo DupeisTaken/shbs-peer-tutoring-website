@@ -1577,6 +1577,7 @@
     "audience": "tutor",
     "route": "/dashboard#tutor-preferences",
     "sources": [
+      "src/app/(tutor)/_components/time-availability.tsx",
       "src/app/(tutor)/_components/availability-editor.tsx",
       "src/app/_components/tutor-workload-preference.tsx"
     ],
@@ -1732,6 +1733,7 @@
     "audience": "tutor",
     "route": "/dashboard#tutor-pairings",
     "sources": [
+      "src/app/(tutor)/_components/tutor-pairings.tsx",
       "src/app/(tutor)/_components/pairing-group-editor.tsx",
       "src/server/api/routers/pairing-groups.ts"
     ],
@@ -2727,6 +2729,7 @@
     "route": "/admin/applications",
     "sources": [
       "src/app/(admin)/admin/applications/page.tsx",
+      "src/app/_components/application-account-setup.tsx",
       "src/app/_components/application-identity-correction.tsx",
       "src/app/_components/application-filters.tsx"
     ],
@@ -5427,6 +5430,7 @@
     "audience": "staff",
     "route": "/admin/program",
     "sources": [
+      "src/app/(admin)/admin/email-quota-card.tsx",
       "src/app/_components/program-email-settings.tsx",
       "src/app/_components/program-notification-locks.tsx",
       "src/app/_components/program-captcha-settings.tsx",

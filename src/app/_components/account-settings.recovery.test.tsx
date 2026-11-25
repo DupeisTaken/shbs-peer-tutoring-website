@@ -276,6 +276,9 @@ it("blocks password writes while step-up configuration is unknown and guards the
   state.feature = false;
   state.secondSubscriber = false;
   view.rerender(ui());
+  fireEvent.click(
+    screen.getByRole("tab", { name: en.account.sections.security }),
+  );
   for (const [label, value] of [
     [en.tutor.settings.currentPassword, "CurrentPassword"],
     [en.tutor.settings.newPassword, "NewPassword"],
@@ -291,6 +294,28 @@ it("blocks password writes while step-up configuration is unknown and guards the
   fireEvent.click(action);
   fireEvent.click(action);
   expect(state.password).toHaveBeenCalledOnce();
+});
+
+it("auto-selects the notifications tab for #notification-preferences and retains drafts across tab switches", () => {
+  window.location.hash = "#notification-preferences";
+  render(ui());
+  expect(
+    screen
+      .getByRole("tab", { name: en.account.sections.notifications })
+      .getAttribute("aria-selected"),
+  ).toBe("true");
+  fireEvent.click(
+    screen.getByRole("tab", { name: en.account.sections.profile }),
+  );
+  fireEvent.change(first(), { target: { value: "Unsaved draft" } });
+  fireEvent.click(
+    screen.getByRole("tab", { name: en.account.sections.security }),
+  );
+  fireEvent.click(
+    screen.getByRole("tab", { name: en.account.sections.profile }),
+  );
+  expect(first().value).toBe("Unsaved draft");
+  window.location.hash = "";
 });
 
 it("evicts a denied shared query once per episode with an enabled sibling subscriber", async () => {

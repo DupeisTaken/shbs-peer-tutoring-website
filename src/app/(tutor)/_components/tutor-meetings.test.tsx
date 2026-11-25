@@ -389,3 +389,52 @@ it("renders staff-recorded attendance on an upcoming meeting as a read-only stat
   expect(state.refresh).toHaveBeenCalledOnce();
   expect(screen.getByRole("alert").textContent).toContain("Staff recorded attendance");
 });
+
+it.each([
+  { locale: "en", catalog: messages },
+  { locale: "zh", catalog: zh },
+])(
+  "wraps the meeting excuse editor cleanly inside its row without horizontal overflow ($locale, #747)",
+  ({ locale, catalog }) => {
+    render(element(locale));
+    const trigger = screen.getByRole("button", {
+      name: catalog.tutor.meetings.excuseBtn,
+    });
+    const closedSlot = trigger.parentElement!;
+    expect(closedSlot.className).toContain("max-w-full");
+    expect(closedSlot.className).toContain("sm:shrink-0");
+
+    fireEvent.click(trigger);
+    const input = screen.getByRole("textbox");
+    const submit = screen.getByRole("button", {
+      name: catalog.tutor.meetings.submitExcuse,
+    });
+    const dismiss = screen.getByRole("button", {
+      name: catalog.common.dismiss,
+    });
+
+    expect(input.className).toContain("control-standard");
+    expect(input.className).toContain("min-w-0");
+    expect(input.className).not.toContain("field-auto");
+
+    const actionGroup = submit.parentElement!;
+    expect(actionGroup).toBe(dismiss.parentElement);
+    expect(actionGroup.className).toContain("flex-wrap");
+    expect(actionGroup.className).toContain("max-w-full");
+
+    const editor = actionGroup.parentElement!;
+    expect(editor).toBe(input.parentElement);
+    expect(editor.className).toContain("flex-col");
+    expect(editor.className).toContain("sm:flex-wrap");
+    expect(editor.className).toContain("min-w-0");
+
+    const openSlot = editor.parentElement!;
+    expect(openSlot.className).toContain("w-full");
+    expect(openSlot.className).toContain("basis-full");
+    expect(openSlot.className).not.toContain("sm:shrink-0");
+
+    fireEvent.click(dismiss);
+    expect(screen.queryByRole("textbox")).toBeNull();
+    expect(state.mutate).not.toHaveBeenCalled();
+  },
+);

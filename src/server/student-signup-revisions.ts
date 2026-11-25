@@ -5,6 +5,8 @@ import type { StudentSurvey, Prisma } from "../../generated/prisma";
 import type { TransactionDb } from "./transactions";
 import {
   currentStudentSignupPayload,
+  nextStudentSignupEditedAt,
+  studentSignupAnswersEqual,
   studentSignupLocalAnswers,
   studentSignupIntentDigest,
 } from "./student-signup-answers";
@@ -34,10 +36,7 @@ export async function synchronizeStudentSignupAnswers(
   const answers = JSON.parse(
     JSON.stringify(studentSignupLocalAnswers({ ...previous, ...changes })),
   ) as Prisma.InputJsonObject;
-  if (
-    studentSignupIntentDigest(previous) === studentSignupIntentDigest(answers)
-  )
-    return;
+  if (studentSignupAnswersEqual(previous, answers)) return;
   const version = row.currentVersion + 1;
   await tx.studentSignupRevision.create({
     data: {
@@ -60,7 +59,7 @@ export async function synchronizeStudentSignupAnswers(
     data: {
       currentPayload: answers,
       currentVersion: version,
-      editedAt: new Date(),
+      editedAt: nextStudentSignupEditedAt(row, answers),
     },
   });
 }

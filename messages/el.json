@@ -1,6 +1,6 @@
 {
   "helpNav": {
-    "title": "Βοήθεια και οδηγοί",
+    "title": "Κέντρο βοήθειας",
     "downloads": "Εγχειρίδια PDF"
   },
   "recoveryWorkflow": {
@@ -32,6 +32,7 @@
     "calendarCreate": "Δημιουργία ιδιωτικού συνδέσμου",
     "calendarRevoke": "Ανάκληση ιδιωτικού συνδέσμου",
     "calendarUnavailable": "Η συνδρομή απαιτεί τρέχουσα επιλέξιμη συμμετοχή.",
+    "calendarCreateHelp": "Δημιουργεί έναν ιδιωτικό σύνδεσμο μόνο για ανάγνωση για το ημερολόγιο καθοδήγησής σου. Κράτησέ τον εμπιστευτικό· όποιος τον έχει μπορεί να δει το πρόγραμμά σου.",
     "calendarRotateHelp": "Ο νέος σύνδεσμος ανακαλεί όλους τους παλιούς. Οι συνδρομές με παλιό σύνδεσμο δεν ενημερώνονται πλέον.",
     "calendarRevokeHelp": "Ο ιδιωτικός σύνδεσμος θα ανακληθεί. Οι υπάρχουσες συνδρομές δεν θα ενημερώνονται. Οι συναντήσεις δεν αλλάζουν.",
     "publicationUnavailable": "{count} εβδομαδιαίες ρυθμίσεις χρειάζονται έλεγχο και δεν μπόρεσαν να γίνουν συναντήσεις με ημερομηνία.",
@@ -239,7 +240,8 @@
       "NEXT_RECRUITMENT_CLOSING_CONFLICT": "Η έναρξη πρέπει να προηγείται της υπάρχουσας λήξης στον προορισμό."
     },
     "featureAfterRefreshEnabled": "Μετά την ανανέωση: Ενεργό",
-    "featureAfterRefreshDisabled": "Μετά την ανανέωση: Ανενεργό"
+    "featureAfterRefreshDisabled": "Μετά την ανανέωση: Ανενεργό",
+    "embeddedHelp": "Apply on refresh. Editing after scheduling requires renewed review."
   },
   "historicalInvitation": {
     "claimUncertain": "The claim result is unknown. Read the invitation again to check its result; do not repeat the claim.",
@@ -563,7 +565,13 @@
         "enable": "Enable 2FA",
         "disable": "Disable 2FA",
         "saving": "Saving…",
-        "saved": "Two-factor settings updated."
+        "saved": "Two-factor settings updated.",
+        "loading": "Loading two-factor settings…",
+        "loadFailed": "Two-factor settings could not be loaded.",
+        "refreshFailed": "Two-factor settings could not be refreshed. Your password draft is kept; try again before saving.",
+        "refreshing": "Refreshing two-factor settings…",
+        "accessDenied": "Two-factor settings are unavailable.",
+        "savedRefreshFailed": "Saved, but two-factor settings could not refresh. Try refreshing."
       }
     },
     "forgotPassword": "Ξεχάσατε τον κωδικό;",
@@ -596,7 +604,8 @@
         "confirmPassword": "Επιβεβαίωση νέου κωδικού"
       },
       "submit": "Ορισμός νέου κωδικού",
-      "saving": "Αποθήκευση…"
+      "saving": "Αποθήκευση…",
+      "passwordLength": "Use {min}–{max} characters."
     },
     "onboarding": {
       "proofRequired": "Άνοιξε τον σύνδεσμο στο email του λογαριασμού σου για να επιβεβαιώσεις την κατοχή του και να ορίσεις κωδικό. Αν δεν έχεις πρόσβαση, επικοινώνησε με την ομάδα. Διαχειρίσου την επαλήθευση δύο παραγόντων μετά τη σύνδεση.",
@@ -682,7 +691,8 @@
       "teamSignin": "Σύνδεση",
       "becomeCrew": "Γίνε περίπολος",
       "viewerSignup": "Παρακολούθηση Προγράμματος",
-      "landmark": "Πλοήγηση ιστότοπου"
+      "landmark": "Πλοήγηση ιστότοπου",
+      "signInAndJoin": "Σύνδεση & Συμμετοχή"
     },
     "tagline": "Πρόγραμμα Ομαδικής Διδασκαλίας",
     "heroTitle": "Μαθαίνουμε μαζί. Μεγαλώνουμε μαζί.",
@@ -1127,7 +1137,7 @@
       "programTotals": "Σύνολα προγράμματος επιλεγμένης περιόδου",
       "programTotalsHelp": "Όλοι οι εκπαιδευτές, συμπεριλαμβανομένων των ανενεργών· τα φίλτρα δεν αλλάζουν αυτά τα σύνολα.",
       "filteredSubtotal": "Φιλτραρισμένο υποσύνολο · {count} εκπαιδευτές",
-      "hiddenInactive": "Το φίλτρο κατάστασης κρύβει {count} ανενεργούς εκπαιδευτές με εγγραφές.",
+      "hiddenInactive": "{count, plural, one {Το φίλτρο κατάστασης κρύβει # ανενεργό εκπαιδευτή με εγγραφές.} other {Το φίλτρο κατάστασης κρύβει # ανενεργούς εκπαιδευτές με εγγραφές.}}",
       "viewInactive": "Προβολή ανενεργών συντελεστών",
       "viewLabel": "Προβολή καταλόγου",
       "viewSummary": "Σύνοψη",
@@ -1190,7 +1200,7 @@
       "noPeriod": "Δεν υπάρχει ενεργή περίοδος προγράμματος. Εκτελέστε τη διαδικασία αρχικοποίησης ή δημιουργήστε μία πρώτα.",
       "currentPeriod": "Τρέχουσα περίοδος",
       "semester": "Εξάμηνο {semester}",
-      "refreshHeading": "Ανανέωση στο επόμενο τρίμηνο",
+      "refreshHeading": "Program Refresh",
       "advancesTo": "Αυτό μεταβιβάζει το πρόγραμμα στο {name} και:",
       "effectPending": "Διαγράφει την εκκρεμή ουρά εγγραφών μαθητών (αρχειοθετούνται ως ανενεργές).",
       "effectTutees": "Αρχειοθετεί όλους τους μαθητές σε εκκρεμότητα και τους ενεργούς μαθητές, ακόμη και χωρίς αντιστοίχιση. Πρέπει να εγγραφούν ξανά για να συνεχίσουν.",
@@ -1347,7 +1357,22 @@
         "deny": "Άρνηση",
         "review": "Εξέταση ένστασης",
         "message": "Αρχική ένσταση",
-        "refreshFailed": "Η απόφαση αποθηκεύτηκε, αλλά δεν ήταν δυνατή η ανανέωση του λογαριασμού ή της λίστας ενστάσεων. Δοκιμάστε ξανά την ανανέωση χωρίς να υποβάλετε πάλι την απόφαση."
+        "refreshFailed": "Η απόφαση αποθηκεύτηκε, αλλά δεν ήταν δυνατή η ανανέωση του λογαριασμού ή της λίστας ενστάσεων. Δοκιμάστε ξανά την ανανέωση χωρίς να υποβάλετε πάλι την απόφαση.",
+        "restrictionHeading": "Current Account Restriction",
+        "restricted": "Suspended",
+        "active": "Already active",
+        "restrictedAt": "Suspended {date}",
+        "submittedAt": "Appeal submitted {date}",
+        "noReason": "No suspension reason recorded.",
+        "coResolveHelp": "Approve restores access and closes all pending appeals for this account with one notice.",
+        "activeHelp": "This account is already active. Approve closes all pending appeals without changing access. Deny is unavailable.",
+        "reloadReview": "Reload restriction review",
+        "reviewChanged": "This appeal or account restriction changed. Reload the review before deciding.",
+        "reviewUnavailable": "Current review details could not be loaded. Try again before deciding.",
+        "approveClose": "Approve and close appeals",
+        "accessRestored": "Account access restored and all pending appeals approved.",
+        "closedActive": "Pending appeals closed. Account access was already active and did not change.",
+        "deniedReceipt": "Appeal denied. The account remains suspended."
       }
     },
     "registrationCodes": {
@@ -1418,7 +1443,7 @@
     },
     "tutorRequests": {
       "title": "Αιτήματα κατάστασης βοηθού",
-      "help": "Αλλαγές συμμετοχής με πρωτοβουλία βοηθών. Τα αιτήματα αποχώρησης μπορούν να εγκριθούν μόνο μετά από αναμονή μίας εβδομάδας· η επανένταξη είναι άμεση.",
+      "help": "Αλλαγές συμμετοχής με πρωτοβουλία βοηθών. Τα αιτήματα αποχώρησης μπορούν να εγκριθούν μόνο μετά από αναμονή μίας εβδομάδας· τα αιτήματα επανένταξης μπορούν να εξεταστούν άμεσα και ισχύουν μετά την έγκριση.",
       "kind": {
         "OPT_OUT": "Αποχώρηση",
         "REENTRY": "Επανένταξη"
@@ -1746,7 +1771,18 @@
         "consequence": "This permanently removes the adjustment and changes the tutor’s service-hour total. Review the tutor, month and amount before continuing.",
         "confirm": "Delete adjustment"
       },
-      "create": "Νέα προσαρμογή ωρών"
+      "create": "Νέα προσαρμογή ωρών",
+      "source": {
+        "label": "Πηγή",
+        "other": "Άλλη προσαρμογή ωρών",
+        "interview": "Πηγή συνέντευξης",
+        "orphaned": "Η καταγραφή της συνέντευξης δεν είναι διαθέσιμη",
+        "unresolved": "Αδιευκρίνιστη πηγή συνέντευξης",
+        "conflicting": "Αντικρουόμενη πηγή συνέντευξης",
+        "correct": "Διόρθωση ωρών συνέντευξης",
+        "help": "Αυτές οι ώρες προέρχονται από καταγεγραμμένη υπηρεσία συνέντευξης. Ελέγξτε τη συνέντευξη για να διορθώσετε τον χρόνο ολοκλήρωσης, τη διάρκεια ή τις παρουσίες.",
+        "unavailable": "Δεν είναι διαθέσιμη διόρθωση ολοκλήρωσης συνέντευξης για αυτή την εγγραφή."
+      }
     },
     "applications": {
       "title": "Αιτήσεις βοηθών",
@@ -1840,7 +1876,21 @@
         "unavailable": "{name} (μη διαθέσιμος — αντικαταστήστε την επιλογή)",
         "chairSlot": "Επιλογή του μέλους {n} ως προέδρου"
       },
-      "setupTargetUnavailable": "The linked tutor record is unavailable. Refresh this application before setting up the account."
+      "setupTargetUnavailable": "The linked tutor record is unavailable. Refresh this application before setting up the account.",
+      "panelDraft": {
+        "changed": "Η επιτροπή άλλαξε όσο επεξεργαζόσασταν αυτό το πρόχειρο. Επαναφορτώστε για να ελέγξετε την τρέχουσα επιτροπή.",
+        "reloadHelp": "Η επαναφόρτωση αντικαθιστά αυτό το πρόχειρο με την τρέχουσα αποθηκευμένη επιτροπή.",
+        "reload": "Επαναφόρτωση επιτροπής",
+        "loading": "Φόρτωση επιτροπής…",
+        "retry": "Νέα προσπάθεια φόρτωσης επιτροπής",
+        "reloadError": "Δεν ήταν δυνατή η φόρτωση της τρέχουσας επιτροπής. Το πρόχειρό σας παραμένει αμετάβλητο.",
+        "refreshError": "Η αλλαγή της επιτροπής υποβλήθηκε, αλλά δεν ήταν δυνατή η φόρτωση της τρέχουσας επιτροπής. Δοκιμάστε ξανά πριν κάνετε άλλη αλλαγή."
+      },
+      "panelRepair": {
+        "reason": "Αιτία διόρθωσης της επιτροπής",
+        "save": "Διόρθωση επιτροπής",
+        "consequence": "Η αντικατάσταση αυτής της ανοιχτής επιτροπής διαγράφει τις ψήφους της. Η καταγεγραμμένη ολοκλήρωση και οι ώρες που έχουν πιστωθεί διατηρούνται ως ιστορικό· τα νέα μέλη δεν λαμβάνουν αυτόματη πίστωση. Όλα τα μέλη της νέας επιτροπής πρέπει να ψηφίσουν ξανά."
+      }
     },
     "cards": {
       "title": "Πειθαρχία μαθητών",
@@ -2542,7 +2592,10 @@
       "panel": "Επιτροπή: {members}",
       "headSuffix": "(υπεύθυνος)",
       "scheduled": "Προγραμματισμένο: {time}",
-      "awaitingSchedule": "Αναμένεται ο υπεύθυνος να ορίσει ώρα."
+      "awaitingSchedule": "Αναμένεται ο υπεύθυνος να ορίσει ώρα.",
+      "chairHelp": "Συνεντεύξεις στις οποίες είστε υπεύθυνος. Ορίστε ώρες, δείτε τις ψήφους της επιτροπής και καταχωρίστε τελικές αποφάσεις εδώ. Υποβάλετε τη δική σας ψήφο από το συμβάν συνέντευξης στο Πρόγραμμα.",
+      "voteInSchedule": "Ψηφοφορία στο Πρόγραμμα",
+      "updateVoteInSchedule": "Ενημέρωση ψήφου στο Πρόγραμμα"
     },
     "announcements": {
       "label": "Ανακοινώσεις",
@@ -2567,7 +2620,7 @@
       "currentPassword": "Τρέχων κωδικός",
       "newPassword": "Νέος κωδικός",
       "confirmPassword": "Επιβεβαίωση νέου κωδικού",
-      "pwHelp": "Τουλάχιστον 8 χαρακτήρες.",
+      "pwHelp": "Use 8–1024 characters.",
       "changePasswordBtn": "Αλλαγή κωδικού",
       "changing": "Αλλαγή…",
       "passwordChanged": "Ο κωδικός άλλαξε.",
@@ -2587,7 +2640,9 @@
       "reentryBtn": "Αίτημα επανένταξης",
       "recall": "Ανάκληση αιτήματος",
       "statusNote": "Η κατάστασή σας ως βοηθός είναι {status}. Αυτή είναι πρόσβαση μόνο ανάγνωσης — επικοινωνήστε με διαχειριστή για αλλαγές.",
-      "profileSyncFailed": "Το προφίλ σας αποθηκεύτηκε, αλλά η ανανέωση απέτυχε. Δοκιμάστε ξανά την ανανέωση χωρίς νέα υποβολή."
+      "profileSyncFailed": "Το προφίλ σας αποθηκεύτηκε, αλλά η ανανέωση απέτυχε. Δοκιμάστε ξανά την ανανέωση χωρίς νέα υποβολή.",
+      "pwTooLong": "Use no more than {max} characters.",
+      "backToDashboard": "Επιστροφή στον πίνακα"
     },
     "dashboard": {
       "pending": {
@@ -2647,7 +2702,8 @@
       "schedule": "Πρόγραμμα",
       "pairings": "Αντιστοιχίσεις",
       "preferences": "Προτιμήσεις",
-      "history": "Ιστορικό και ώρες"
+      "history": "Ιστορικό και ώρες",
+      "chair": "Υπεύθυνος συνέντευξης"
     }
   },
   "public": {
@@ -2876,7 +2932,12 @@
       "enterTutor": "Είσοδος στη σελίδα βοηθού",
       "enterAdmin": "Είσοδος στην περιοχή διαχείρισης",
       "enterTutee": "Είσοδος στη σελίδα μαθητή",
-      "backToManagement": "Επιστροφή στη διαχείριση"
+      "backToManagement": "Επιστροφή στη διαχείριση",
+      "groups": {
+        "workspaces": "Χώροι εργασίας",
+        "tools": "Εργαλεία",
+        "account": "Λογαριασμός"
+      }
     },
     "theme": {
       "label": "Θέμα",
@@ -2888,6 +2949,20 @@
         "amber": "Κεχριμπάρι",
         "sky": "Ουρανί"
       }
+    },
+    "workspaceTitles": {
+      "management": "Διαχείριση",
+      "viewer": "Επισκόπηση προγράμματος",
+      "tutor": "Εκπαιδευτής",
+      "tutee": "Εκπαιδευόμενος",
+      "patrol": "Ομάδα περιπολίας",
+      "translations": "Μεταφράσεις",
+      "programHome": "Αρχική προγράμματος"
+    },
+    "workspaceSwitcher": {
+      "label": "Εναλλαγή σελίδας",
+      "workspaces": "Χώροι εργασίας",
+      "general": "Γενικά"
     }
   },
   "localization": {
@@ -2941,7 +3016,16 @@
       "codeSent": "Στείλαμε έναν κωδικό στο {email}. Εισαγάγετέ τον παρακάτω για ολοκλήρωση.",
       "codeLabel": "Κωδικός επαλήθευσης email",
       "resend": "Επαναποστολή κωδικού",
-      "cancel": "Άκυρο"
+      "cancel": "Άκυρο",
+      "deliveryFailed": "Η αποστολή του email απέτυχε. Δοκιμάστε ξανά αργότερα."
+    },
+    "tutorSettings": "Ρυθμίσεις διδάσκοντα",
+    "sections": {
+      "profile": "Προφίλ",
+      "security": "Ασφάλεια και email",
+      "notifications": "Ειδοποιήσεις",
+      "access": "Ρόλοι και πρόσβαση",
+      "membership": "Συμμετοχή και πρόσβαση"
     }
   },
   "crew": {
@@ -3027,7 +3111,17 @@
     "newer": "Νεότερα",
     "older": "Παλαιότερα",
     "details": "Λεπτομέρειες αλλαγής",
-    "patrolChanged": "Patrol changed. Reload before correcting it."
+    "patrolChanged": "Patrol changed. Reload before correcting it.",
+    "patrolRooms": "τις επιλογές αιθουσών περιπολίας",
+    "reloadPatrol": "Επαναφόρτωση προσχεδίου περιπολίας",
+    "patrolReloadFailed": "Δεν ήταν δυνατή η φόρτωση της πιο πρόσφατης περιπολίας και των αιθουσών. Το προσχέδιό σου διατηρείται.",
+    "patrolUnavailable": "Αυτή η περιπολία δεν βρίσκεται πλέον σε αυτή τη σελίδα ιστορικού. Το προσχέδιό σου διατηρείται.",
+    "patrolSaved": "Η διόρθωση αποθηκεύτηκε. Ανανέωση ιστορικού περιπολιών…",
+    "patrolSavedRefreshFailed": "Η διόρθωση αποθηκεύτηκε, αλλά δεν ήταν δυνατή η ανανέωση του ιστορικού περιπολιών. Δοκίμασε ανανέωση.",
+    "patrolQueuedRefreshFailed": "Η διόρθωση υποβλήθηκε για έγκριση, αλλά δεν ήταν δυνατή η ανανέωση του ιστορικού περιπολιών. Δοκίμασε ανανέωση.",
+    "invalidPatrolTime": "Καταχώρισε έγκυρη ώρα παρατήρησης.",
+    "patrolRoomUnavailable": "{room} (μη διαθέσιμη)",
+    "patrolRoomRequired": "Επίλεξε μια διαθέσιμη αίθουσα για κάθε παρατήρηση πριν από την αποθήκευση."
   },
   "emailChange": {
     "title": "Αλλαγή email λογαριασμού",
@@ -3038,7 +3132,10 @@
     "send": "Αποστολή κωδικού επαλήθευσης",
     "code": "Κωδικός επαλήθευσης email",
     "confirm": "Επαλήθευση και αλλαγή email",
-    "success": "Το email σας άλλαξε."
+    "success": "Το email σας άλλαξε.",
+    "sentTo": "Enter the verification code sent to {email}.",
+    "changeAddress": "Use another email",
+    "savedRefreshFailed": "Email changed, but account details could not refresh. Try refreshing."
   },
   "profileCorrection": {
     "edit": "Επεξεργασία στοιχείων",
@@ -3108,7 +3205,11 @@
       "id": "Content to Translate",
       "other": "Content to Translate"
     },
-    "refreshFailed": "Η αλλαγή σας έγινε δεκτή, αλλά δεν ήταν δυνατή η ανανέωση του ενημερωμένου κειμένου. Δοκιμάστε ξανά την ανανέωση χωρίς νέα υποβολή."
+    "refreshFailed": "Η αλλαγή σας έγινε δεκτή, αλλά δεν ήταν δυνατή η ανανέωση του ενημερωμένου κειμένου. Δοκιμάστε ξανά την ανανέωση χωρίς νέα υποβολή.",
+    "acceptedRefreshFailed": "Η υποβολή έγινε δεκτή, αλλά δεν ήταν δυνατή η φόρτωση των τελευταίων δεδομένων. Δοκιμάστε ξανά την ανανέωση χωρίς νέα υποβολή.",
+    "readFailed": "Δεν ήταν δυνατή η φόρτωση των τρεχόντων δεδομένων μετάφρασης. Το πρόχειρό σας διατηρείται· δοκιμάστε ξανά πριν την υποβολή.",
+    "retryRead": "Επανάληψη ανανέωσης",
+    "identityReadFailed": "Δεν ήταν δυνατή η φόρτωση της πρόσβασης λογαριασμού. Δοκιμάστε ξανά πριν επεξεργαστείτε μεταφράσεις."
   },
   "workflows": {
     "interviewsDisabledHistory": "Interviews are disabled. Existing records remain available; enable interviews to record completion.",
@@ -4065,6 +4166,7 @@
       },
       "entities": {
         "ImportedRecordProvenance": "Προέλευση εισαγμένης ιστορικής εγγραφής",
+        "ArchiveProvenanceReceipt": "Απόδειξη συμφωνίας προέλευσης αρχείου",
         "SchedulingMaintenanceState": "Κατάσταση συντήρησης προγραμματισμού",
         "SchedulingDirtyEvent": "Συμβάν ακύρωσης δεδομένων προγραμματισμού",
         "PersonPartitionReceipt": "Απόδειξη διαχωρισμού ταυτότητας",
@@ -4189,6 +4291,7 @@
         "MessageTutorAssignment": "Ανάθεση εκπαιδευτή για μηνύματα",
         "MessageModeration": "Έλεγχος μηνυμάτων",
         "TranslationDraft": "Προσχέδιο μετάφρασης",
+        "TranslationIntentReceipt": "Απόδειξη υποβολής μετάφρασης",
         "TutorQualification": "Πιστοποίηση εκπαιδευτή σε μάθημα",
         "QualificationGrant": "Χορήγηση πιστοποίησης",
         "SchoolCalendarDay": "Ημέρα σχολικού ημερολογίου",
@@ -4918,7 +5021,13 @@
       "ATTEMPT": "Απόπειρα που δεν εφαρμόστηκε"
     },
     "unnamedAccount": "Unnamed account",
-    "formerAccount": "Former account"
+    "formerAccount": "Former account",
+    "filterOptions": "τις επιλογές φίλτρων",
+    "retryReads": "Επανάληψη φόρτωσης ελέγχου",
+    "loadingReads": "Φόρτωση ιστορικού ελέγχου και επιλογών φίλτρων…",
+    "loadFailed": "Δεν ήταν δυνατή η φόρτωση του ιστορικού ελέγχου ή των επιλογών φίλτρων.",
+    "refreshFailed": "Δεν ήταν δυνατή η ανανέωση του ιστορικού ελέγχου ή των επιλογών φίλτρων. Τα φίλτρα που δεν εφαρμόστηκαν διατηρούνται.",
+    "accessDenied": "Δεν έχεις πλέον πρόσβαση στο ιστορικό ελέγχου."
   },
   "userMultiFilters": {
     "all": "All",
@@ -5327,7 +5436,13 @@
     "importTooLarge": "Choose a file smaller than 1 MB.",
     "importEmpty": "The file contains no subjects.",
     "importFileType": "Choose a .json or .csv file.",
-    "importInvalid": "Could not import file: {detail}"
+    "importInvalid": "Could not import file: {detail}",
+    "retry": "Επανάληψη φόρτωσης καταλόγου",
+    "loadFailed": "Δεν ήταν δυνατή η φόρτωση του καταλόγου μαθημάτων.",
+    "refreshFailed": "Δεν ήταν δυνατή η ανανέωση του καταλόγου μαθημάτων. Τα προσχέδιά σου διατηρούνται· δοκίμασε ξανά πριν κάνεις αλλαγές.",
+    "accessDenied": "Δεν έχεις πλέον πρόσβαση στον κατάλογο μαθημάτων.",
+    "savedRefreshing": "Οι αλλαγές αποθηκεύτηκαν. Ανανέωση καταλόγου…",
+    "savedRefreshFailed": "Οι αλλαγές αποθηκεύτηκαν, αλλά δεν ήταν δυνατή η ανανέωση του καταλόγου μαθημάτων. Δοκίμασε ανανέωση."
   },
   "recruitment": {
     "preview": "Προεπισκόπηση φόρμας μόνο για ανάγνωση",
@@ -7146,7 +7261,21 @@
     "reloadEvidence": "Επαναφόρτωση τρεχόντων τεκμηρίων (αντικατάσταση προχείρου)",
     "historyFollowups": "{count, plural, one {Για # οριστικοποιημένη συνέντευξη εκκρεμεί ακόμη} other {Για # οριστικοποιημένες συνεντεύξεις εκκρεμεί ακόμη}} η καταγραφή ολοκλήρωσης και η απόδοση ωρών από τη διαχείριση.",
     "accessDenied": "Η πρόσβαση στις συνεντεύξεις δεν είναι πλέον διαθέσιμη. Επαναφορτώστε για να ελέγξετε τα τρέχοντα δικαιώματά σας.",
-    "chairNeedsUpdate": "This panel needs an Admin or Head chair. Ask management to update the panel."
+    "chairNeedsUpdate": "This panel needs an Admin or Head chair. Ask management to update the panel.",
+    "noChairInterviews": "Δεν σας έχουν ανατεθεί συνεντεύξεις ως υπεύθυνος.",
+    "refresh": "Ανανέωση",
+    "refreshing": "Ανανέωση…",
+    "correctionEvidence": {
+      "readUnavailable": "Τα τρέχοντα στοιχεία της συνέντευξης πρέπει να φορτωθούν επιτυχώς πριν από τον έλεγχο ή την υποβολή. Το πρόχειρό σας διατηρείται.",
+      "missingEvidence": "Φορτώστε τους καταγεγραμμένους συμμετέχοντες και τις τρέχουσες πιστώσεις ωρών πριν ελέγξετε αυτή την αλλαγή.",
+      "historyHelp": "Οι παρουσίες και οι ώρες ανήκουν στην καταγεγραμμένη συνέντευξη. Η αλλαγή της επιτροπής απόφασης δεν καθιστά τα νέα μέλη συμμετέχοντες εκείνης της συνέντευξης.",
+      "decisionPanel": "Τρέχουσα επιτροπή απόφασης: {names}",
+      "participants": "Παρουσίες της επιτροπής της καταγεγραμμένης συνέντευξης",
+      "formerPanelist": "Πρώην μέλος επιτροπής",
+      "loading": "Φόρτωση στοιχείων ολοκλήρωσης…",
+      "totalChange": "Συνολική πίστωση: {before} → {after} ώρες (μεταβολή {delta})",
+      "retryArrival": "Νέα προσπάθεια φόρτωσης συνέντευξης"
+    }
   },
   "applicationAccountSetup": {
     "title": "Account Setup · {name}",
@@ -7188,7 +7317,8 @@
     "reload": "Reload interview (replace draft)",
     "unavailable": "This interview is no longer available for your approval.",
     "waitingVotes": "Every panelist must vote before approval.",
-    "changed": "Interview evidence changed. Reload to review current information."
+    "changed": "Interview evidence changed. Reload to review current information.",
+    "retainedService": "Αυτή η έγκριση διατηρεί την καταγεγραμμένη ολοκλήρωση, την παρουσία και τις ώρες υπηρεσίας, μαζί με τις εγκεκριμένες διορθώσεις. Η τρέχουσα επιτροπή μπορεί να διαφέρει από τους καταγεγραμμένους παρευρισκομένους. Αυτή η έγκριση δεν προσθέτει ούτε αφαιρεί ώρες υπηρεσίας."
   },
   "personPartition": {
     "refreshFailed": "The separation was saved, but the directory has not refreshed. Retry the read only.",
@@ -7857,7 +7987,7 @@
     "denied": "Access to this planning source is no longer available.",
     "retry": "Retry",
     "interviewAttention": "These interviews still need attention, even when they have no upcoming date.",
-    "interviewHelp": "Assigned interview dates appear in your agenda. Your chair workspace remains on the dashboard.",
+    "interviewHelp": "Οι ανατεθειμένες συνεντεύξεις εμφανίζονται στο πρόγραμμά σας. Ανοίξτε οποιαδήποτε συνέντευξη για να ψηφίσετε· τα καθήκοντα υπευθύνου βρίσκονται στην καρτέλα Υπεύθυνος συνέντευξης.",
     "meetingHelp": "Οι προσεχείς ημερομηνίες εμφανίζονται στην ατζέντα σας. Ανοίξτε τις συναντήσεις για δικαιολόγηση απουσιών και προσωπικό ιστορικό.",
     "calendarScope": "Calendar subscriptions currently include tutoring sessions only. Interviews and meetings appear here in the portal.",
     "task": {
@@ -7991,7 +8121,49 @@
       "SCHEDULED_REFRESH_REVIEW_CHANGED": "The reviewed refresh conditions changed. Reload and review a new schedule.",
       "SCHEDULED_REFRESH_EXECUTION_FAILED": "The refresh could not complete after repeated attempts. Check the deployment, then review a new schedule or cancel this one.",
       "SCHEDULED_REFRESH_AFTER_OPENING": "Choose a refresh time no later than the prepared tutee signup opening time, or update that preparation first."
-    }
+    },
+    "subtitle": "{current} → {next} · {mode} · {zone}",
+    "notScheduledBadge": "Not scheduled",
+    "dueBadge": "Due now",
+    "retryingBadge": "Retrying ({attempts}/5)",
+    "statusReady": "Scheduled — will run automatically",
+    "statusDue": "Scheduled time reached — running soon",
+    "statusRetrying": "Retrying automatic refresh (attempt {attempts} of 5)",
+    "statusPaused": "Will not run automatically",
+    "statusReadyHelp": "Runs automatically when due (checked every 30s, with catch-up) while period, openings, staged features, timezone, and Head approval stay unchanged.",
+    "statusDueHelp": "Scheduled time reached. Server checks every 30s and runs once reviewed conditions are verified.",
+    "statusRetryingHelp": "Temporary error; retrying automatically up to 5 attempts while conditions stay valid.",
+    "completedAt": "Completed at {time} ({zone}).",
+    "noneHelp": "Schedule a refresh below to advance automatically when all conditions are met, or choose Refresh now.",
+    "conditionsHeading": "Refresh Conditions & Review",
+    "conditionsHelp": "A scheduled refresh runs automatically only while every reviewed condition stays unchanged.",
+    "conditionSync": "Settings and review sync",
+    "conditionSyncReady": "Up to date",
+    "conditionSyncChanged": "Reload required",
+    "conditionSyncError": "Unavailable",
+    "conditionOpenings": "Next-period opening bindings",
+    "conditionOpeningsReady": "Ready",
+    "conditionOpeningsStale": "Needs attention",
+    "conditionFeatures": "Staged optional features",
+    "conditionFeaturesPending": "{count} pending",
+    "conditionFeaturesNone": "No pending changes",
+    "conditionAuth": "Authorization",
+    "conditionAuthApproved": "Authorized by Head",
+    "conditionAuthPending": "Pending Head approval",
+    "conditionAuthDirect": "Head applies directly",
+    "conditionAuthRequest": "Requires Head approval",
+    "conditionAuthReadOnly": "Admin & Head only",
+    "conditionAuthChanged": "Renewed review required",
+    "effectsDisclosure": "Effects & full refresh details",
+    "entranceHeading": "Authorize Refresh",
+    "timingModeLabel": "When should this refresh run?",
+    "modeScheduled": "Schedule for later",
+    "modeImmediate": "Refresh now",
+    "openingBound": "Must be on or before the prepared tutee signup opening ({time}, {zone}).",
+    "immediateHelp": "Advances immediately to {target} after confirmation instead of waiting for a scheduled time.",
+    "immediateSupersedes": "Running a refresh now will advance the period immediately and supersede the currently scheduled refresh.",
+    "immediateReviewTitle": "Review Immediate Refresh",
+    "reschedule": "Review & reschedule"
   },
   "signupTransition": {
     "currentClosed": "{period} tutee signup is closed. The next intake is shown below.",
@@ -8558,5 +8730,46 @@
     "internal": "Δεν ήταν δυνατή η ολοκλήρωση του αιτήματος. Δοκιμάστε ξανά σε λίγο.",
     "network": "Αδυναμία σύνδεσης με τον διακομιστή. Ελέγξτε τη σύνδεσή σας και δοκιμάστε ξανά.",
     "generic": "Κάτι πήγε στραβά. Δοκιμάστε ξανά."
+  },
+  "translationIntent": {
+    "title": "Ανάκτηση αιτημάτων μετάφρασης",
+    "help": "Ένα ανεπιβεβαίωτο αίτημα εμποδίζει νέες μεταφράσεις. Ελέγξτε το αποτέλεσμα, επαναλάβετε το διατηρημένο αρχικό αίτημα ή σταματήστε το πριν από νέα επεξεργασία.",
+    "pending": "Το αίτημα βρίσκεται σε εξέλιξη.",
+    "unknown": "Το αποτέλεσμα δεν έχει επιβεβαιωθεί. Μην υποβάλετε νέο αίτημα αντικατάστασης.",
+    "notRecorded": "Δεν έχει καταγραφεί οριστικό αποτέλεσμα. Σταματήστε αυτό το αίτημα πριν το αντικαταστήσετε.",
+    "acceptedDraft": "Το αίτημα υπέβαλε προσχέδιο. Εδώ δεν εμφανίζεται μεταγενέστερος έλεγχος ή διαγραφή.",
+    "acceptedPublished": "Το αίτημα δημοσιεύτηκε όταν έγινε δεκτό. Το τρέχον κείμενο μπορεί να έχει αλλάξει.",
+    "stopped": "Το αίτημα σταμάτησε και δεν μπορεί να εφαρμοστεί αργότερα.",
+    "restoreOnly": "Η επιστροφή εδώ δεν επαναφέρει το υποβληθέν κείμενο. Ελέγξτε το αποτέλεσμα ή σταματήστε το αίτημα.",
+    "lookup": "Έλεγχος αποτελέσματος",
+    "stop": "Διακοπή ανεπιβεβαίωτου αιτήματος",
+    "retryExact": "Επανάληψη αρχικού αιτήματος",
+    "refreshAccepted": "Ανανέωση αποδεκτού αποτελέσματος",
+    "dismiss": "Απόκρυψη απόδειξης",
+    "storageFailed": "Ο χώρος ανάκτησης δεν είναι διαθέσιμος. Οι νέες υποβολές έχουν αποκλειστεί· δοκιμάστε ξανά.",
+    "retryStorage": "Επανάληψη πρόσβασης αποθήκευσης",
+    "signIn": "Επαληθεύστε τον λογαριασμό σας για ανάκτηση των αιτημάτων του.",
+    "reference": "Αίτημα {id}",
+    "submitFailed": "Η απάντηση δεν επιβεβαιώθηκε. Ελέγξτε το αποθηκευμένο αποτέλεσμα πριν δοκιμάσετε ξανά.",
+    "refreshFailed": "Το αίτημα έγινε δεκτό, αλλά η ανανέωση απέτυχε. Ανανεώστε χωρίς νέα υποβολή.",
+    "readFailed": "Δεν ήταν δυνατή η επαλήθευση του αποθηκευμένου αποτελέσματος. Ελέγξτε ξανά.",
+    "refreshAuthority": "Νέος έλεγχος πρόσβασης λογαριασμού",
+    "modes": {
+      "DRAFT": "Υποβολή προσχεδίου",
+      "PUBLISH": "Δημοσίευση"
+    },
+    "operations": {
+      "localization": {
+        "setString": "Κείμενο διεπαφής"
+      },
+      "home": {
+        "setNewsTranslation": "News",
+        "setPageTitle": "Page Titles",
+        "setContent": "Landing Text",
+        "setSectionTranslation": "Website Sections"
+      }
+    },
+    "authorityRequired": "Ελέγξτε ξανά την πρόσβαση του λογαριασμού πριν επαναλάβετε το αρχικό αίτημα ή σταματήστε το.",
+    "noRequests": "Δεν υπάρχουν διατηρημένα αιτήματα μετάφρασης για αυτόν τον λογαριασμό."
   }
 }

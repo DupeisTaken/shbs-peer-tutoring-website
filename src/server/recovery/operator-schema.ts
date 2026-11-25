@@ -365,6 +365,13 @@ const REVIEWED_IDENTITY_DECLINE_COLUMNS = [
 // This additive preference policy grants no bearer or identity authority. Retain
 // every reviewed older backup shape while requiring its exact PostgreSQL type.
 const NOTIFICATION_LOCK_COLUMN = "ProgramSettings|notificationLocks|jsonb";
+// Terminal translation replay/stop evidence is additive and permanent. Old backups
+// remain inspectable; a partial or changed receipt table is never a reviewed schema.
+const TRANSLATION_INTENT_COLUMNS =
+  "actorId:text,cleared:bool,createdAt:timestamp,draftId:text,inputHash:text,intentId:text,mode:text,operation:text,protocolVersion:int4,status:text"
+    .split(",")
+    .map((field) => `TranslationIntentReceipt|${field.replace(":", "|")}`)
+    .sort();
 const PRISMA_METADATA = [
   "applied_steps_count|int4",
   "checksum|varchar",
@@ -379,6 +386,19 @@ const IMPORT_PROVENANCE_COLUMNS = [
   "ImportedRecordProvenance|entity|text",
   "ImportedRecordProvenance|importedAt|timestamp",
   "ImportedRecordProvenance|recordId|text",
+].sort();
+const ARCHIVE_PROVENANCE_RECEIPT_COLUMNS = [
+  "ArchiveProvenanceReceipt|actorId|text",
+  "ArchiveProvenanceReceipt|channel|text",
+  "ArchiveProvenanceReceipt|clientKey|uuid",
+  "ArchiveProvenanceReceipt|createdAt|timestamp",
+  "ArchiveProvenanceReceipt|evidence|jsonb",
+  "ArchiveProvenanceReceipt|fingerprint|text",
+  "ArchiveProvenanceReceipt|id|text",
+  "ArchiveProvenanceReceipt|inputHash|text",
+  "ArchiveProvenanceReceipt|planHash|text",
+  "ArchiveProvenanceReceipt|reason|text",
+  "ArchiveProvenanceReceipt|subjects|jsonb",
 ].sort();
 
 // A complete locale migration is presentation metadata, not a new authority
@@ -413,6 +433,10 @@ const SCHOOL_RECIPIENT_REMINDER_COLUMNS = [
   .sort();
 
 export const reviewedRecoverySchemaMetadata = {
+  translationIntentReceiptColumns: TRANSLATION_INTENT_COLUMNS.map((line) => {
+    const [table_name, column_name, udt_name] = line.split("|");
+    return { table_name, column_name, udt_name };
+  }),
   schoolRecipientReminderColumns: SCHOOL_RECIPIENT_REMINDER_COLUMNS.map(
     (line) => {
       const [table_name, column_name, udt_name] = line.split("|");
@@ -427,6 +451,12 @@ export const reviewedRecoverySchemaMetadata = {
     const [table_name, column_name, udt_name] = line.split("|");
     return { table_name, column_name, udt_name };
   }),
+  archiveProvenanceReceiptColumns: ARCHIVE_PROVENANCE_RECEIPT_COLUMNS.map(
+    (line) => {
+      const [table_name, column_name, udt_name] = line.split("|");
+      return { table_name, column_name, udt_name };
+    },
+  ),
   notificationLockColumns: [
     ...REVIEWED_IDENTITY_DECLINE_COLUMNS,
     NOTIFICATION_LOCK_COLUMN,
@@ -460,116 +490,157 @@ export const reviewedRecoverySchemaMetadata = {
   }),
 };
 
+const REVIEWED_COLUMNS_SET = new Set(REVIEWED_COLUMNS);
+const REVIEWED_DECLINE_COLUMNS_SET = new Set(REVIEWED_DECLINE_COLUMNS);
+const REVIEWED_IDENTITY_COLUMNS_SET = new Set(REVIEWED_IDENTITY_COLUMNS);
+const REVIEWED_IDENTITY_DECLINE_COLUMNS_SET = new Set(
+  REVIEWED_IDENTITY_DECLINE_COLUMNS,
+);
+const PRISMA_METADATA_SET = new Set(PRISMA_METADATA);
+const IMPORT_PROVENANCE_COLUMNS_SET = new Set(IMPORT_PROVENANCE_COLUMNS);
+const ARCHIVE_PROVENANCE_RECEIPT_COLUMNS_SET = new Set(
+  ARCHIVE_PROVENANCE_RECEIPT_COLUMNS,
+);
+const TRANSLATION_INTENT_COLUMNS_SET = new Set(TRANSLATION_INTENT_COLUMNS);
+const REVIEWED_ENUMS_SET = new Set(REVIEWED_ENUMS);
+const HISTORY_COLUMNS = REVIEWED_COLUMNS.filter((column) =>
+  column.startsWith("ProgramCalendarPolicyRevision|"),
+);
+const POLICY_COLUMNS = [
+  "ProgramCalendarDay|schedulingEffect|text",
+  "SessionPlanParticipant|tutoringPauseSuppressed|bool",
+] as const;
+
+function addCount(map: Map<string, number>, key: string) {
+  map.set(key, (map.get(key) ?? 0) + 1);
+}
+
+function exactSingletonSet(
+  counts: ReadonlyMap<string, number>,
+  expected: ReadonlySet<string>,
+) {
+  if (counts.size !== expected.size) return false;
+  for (const [key, count] of counts) {
+    if (count !== 1 || !expected.has(key)) return false;
+  }
+  return true;
+}
+
 export function assertReviewedRecoverySchema(
   columns: Record<string, unknown>[],
   enums: Record<string, unknown>[],
 ) {
-  const domain = columns
-    .filter((row) => row.table_name !== "_prisma_migrations")
-    .map(
-      (row) =>
-        `${String(row.table_name)}|${String(row.column_name)}|${String(row.udt_name)}`,
-    )
-    .sort();
+  const counts = new Map<string, number>();
+  const migrationCounts = new Map<string, number>();
+  const provenanceCounts = new Map<string, number>();
+  const provenanceReceiptCounts = new Map<string, number>();
+  const translationIntentCounts = new Map<string, number>();
+  let legacySignupDecline = false;
+  let hasHistory = false;
+  for (const row of columns) {
+    const table = String(row.table_name);
+    const col = `${String(row.column_name)}|${String(row.udt_name)}`;
+    if (table === "_prisma_migrations") {
+      addCount(migrationCounts, col);
+      continue;
+    }
+    const entry = `${table}|${col}`;
+    if (table === "TranslationIntentReceipt") {
+      addCount(translationIntentCounts, entry);
+      continue;
+    }
+    addCount(counts, entry);
+    if (table === "ImportedRecordProvenance") addCount(provenanceCounts, entry);
+    else if (table === "ArchiveProvenanceReceipt")
+      addCount(provenanceReceiptCounts, entry);
+    else if (table === "LegacySignupDecline") legacySignupDecline = true;
+    else if (table === "ProgramCalendarPolicyRevision") hasHistory = true;
+  }
+  operatorAssert(
+    translationIntentCounts.size === 0 ||
+      exactSingletonSet(
+        translationIntentCounts,
+        TRANSLATION_INTENT_COLUMNS_SET,
+      ),
+    "UNREVIEWED_PUBLIC_RECOVERY_SCHEMA",
+  );
   // Unknown, partial, duplicated or mistyped reminder metadata must still fail
   // the exact catalog check, even when both databases contain the same shape.
-  const reminderDomain = SCHOOL_RECIPIENT_REMINDER_COLUMNS.every(
-    (column) => domain.filter((actual) => actual === column).length === 1,
-  )
-    ? domain.filter(
-        (column) => !SCHOOL_RECIPIENT_REMINDER_COLUMNS.includes(column),
-      )
-    : domain;
+  if (
+    SCHOOL_RECIPIENT_REMINDER_COLUMNS.every((col) => counts.get(col) === 1)
+  ) {
+    for (const col of SCHOOL_RECIPIENT_REMINDER_COLUMNS) counts.delete(col);
+  }
   // Strip only complete, singleton locale metadata; duplicates, partial bundles
   // and changed types remain visible to the exact reviewed-catalog comparison.
   const emailLocale = EMAIL_LOCALE_COLUMNS.every(
-    (column) =>
-      reminderDomain.filter((actual) => actual === column).length === 1,
+    (col) => counts.get(col) === 1,
   );
-  const localeDomain = emailLocale
-    ? reminderDomain.filter((column) => !EMAIL_LOCALE_COLUMNS.includes(column))
-    : reminderDomain;
+  if (emailLocale) {
+    for (const col of EMAIL_LOCALE_COLUMNS) counts.delete(col);
+  }
   // Notification requirements are an independent, optional JSONB addition.
-  const knownDomain =
-    localeDomain.filter((column) => column === NOTIFICATION_LOCK_COLUMN)
-      .length === 1
-      ? localeDomain.filter((column) => column !== NOTIFICATION_LOCK_COLUMN)
-      : localeDomain;
+  if (counts.get(NOTIFICATION_LOCK_COLUMN) === 1) {
+    counts.delete(NOTIFICATION_LOCK_COLUMN);
+  }
   // Both additive policy columns are reviewed together. Older complete backups
   // remain readable; a partial upgrade is never silently accepted.
-  const policyColumns = [
-    "ProgramCalendarDay|schedulingEffect|text",
-    "SessionPlanParticipant|tutoringPauseSuppressed|bool",
-  ];
-  const historyColumns = REVIEWED_COLUMNS.filter((column) =>
-    column.startsWith("ProgramCalendarPolicyRevision|"),
-  );
-  const hasHistory = knownDomain.some((column) =>
-    column.startsWith("ProgramCalendarPolicyRevision|"),
-  );
-  const comparedDomain = hasHistory
-    ? knownDomain
-    : [
-        ...knownDomain,
-        ...historyColumns,
-        ...(policyColumns.every((column) => !knownDomain.includes(column))
-          ? policyColumns
-          : []),
-      ].sort();
-  const migration = columns
-    .filter((row) => row.table_name === "_prisma_migrations")
-    .map((row) => `${String(row.column_name)}|${String(row.udt_name)}`)
-    .sort();
+  if (!hasHistory) {
+    for (const col of HISTORY_COLUMNS) addCount(counts, col);
+    if (POLICY_COLUMNS.every((col) => !counts.has(col))) {
+      for (const col of POLICY_COLUMNS) addCount(counts, col);
+    }
+  }
   // Accept only the complete reviewed archive boundary. Its removal or partial
   // restoration must not widen the authority of an otherwise reviewed backup.
-  const provenance = domain.filter((column) =>
-    column.startsWith("ImportedRecordProvenance|"),
+  operatorAssert(
+    provenanceCounts.size === 0 ||
+      exactSingletonSet(provenanceCounts, IMPORT_PROVENANCE_COLUMNS_SET),
+    "UNREVIEWED_PUBLIC_RECOVERY_SCHEMA",
   );
   operatorAssert(
-    provenance.length === 0 ||
-      provenance.join("\n") === IMPORT_PROVENANCE_COLUMNS.join("\n"),
+    provenanceReceiptCounts.size === 0 ||
+      exactSingletonSet(
+        provenanceReceiptCounts,
+        ARCHIVE_PROVENANCE_RECEIPT_COLUMNS_SET,
+      ),
     "UNREVIEWED_PUBLIC_RECOVERY_SCHEMA",
   );
   // Compose reviewed policy phases with the independent archive boundary and
   // additive manual release evidence before normalizing optional recipient labels.
-  const withoutProvenance = comparedDomain.filter(
-    (column) =>
-      !column.startsWith("ImportedRecordProvenance|") &&
-      column !== "SessionPlanContinuationMember|sourceTuteeId|text",
-  );
+  for (const key of provenanceCounts.keys()) counts.delete(key);
+  for (const key of provenanceReceiptCounts.keys()) counts.delete(key);
+  counts.delete("SessionPlanContinuationMember|sourceTuteeId|text");
   // Labels add no authority or bearer state. Keep the previously reviewed
   // backups readable while requiring the exact JSONB type when this field exists.
   const recipientLabelColumn = "SchoolHoursSchedule|recipientLabels|jsonb";
-  const reviewedDomain = withoutProvenance.includes(recipientLabelColumn)
-    ? withoutProvenance
-    : [...withoutProvenance, recipientLabelColumn].sort();
+  if (!counts.has(recipientLabelColumn)) counts.set(recipientLabelColumn, 1);
+
   const identityVersion: 0 | 1 | null =
-    reviewedDomain.join("\n") === REVIEWED_COLUMNS.join("\n") ||
-    reviewedDomain.join("\n") === REVIEWED_DECLINE_COLUMNS.join("\n")
+    exactSingletonSet(counts, REVIEWED_COLUMNS_SET) ||
+    exactSingletonSet(counts, REVIEWED_DECLINE_COLUMNS_SET)
       ? 0
-      : reviewedDomain.join("\n") === REVIEWED_IDENTITY_COLUMNS.join("\n") ||
-          reviewedDomain.join("\n") ===
-            REVIEWED_IDENTITY_DECLINE_COLUMNS.join("\n")
+      : exactSingletonSet(counts, REVIEWED_IDENTITY_COLUMNS_SET) ||
+          exactSingletonSet(counts, REVIEWED_IDENTITY_DECLINE_COLUMNS_SET)
         ? 1
         : null;
   operatorAssert(identityVersion !== null, "UNREVIEWED_PUBLIC_RECOVERY_SCHEMA");
   operatorAssert(
-    migration.length === 0 ||
-      migration.join("\n") === PRISMA_METADATA.join("\n"),
+    migrationCounts.size === 0 ||
+      exactSingletonSet(migrationCounts, PRISMA_METADATA_SET),
     "UNREVIEWED_MIGRATION_METADATA_SCHEMA",
   );
-  const labels = enums
-    .map((row) => `${String(row.type_name)}|${String(row.enum_label)}`)
-    .sort();
+  const enumCounts = new Map<string, number>();
+  for (const row of enums) {
+    addCount(enumCounts, `${String(row.type_name)}|${String(row.enum_label)}`);
+  }
   operatorAssert(
-    labels.join("\n") === REVIEWED_ENUMS.join("\n"),
+    exactSingletonSet(enumCounts, REVIEWED_ENUMS_SET),
     "UNREVIEWED_RECOVERY_ENUM_SCHEMA",
   );
   return {
     emailLocale,
     identityVersion,
-    legacySignupDecline: domain.some((column) =>
-      column.startsWith("LegacySignupDecline|"),
-    ),
+    legacySignupDecline,
   };
 }

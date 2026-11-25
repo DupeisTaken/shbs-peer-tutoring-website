@@ -75,13 +75,15 @@ export function NotificationBell() {
       <summary
         aria-label={bellLabel}
         title={bellLabel}
-        className="focus-visible:ring-accent-500 relative flex min-h-11 min-w-11 cursor-pointer list-none items-center justify-center rounded-md hover:bg-slate-100 focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-hidden [&::-webkit-details-marker]:hidden"
+        className="group/bell focus-visible:ring-accent-500 relative flex min-h-11 min-w-11 cursor-pointer list-none items-center justify-center rounded-full focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-hidden lg:min-h-8 lg:min-w-8 [&::-webkit-details-marker]:hidden"
       >
-        <BellIcon className="h-5 w-5 text-slate-700" />
+        <span className="flex h-9 w-9 items-center justify-center rounded-full border border-slate-200/90 bg-slate-100/80 text-slate-700 transition group-hover/bell:border-slate-300 group-hover/bell:bg-slate-200/70 group-hover/bell:text-slate-950 lg:h-8 lg:w-8">
+          <BellIcon className="h-4 w-4" />
+        </span>
         {count > 0 && (
           <span
             aria-hidden="true"
-            className="absolute -top-1 -right-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-red-700 px-1 text-[10px] font-semibold text-white"
+            className="absolute top-0 right-0 flex h-4 min-w-4 items-center justify-center rounded-full bg-red-700 px-1 text-[10px] font-semibold text-white ring-2 ring-white lg:-top-1 lg:-right-1"
           >
             {count > 9 ? "9+" : count}
           </span>
@@ -90,7 +92,7 @@ export function NotificationBell() {
 
       <div
         ref={panelRef}
-        className="absolute right-0 z-20 mt-2 hidden w-[min(24rem,calc(100vw-2rem))] rounded-lg border border-slate-200 bg-white shadow-lg group-open:block"
+        className="popover-surface absolute right-0 z-20 mt-2 hidden w-[min(24rem,calc(100vw-2rem))] overflow-hidden group-open:block"
       >
         <div className="flex items-center justify-between border-b border-slate-100 px-3 py-2">
           <span className="text-sm font-semibold text-slate-900">

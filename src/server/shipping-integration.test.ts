@@ -23,7 +23,14 @@ const actor = (id: string, role: Session["role"] = "STUDENT", tutorId: string | 
   createCaller({
     db,
     headers: new Headers(),
-    session: { user: { id }, role, tutorId, expires: "2099-01-01" },
+    session: {
+      user: { id },
+      role,
+      tutorId,
+      sessionVersion: 0,
+      historyAccessRevision: 0,
+      expires: "2099-01-01",
+    },
   });
 const admin = () => actor("shipping-admin", "ADMIN");
 const head = () => actor("shipping-head", "HEAD");

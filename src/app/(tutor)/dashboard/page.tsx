@@ -26,6 +26,7 @@ import { TutorRoomSchedule } from "~/app/(tutor)/_components/tutor-room-schedule
 import { ProgramCalendarNotice } from "~/app/_components/program-calendar";
 import { SchoolCalendarNotice } from "~/app/_components/school-calendar-notice";
 import { PersonalTutorHistory } from "~/app/history/personal-tutor-history";
+import { isInterviewChairRole } from "~/lib/interview-chair";
 import { pageMetadata } from "~/server/branding-metadata";
 
 export async function generateMetadata() {
@@ -49,12 +50,20 @@ export default async function TutorDashboard() {
   const inactive = me.status !== "ACTIVE";
   const pending = me.status === "PENDING";
 
-  const [total, crew, features, rooms] = await Promise.all([
+  const [total, features, rooms] = await Promise.all([
     api.tutor.myMonthlyTotal(),
-    api.tutor.myCrew(),
     getFeatures(db),
     api.tutor.schedule(),
   ]);
+  // Show the separate Interview chair tab for Admin/Head chairs and any active tutor
+  // retaining a historical chair assignment; regular panelists vote in Schedule.
+  const showChairWorkspace =
+    !inactive &&
+    features.INTERVIEWS &&
+    (isInterviewChairRole(session.role) ||
+      (await db.interviewAssignment.count({
+        where: { tutorId: session.tutorId, isHead: true },
+      })) > 0);
 
   return (
     <main
@@ -75,65 +84,46 @@ export default async function TutorDashboard() {
             </h1>
             <p className="muted mt-1">{t("dashboard.subtitle")}</p>
           </div>
-          <div className="grid w-full min-w-0 gap-3 sm:flex sm:w-auto sm:flex-wrap">
-            {features.SERVICE_HOURS && (
-              <section
-                aria-label={t("dashboard.hours.title")}
-                className="min-w-0 rounded-lg border border-slate-200 bg-white p-4 text-right sm:w-72 sm:max-w-full"
-              >
-                <div className="space-y-1 text-xs leading-4 text-slate-600">
-                  <h2 className="font-medium tracking-wide uppercase">
-                    {t("dashboard.hours.title")}
-                  </h2>
-                  {total.periodLabel && (
-                    <p className="break-words">{total.periodLabel}</p>
-                  )}
-                </div>
-                <p className="mt-2 text-4xl leading-none font-bold tracking-tight text-slate-900 tabular-nums">
-                  {total.total.toFixed(1)} <span>h</span>
-                </p>
-                {/* Separate terms wrap independently without changing the server's total. */}
-                <ul className="mt-3 flex flex-wrap justify-end gap-x-4 gap-y-1 border-t border-slate-100 pt-2 text-sm leading-5 text-slate-600 tabular-nums">
+          {features.SERVICE_HOURS && (
+            <section
+              aria-label={t("dashboard.hours.title")}
+              className="w-full min-w-0 rounded-lg border border-slate-200 bg-white p-4 text-right sm:w-72 sm:max-w-full"
+            >
+              <div className="space-y-1 text-xs leading-4 text-slate-600">
+                <h2 className="font-medium tracking-wide uppercase">
+                  {t("dashboard.hours.title")}
+                </h2>
+                {total.periodLabel && (
+                  <p className="break-words">{total.periodLabel}</p>
+                )}
+              </div>
+              <p className="mt-2 text-4xl leading-none font-bold tracking-tight text-slate-900 tabular-nums">
+                {total.total.toFixed(1)} <span>h</span>
+              </p>
+              {/* Separate terms wrap independently without changing the server's total. */}
+              <ul className="mt-3 flex flex-wrap justify-end gap-x-4 gap-y-1 border-t border-slate-100 pt-2 text-sm leading-5 text-slate-600 tabular-nums">
+                <li>
+                  {t("tutor.dashboard.hours.earned", {
+                    earned: total.earned.toFixed(1),
+                  })}
+                </li>
+                {total.extras > 0 && (
                   <li>
-                    {t("tutor.dashboard.hours.earned", {
-                      earned: total.earned.toFixed(1),
+                    {t("tutor.dashboard.hours.extra", {
+                      extra: total.extras.toFixed(1),
                     })}
                   </li>
-                  {total.extras > 0 && (
-                    <li>
-                      {t("tutor.dashboard.hours.extra", {
-                        extra: total.extras.toFixed(1),
-                      })}
-                    </li>
-                  )}
-                  {total.punishments > 0 && (
-                    <li>
-                      {t("tutor.dashboard.hours.penalty", {
-                        penalty: total.punishments.toFixed(1),
-                      })}
-                    </li>
-                  )}
-                </ul>
-              </section>
-            )}
-            {/* Crew hours — tallied separately from tutoring (only shown for crew members). */}
-            {features.CREW && crew.isCrew && (
-              <section
-                aria-label={t("tutor.dashboard.crew.title")}
-                className="min-w-0 rounded-lg border border-slate-200 bg-white p-4 text-right"
-              >
-                <h2 className="text-xs leading-4 font-medium tracking-wide text-slate-600 uppercase">
-                  {t("tutor.dashboard.crew.title")}
-                </h2>
-                <p className="mt-2 text-4xl leading-none font-bold tracking-tight text-slate-900 tabular-nums">
-                  {crew.hours.toFixed(1)} <span>h</span>
-                </p>
-                <p className="mt-3 border-t border-slate-100 pt-2 text-sm leading-5 text-slate-600">
-                  {t("tutor.dashboard.crew.patrols", { count: crew.patrols })}
-                </p>
-              </section>
-            )}
-          </div>
+                )}
+                {total.punishments > 0 && (
+                  <li>
+                    {t("tutor.dashboard.hours.penalty", {
+                      penalty: total.punishments.toFixed(1),
+                    })}
+                  </li>
+                )}
+              </ul>
+            </section>
+          )}
         </div>
       </section>
 
@@ -183,11 +173,6 @@ export default async function TutorDashboard() {
               now={new Date()}
               compact
             />
-            {!inactive && features.INTERVIEWS && (
-              <div id="chair-interviews" tabIndex={-1}>
-                <MyInterviews audience="chair" />
-              </div>
-            )}
             <section
               id="room-schedule"
               tabIndex={-1}
@@ -203,6 +188,13 @@ export default async function TutorDashboard() {
               </DisclosureSection>
             </section>
           </div>
+        }
+        chair={
+          showChairWorkspace ? (
+            <div id="chair-interviews" tabIndex={-1} className="scroll-mt-6">
+              <MyInterviews audience="chair" />
+            </div>
+          ) : undefined
         }
         pairings={
           <div className="space-y-4">

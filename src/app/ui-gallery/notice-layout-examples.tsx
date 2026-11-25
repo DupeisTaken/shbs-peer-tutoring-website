@@ -116,7 +116,7 @@ export function NoticeLayoutExamples({ locale }: { locale: "en" | "zh" }) {
         <label className="space-y-1 text-sm">
           {t.shape}
           <select
-            className="input block"
+            className="select block"
             value={shape}
             onChange={(event) => setShape(event.target.value)}
           >
@@ -132,7 +132,7 @@ export function NoticeLayoutExamples({ locale }: { locale: "en" | "zh" }) {
         <label className="space-y-1 text-sm">
           {t.tone}
           <select
-            className="input block"
+            className="select block"
             value={tone}
             onChange={(event) => setTone(event.target.value as typeof tone)}
           >
@@ -148,7 +148,7 @@ export function NoticeLayoutExamples({ locale }: { locale: "en" | "zh" }) {
         <label className="space-y-1 text-sm">
           {t.announcement}
           <select
-            className="input block"
+            className="select block"
             value={announcement ?? ""}
             onChange={(event) =>
               setAnnouncement(

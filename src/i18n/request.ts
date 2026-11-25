@@ -26,6 +26,8 @@ const LOADERS: Record<Locale, () => Promise<{ default: Record<string, unknown> }
 
 const COOKIE = "NEXT_LOCALE";
 
+const UNSAFE_KEYS = new Set(["__proto__", "constructor", "prototype"]);
+
 /** Recursively merge `override` onto `base` (override wins for non-object leaves). */
 function deepMerge(
   base: Record<string, unknown>,
@@ -33,6 +35,7 @@ function deepMerge(
 ): Record<string, unknown> {
   const out: Record<string, unknown> = { ...base };
   for (const [k, v] of Object.entries(override)) {
+    if (UNSAFE_KEYS.has(k)) continue;
     const existing = out[k];
     if (
       existing &&
@@ -46,6 +49,8 @@ function deepMerge(
         existing as Record<string, unknown>,
         v as Record<string, unknown>,
       );
+    } else if (v && typeof v === "object" && !Array.isArray(v)) {
+      out[k] = deepMerge({}, v as Record<string, unknown>);
     } else {
       out[k] = v;
     }
@@ -54,8 +59,13 @@ function deepMerge(
 }
 
 /** Deep-set a dot-path key (e.g. "admin.users.title") to a string value, creating objects. */
-function setByPath(obj: Record<string, unknown>, path: string, value: string): void {
+function setByPath(
+  obj: Record<string, unknown>,
+  path: string,
+  value: string,
+): void {
   const parts = path.split(".");
+  if (parts.some((part) => !part || UNSAFE_KEYS.has(part))) return;
   let node = obj;
   for (let i = 0; i < parts.length - 1; i++) {
     const k = parts[i]!;
@@ -93,7 +103,8 @@ function loadOverride(): Record<string, unknown> {
   if (!raw) return {};
   try {
     const parsed: unknown = JSON.parse(raw);
-    if (parsed && typeof parsed === "object") return parsed as Record<string, unknown>;
+    if (parsed && typeof parsed === "object" && !Array.isArray(parsed))
+      return parsed as Record<string, unknown>;
   } catch {
     // ignore malformed override
   }
@@ -112,7 +123,9 @@ export default getRequestConfig(async () => {
   // Built-ins load their bundled JSON; added languages use English as the base (then DB overrides).
   const loader = isLocale(locale) ? LOADERS[locale] : LOADERS[DEFAULT_LOCALE];
   const base = (await loader()).default;
-  const messages = deepMerge(base, loadOverride());
+  // JSON modules are cached across requests, and custom locales share the English base.
+  // Own every nested namespace before applying overrides with the mutating path setter.
+  const messages = deepMerge(structuredClone(base), loadOverride());
   await applyDbOverrides(messages, locale);
 
   // Missing keys render as a highlighted placeholder of their original key (see ./fallback).

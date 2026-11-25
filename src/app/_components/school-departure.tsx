@@ -8,6 +8,7 @@ import { useTranslations } from "next-intl";
 import { api } from "~/trpc/react";
 import { invalidateAndReport } from "~/lib/invalidate-refresh";
 import { settleRefreshes } from "~/lib/settle-refreshes";
+import { trpcQueryKey } from "~/lib/trpc-query-key";
 import { ProfileDialog } from "./profile-dialog";
 import { useSessionAccessDenied } from "./session-view-state";
 import { useDialogPending } from "./ui/modal";
@@ -127,7 +128,8 @@ function SchoolDepartureEditor({
 }) {
   const t = useTranslations("schoolDeparture");
   const recovery = useTranslations("participantRecovery");
-  const state = api.departure.state.useQuery({ userId });
+  const stateInput = { userId };
+  const state = api.departure.state.useQuery(stateInput);
   const [selectedAction, setAction] = useState<
     "GRADUATED" | "TRANSFERRED" | "RETURN" | "REVOKE" | "RESTORE"
   >(initialAction);
@@ -240,6 +242,11 @@ function SchoolDepartureEditor({
     {
       ...state,
       denialKey: "school-departure",
+      queryKey: trpcQueryKey(
+        api.departure.state,
+        ["departure", "state"],
+        stateInput,
+      ),
     },
     { error, isSuccess: !error, isFetching: readPending },
   );

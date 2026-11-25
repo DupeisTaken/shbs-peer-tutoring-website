@@ -8,7 +8,10 @@ vi.mock("~/server/home/images", () => ({
 vi.mock("next-intl/server", () => ({
   getTranslations: async () => (key: string) => key,
 }));
-vi.mock("./landing-editor", () => ({ default: () => null }));
+vi.mock("./landing-editor", () => ({
+  default: () => null,
+  LandingIntentRecovery: () => null,
+}));
 
 beforeEach(() => {
   state.authorize.mockResolvedValue({ ok: true, name: "Synthetic editor" });

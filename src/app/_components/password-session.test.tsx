@@ -4,12 +4,19 @@ import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { NextIntlClientProvider } from "next-intl";
 import en from "../../../messages/en.json";
+import zh from "../../../messages/zh.json";
+import { PASSWORD_MAX_LENGTH } from "~/lib/password-contract";
 
 const mocks = vi.hoisted(() => ({
   redirect: vi.fn(),
   change: vi.fn(),
+  requestCode: vi.fn(),
   updateName: vi.fn(),
   succeed: true,
+  requestCodeError: null as null | {
+    message: string;
+    data?: { emailDeliveryFailed?: boolean };
+  },
   account: null as null | {
     id: string;
     name: string;
@@ -49,11 +56,15 @@ vi.mock("~/trpc/react", async () => {
       onSuccess: (data: { email: string }) => void;
       onSettled?: () => void;
     }) => ({
-      mutate: () => {
-        options.onSuccess({ email: "s***@example.test" });
+      mutate: (input: unknown) => {
+        mocks.requestCode(input);
+        if (!mocks.requestCodeError) {
+          options.onSuccess({ email: "s***@example.test" });
+        }
         options.onSettled?.();
       },
       isPending: false,
+      error: mocks.requestCodeError,
     }),
   };
   const change = {
@@ -116,8 +127,10 @@ import TutorSettings from "../(tutor)/settings/page";
 beforeEach(() => {
   mocks.redirect.mockReset();
   mocks.change.mockReset();
+  mocks.requestCode.mockReset();
   mocks.updateName.mockReset();
   mocks.succeed = true;
+  mocks.requestCodeError = null;
   mocks.account = null;
 });
 afterEach(cleanup);
@@ -183,6 +196,9 @@ it.each([AccountSettings, TutorSettings])(
         </NextIntlClientProvider>
       </QueryClientProvider>,
     );
+    fireEvent.click(
+      screen.getByRole("tab", { name: en.account.sections.security }),
+    );
     fireEvent.change(screen.getByLabelText(en.tutor.settings.currentPassword), {
       target: { value: "CurrentPassword123!" },
     });
@@ -216,5 +232,100 @@ it.each([AccountSettings, TutorSettings])(
       code: "ABCDE",
     });
     expect(mocks.redirect).toHaveBeenCalledOnce();
+  },
+);
+
+it.each([AccountSettings, TutorSettings])(
+  "rejects >1024-char new passwords locally without requesting a code or submitting (%s)",
+  (Component) => {
+    render(
+      <QueryClientProvider
+        client={
+          new QueryClient({ defaultOptions: { queries: { retry: false } } })
+        }
+      >
+        <NextIntlClientProvider locale="en" messages={en}>
+          <Component />
+        </NextIntlClientProvider>
+      </QueryClientProvider>,
+    );
+    fireEvent.click(
+      screen.getByRole("tab", { name: en.account.sections.security }),
+    );
+    const next = screen.getByLabelText<HTMLInputElement>(
+      new RegExp(`^${en.tutor.settings.newPassword}`),
+    );
+    const confirm = screen.getByLabelText<HTMLInputElement>(
+      en.tutor.settings.confirmPassword,
+    );
+    expect(next.maxLength).toBe(PASSWORD_MAX_LENGTH);
+    expect(confirm.maxLength).toBe(PASSWORD_MAX_LENGTH);
+
+    const oversized = "p".repeat(PASSWORD_MAX_LENGTH + 1);
+    fireEvent.change(screen.getByLabelText(en.tutor.settings.currentPassword), {
+      target: { value: "CurrentPassword123!" },
+    });
+    fireEvent.change(next, { target: { value: oversized } });
+    fireEvent.change(confirm, { target: { value: oversized } });
+    fireEvent.click(
+      screen.getByRole("button", { name: en.account.password.sendCode }),
+    );
+    expect(screen.getByText(/no more than 1024 characters/)).toBeTruthy();
+    expect(mocks.requestCode).not.toHaveBeenCalled();
+    expect(mocks.change).not.toHaveBeenCalled();
+  },
+);
+
+it.each([
+  ["AccountSettings", AccountSettings, "en", en],
+  ["AccountSettings", AccountSettings, "zh", zh],
+  ["TutorSettings", TutorSettings, "en", en],
+  ["TutorSettings", TutorSettings, "zh", zh],
+] as const)(
+  "localizes typed email delivery failure feedback on %s in %s without matching English text (#749)",
+  (_name, Component, locale, messages) => {
+    mocks.requestCodeError = {
+      message: "Opaque upstream delivery failure",
+      data: { emailDeliveryFailed: true },
+    };
+    const { rerender } = render(
+      <QueryClientProvider
+        client={
+          new QueryClient({ defaultOptions: { queries: { retry: false } } })
+        }
+      >
+        <NextIntlClientProvider locale={locale} messages={messages}>
+          <Component />
+        </NextIntlClientProvider>
+      </QueryClientProvider>,
+    );
+    fireEvent.click(
+      screen.getByRole("tab", { name: messages.account.sections.security }),
+    );
+    const alert = screen.getByRole("alert");
+    expect(alert.textContent).toBe(messages.account.password.deliveryFailed);
+    expect(
+      document.querySelector('input[autocomplete="one-time-code"]'),
+    ).toBeNull();
+
+    // Non-delivery errors fall back safely to the server message.
+    mocks.requestCodeError = {
+      message: "Current password is incorrect.",
+      data: { emailDeliveryFailed: false },
+    };
+    rerender(
+      <QueryClientProvider
+        client={
+          new QueryClient({ defaultOptions: { queries: { retry: false } } })
+        }
+      >
+        <NextIntlClientProvider locale={locale} messages={messages}>
+          <Component />
+        </NextIntlClientProvider>
+      </QueryClientProvider>,
+    );
+    expect(screen.getByRole("alert").textContent).toBe(
+      "Current password is incorrect.",
+    );
   },
 );

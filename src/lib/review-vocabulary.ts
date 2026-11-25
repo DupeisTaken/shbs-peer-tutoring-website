@@ -181,6 +181,18 @@ const privateIdentityFields: Readonly<Record<string, readonly string[]>> = {
   SessionPlanExecution: ["assignments"],
   SessionParticipantExecution: ["sourceSurveyIds"],
   SessionResponseExecution: ["profileId"],
+  // Original-actor replay/stop receipts stay with the scoped own-request recovery reader.
+  TranslationIntentReceipt: [
+    "actorId",
+    "intentId",
+    "protocolVersion",
+    "status",
+    "operation",
+    "mode",
+    "inputHash",
+    "draftId",
+    "cleared",
+  ],
 };
 const privateIdentityField = (entity: string | undefined, field: string) =>
   !!entity && Object.hasOwn(privateIdentityFields, entity) && privateIdentityFields[entity]!.includes(field);

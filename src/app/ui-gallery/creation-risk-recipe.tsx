@@ -22,7 +22,7 @@ export function CreationRiskRecipe() {
       <label className="block space-y-1">
         <span className="label">{t("galleryKind")}</span>
         <select
-          className="input"
+          className="select"
           value={kind}
           onChange={(event) => setKind(event.target.value as CreationRiskKind)}
         >

@@ -52,10 +52,22 @@ vi.mock("~/trpc/react", () => ({
         useMutation: () => ({ mutateAsync: mocks.remove }),
       },
       importSubjects: {
-        useMutation: () => ({ mutate: mocks.importSubjects, reset: vi.fn() }),
+        useMutation: (opts?: { onSettled?: () => void }) => ({
+          mutate: (input: unknown) => {
+            mocks.importSubjects(input);
+            opts?.onSettled?.();
+          },
+          reset: vi.fn(),
+        }),
       },
       importCourseGroups: {
-        useMutation: () => ({ mutate: mocks.importGroups, reset: vi.fn() }),
+        useMutation: (opts?: { onSettled?: () => void }) => ({
+          mutate: (input: unknown) => {
+            mocks.importGroups(input);
+            opts?.onSettled?.();
+          },
+          reset: vi.fn(),
+        }),
       },
     },
   },

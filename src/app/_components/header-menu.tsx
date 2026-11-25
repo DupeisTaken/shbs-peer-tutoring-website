@@ -12,7 +12,7 @@ import {
   useState,
 } from "react";
 
-import { DisclosureIcon } from "~/app/_components/icons";
+import { ChevronDownIcon } from "~/app/_components/icons";
 import { useClampedPopover } from "~/app/_components/use-clamped-popover";
 
 export type HeaderMenuItem = {
@@ -75,7 +75,7 @@ export function HeaderMenu({
 }: {
   label: string;
   items: HeaderMenuItem[];
-  tone?: "primary" | "secondary";
+  tone?: "primary" | "secondary" | "ghost";
   align?: "left" | "right";
   className?: string;
   showDisclosure?: boolean;
@@ -136,12 +136,24 @@ export function HeaderMenu({
         aria-expanded={open}
         aria-haspopup="dialog"
         onClick={toggle}
-        className={`btn-sm flex max-w-full cursor-pointer items-center gap-2 whitespace-normal ${
-          compact ? "min-h-11 lg:min-h-8 lg:py-0" : "min-h-11"
-        } ${tone === "primary" ? "btn-primary" : "btn-secondary"}`}
+        className={`flex max-w-full cursor-pointer items-center gap-1.5 whitespace-normal ${
+          tone === "ghost"
+            ? `focus-visible:ring-accent-500 rounded-md px-2.5 text-[13px] font-medium text-slate-600 transition hover:bg-slate-100 hover:text-slate-950 focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-hidden ${
+                compact ? "min-h-11 lg:min-h-8" : "min-h-11"
+              }`
+            : `btn-sm gap-2 ${
+                compact ? "min-h-11 lg:min-h-8 lg:py-0" : "min-h-11"
+              } ${tone === "primary" ? "btn-primary" : "btn-secondary"}`
+        }`}
       >
         <span className="min-w-0 break-words">{label}</span>
-        {showDisclosure ? <DisclosureIcon open={open} /> : null}
+        {showDisclosure ? (
+          <ChevronDownIcon
+            className={`h-3.5 w-3.5 shrink-0 transition-transform duration-150 ${
+              tone === "primary" ? "text-white/80" : "text-slate-500"
+            } ${open ? "rotate-180" : ""}`}
+          />
+        ) : null}
       </button>
 
       {open ? (
@@ -150,7 +162,7 @@ export function HeaderMenu({
           id={panelId}
           role="dialog"
           aria-label={label}
-          className={`absolute z-30 mt-2 max-h-[calc(100vh-4.5rem)] max-w-[calc(100vw-2rem)] min-w-56 overflow-y-auto rounded-lg border border-slate-200 bg-white p-2 shadow-lg ${
+          className={`popover-surface absolute z-30 mt-2 max-h-[calc(100vh-4.5rem)] max-w-[calc(100vw-2rem)] min-w-56 overflow-y-auto p-1.5 ${
             panelWidth === "wide" ? "w-72" : "w-max"
           } ${align === "right" ? "right-0" : "left-0"}`}
         >

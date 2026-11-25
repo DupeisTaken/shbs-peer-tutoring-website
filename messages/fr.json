@@ -1,6 +1,6 @@
 {
   "helpNav": {
-    "title": "Aide et guides",
+    "title": "Centre d'aide",
     "downloads": "Manuels PDF"
   },
   "recoveryWorkflow": {
@@ -32,6 +32,7 @@
     "calendarCreate": "Créer un lien privé",
     "calendarRevoke": "Révoquer le lien privé",
     "calendarUnavailable": "Un abonnement nécessite une participation actuelle admissible.",
+    "calendarCreateHelp": "Crée un lien privé en lecture seule pour votre calendrier de tutorat. Gardez-le confidentiel ; toute personne disposant du lien peut consulter votre emploi du temps.",
     "calendarRotateHelp": "Créer un lien révoque tous les anciens. Les abonnements utilisant les anciens liens ne seront plus actualisés.",
     "calendarRevokeHelp": "Le lien privé sera révoqué. Les abonnements existants ne recevront plus de mises à jour. Les séances restent inchangées.",
     "publicationUnavailable": "{count} disposition(s) hebdomadaire(s) doivent être vérifiées et n’ont pas pu devenir des séances datées.",
@@ -239,7 +240,8 @@
       "NEXT_RECRUITMENT_CLOSING_CONFLICT": "L’ouverture doit précéder la fermeture existante de la période cible."
     },
     "featureAfterRefreshEnabled": "Après le renouvellement : Activé",
-    "featureAfterRefreshDisabled": "Après le renouvellement : Désactivé"
+    "featureAfterRefreshDisabled": "Après le renouvellement : Désactivé",
+    "embeddedHelp": "Apply on refresh. Editing after scheduling requires renewed review."
   },
   "historicalInvitation": {
     "claimUncertain": "The claim result is unknown. Read the invitation again to check its result; do not repeat the claim.",
@@ -563,7 +565,13 @@
         "enable": "Enable 2FA",
         "disable": "Disable 2FA",
         "saving": "Saving…",
-        "saved": "Two-factor settings updated."
+        "saved": "Two-factor settings updated.",
+        "loading": "Loading two-factor settings…",
+        "loadFailed": "Two-factor settings could not be loaded.",
+        "refreshFailed": "Two-factor settings could not be refreshed. Your password draft is kept; try again before saving.",
+        "refreshing": "Refreshing two-factor settings…",
+        "accessDenied": "Two-factor settings are unavailable.",
+        "savedRefreshFailed": "Saved, but two-factor settings could not refresh. Try refreshing."
       }
     },
     "forgotPassword": "Mot de passe oublié ?",
@@ -596,7 +604,8 @@
         "confirmPassword": "Confirmer le nouveau mot de passe"
       },
       "submit": "Définir le nouveau mot de passe",
-      "saving": "Enregistrement…"
+      "saving": "Enregistrement…",
+      "passwordLength": "Use {min}–{max} characters."
     },
     "onboarding": {
       "proofRequired": "Ouvrez le lien envoyé à l’adresse de votre compte pour la vérifier et définir un mot de passe. Sans accès à cette adresse, contactez l’équipe du programme. Gérez l’authentification à deux facteurs après la connexion.",
@@ -682,7 +691,8 @@
       "teamSignin": "Connexion",
       "becomeCrew": "Rejoindre la ronde",
       "viewerSignup": "Suivre le Programme",
-      "landmark": "Navigation du site"
+      "landmark": "Navigation du site",
+      "signInAndJoin": "Connexion et inscription"
     },
     "tagline": "Programme de tutorat par les pairs",
     "heroTitle": "Apprendre ensemble. Progresser ensemble.",
@@ -1127,7 +1137,7 @@
       "programTotals": "Totaux du programme pour la période sélectionnée",
       "programTotalsHelp": "Tous les tuteurs, y compris les inactifs ; les filtres ne modifient pas ces totaux.",
       "filteredSubtotal": "Sous-total filtré · {count} tuteurs",
-      "hiddenInactive": "Le filtre de statut masque {count} tuteurs inactifs ayant des entrées.",
+      "hiddenInactive": "{count, plural, one {Le filtre de statut masque # tuteur inactif ayant des entrées.} other {Le filtre de statut masque # tuteurs inactifs ayant des entrées.}}",
       "viewInactive": "Voir les contributeurs inactifs",
       "viewLabel": "Vue des tuteurs",
       "viewSummary": "Résumé",
@@ -1190,7 +1200,7 @@
       "noPeriod": "Aucune période de programme active. Initialisez ou créez-en une d'abord.",
       "currentPeriod": "Période en cours",
       "semester": "Semestre {semester}",
-      "refreshHeading": "Actualiser vers le prochain trimestre",
+      "refreshHeading": "Program Refresh",
       "advancesTo": "Cela fait avancer le programme vers {name} et :",
       "effectPending": "Vide la file d'attente des inscriptions d'élèves en attente (archivées comme inactives).",
       "effectTutees": "Archive tous les élèves en attente et actifs, y compris ceux sans pairage. Ils devront se réinscrire pour continuer.",
@@ -1347,7 +1357,22 @@
         "deny": "Refuser",
         "review": "Examiner le recours",
         "message": "Recours initial",
-        "refreshFailed": "La décision a été enregistrée, mais le compte ou la liste des recours n’a pas pu être actualisé. Réessayez l’actualisation sans soumettre à nouveau la décision."
+        "refreshFailed": "La décision a été enregistrée, mais le compte ou la liste des recours n’a pas pu être actualisé. Réessayez l’actualisation sans soumettre à nouveau la décision.",
+        "restrictionHeading": "Current Account Restriction",
+        "restricted": "Suspended",
+        "active": "Already active",
+        "restrictedAt": "Suspended {date}",
+        "submittedAt": "Appeal submitted {date}",
+        "noReason": "No suspension reason recorded.",
+        "coResolveHelp": "Approve restores access and closes all pending appeals for this account with one notice.",
+        "activeHelp": "This account is already active. Approve closes all pending appeals without changing access. Deny is unavailable.",
+        "reloadReview": "Reload restriction review",
+        "reviewChanged": "This appeal or account restriction changed. Reload the review before deciding.",
+        "reviewUnavailable": "Current review details could not be loaded. Try again before deciding.",
+        "approveClose": "Approve and close appeals",
+        "accessRestored": "Account access restored and all pending appeals approved.",
+        "closedActive": "Pending appeals closed. Account access was already active and did not change.",
+        "deniedReceipt": "Appeal denied. The account remains suspended."
       }
     },
     "registrationCodes": {
@@ -1418,7 +1443,7 @@
     },
     "tutorRequests": {
       "title": "Demandes de statut de tuteur",
-      "help": "Demandes de changement d'adhésion initiées par les tuteurs. Les demandes de retrait ne peuvent être approuvées qu'après une semaine de délai de réflexion ; la réintégration est immédiate.",
+      "help": "Demandes de changement d'adhésion initiées par les tuteurs. Les demandes de retrait ne peuvent être approuvées qu'après une semaine de délai de réflexion ; les demandes de réintégration peuvent être examinées immédiatement et prennent effet après approbation.",
       "kind": {
         "OPT_OUT": "Retrait",
         "REENTRY": "Réintégration"
@@ -1746,7 +1771,18 @@
         "consequence": "This permanently removes the adjustment and changes the tutor’s service-hour total. Review the tutor, month and amount before continuing.",
         "confirm": "Delete adjustment"
       },
-      "create": "Nouvel ajustement des heures"
+      "create": "Nouvel ajustement des heures",
+      "source": {
+        "label": "Source",
+        "other": "Autre ajustement d’heures",
+        "interview": "Source d’entretien",
+        "orphaned": "Dossier d’entretien indisponible",
+        "unresolved": "Source d’entretien non résolue",
+        "conflicting": "Source d’entretien en conflit",
+        "correct": "Corriger les heures d’entretien",
+        "help": "Ces heures proviennent d’un service d’entretien enregistré. Vérifiez l’entretien pour corriger la réalisation, la durée ou les présences.",
+        "unavailable": "La correction de réalisation de l’entretien n’est pas disponible pour cette ligne."
+      }
     },
     "applications": {
       "title": "Candidatures tuteurs",
@@ -1840,7 +1876,21 @@
         "unavailable": "{name} (indisponible — remplacer cette sélection)",
         "chairSlot": "Choisir le membre {n} comme président"
       },
-      "setupTargetUnavailable": "The linked tutor record is unavailable. Refresh this application before setting up the account."
+      "setupTargetUnavailable": "The linked tutor record is unavailable. Refresh this application before setting up the account.",
+      "panelDraft": {
+        "changed": "Le jury a changé pendant que ce brouillon était ouvert. Rechargez pour vérifier le jury actuel.",
+        "reloadHelp": "Le rechargement remplace ce brouillon par le jury actuellement enregistré.",
+        "reload": "Recharger le jury",
+        "loading": "Chargement du jury…",
+        "retry": "Réessayer de charger le jury",
+        "reloadError": "Le jury actuel n’a pas pu être chargé. Votre brouillon reste inchangé.",
+        "refreshError": "La modification du jury a été envoyée, mais le jury actuel n’a pas pu être chargé. Réessayez de le charger avant toute autre modification."
+      },
+      "panelRepair": {
+        "reason": "Motif de la correction du jury",
+        "save": "Corriger le jury",
+        "consequence": "Le remplacement de ce jury en cours efface ses votes. La réalisation enregistrée et les heures acquises restent dans l’historique ; les nouveaux membres ne reçoivent aucun crédit automatique. Tous les membres du jury de remplacement doivent voter à nouveau."
+      }
     },
     "cards": {
       "title": "Discipline des élèves",
@@ -2542,7 +2592,10 @@
       "panel": "Jury : {members}",
       "headSuffix": "(responsable)",
       "scheduled": "Planifié : {time}",
-      "awaitingSchedule": "En attente que le responsable planifie une heure."
+      "awaitingSchedule": "En attente que le responsable planifie une heure.",
+      "chairHelp": "Entretiens que vous présidez. Planifiez les horaires, consultez les votes du jury et enregistrez les décisions finales ici. Exprimez votre propre vote depuis l'événement d'entretien dans Planning.",
+      "voteInSchedule": "Voter dans Planning",
+      "updateVoteInSchedule": "Modifier mon vote dans Planning"
     },
     "announcements": {
       "label": "Annonces",
@@ -2567,7 +2620,7 @@
       "currentPassword": "Mot de passe actuel",
       "newPassword": "Nouveau mot de passe",
       "confirmPassword": "Confirmer le nouveau mot de passe",
-      "pwHelp": "Au moins 8 caractères.",
+      "pwHelp": "Use 8–1024 characters.",
       "changePasswordBtn": "Changer le mot de passe",
       "changing": "Modification en cours…",
       "passwordChanged": "Mot de passe modifié.",
@@ -2587,7 +2640,9 @@
       "reentryBtn": "Demander une réintégration",
       "recall": "Révoquer la demande",
       "statusNote": "Votre statut de tuteur est {status}. Accès en lecture seule — contactez un administrateur pour toute modification.",
-      "profileSyncFailed": "Votre profil a été enregistré, mais son actualisation a échoué. Réessayez l’actualisation sans renvoyer les modifications."
+      "profileSyncFailed": "Votre profil a été enregistré, mais son actualisation a échoué. Réessayez l’actualisation sans renvoyer les modifications.",
+      "pwTooLong": "Use no more than {max} characters.",
+      "backToDashboard": "Retour au tableau de bord"
     },
     "dashboard": {
       "pending": {
@@ -2647,7 +2702,8 @@
       "schedule": "Planning",
       "pairings": "Affectations",
       "preferences": "Préférences",
-      "history": "Historique et heures"
+      "history": "Historique et heures",
+      "chair": "Responsable d'entretien"
     }
   },
   "public": {
@@ -2876,7 +2932,12 @@
       "enterTutor": "Accéder à la page tuteur",
       "enterAdmin": "Accéder à l'espace administrateur",
       "enterTutee": "Accéder à la page élève",
-      "backToManagement": "Retour à la gestion"
+      "backToManagement": "Retour à la gestion",
+      "groups": {
+        "workspaces": "Espaces de travail",
+        "tools": "Outils",
+        "account": "Compte"
+      }
     },
     "theme": {
       "label": "Thème",
@@ -2888,6 +2949,20 @@
         "amber": "Ambre",
         "sky": "Ciel"
       }
+    },
+    "workspaceTitles": {
+      "management": "Gestion",
+      "viewer": "Aperçu du programme",
+      "tutor": "Tuteur",
+      "tutee": "Élève",
+      "patrol": "Équipe de ronde",
+      "translations": "Traductions",
+      "programHome": "Accueil du programme"
+    },
+    "workspaceSwitcher": {
+      "label": "Changer de page",
+      "workspaces": "Espaces",
+      "general": "Général"
     }
   },
   "localization": {
@@ -2941,7 +3016,16 @@
       "codeSent": "Nous avons envoyé un code à {email}. Saisissez-le ci-dessous pour terminer.",
       "codeLabel": "Code de vérification par e-mail",
       "resend": "Renvoyer le code",
-      "cancel": "Annuler"
+      "cancel": "Annuler",
+      "deliveryFailed": "L'envoi de l'e-mail a échoué. Veuillez réessayer plus tard."
+    },
+    "tutorSettings": "Paramètres tuteur",
+    "sections": {
+      "profile": "Profil",
+      "security": "Sécurité et e-mails",
+      "notifications": "Notifications",
+      "access": "Rôles et accès",
+      "membership": "Adhésion et accès"
     }
   },
   "crew": {
@@ -3027,7 +3111,17 @@
     "newer": "Plus récents",
     "older": "Plus anciens",
     "details": "Détails du changement",
-    "patrolChanged": "Patrol changed. Reload before correcting it."
+    "patrolChanged": "Patrol changed. Reload before correcting it.",
+    "patrolRooms": "les salles de patrouille",
+    "reloadPatrol": "Recharger le brouillon de patrouille",
+    "patrolReloadFailed": "Impossible de charger la dernière patrouille et les salles. Votre brouillon est conservé.",
+    "patrolUnavailable": "Cette patrouille ne figure plus sur cette page de l’historique. Votre brouillon est conservé.",
+    "patrolSaved": "Correction enregistrée. Actualisation de l’historique des patrouilles…",
+    "patrolSavedRefreshFailed": "Correction enregistrée, mais l’historique des patrouilles n’a pas pu s’actualiser. Essayez d’actualiser.",
+    "patrolQueuedRefreshFailed": "Correction envoyée pour validation, mais l’historique des patrouilles n’a pas pu s’actualiser. Essayez d’actualiser.",
+    "invalidPatrolTime": "Saisissez une heure d’observation valide.",
+    "patrolRoomUnavailable": "{room} (indisponible)",
+    "patrolRoomRequired": "Choisissez une salle disponible pour chaque observation avant d’enregistrer."
   },
   "emailChange": {
     "title": "Modifier l’adresse du compte",
@@ -3038,7 +3132,10 @@
     "send": "Envoyer le code de vérification",
     "code": "Code de vérification par e-mail",
     "confirm": "Vérifier et modifier l’adresse",
-    "success": "Votre adresse e-mail a été modifiée."
+    "success": "Votre adresse e-mail a été modifiée.",
+    "sentTo": "Enter the verification code sent to {email}.",
+    "changeAddress": "Use another email",
+    "savedRefreshFailed": "Email changed, but account details could not refresh. Try refreshing."
   },
   "profileCorrection": {
     "edit": "Modifier les détails",
@@ -3108,7 +3205,11 @@
       "id": "Content to Translate",
       "other": "Content to Translate"
     },
-    "refreshFailed": "Votre modification a été acceptée, mais le texte mis à jour n’a pas pu être rechargé. Réessayez l’actualisation sans soumettre à nouveau la modification."
+    "refreshFailed": "Votre modification a été acceptée, mais le texte mis à jour n’a pas pu être rechargé. Réessayez l’actualisation sans soumettre à nouveau la modification.",
+    "acceptedRefreshFailed": "L’envoi a été accepté, mais les dernières données n’ont pas pu être chargées. Réessayez l’actualisation sans envoyer à nouveau.",
+    "readFailed": "Les données de traduction actuelles n’ont pas pu être chargées. Votre brouillon est conservé ; réessayez avant de l’envoyer.",
+    "retryRead": "Réessayer l’actualisation",
+    "identityReadFailed": "Les droits du compte n’ont pas pu être chargés. Réessayez avant de modifier les traductions."
   },
   "workflows": {
     "interviewsDisabledHistory": "Interviews are disabled. Existing records remain available; enable interviews to record completion.",
@@ -4065,6 +4166,7 @@
       },
       "entities": {
         "ImportedRecordProvenance": "Provenance de l’enregistrement historique importé",
+        "ArchiveProvenanceReceipt": "Reçu de rapprochement de provenance d’archive",
         "SchedulingMaintenanceState": "État de maintenance de la planification",
         "SchedulingDirtyEvent": "Événement d’invalidation de la planification",
         "PersonPartitionReceipt": "Reçu de séparation d’identité",
@@ -4189,6 +4291,7 @@
         "MessageTutorAssignment": "Affectation de tuteur pour la messagerie",
         "MessageModeration": "Modération des messages",
         "TranslationDraft": "Brouillon de traduction",
+        "TranslationIntentReceipt": "Reçu d’envoi de traduction",
         "TutorQualification": "Qualification du tuteur dans une matière",
         "QualificationGrant": "Attribution d’une qualification",
         "SchoolCalendarDay": "Jour du calendrier scolaire",
@@ -4918,7 +5021,13 @@
       "ATTEMPT": "Tentative sans modification appliquée"
     },
     "unnamedAccount": "Unnamed account",
-    "formerAccount": "Former account"
+    "formerAccount": "Former account",
+    "filterOptions": "les options de filtre",
+    "retryReads": "Réessayer les lectures d’audit",
+    "loadingReads": "Chargement de l’historique d’audit et des options de filtre…",
+    "loadFailed": "Impossible de charger l’historique d’audit ou les options de filtre.",
+    "refreshFailed": "Impossible d’actualiser l’historique d’audit ou les options de filtre. Les filtres non appliqués sont conservés.",
+    "accessDenied": "Vous n’avez plus accès à l’historique d’audit."
   },
   "userMultiFilters": {
     "all": "All",
@@ -5327,7 +5436,13 @@
     "importTooLarge": "Choose a file smaller than 1 MB.",
     "importEmpty": "The file contains no subjects.",
     "importFileType": "Choose a .json or .csv file.",
-    "importInvalid": "Could not import file: {detail}"
+    "importInvalid": "Could not import file: {detail}",
+    "retry": "Réessayer le chargement du catalogue",
+    "loadFailed": "Impossible de charger le catalogue des matières.",
+    "refreshFailed": "Impossible d’actualiser le catalogue des matières. Vos brouillons sont conservés ; réessayez avant de modifier.",
+    "accessDenied": "Vous n’avez plus accès au catalogue des matières.",
+    "savedRefreshing": "Modifications enregistrées. Actualisation du catalogue…",
+    "savedRefreshFailed": "Modifications enregistrées, mais le catalogue des matières n’a pas pu s’actualiser. Essayez d’actualiser."
   },
   "recruitment": {
     "preview": "Aperçu du formulaire en lecture seule",
@@ -7146,7 +7261,21 @@
     "reloadEvidence": "Recharger les justificatifs actuels (remplacer le brouillon)",
     "historyFollowups": "{count, plural, one {# entretien clôturé nécessite encore} other {# entretiens clôturés nécessitent encore}} l’enregistrement de la fin et l’attribution des heures par l’équipe de gestion.",
     "accessDenied": "L’accès aux entretiens n’est plus disponible. Rechargez la vue pour vérifier vos droits actuels.",
-    "chairNeedsUpdate": "This panel needs an Admin or Head chair. Ask management to update the panel."
+    "chairNeedsUpdate": "This panel needs an Admin or Head chair. Ask management to update the panel.",
+    "noChairInterviews": "Aucun entretien ne vous est attribué en tant que responsable.",
+    "refresh": "Actualiser",
+    "refreshing": "Actualisation…",
+    "correctionEvidence": {
+      "readUnavailable": "Les preuves actuelles de l’entretien doivent être chargées avant la vérification ou l’envoi. Votre brouillon est conservé.",
+      "missingEvidence": "Chargez les participants enregistrés et les crédits actuels de la source avant de vérifier cette modification.",
+      "historyHelp": "Les présences et les heures appartiennent à l’entretien enregistré. Changer le jury de décision ne fait pas de ses nouveaux membres des participants à cet entretien.",
+      "decisionPanel": "Jury de décision actuel : {names}",
+      "participants": "Présences du jury de l’entretien enregistré",
+      "formerPanelist": "Ancien membre du jury",
+      "loading": "Chargement des preuves de réalisation…",
+      "totalChange": "Crédit total : {before} → {after} heures (variation {delta})",
+      "retryArrival": "Réessayer de charger l’entretien"
+    }
   },
   "applicationAccountSetup": {
     "title": "Account Setup · {name}",
@@ -7188,7 +7317,8 @@
     "reload": "Reload interview (replace draft)",
     "unavailable": "This interview is no longer available for your approval.",
     "waitingVotes": "Every panelist must vote before approval.",
-    "changed": "Interview evidence changed. Reload to review current information."
+    "changed": "Interview evidence changed. Reload to review current information.",
+    "retainedService": "Cette approbation conserve la réalisation de l’entretien, les présences et les crédits d’heures enregistrés, y compris les corrections autorisées. Le jury actuel peut différer des personnes dont la présence est enregistrée. Cette approbation n’ajoute ni ne retire d’heures de service."
   },
   "personPartition": {
     "refreshFailed": "The separation was saved, but the directory has not refreshed. Retry the read only.",
@@ -7857,7 +7987,7 @@
     "denied": "Access to this planning source is no longer available.",
     "retry": "Retry",
     "interviewAttention": "These interviews still need attention, even when they have no upcoming date.",
-    "interviewHelp": "Assigned interview dates appear in your agenda. Your chair workspace remains on the dashboard.",
+    "interviewHelp": "Les entretiens attribués apparaissent dans votre planning. Ouvrez n'importe quel entretien pour voter ; les tâches de responsable se trouvent dans l'onglet Responsable d'entretien.",
     "meetingHelp": "Les prochaines dates apparaissent dans votre agenda. Ouvrez les réunions pour justifier une absence et consulter votre historique personnel.",
     "calendarScope": "Calendar subscriptions currently include tutoring sessions only. Interviews and meetings appear here in the portal.",
     "task": {
@@ -7991,7 +8121,49 @@
       "SCHEDULED_REFRESH_REVIEW_CHANGED": "The reviewed refresh conditions changed. Reload and review a new schedule.",
       "SCHEDULED_REFRESH_EXECUTION_FAILED": "The refresh could not complete after repeated attempts. Check the deployment, then review a new schedule or cancel this one.",
       "SCHEDULED_REFRESH_AFTER_OPENING": "Choose a refresh time no later than the prepared tutee signup opening time, or update that preparation first."
-    }
+    },
+    "subtitle": "{current} → {next} · {mode} · {zone}",
+    "notScheduledBadge": "Not scheduled",
+    "dueBadge": "Due now",
+    "retryingBadge": "Retrying ({attempts}/5)",
+    "statusReady": "Scheduled — will run automatically",
+    "statusDue": "Scheduled time reached — running soon",
+    "statusRetrying": "Retrying automatic refresh (attempt {attempts} of 5)",
+    "statusPaused": "Will not run automatically",
+    "statusReadyHelp": "Runs automatically when due (checked every 30s, with catch-up) while period, openings, staged features, timezone, and Head approval stay unchanged.",
+    "statusDueHelp": "Scheduled time reached. Server checks every 30s and runs once reviewed conditions are verified.",
+    "statusRetryingHelp": "Temporary error; retrying automatically up to 5 attempts while conditions stay valid.",
+    "completedAt": "Completed at {time} ({zone}).",
+    "noneHelp": "Schedule a refresh below to advance automatically when all conditions are met, or choose Refresh now.",
+    "conditionsHeading": "Refresh Conditions & Review",
+    "conditionsHelp": "A scheduled refresh runs automatically only while every reviewed condition stays unchanged.",
+    "conditionSync": "Settings and review sync",
+    "conditionSyncReady": "Up to date",
+    "conditionSyncChanged": "Reload required",
+    "conditionSyncError": "Unavailable",
+    "conditionOpenings": "Next-period opening bindings",
+    "conditionOpeningsReady": "Ready",
+    "conditionOpeningsStale": "Needs attention",
+    "conditionFeatures": "Staged optional features",
+    "conditionFeaturesPending": "{count} pending",
+    "conditionFeaturesNone": "No pending changes",
+    "conditionAuth": "Authorization",
+    "conditionAuthApproved": "Authorized by Head",
+    "conditionAuthPending": "Pending Head approval",
+    "conditionAuthDirect": "Head applies directly",
+    "conditionAuthRequest": "Requires Head approval",
+    "conditionAuthReadOnly": "Admin & Head only",
+    "conditionAuthChanged": "Renewed review required",
+    "effectsDisclosure": "Effects & full refresh details",
+    "entranceHeading": "Authorize Refresh",
+    "timingModeLabel": "When should this refresh run?",
+    "modeScheduled": "Schedule for later",
+    "modeImmediate": "Refresh now",
+    "openingBound": "Must be on or before the prepared tutee signup opening ({time}, {zone}).",
+    "immediateHelp": "Advances immediately to {target} after confirmation instead of waiting for a scheduled time.",
+    "immediateSupersedes": "Running a refresh now will advance the period immediately and supersede the currently scheduled refresh.",
+    "immediateReviewTitle": "Review Immediate Refresh",
+    "reschedule": "Review & reschedule"
   },
   "signupTransition": {
     "currentClosed": "{period} tutee signup is closed. The next intake is shown below.",
@@ -8558,5 +8730,46 @@
     "internal": "Impossible de finaliser cette requête. Réessayez dans un instant.",
     "network": "Impossible de joindre le serveur. Vérifiez votre connexion puis réessayez.",
     "generic": "Une erreur s’est produite. Réessayez."
+  },
+  "translationIntent": {
+    "title": "Récupérer les demandes de traduction",
+    "help": "Une demande non confirmée bloque les nouvelles traductions. Consultez son résultat, réessayez la demande originale conservée ou arrêtez-la avant une nouvelle modification.",
+    "pending": "Demande en cours.",
+    "unknown": "Le résultat n’est pas confirmé. N’envoyez pas de demande de remplacement.",
+    "notRecorded": "Aucun résultat définitif n’est encore enregistré. Arrêtez cette demande avant de la remplacer.",
+    "acceptedDraft": "Cette demande a soumis un brouillon. Une révision ou suppression ultérieure n’est pas affichée ici.",
+    "acceptedPublished": "Cette demande a été publiée lors de son acceptation. Le texte actuel peut avoir changé.",
+    "stopped": "Cette demande est arrêtée et ne pourra plus être appliquée.",
+    "restoreOnly": "Revenir ici ne restaure pas le texte soumis. Consultez le résultat ou arrêtez la demande.",
+    "lookup": "Consulter le résultat",
+    "stop": "Arrêter la demande non résolue",
+    "retryExact": "Réessayer la demande originale",
+    "refreshAccepted": "Actualiser le résultat accepté",
+    "dismiss": "Masquer le reçu",
+    "storageFailed": "Le stockage de récupération est indisponible. Les nouveaux envois sont bloqués ; réessayez.",
+    "retryStorage": "Réessayer le stockage",
+    "signIn": "Vérifiez votre compte pour récupérer ses demandes.",
+    "reference": "Demande {id}",
+    "submitFailed": "La réponse n’a pas été confirmée. Consultez le résultat enregistré avant de réessayer.",
+    "refreshFailed": "La demande a été acceptée, mais l’actualisation a échoué. Actualisez sans l’envoyer à nouveau.",
+    "readFailed": "Le résultat enregistré n’a pas pu être vérifié. Consultez-le à nouveau.",
+    "refreshAuthority": "Revérifier l’accès au compte",
+    "modes": {
+      "DRAFT": "Soumission de brouillon",
+      "PUBLISH": "Publication"
+    },
+    "operations": {
+      "localization": {
+        "setString": "Texte de l’interface"
+      },
+      "home": {
+        "setNewsTranslation": "News",
+        "setPageTitle": "Page Titles",
+        "setContent": "Landing Text",
+        "setSectionTranslation": "Website Sections"
+      }
+    },
+    "authorityRequired": "Revérifiez les autorisations du compte avant de réessayer la demande originale, ou arrêtez-la.",
+    "noRequests": "Aucune demande de traduction conservée pour ce compte."
   }
 }

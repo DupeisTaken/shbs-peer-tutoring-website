@@ -2,7 +2,7 @@ import type { HelpArticle, HelpCategory, HelpLocale } from "~/lib/help/types";
 
 export const helpCopy = {
   en: {
-    title: "Help & How-to",
+    title: "Help Center",
     subtitle: "Find your task. Follow the screens. Know what happens next.",
     intro:
       "Step-by-step walkthroughs, explanations and quick fixes for the peer tutoring website.",
@@ -52,10 +52,10 @@ export const helpCopy = {
     source: "View this catalogue on GitHub",
     downloads: "PDF handbooks",
     downloadsHelp:
-      "Download a role handbook for offline reading. Each PDF contains the same walkthroughs and screenshots as this catalogue.",
+      "Download a handbook for offline reading. Each PDF contains the same walkthroughs and screenshots as this catalogue, stamped with the download date and time.",
     download: "Download PDF",
     handbookHelp:
-      "Staff can download participant training handbooks here. Administration and Head handbooks follow your current authority.",
+      "Staff can also distribute participant training handbooks from Management → Administration → PDF handbooks. Administration and Head handbooks follow your current authority.",
     pdfLanguage: "PDF language",
     fallback:
       "This guide is shown in English. English and Chinese editions are currently available.",
@@ -73,7 +73,7 @@ export const helpCopy = {
     },
   },
   zh: {
-    title: "帮助与操作指南",
+    title: "帮助中心",
     subtitle: "找到任务，跟随界面操作，了解接下来会发生什么。",
     intro: "同伴辅导网站的分步操作、原理说明与简要故障排查。",
     home: "返回你的首页",
@@ -121,10 +121,10 @@ export const helpCopy = {
     source: "在 GitHub 查看本目录",
     downloads: "PDF 操作手册",
     downloadsHelp:
-      "下载对应职责的手册以便离线阅读。PDF 与本目录使用相同的操作步骤和截图。",
+      "下载对应手册以便离线阅读。PDF 与本目录使用相同的操作步骤和截图，并附带下载时的日期与时间。",
     download: "下载 PDF",
     handbookHelp:
-      "工作人员可在此下载参与者培训手册。管理审核与负责人手册按当前管理权限提供。",
+      "工作人员也可在“管理区 → 系统管理 → PDF 操作手册”分发参与者培训手册。审核与负责人手册按当前管理权限提供。",
     pdfLanguage: "PDF 语言",
     fallback: "本指南以英文显示。目前提供英文与中文版本。",
     screenshotMissing:

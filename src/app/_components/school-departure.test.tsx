@@ -9,10 +9,15 @@ import {
   within,
 } from "@testing-library/react";
 import { NextIntlClientProvider } from "next-intl";
-import { QueryClient } from "@tanstack/react-query";
+import {
+  QueryClient,
+  QueryClientProvider,
+  useQuery,
+} from "@tanstack/react-query";
 import messages from "../../../messages/en.json";
 import zhMessages from "../../../messages/zh.json";
 import { invalidateAndReport } from "~/lib/invalidate-refresh";
+import { installSessionReadReceipts } from "~/lib/session-read-receipts";
 import { settleRefreshes } from "~/lib/settle-refreshes";
 import {
   DepartureBanner,
@@ -40,6 +45,9 @@ const fixture = vi.hoisted(() => ({
   saveError: null as null | { message: string; data?: { code?: string; approvalId?: string } },
   requestError: null as null | { message: string; data?: { code?: string } },
   refetch: vi.fn(),
+  useStateQuery: undefined as
+    | undefined
+    | ((input: { userId?: string }) => unknown),
   saveCallbacks: undefined as
     | undefined
     | {
@@ -63,13 +71,16 @@ vi.mock("~/trpc/react", () => ({
     useUtils: () => ({ invalidate: fixture.invalidate }),
     departure: {
       state: {
-        useQuery: () => ({
-          data: fixture.data,
-          error: fixture.readError,
-          isSuccess: !fixture.readError && !!fixture.data,
-          isFetching: false,
-          refetch: fixture.refetch,
-        }),
+        useQuery: (input: { userId?: string }) =>
+          fixture.useStateQuery
+            ? fixture.useStateQuery(input)
+            : {
+                data: fixture.data,
+                error: fixture.readError,
+                isSuccess: !fixture.readError && !!fixture.data,
+                isFetching: false,
+                refetch: fixture.refetch,
+              },
       },
       setState: {
         useMutation: (callbacks: typeof fixture.saveCallbacks) => {
@@ -112,6 +123,7 @@ beforeEach(() => {
   fixture.pending = false;
   fixture.savePending = false;
   fixture.readError = null;
+  fixture.useStateQuery = undefined;
   fixture.saveError = null;
   fixture.requestError = null;
   fixture.refetch.mockReset().mockImplementation(async () => ({
@@ -626,32 +638,60 @@ it("recovers accepted saves and queued proposals with read-only Retry refresh wi
 });
 
 it("conceals cached departure evidence on authoritative denial until retry succeeds", async () => {
+  const client = new QueryClient({
+    defaultOptions: { queries: { retry: false } },
+  });
+  installSessionReadReceipts(client);
   fixture.data.events = [
     { id: "ev1", action: "TRANSFERRED", explanation: "Private departure reason" },
   ];
-  const content = () => (
-    <NextIntlClientProvider locale="en" messages={messages}>
-      <SchoolDeparturePanel userId="target-user" />
-    </NextIntlClientProvider>
+  const remote = vi
+    .fn<() => Promise<typeof fixture.data>>()
+    .mockResolvedValueOnce(fixture.data)
+    .mockRejectedValueOnce(
+      Object.assign(new Error("Denied"), { data: { code: "FORBIDDEN" } }),
+    )
+    .mockRejectedValueOnce(new Error("Network down"))
+    .mockResolvedValue(fixture.data);
+  const useLiveState = (input: { userId?: string }) =>
+    useQuery({
+      queryKey: [["departure", "state"], { input, type: "query" }],
+      queryFn: () => remote(),
+      retry: false,
+    });
+  fixture.useStateQuery = useLiveState;
+  render(
+    <QueryClientProvider client={client}>
+      <NextIntlClientProvider locale="en" messages={messages}>
+        <SchoolDeparturePanel userId="target-user" />
+      </NextIntlClientProvider>
+    </QueryClientProvider>,
   );
-  const view = render(content());
-  expect(screen.getByText("Private departure reason")).toBeTruthy();
-  fixture.readError = { message: "Denied", data: { code: "FORBIDDEN" } };
-  view.rerender(content());
+  expect(await screen.findByText("Private departure reason")).toBeTruthy();
+
+  await act(async () => {
+    await client.refetchQueries({ queryKey: [["departure", "state"]] });
+  });
   expect(screen.queryByText("Private departure reason")).toBeNull();
   expect(screen.getByText(messages.schoolDeparture.accessDenied)).toBeTruthy();
+
   // Subsequent transport failure retains denial concealment.
-  fixture.readError = { message: "Network down" };
-  view.rerender(content());
-  expect(screen.queryByText("Private departure reason")).toBeNull();
-  fixture.readError = null;
   await act(async () => {
     fireEvent.click(
       screen.getByRole("button", { name: messages.participantRecovery.retry }),
     );
   });
-  view.rerender(content());
-  expect(screen.getByText("Private departure reason")).toBeTruthy();
+  expect(screen.queryByText("Private departure reason")).toBeNull();
+  expect(screen.getByText(messages.schoolDeparture.accessDenied)).toBeTruthy();
+
+  // A fresh post-denial authorized read releases concealment.
+  await act(async () => {
+    fireEvent.click(
+      screen.getByRole("button", { name: messages.participantRecovery.retry }),
+    );
+  });
+  expect(await screen.findByText("Private departure reason")).toBeTruthy();
+  client.clear();
 });
 
 it("reports active query GET failures through invalidateAndReport + settleRefreshes on a real QueryClient", async () => {

@@ -27,6 +27,7 @@ import {
   confirmEmailCode,
 } from "./auth/registration";
 import { submitSurvey, confirmSurvey, surveyInput } from "./student-survey";
+import { assertIsolatedTestDatabase } from "~/test/database-guard";
 const caller = (id: string, role: Session["role"] = "STUDENT", client: PrismaClient = db) =>
   createCaller({
     db: client,
@@ -45,11 +46,8 @@ const reported = (
   reason: "Self-reported confirmation",
 });
 beforeEach(async () => {
-  const url = new URL(process.env.DATABASE_URL!);
-  if (
-    !["localhost", "127.0.0.1"].includes(url.hostname) ||
-    url.pathname !== "/shbs_shipping_test"
-  )
+  assertIsolatedTestDatabase(process.env.DATABASE_URL);
+  if (new URL(process.env.DATABASE_URL!).pathname !== "/shbs_shipping_test")
     throw Error("Academic tests require isolated local shbs_shipping_test");
   const tables = await db.$queryRaw<
     { tablename: string }[]

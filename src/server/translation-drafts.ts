@@ -1,7 +1,12 @@
 import { notificationInAppEvent } from "~/lib/notification-details";
+import { TRPCError } from "@trpc/server";
 import type { Prisma } from "../../generated/prisma";
 import type { TransactionDb } from "~/server/transactions";
 import { notifyAdmins } from "~/server/notifications/create";
+import {
+  isTranslationPublication,
+  translationPublicationScope,
+} from "./db-scope";
 import {
   TRANSLATION_BASELINE,
   translationBaseline,
@@ -17,8 +22,17 @@ export async function proposeTranslation(
   operation: string,
   payload: Prisma.InputJsonValue,
 ) {
+  if (translationPublicationScope.getStore()) {
+    if (!isTranslationPublication(session.user.id, session.role, operation))
+      throw new TRPCError({
+        code: "FORBIDDEN",
+        message:
+          "Translation publication authority changed. Reload the current review.",
+      });
+    return false;
+  }
   if (["HEAD", "ADMIN"].includes(session.role)) return false;
-  await withTranslationWrite(db, async (tx) => {
+  return withTranslationWrite(db, async (tx) => {
     const fields = z.record(z.string(), z.unknown()).parse(payload);
     const baseline = await translationBaseline(tx, operation, fields);
     const action = approvalNotificationDetail(operation, {}, {}, "pending");
@@ -27,7 +41,7 @@ export async function proposeTranslation(
     const page = operation === "home.setPageTitle" && typeof fields.id === "string" ? await tx.customPage.findUnique({ where: { id: fields.id }, select: { slug: true } }) : null;
     const destination = [news?.title, section?.title, page?.slug, fields.key, fields.slug, fields.postId, fields.sectionId, fields.pageId].find((value) => typeof value === "string");
     const target = typeof destination === "string" ? notificationLabel(destination) : "—";
-    await tx.translationDraft.create({
+    const draft = await tx.translationDraft.create({
       data: {
         authorId: session.user.id,
         operation,
@@ -49,6 +63,6 @@ export async function proposeTranslation(
       undefined,
       tx,
     );
+    return draft.id;
   });
-  return true;
 }

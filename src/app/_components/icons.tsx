@@ -30,6 +30,28 @@ export function NativeDisclosureIcon() {
   );
 }
 
+/** Crisp 1.8px stroke chevron matching `.select` and floating menu triggers. */
+export function ChevronDownIcon({
+  className = "h-3.5 w-3.5",
+}: {
+  className?: string;
+}) {
+  return (
+    <svg
+      aria-hidden="true"
+      viewBox="0 0 16 16"
+      className={className}
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M4.5 6.25 8 9.75l3.5-3.5" />
+    </svg>
+  );
+}
+
 /** Crisp 1.75px stroke inline SVGs shared across chrome and landing cards so icons render
  * consistently across Windows, macOS, iOS and Android without OS emoji drift. */
 export function BellIcon({ className = "h-5 w-5" }: { className?: string }) {
@@ -103,6 +125,29 @@ export function LayersIcon({ className = "h-5 w-5" }: { className?: string }) {
       <polygon points="12 2 2 7 12 12 22 7 12 2" />
       <polyline points="2 17 12 22 22 17" />
       <polyline points="2 12 12 17 22 12" />
+    </svg>
+  );
+}
+
+export function HelpCircleIcon({
+  className = "h-5 w-5",
+}: {
+  className?: string;
+}) {
+  return (
+    <svg
+      aria-hidden="true"
+      viewBox="0 0 24 24"
+      className={className}
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.75"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <circle cx="12" cy="12" r="10" />
+      <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3" />
+      <path d="M12 17h.01" />
     </svg>
   );
 }

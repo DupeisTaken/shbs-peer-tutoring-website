@@ -8,7 +8,7 @@ Screenshot source: `8540496ad9f7c9e64c436270e5e466724c58bb81`. Help screenshots 
 
 This GitHub training copy includes role-specific instructions. Signing in and current program permissions are still required to use the corresponding website features. All examples are synthetic.
 
-- [Use Help & How-to](#use-help--how-to)
+- [Use the Help Center](#use-the-help-center)
 - [Choose the right registration path](#choose-the-right-registration-path)
 - [Request a tutor and finish account review](#request-a-tutor-and-finish-account-review)
 - [Apply to become a tutor](#apply-to-become-a-tutor)
@@ -20,25 +20,25 @@ This GitHub training copy includes role-specific instructions. Signing in and cu
 - [Appeal an invalid signup from its email notice](#appeal-an-invalid-signup-from-its-email-notice)
 - [Use a school-hours report link](#use-a-school-hours-report-link)
 
-## Use Help & How-to
+## Use the Help Center
 
-Find a task, follow its real screens and check what should happen next.
+Find a task, follow its real screens, download offline PDF handbooks and check what happens next.
 
 Open: `/help`
 
 ### Before you start
 
-- Public getting-started guides are available without signing in; sign in to see collections for your current access.
+- Public getting-started guides and their PDF handbook are available from the top-bar Help Center button without signing in; sign in to see collections for your current access.
 
 ### Walkthrough
 
-1. **Search or filter the catalogue** Open Help & How-to. Search a task or symptom such as password, attendance or approval; search includes instructions and troubleshooting. Use Guide audience and Browse by task to narrow results, and Clear filters to reset search and both filters.
+1. **Search or filter the catalogue** Open Help Center from the top bar on any page or from the landing-page footer. Search a task or symptom such as password, attendance or approval; search includes instructions and troubleshooting. Use Guide audience and Browse by task to narrow results, and Clear filters to reset search and both filters.
 
 2. **Follow the task guide** Choose Read guide, check Before you start, then follow numbered steps and Look for directions beside the screens. Use On this page to jump to What happens next, How it works or If something goes wrong. Open this page opens the actual feature; reading instructions grants no access.
 
 3. **Enlarge and identify a screenshot** Select the screenshot to enlarge it. Open Capture details for the original image, route, date and source revision. About these screenshots identifies the development baseline and server. Screens use synthetic demonstration accounts.
 
-4. **Find your role collection or an offline handbook** Sign in to reveal current account, participation and assigned-role guides. Staff can use administration → PDF handbooks to download the editions available to their account. Old FAQ links continue to this catalogue. Use the catalogue's GitHub link for its maintained repository copy.
+4. **Download an offline PDF handbook** Sign in to reveal current account, participation and assigned-role guides. Select PDF handbooks in Help Center to download English or Chinese handbooks for every collection available to you, stamped with the download date and time. Staff can also open Administration → PDF handbooks to distribute training editions. Old FAQ links continue to this catalogue.
 
 ### What happens next
 

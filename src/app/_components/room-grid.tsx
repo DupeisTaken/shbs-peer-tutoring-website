@@ -493,7 +493,7 @@ function ScheduleDetails({
         <label>
           <span className="label">{t("time")}</span>
           <select
-            className="input control-compact lg:min-h-8 lg:py-1"
+            className="select control-compact lg:min-h-8 lg:py-1"
             value={interval}
             onChange={(event) => {
               setInterval(event.target.value);
@@ -511,7 +511,7 @@ function ScheduleDetails({
         <label>
           <span className="label">{t("day")}</span>
           <select
-            className="input control-compact lg:min-h-8 lg:py-1"
+            className="select control-compact lg:min-h-8 lg:py-1"
             value={day}
             onChange={(event) => {
               setDay(event.target.value);
@@ -529,7 +529,7 @@ function ScheduleDetails({
         <label>
           <span className="label">{table("slot")}</span>
           <select
-            className="input control-compact lg:min-h-8 lg:py-1"
+            className="select control-compact lg:min-h-8 lg:py-1"
             value={slot}
             onChange={(event) => setSlot(event.target.value)}
           >
@@ -552,7 +552,7 @@ function ScheduleDetails({
         <label>
           <span className="label">{t("room")}</span>
           <select
-            className="input control-compact lg:min-h-8 lg:py-1"
+            className="select control-compact lg:min-h-8 lg:py-1"
             value={room}
             onChange={(event) => setRoom(event.target.value)}
           >

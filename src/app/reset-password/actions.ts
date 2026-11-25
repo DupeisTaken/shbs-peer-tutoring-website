@@ -1,10 +1,11 @@
 "use server";
 
 import { resetPassword } from "~/server/auth/password-reset";
+import { newPasswordLengthError } from "~/lib/password-contract";
 
 export type ResetState =
   | { ok: true; username: string | null; email: string }
-  | { ok?: false; error: string }
+  | { ok?: false; error: string; code?: "password-length" }
   | undefined;
 
 /**
@@ -23,9 +24,8 @@ export async function resetPasswordAction(
   const confirm = typeof confirmRaw === "string" ? confirmRaw : "";
 
   if (!token) return { error: "This reset link is invalid or has expired." };
-  if (password.length < 8) {
-    return { error: "Password must be at least 8 characters." };
-  }
+  const passwordError = newPasswordLengthError(password);
+  if (passwordError) return { error: passwordError, code: "password-length" };
   if (password !== confirm) return { error: "Passwords don't match." };
 
   const result = await resetPassword(token, password);

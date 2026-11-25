@@ -6,7 +6,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { getQueryKey } from "@trpc/react-query";
 
 import { api, type RouterInputs } from "~/trpc/react";
-import { Button, ChoiceButton } from "~/app/_components/ui/button";
+import { Button } from "~/app/_components/ui/button";
 import { AcademicError } from "~/app/_components/academic-error";
 import { QueryFeedback } from "~/app/_components/ui/query-feedback";
 import { StatePanel } from "~/app/_components/ui/patterns";
@@ -330,34 +330,119 @@ export default function PatrolPage() {
     );
   };
 
-  return (
-    <div className="space-y-6">
-      <div className="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <h1 className="page-title">{t("crew.patrol.title")}</h1>
-          <p className="muted mt-1">{t("crew.patrol.subtitle")}</p>
+  const optOutSection = status === "ACTIVE" && (
+    <section className="border-t border-slate-200/80 pt-3">
+      {pending?.kind === "OPT_OUT" ? (
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <span className="text-xs leading-5 text-slate-600">
+            {t("crew.patrol.optOut.pending")}
+          </span>
+          <button
+            className="btn-secondary btn-sm"
+            disabled={membershipBusy || !!myStatus.error}
+            onClick={() => {
+              if (!myStatus.error) recall.mutate();
+            }}
+          >
+            {t("crew.patrol.optOut.recall")}
+          </button>
         </div>
-        {canPatrol && !configHidden && config.data !== undefined && (
-          <div className="card px-4 py-2 text-right">
-            <p className="text-xs font-medium tracking-wide text-slate-500 uppercase">
-              {t("crew.patrol.myHours")}
-            </p>
-            <p className="text-2xl font-bold text-slate-900">
-              {config.data.myHours.toFixed(1)} h
-            </p>
-            <p className="muted text-xs">
-              {t("crew.patrol.patrolCount", {
-                count: config.data.myPatrols,
-              })}
+      ) : showOptOut ? (
+        <div className="space-y-3 rounded-xl border border-slate-200 bg-white p-4">
+          <label
+            className="block text-sm font-medium text-slate-700"
+            htmlFor={`${fieldId}-reason`}
+          >
+            {t("crew.patrol.optOut.reasonLabel")}
+          </label>
+          <textarea
+            id={`${fieldId}-reason`}
+            disabled={optOutBlocked}
+            value={optOutReason}
+            onChange={(e) => setOptOutReason(e.target.value)}
+            placeholder={t("crew.patrol.optOut.reason")}
+            rows={2}
+            maxLength={500}
+            className="textarea"
+          />
+          <div className="flex flex-wrap gap-2">
+            <Button
+              variant="danger"
+              size="compact"
+              disabled={optOutBlocked}
+              onClick={reviewOptOut}
+            >
+              {t("crew.patrol.optOut.submit")}
+            </Button>
+            <Button
+              variant="secondary"
+              size="compact"
+              disabled={membershipBusy}
+              onClick={() => setShowOptOut(false)}
+            >
+              {t("common.close")}
+            </Button>
+          </div>
+        </div>
+      ) : (
+        <div className="flex items-center justify-between gap-2">
+          <span className="text-xs text-slate-600">{t("crew.role")}</span>
+          <Button
+            variant="danger"
+            size="compact"
+            disabled={optOutBlocked}
+            onClick={() => setShowOptOut(true)}
+          >
+            {t("crew.patrol.optOut.request")}
+          </Button>
+        </div>
+      )}
+      {(optOut.error ?? recall.error) && (
+        <p className="mt-2 text-sm text-red-600">
+          {(optOut.error ?? recall.error)?.message}
+        </p>
+      )}
+    </section>
+  );
+
+  return (
+    <div className="space-y-5">
+      {/* Hero + crew service-hours card matching the tutor dashboard summary */}
+      <section className="border-accent-100 bg-accent-50/45 rounded-xl border p-4 sm:p-5">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="min-w-0 flex-1">
+            <h1 className="page-title">{t("crew.patrol.title")}</h1>
+            <p className="muted mt-1 max-w-prose">
+              {t("crew.patrol.subtitle")}
             </p>
           </div>
-        )}
-      </div>
+          {canPatrol && !configHidden && config.data !== undefined && (
+            <div className="grid w-full min-w-0 gap-3 sm:flex sm:w-auto sm:shrink-0 sm:flex-wrap">
+              <section
+                aria-label={t("crew.patrol.myHours")}
+                className="min-w-0 rounded-lg border border-slate-200 bg-white p-4 text-right sm:min-w-48 sm:max-w-full"
+              >
+                <h2 className="text-xs leading-4 font-medium tracking-wide text-slate-600 uppercase">
+                  {t("crew.patrol.myHours")}
+                </h2>
+                <p className="mt-2 text-4xl leading-none font-bold tracking-tight text-slate-900 tabular-nums">
+                  {config.data.myHours.toFixed(1)} <span>h</span>
+                </p>
+                <p className="mt-3 border-t border-slate-100 pt-2 text-sm leading-5 text-slate-600 tabular-nums">
+                  {t("crew.patrol.patrolCount", {
+                    count: config.data.myPatrols,
+                  })}
+                </p>
+              </section>
+            </div>
+          )}
+        </div>
+      </section>
       {readFeedback("status", t("crew.patrol.statusLabel"))}
 
       {/* Opted-out / paused notice (no patrolling) */}
       {!statusHidden && status === "OPTED_OUT" && (
-        <section className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-4 text-amber-800">
+        <section className="rounded-xl border border-amber-200 bg-amber-50 px-5 py-4 text-amber-800">
           <p className="font-semibold">{t("crew.patrol.optedOut.title")}</p>
           <p className="mt-1 text-sm">{t("crew.patrol.optedOut.body")}</p>
           <div className="mt-3">
@@ -385,7 +470,7 @@ export default function PatrolPage() {
         </section>
       )}
       {!statusHidden && status === "INACTIVE" && (
-        <section className="rounded-lg border border-slate-200 bg-slate-50 px-4 py-4 text-slate-700">
+        <section className="rounded-xl border border-slate-200 bg-slate-50 px-5 py-4 text-slate-700">
           <p className="font-semibold">{t("crew.patrol.inactive.title")}</p>
           <p className="mt-1 text-sm">{t("crew.patrol.inactive.body")}</p>
         </section>
@@ -394,207 +479,239 @@ export default function PatrolPage() {
       {canPatrol && (
         <>
           {readFeedback("config", t("crew.patrol.title"))}
-          {/* The sweep — one row per room in patrol order. */}
           {!configHidden && config.data !== undefined && (
-            <section className="card divide-y divide-slate-100">
-              {rooms.length === 0 && !config.error ? (
-                <p className="muted p-4">{t("crew.patrol.noRooms")}</p>
-              ) : (
-                rooms.map((room, i) => {
-                  const chosen = counts[room.id]?.headcount;
-                  return (
+            <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_20rem]">
+              {/* Primary workbench: connected patrol route sheet */}
+              <section className="overflow-hidden rounded-xl border border-slate-200 bg-white">
+                {rooms.length > 0 && (
+                  <div className="flex items-center gap-3 border-b border-slate-100 px-4 py-3 sm:px-5">
+                    {/* Per-room stop progress strip: each segment mirrors an exact room along the route. */}
                     <div
-                      key={room.id}
-                      className="flex flex-wrap items-center gap-3 px-4 py-3"
+                      className="flex flex-1 items-center gap-1"
+                      aria-hidden="true"
                     >
-                      <span className="w-7 text-sm font-semibold text-slate-600">
-                        {i + 1}
-                      </span>
-                      <span className="min-w-28 flex-1 font-medium text-slate-800">
-                        {room.name}
-                      </span>
-                      {/* Room grouping names repeated choices; pressed state exposes the recorded value. */}
-                      <div
-                        role="group"
-                        aria-label={room.name}
-                        className="flex flex-wrap gap-2"
-                      >
-                        {BUCKETS.map((b) => (
-                          <ChoiceButton
-                            key={b.value}
-                            selected={chosen === b.value}
-                            disabled={submit.isPending || !canEditPatrol}
-                            onClick={() => pick(room.id, b.value)}
-                            className="font-semibold"
-                          >
-                            {b.label}
-                          </ChoiceButton>
-                        ))}
-                      </div>
+                      {rooms.map((room) => (
+                        <span
+                          key={room.id}
+                          className={`h-1.5 flex-1 rounded-full transition-colors duration-200 ${
+                            counts[room.id]
+                              ? "bg-[var(--action-background)]"
+                              : "bg-slate-200/80"
+                          }`}
+                        />
+                      ))}
                     </div>
-                  );
-                })
-              )}
-            </section>
-          )}
+                    <span className="shrink-0 text-xs font-semibold text-slate-600 tabular-nums">
+                      {recorded} / {rooms.length}
+                    </span>
+                  </div>
+                )}
 
-          {!configHidden && config.data !== undefined && (
-            <div className="space-y-3">
-              <label
-                className="block text-sm font-medium text-slate-700"
-                htmlFor={`${fieldId}-note`}
-              >
-                {t("crew.patrol.noteLabel")}
-              </label>
-              <textarea
-                id={`${fieldId}-note`}
-                value={note}
-                disabled={submit.isPending || !canEditPatrol}
-                onChange={(e) => {
-                  if (
-                    canEditPatrol &&
-                    !submissionInFlight.current &&
-                    !submit.isPending
-                  )
-                    setNote(e.target.value);
-                }}
-                placeholder={t("crew.patrol.notePlaceholder")}
-                rows={2}
-                className="textarea"
-              />
-              <div className="flex flex-wrap items-center gap-3">
-                <button
-                  className="btn-primary"
-                  disabled={
-                    recorded === 0 || submit.isPending || !canEditPatrol
-                  }
-                  onClick={onSubmit}
-                >
-                  {submit.isPending
-                    ? t("crew.patrol.submitting")
-                    : t("crew.patrol.submit", { count: recorded })}
-                </button>
-                {submit.isSuccess && (
-                  <span role="status" className="text-sm text-green-700">
-                    {t(
-                      submit.data?.hours === 0
-                        ? "crew.patrol.recordedWithoutCredit"
-                        : "crew.patrol.submitted",
+                {rooms.length === 0 && !config.error ? (
+                  <p className="muted p-5">{t("crew.patrol.noRooms")}</p>
+                ) : (
+                  <ol className="divide-y divide-slate-100">
+                    {rooms.map((room, i) => {
+                      const chosen = counts[room.id]?.headcount;
+                      const isFirst = i === 0;
+                      const isLast = i === rooms.length - 1;
+                      const nextChosen =
+                        !isLast && rooms[i + 1]
+                          ? Boolean(counts[rooms[i + 1]!.id])
+                          : false;
+                      const prevChosen =
+                        !isFirst && rooms[i - 1]
+                          ? Boolean(counts[rooms[i - 1]!.id])
+                          : false;
+                      return (
+                        <li
+                          key={room.id}
+                          className={`relative flex flex-col gap-2.5 px-4 py-3.5 transition-colors sm:flex-row sm:items-center sm:justify-between sm:gap-4 sm:px-5 ${
+                            chosen ? "bg-accent-50/25" : ""
+                          }`}
+                        >
+                          <div className="flex min-w-0 items-center gap-3">
+                            {/* Vertical route rail showing real hallway walk order */}
+                            <div
+                              className="relative flex w-5 shrink-0 items-center justify-center self-stretch"
+                              aria-hidden="true"
+                            >
+                              {!isFirst && (
+                                <span
+                                  className={`absolute -top-4 bottom-1/2 left-1/2 hidden w-px -translate-x-1/2 transition-colors sm:block ${
+                                    chosen && prevChosen
+                                      ? "bg-accent-400"
+                                      : "bg-slate-200"
+                                  }`}
+                                />
+                              )}
+                              {!isLast && (
+                                <span
+                                  className={`absolute top-1/2 -bottom-4 left-1/2 hidden w-px -translate-x-1/2 transition-colors sm:block ${
+                                    chosen && nextChosen
+                                      ? "bg-accent-400"
+                                      : "bg-slate-200"
+                                  }`}
+                                />
+                              )}
+                              <span
+                                className={`relative z-10 h-2.5 w-2.5 rounded-full border-2 transition-colors ${
+                                  chosen
+                                    ? "border-[var(--action-background)] bg-[var(--action-background)]"
+                                    : "border-slate-300 bg-white"
+                                }`}
+                              />
+                            </div>
+                            <span className="w-5 shrink-0 text-xs font-medium text-slate-500 tabular-nums">
+                              {String(i + 1).padStart(2, "0")}
+                            </span>
+                            <span className="min-w-0 truncate text-[15px] font-semibold text-slate-900">
+                              {room.name}
+                            </span>
+                          </div>
+
+                          {/* Unified segmented headcount tally bar */}
+                          <div
+                            role="group"
+                            aria-label={room.name}
+                            className="grid w-full grid-cols-5 gap-0.5 rounded-lg bg-slate-100 p-1 sm:w-64 sm:shrink-0"
+                          >
+                            {BUCKETS.map((b) => {
+                              const selected = chosen === b.value;
+                              return (
+                                <button
+                                  key={b.value}
+                                  type="button"
+                                  aria-pressed={selected}
+                                  disabled={submit.isPending || !canEditPatrol}
+                                  onClick={() => pick(room.id, b.value)}
+                                  className={`focus-visible:ring-accent-500 inline-flex min-h-11 items-center justify-center rounded-md text-sm font-semibold tabular-nums transition focus-visible:ring-2 focus-visible:ring-offset-1 focus-visible:outline-hidden disabled:cursor-not-allowed disabled:opacity-50 lg:min-h-8 ${
+                                    selected
+                                      ? "bg-[var(--action-background)] text-white shadow-xs"
+                                      : "text-slate-700 hover:bg-white/80 hover:text-slate-900"
+                                  }`}
+                                >
+                                  {b.label}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </li>
+                      );
+                    })}
+                  </ol>
+                )}
+              </section>
+
+              {/* Right rail: sweep note + commit action, recent log, and quiet membership controls */}
+              <div className="space-y-4 lg:sticky lg:top-24">
+                <section className="rounded-xl border border-slate-200 bg-white p-4 sm:p-5">
+                  <div className="space-y-3">
+                    <label
+                      className="block text-sm font-medium text-slate-800"
+                      htmlFor={`${fieldId}-note`}
+                    >
+                      {t("crew.patrol.noteLabel")}
+                    </label>
+                    <textarea
+                      id={`${fieldId}-note`}
+                      value={note}
+                      disabled={submit.isPending || !canEditPatrol}
+                      onChange={(e) => {
+                        if (
+                          canEditPatrol &&
+                          !submissionInFlight.current &&
+                          !submit.isPending
+                        )
+                          setNote(e.target.value);
+                      }}
+                      placeholder={t("crew.patrol.notePlaceholder")}
+                      rows={3}
+                      className="textarea bg-slate-50/50 focus:bg-white"
+                    />
+                    <button
+                      className="btn-primary w-full"
+                      disabled={
+                        recorded === 0 || submit.isPending || !canEditPatrol
+                      }
+                      onClick={onSubmit}
+                    >
+                      {submit.isPending
+                        ? t("crew.patrol.submitting")
+                        : t("crew.patrol.submit", { count: recorded })}
+                    </button>
+                    {submit.isSuccess && (
+                      <p role="status" className="text-sm text-green-700">
+                        {t(
+                          submit.data?.hours === 0
+                            ? "crew.patrol.recordedWithoutCredit"
+                            : "crew.patrol.submitted",
+                        )}
+                      </p>
                     )}
-                  </span>
+                    {submit.error && (
+                      <p role="alert" className="text-sm text-red-600">
+                        {submit.error.message}
+                      </p>
+                    )}
+                  </div>
+                </section>
+
+                {/* Recent patrols */}
+                {readFeedback("history", t("crew.patrol.recent"))}
+                {!historyHidden && (history.data?.length ?? 0) > 0 && (
+                  <section className="overflow-hidden rounded-xl border border-slate-200 bg-white">
+                    <div className="border-b border-slate-100 px-4 py-3">
+                      <h2 className="text-sm font-semibold text-slate-900">
+                        {t("crew.patrol.recent")}
+                      </h2>
+                    </div>
+                    <div className="divide-y divide-slate-100">
+                      {(history.data ?? []).map((p) => (
+                        <div key={p.id} className="space-y-2 px-4 py-3">
+                          <div className="flex items-center justify-between gap-2">
+                            <p className="text-xs font-medium text-slate-700">
+                              {programFormat.dateTime(new Date(p.createdAt), {
+                                dateStyle: "medium",
+                                timeStyle: "short",
+                              })}
+                            </p>
+                            <span className="badge-slate tabular-nums">
+                              {p.hours.toFixed(1)} h
+                            </span>
+                          </div>
+                          <div className="flex flex-wrap gap-1.5">
+                            {p.observations.map((o, idx) => (
+                              <span
+                                key={`${p.id}-${idx}`}
+                                className="rounded bg-slate-100 px-1.5 py-0.5 text-xs text-slate-700 tabular-nums"
+                              >
+                                {o.room.name}:{" "}
+                                <strong className="font-semibold text-slate-900">
+                                  {BUCKETS.find((b) => b.value === o.headcount)
+                                    ?.label ?? o.headcount}
+                                </strong>
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </section>
                 )}
-                {submit.error && (
-                  <span role="alert" className="text-sm text-red-600">
-                    {submit.error.message}
-                  </span>
-                )}
+
+                {/* Quiet opt-out / membership footer (ACTIVE crew only) */}
+                {optOutSection}
               </div>
             </div>
           )}
 
-          {/* Recent patrols */}
-          {readFeedback("history", t("crew.patrol.recent"))}
-          {!historyHidden && (history.data?.length ?? 0) > 0 && (
-            <section className="space-y-2">
-              <h2 className="section-title">{t("crew.patrol.recent")}</h2>
-              <div className="card divide-y divide-slate-100">
-                {(history.data ?? []).map((p) => (
-                  <div key={p.id} className="px-4 py-3">
-                    <p className="text-sm font-medium text-slate-800">
-                      {programFormat.dateTime(new Date(p.createdAt), {
-                        dateStyle: "medium",
-                        timeStyle: "short",
-                      })}{" "}
-                      · {p.hours.toFixed(1)} h
-                    </p>
-                    <p className="muted mt-0.5 text-xs">
-                      {p.observations
-                        .map(
-                          (o) =>
-                            `${o.room.name}: ${
-                              BUCKETS.find((b) => b.value === o.headcount)
-                                ?.label ?? o.headcount
-                            }`,
-                        )
-                        .join(" · ")}
-                    </p>
-                  </div>
-                ))}
-              </div>
-            </section>
-          )}
-
-          {/* Opt-out (ACTIVE crew only — not elevated admins, who have no crew status) */}
-          {status === "ACTIVE" && (
-            <section className="card p-4">
-              {pending?.kind === "OPT_OUT" ? (
-                <div className="flex flex-wrap items-center gap-3">
-                  <span className="text-sm text-slate-700">
-                    {t("crew.patrol.optOut.pending")}
-                  </span>
-                  <button
-                    className="btn-secondary btn-sm"
-                    disabled={membershipBusy || !!myStatus.error}
-                    onClick={() => {
-                      if (!myStatus.error) recall.mutate();
-                    }}
-                  >
-                    {t("crew.patrol.optOut.recall")}
-                  </button>
-                </div>
-              ) : showOptOut ? (
-                <div className="space-y-2">
-                  <label
-                    className="block text-sm font-medium text-slate-700"
-                    htmlFor={`${fieldId}-reason`}
-                  >
-                    {t("crew.patrol.optOut.reasonLabel")}
-                  </label>
-                  <textarea
-                    id={`${fieldId}-reason`}
-                    disabled={optOutBlocked}
-                    value={optOutReason}
-                    onChange={(e) => setOptOutReason(e.target.value)}
-                    placeholder={t("crew.patrol.optOut.reason")}
-                    rows={2}
-                    maxLength={500}
-                    className="textarea"
-                  />
-                  <div className="flex gap-2">
-                    <Button
-                      variant="danger"
-                      size="compact"
-                      disabled={optOutBlocked}
-                      onClick={reviewOptOut}
-                    >
-                      {t("crew.patrol.optOut.submit")}
-                    </Button>
-                    <Button
-                      variant="secondary"
-                      size="compact"
-                      disabled={membershipBusy}
-                      onClick={() => setShowOptOut(false)}
-                    >
-                      {t("common.close")}
-                    </Button>
-                  </div>
-                </div>
-              ) : (
-                <Button
-                  variant="danger"
-                  size="compact"
-                  disabled={optOutBlocked}
-                  onClick={() => setShowOptOut(true)}
-                >
-                  {t("crew.patrol.optOut.request")}
-                </Button>
-              )}
-              {(optOut.error ?? recall.error) && (
-                <p className="mt-2 text-sm text-red-600">
-                  {(optOut.error ?? recall.error)?.message}
-                </p>
-              )}
-            </section>
+          {/* Fallback when patrol config is hidden/failed: keep history & opt-out reachable */}
+          {(configHidden || config.data === undefined) && (
+            <>
+              {readFeedback("history", t("crew.patrol.recent"))}
+              {optOutSection}
+            </>
           )}
         </>
       )}

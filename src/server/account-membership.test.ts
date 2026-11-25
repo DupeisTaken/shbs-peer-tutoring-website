@@ -17,7 +17,7 @@ const password = "SyntheticPassword123!";
 const base: AccountMembership = { rank: "NONE", viewer: false, tutor: false, tutee: false, translator: false, crew: false };
 const caller = (id = head) => createCaller({ db, headers: new Headers(), session: {
   user: { id, name: "Synthetic reviewer", email: `${id}@example.test` },
-  role: "HEAD" as Session["role"], tutorId: null, expires: "2099-01-01",
+  role: "HEAD" as Session["role"], tutorId: null, sessionVersion: 0, historyAccessRevision: 0, expires: "2099-01-01",
 } });
 
 beforeEach(async () => {

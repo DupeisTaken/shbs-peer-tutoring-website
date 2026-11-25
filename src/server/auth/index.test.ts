@@ -126,3 +126,50 @@ it("issues a new login at the proved generation after rotation, then rejects it 
   mocks.findUser.mockResolvedValue({ role: "VIEWER", tutorId: null, sessionVersion: 2 });
   expect(await mocks.jwt!({ token: token! })).toBeNull();
 });
+
+it("refreshes token.email on token reuse and sign-in after a verified primary email change", async () => {
+  mocks.findUser.mockResolvedValue({
+    emailVerifiedAt: new Date(),
+    tutorId: null,
+    sessionVersion: 3,
+  });
+  mocks.credentialState.mockResolvedValue({ sessionVersion: 3 });
+  mocks.updateUser.mockResolvedValue({
+    id: "admin-1",
+    name: "Admin User",
+    email: "old@example.test",
+    role: "ADMIN",
+    tutorId: null,
+    sessionVersion: 3,
+    historyAccessRevision: 1,
+  });
+  const signedIn = await mocks.jwt!({
+    token: { role: "ADMIN", tutorId: null },
+    user: { id: "admin-1", email: "old@example.test", sessionVersion: 3 },
+  });
+  expect(signedIn).toMatchObject({
+    sub: "admin-1",
+    email: "old@example.test",
+    role: "ADMIN",
+    sessionVersion: 3,
+  });
+
+  mocks.findUser.mockResolvedValue({
+    name: "Admin User",
+    email: "new@example.test",
+    role: "ADMIN",
+    tutorId: null,
+    tutorAccessRevoked: false,
+    sessionVersion: 3,
+    historyAccessRevision: 1,
+    mergedIntoId: null,
+    recoveryVoidedAt: null,
+  });
+  const reused = await mocks.jwt!({ token: signedIn! });
+  expect(reused).toMatchObject({
+    sub: "admin-1",
+    email: "new@example.test",
+    role: "ADMIN",
+    sessionVersion: 3,
+  });
+});

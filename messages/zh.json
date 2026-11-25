@@ -1,6 +1,6 @@
 {
   "helpNav": {
-    "title": "帮助与操作指南",
+    "title": "帮助中心",
     "downloads": "PDF 操作手册"
   },
   "recoveryWorkflow": {
@@ -32,6 +32,7 @@
     "calendarCreate": "创建私人链接",
     "calendarRevoke": "撤销私人链接",
     "calendarUnavailable": "没有符合条件的当前参与记录，暂不可订阅日历。",
+    "calendarCreateHelp": "这将创建一个只读的个人辅导日历私人链接。请妥善保管，任何获得链接的人都可以查看你的日程安排。",
     "calendarRotateHelp": "创建新链接将撤销所有旧链接。使用旧链接的日历订阅将停止更新。",
     "calendarRevokeHelp": "此操作会停用日历订阅链接，日历应用将停止更新，不会影响你的辅导安排。",
     "publicationUnavailable": "有 {count} 项每周安排需要核对，暂无法生成具体日期的辅导。",
@@ -239,7 +240,8 @@
       "NEXT_RECRUITMENT_CLOSING_CONFLICT": "开放时间必须早于目标周期已有的截止时间。"
     },
     "featureAfterRefreshEnabled": "刷新后：开启",
-    "featureAfterRefreshDisabled": "刷新后：关闭"
+    "featureAfterRefreshDisabled": "刷新后：关闭",
+    "embeddedHelp": "仅在刷新时生效；预约后修改需要重新审核预约。"
   },
   "historicalInvitation": {
     "claimUncertain": "认领结果尚未确定。请重新读取邀请以查询结果；不要重复提交。",
@@ -563,7 +565,13 @@
         "enable": "启用双重验证",
         "disable": "停用双重验证",
         "saving": "正在保存…",
-        "saved": "双重验证设置已更新。"
+        "saved": "双重验证设置已更新。",
+        "loading": "正在加载双重验证设置…",
+        "loadFailed": "无法加载双重验证设置。",
+        "refreshFailed": "无法刷新双重验证设置。已保留输入的密码，请重试后再保存。",
+        "refreshing": "正在刷新双重验证设置…",
+        "accessDenied": "无法访问双重验证设置。",
+        "savedRefreshFailed": "已保存，但双重验证设置未能刷新，请重试刷新。"
       }
     },
     "forgotPassword": "忘记密码？",
@@ -596,7 +604,8 @@
         "confirmPassword": "确认新密码"
       },
       "submit": "设置新密码",
-      "saving": "保存中…"
+      "saving": "保存中…",
+      "passwordLength": "请使用 {min}–{max} 个字符。"
     },
     "onboarding": {
       "proofRequired": "请打开邮箱收到的链接以验证地址并设置密码。如无法访问此邮箱，请联系项目团队。",
@@ -682,7 +691,8 @@
       "teamSignin": "登录",
       "becomeCrew": "加入巡查队",
       "viewerSignup": "关注项目",
-      "landmark": "网站导航"
+      "landmark": "网站导航",
+      "signInAndJoin": "登录与加入"
     },
     "tagline": "朋辈辅导项目",
     "heroTitle": "一起学习，共同成长。",
@@ -1182,7 +1192,7 @@
       "noPeriod": "暂无活动的项目时段。请先创建或运行种子。",
       "currentPeriod": "当前时段",
       "semester": "学期 {semester}",
-      "refreshHeading": "刷新到下一季度",
+      "refreshHeading": "项目刷新",
       "advancesTo": "此操作会将项目推进到 {name}，并：",
       "effectPending": "清空待处理的学习伙伴报名队列（归档为停用）。",
       "effectTutees": "归档所有待处理和活跃的学习伙伴，包括尚未配对的学习伙伴。他们需要重新报名才能继续。",
@@ -1339,7 +1349,22 @@
         "deny": "拒绝",
         "review": "审核申诉",
         "message": "申诉原文",
-        "refreshFailed": "申诉处理结果已保存，但账号或申诉列表未能刷新。请重试刷新，无需再次提交处理结果。"
+        "refreshFailed": "申诉处理结果已保存，但账号或申诉列表未能刷新。请重试刷新，无需再次提交处理结果。",
+        "restrictionHeading": "当前账号限制",
+        "restricted": "已暂停",
+        "active": "已恢复正常",
+        "restrictedAt": "暂停时间：{date}",
+        "submittedAt": "申诉提交时间：{date}",
+        "noReason": "未记录暂停原因。",
+        "coResolveHelp": "批准将恢复账号访问权限，并一并处理该账号的所有待处理申诉。",
+        "activeHelp": "该账号已处于正常状态。批准只会关闭所有待处理申诉，不会更改权限；此时不可拒绝。",
+        "reloadReview": "重新加载限制审核",
+        "reviewChanged": "该申诉或账号限制已变更，请重新加载后再决定。",
+        "reviewUnavailable": "无法确认最新审核信息，请重试后再决定。",
+        "approveClose": "批准并关闭申诉",
+        "accessRestored": "账号访问权限已恢复，所有待处理申诉已批准。",
+        "closedActive": "待处理申诉已关闭。账号原本已正常，权限未更改。",
+        "deniedReceipt": "申诉已拒绝，账号仍保持暂停状态。"
       }
     },
     "submissions": {
@@ -1654,7 +1679,18 @@
         "consequence": "此操作将永久删除该调整并更改辅导伙伴的服务时数总计。请先核对辅导伙伴、月份和时数。",
         "confirm": "删除调整"
       },
-      "create": "新增服务时数调整"
+      "create": "新增服务时数调整",
+      "source": {
+        "label": "来源",
+        "other": "其他时数调整",
+        "interview": "面试来源",
+        "orphaned": "面试记录不可用",
+        "unresolved": "面试来源待核实",
+        "conflicting": "面试来源存在冲突",
+        "correct": "更正面试时数",
+        "help": "这些时数来自已记录的面试服务。请核对面试记录，以更正完成时间、时长或出席情况。",
+        "unavailable": "此记录当前无法打开面试完成更正。"
+      }
     },
     "applications": {
       "title": "辅导伙伴申请",
@@ -1748,7 +1784,21 @@
         "unavailable": "{name}（不可用，请替换）",
         "chairSlot": "选择第 {n} 位面试成员为主席"
       },
-      "setupTargetUnavailable": "关联的辅导伙伴记录不可用。请先刷新此申请，再设置账号。"
+      "setupTargetUnavailable": "关联的辅导伙伴记录不可用。请先刷新此申请，再设置账号。",
+      "panelDraft": {
+        "changed": "编辑期间，面试小组已发生变化。请重新加载并核对当前小组。",
+        "reloadHelp": "重新加载会用当前已保存的面试小组替换此草稿。",
+        "reload": "重新加载面试小组",
+        "loading": "正在加载面试小组…",
+        "retry": "重试加载面试小组",
+        "reloadError": "无法加载当前面试小组。你的草稿保持不变。",
+        "refreshError": "面试小组变更已提交，但无法加载当前小组。请先重试加载，再进行其他更改。"
+      },
+      "panelRepair": {
+        "reason": "修复面试小组的原因",
+        "save": "修复面试小组",
+        "consequence": "替换此未完成的小组会清除其投票。已记录的完成信息和已获服务时数将保留为历史；新成员不会自动获得时数。替换后的小组所有成员都必须重新投票。"
+      }
     },
     "cards": {
       "title": "学习伙伴纪律",
@@ -1863,7 +1913,7 @@
     },
     "tutorRequests": {
       "title": "辅导伙伴状态申请",
-      "help": "辅导伙伴发起的成员变更申请。退出申请须经过一周冷静期方可审批；重新加入申请则立即生效。",
+      "help": "辅导伙伴发起的成员变更申请。退出申请须经过一周冷静期方可审批；重新加入申请可立即审核，审批通过后生效。",
       "kind": {
         "OPT_OUT": "退出",
         "REENTRY": "重新加入"
@@ -2534,7 +2584,10 @@
       "panel": "面试小组：{members}",
       "headSuffix": "（组长）",
       "scheduled": "已安排：{time}",
-      "awaitingSchedule": "等待组长安排时间。"
+      "awaitingSchedule": "等待组长安排时间。",
+      "chairHelp": "你担任组长的面试。在此安排面试时间、查看评审投票并记录最终决定；你的个人投票请在日程中的面试事件里提交。",
+      "voteInSchedule": "前往日程投票",
+      "updateVoteInSchedule": "在日程中修改投票"
     },
     "announcements": {
       "label": "公告",
@@ -2558,7 +2611,7 @@
       "currentPassword": "当前密码",
       "newPassword": "新密码",
       "confirmPassword": "确认新密码",
-      "pwHelp": "至少 8 个字符。",
+      "pwHelp": "请使用 8–1024 个字符。",
       "changePasswordBtn": "修改密码",
       "changing": "修改中…",
       "passwordChanged": "密码已修改。",
@@ -2579,7 +2632,9 @@
       "reentryBtn": "申请重新加入",
       "recall": "撤回申请",
       "statusNote": "你的辅导伙伴状态为「{status}」，仅供查看——如需变更请联系管理员。",
-      "profileSyncFailed": "已保存，但重新加载失败，请点击重试。"
+      "profileSyncFailed": "已保存，但重新加载失败，请点击重试。",
+      "pwTooLong": "请勿超过 {max} 个字符。",
+      "backToDashboard": "返回主页"
     },
     "dashboard": {
       "pending": {
@@ -2647,7 +2702,8 @@
       "schedule": "日程",
       "pairings": "配对",
       "preferences": "偏好设置",
-      "history": "历史与服务时数"
+      "history": "历史与服务时数",
+      "chair": "面试组长"
     }
   },
   "public": {
@@ -2876,7 +2932,12 @@
       "enterTutor": "进入辅导伙伴主页",
       "enterAdmin": "进入管理区",
       "enterTutee": "进入学习伙伴主页",
-      "backToManagement": "返回管理主页"
+      "backToManagement": "返回管理主页",
+      "groups": {
+        "workspaces": "工作区",
+        "tools": "常用功能",
+        "account": "账号"
+      }
     },
     "theme": {
       "label": "主题",
@@ -2888,6 +2949,20 @@
         "amber": "琥珀",
         "sky": "天蓝"
       }
+    },
+    "workspaceTitles": {
+      "management": "管理区",
+      "viewer": "项目概览",
+      "tutor": "辅导伙伴",
+      "tutee": "学习伙伴",
+      "patrol": "巡查队",
+      "translations": "翻译",
+      "programHome": "项目主页"
+    },
+    "workspaceSwitcher": {
+      "label": "切换页面",
+      "workspaces": "工作区",
+      "general": "通用"
     }
   },
   "localization": {
@@ -2941,7 +3016,16 @@
       "codeSent": "我们已将验证码发送至 {email}，请在下方输入以完成更改。",
       "codeLabel": "电子邮箱验证码",
       "resend": "重新发送",
-      "cancel": "取消"
+      "cancel": "取消",
+      "deliveryFailed": "邮件发送失败，请稍后重试。"
+    },
+    "tutorSettings": "辅导伙伴设置",
+    "sections": {
+      "profile": "个人资料",
+      "security": "安全与邮箱",
+      "notifications": "通知",
+      "access": "角色与权限",
+      "membership": "成员资格与权限"
     }
   },
   "crew": {
@@ -3027,7 +3111,17 @@
     "newer": "较新记录",
     "older": "较早记录",
     "details": "变更详情",
-    "patrolChanged": "巡查记录已变更。请重新加载后再更正。"
+    "patrolChanged": "巡查记录已变更。请重新加载后再更正。",
+    "patrolRooms": "巡查教室选项",
+    "reloadPatrol": "重新加载巡查草稿",
+    "patrolReloadFailed": "无法加载最新的巡查记录和教室选项，你的草稿已保留。",
+    "patrolUnavailable": "此巡查记录已不在当前历史页中，你的草稿已保留。",
+    "patrolSaved": "更正已保存，正在刷新巡查历史…",
+    "patrolSavedRefreshFailed": "更正已保存，但巡查历史未能刷新。请尝试刷新。",
+    "patrolQueuedRefreshFailed": "更正已提交审核，但巡查历史未能刷新。请尝试刷新。",
+    "invalidPatrolTime": "请输入有效的观察时间。",
+    "patrolRoomUnavailable": "{room}（不可用）",
+    "patrolRoomRequired": "保存前请为每条观察记录选择一个可用教室。"
   },
   "emailChange": {
     "title": "更改账号邮箱",
@@ -3038,7 +3132,10 @@
     "send": "发送验证码",
     "code": "电子邮箱验证码",
     "confirm": "验证并更改邮箱",
-    "success": "邮箱已更改。"
+    "success": "邮箱已更改。",
+    "sentTo": "请输入发送至 {email} 的验证码。",
+    "changeAddress": "更换其他邮箱",
+    "savedRefreshFailed": "邮箱已更改，但账号信息未能刷新，请重试刷新。"
   },
   "profileCorrection": {
     "edit": "编辑详情",
@@ -3108,7 +3205,11 @@
       "id": "待翻译内容",
       "other": "待翻译内容"
     },
-    "refreshFailed": "你的更改已被接受，但更新后的内容未能刷新。请重试刷新，无需再次提交。"
+    "refreshFailed": "你的更改已被接受，但更新后的内容未能刷新。请重试刷新，无需再次提交。",
+    "acceptedRefreshFailed": "提交已被接受，但无法读取最新数据。请重试刷新，无需再次提交。",
+    "readFailed": "无法读取当前翻译数据。草稿已保留，请先重试再提交。",
+    "retryRead": "重试刷新",
+    "identityReadFailed": "无法读取账号权限。请先重试，再编辑翻译。"
   },
   "workflows": {
     "interviewsDisabledHistory": "面试功能已关闭。历史记录仍可查看，重新启用后可记录完成情况。",
@@ -4065,6 +4166,7 @@
       },
       "entities": {
         "ImportedRecordProvenance": "导入历史记录来源",
+        "ArchiveProvenanceReceipt": "归档来源核对回执",
         "SchedulingMaintenanceState": "排期维护状态",
         "SchedulingDirtyEvent": "排期失效事件",
         "PersonPartitionReceipt": "身份分离回执",
@@ -4189,6 +4291,7 @@
         "MessageTutorAssignment": "消息辅导伙伴分配",
         "MessageModeration": "消息审核",
         "TranslationDraft": "翻译草稿",
+        "TranslationIntentReceipt": "翻译提交回执",
         "TutorQualification": "辅导伙伴学科资格",
         "QualificationGrant": "资格授予记录",
         "SchoolCalendarDay": "学校日历日期",
@@ -4918,7 +5021,13 @@
       "ATTEMPT": "未应用的操作尝试"
     },
     "unnamedAccount": "未命名账号",
-    "formerAccount": "已删除账号"
+    "formerAccount": "已删除账号",
+    "filterOptions": "筛选选项",
+    "retryReads": "重试加载审计记录",
+    "loadingReads": "正在加载审计历史和筛选选项…",
+    "loadFailed": "无法加载审计历史或筛选选项。",
+    "refreshFailed": "无法刷新审计历史或筛选选项，未应用的筛选条件已保留。",
+    "accessDenied": "你已无权访问审计历史。"
   },
   "userMultiFilters": {
     "all": "全部",
@@ -5327,7 +5436,13 @@
     "importTooLarge": "请选择不超过 1 MB 的文件。",
     "importEmpty": "文件中没有科目。",
     "importFileType": "请选择 .json 或 .csv 文件。",
-    "importInvalid": "无法导入文件：{detail}"
+    "importInvalid": "无法导入文件：{detail}",
+    "retry": "重试加载目录",
+    "loadFailed": "无法加载科目目录。",
+    "refreshFailed": "无法刷新科目目录，你的草稿已保留；请重试后再更改。",
+    "accessDenied": "你已无权访问科目目录。",
+    "savedRefreshing": "更改已保存，正在刷新目录…",
+    "savedRefreshFailed": "更改已保存，但科目目录未能刷新。请尝试刷新。"
   },
   "recruitment": {
     "preview": "只读表单预览",
@@ -7146,7 +7261,21 @@
     "reloadEvidence": "重新加载当前凭据（替换草稿）",
     "historyFollowups": "{count} 场已作决定的面试仍需管理人员记录完成与服务时数。",
     "accessDenied": "面试访问权限当前不可用。请重新加载以核实当前权限。",
-    "chairNeedsUpdate": "此小组需要由管理员或负责人担任主席。请联系管理团队更新小组。"
+    "chairNeedsUpdate": "此小组需要由管理员或负责人担任主席。请联系管理团队更新小组。",
+    "noChairInterviews": "目前没有分配给你担任组长的面试。",
+    "refresh": "刷新",
+    "refreshing": "刷新中…",
+    "correctionEvidence": {
+      "readUnavailable": "请先成功加载当前面试证据，再核对或提交。你的草稿已保留。",
+      "missingEvidence": "请先加载已记录的面试小组成员和当前来源时数，再核对此更改。",
+      "historyHelp": "出席记录和时数属于已记录的面试。更换决策小组不会使新成员成为原面试出席者。",
+      "decisionPanel": "当前决策小组：{names}",
+      "participants": "已记录面试小组的实际出席情况",
+      "formerPanelist": "原小组成员",
+      "loading": "正在加载面试完成证据…",
+      "totalChange": "时数合计：{before} → {after} 小时（变更 {delta}）",
+      "retryArrival": "重试加载面试记录"
+    }
   },
   "applicationAccountSetup": {
     "title": "账号设置 · {name}",
@@ -7188,7 +7317,8 @@
     "reload": "重新加载面试（替换草稿）",
     "unavailable": "你已无法批准此面试。",
     "waitingVotes": "所有评审均须投票后才能批准。",
-    "changed": "面试资料已更改，请重新加载并核对最新信息。"
+    "changed": "面试资料已更改，请重新加载并核对最新信息。",
+    "retainedService": "此次批准将沿用已记录的面试完成、出席和服务时数信息，包括已授权的更正。当前评审小组可能与已记录的出席人员不同。此次批准不会增加或扣除服务时数。"
   },
   "personPartition": {
     "refreshFailed": "拆分已保存，但目录尚未完成刷新。请只重试刷新。",
@@ -7857,7 +7987,7 @@
     "denied": "你已无法访问此日程来源。",
     "retry": "重试",
     "interviewAttention": "这些面试仍有待处理事项，包括尚未安排时间的面试。",
-    "interviewHelp": "已分配的面试时间显示在日程中。面试组长工作区仍保留在主页。",
+    "interviewHelp": "已分配的面试时间显示在日程中。打开任意面试即可提交投票；组长排期与最终决定位于“面试组长”标签页。",
     "meetingHelp": "即将举行的会议显示在日程中。打开会议可办理缺席请假并查看个人历史。",
     "calendarScope": "日历订阅目前仅包含辅导课。面试和会议可在此门户日程中查看。",
     "task": {
@@ -7991,7 +8121,49 @@
       "SCHEDULED_REFRESH_REVIEW_CHANGED": "已审核的刷新条件发生了变化。请重新加载并审核新的预约。",
       "SCHEDULED_REFRESH_EXECUTION_FAILED": "多次尝试后仍未完成刷新。请检查部署，再审核新的预约或取消当前预约。",
       "SCHEDULED_REFRESH_AFTER_OPENING": "刷新时间不得晚于已准备的学习伙伴报名开放时间；也可先修改该准备项。"
-    }
+    },
+    "subtitle": "{current} → {next} · {mode} · {zone}",
+    "notScheduledBadge": "未预约",
+    "dueBadge": "已到期",
+    "retryingBadge": "重试中（{attempts}/5）",
+    "statusReady": "已预约 — 届时将自动执行",
+    "statusDue": "已到预约时间 — 等待执行",
+    "statusRetrying": "正在自动重试刷新（第 {attempts}/5 次）",
+    "statusPaused": "不会自动执行",
+    "statusReadyHelp": "到时自动执行（每 30 秒检查并支持停机补执行），前提是周期、开放时间、暂存功能、时区与负责人授权均未变更。",
+    "statusDueHelp": "已到预约时间。服务器每 30 秒检查一次，确认条件有效后自动执行。",
+    "statusRetryingHelp": "遇到临时错误；只要条件仍有效，服务器将自动重试，最多 5 次。",
+    "completedAt": "完成于 {time}（{zone}）。",
+    "noneHelp": "可在下方预约自动刷新（条件满足时自动执行），或选择立即刷新。",
+    "conditionsHeading": "刷新条件与复核",
+    "conditionsHelp": "仅当下方每项已审核条件都保持不变时，预约刷新才会自动执行。",
+    "conditionSync": "设置与复核同步",
+    "conditionSyncReady": "已是最新",
+    "conditionSyncChanged": "需要重新加载",
+    "conditionSyncError": "暂时不可用",
+    "conditionOpenings": "下一周期开放时间绑定",
+    "conditionOpeningsReady": "就绪",
+    "conditionOpeningsStale": "需要处理",
+    "conditionFeatures": "暂存可选功能变更",
+    "conditionFeaturesPending": "{count} 项待生效",
+    "conditionFeaturesNone": "无待生效变更",
+    "conditionAuth": "授权状态",
+    "conditionAuthApproved": "已获负责人授权",
+    "conditionAuthPending": "等待负责人审批",
+    "conditionAuthDirect": "负责人直接应用",
+    "conditionAuthRequest": "需要负责人审批",
+    "conditionAuthReadOnly": "仅限管理员与负责人",
+    "conditionAuthChanged": "需要重新审核",
+    "effectsDisclosure": "刷新影响与完整详情",
+    "entranceHeading": "执行或预约刷新",
+    "timingModeLabel": "何时执行此次刷新？",
+    "modeScheduled": "预约定时刷新",
+    "modeImmediate": "立即刷新",
+    "openingBound": "必须不晚于已准备的学习伙伴报名开放时间（{time}，{zone}）。",
+    "immediateHelp": "确认后将立即推进至 {target}，无需等待预约时间。",
+    "immediateSupersedes": "立即刷新会马上推进周期，并使当前已预约的定时刷新失效。",
+    "immediateReviewTitle": "审核立即刷新",
+    "reschedule": "复核并重新预约"
   },
   "signupTransition": {
     "currentClosed": "{period} 的学习伙伴报名已关闭。下方显示下一季度的报名安排。",
@@ -8558,5 +8730,46 @@
     "internal": "暂时无法完成该请求，请稍后重试。",
     "network": "无法连接到服务器，请检查网络后重试。",
     "generic": "操作未完成，请重试。"
+  },
+  "translationIntent": {
+    "title": "恢复翻译请求",
+    "help": "结果未确认的请求会阻止新的翻译提交。请查询结果、重试保留的原请求，或先停止原请求再进行新的编辑。",
+    "pending": "请求处理中。",
+    "unknown": "结果尚未确认。请勿提交替代请求。",
+    "notRecorded": "尚无最终结果记录。替换此请求前，请先停止它。",
+    "acceptedDraft": "此请求已提交草稿。这里不显示后续审核或删除情况。",
+    "acceptedPublished": "此请求受理时已发布。当前文字可能已更改。",
+    "stopped": "此请求已停止，之后无法再生效。",
+    "restoreOnly": "返回此处不会恢复已提交的文字。请查询结果或停止请求。",
+    "lookup": "查询结果",
+    "stop": "停止未确认的请求",
+    "retryExact": "重试原请求",
+    "refreshAccepted": "刷新已受理的结果",
+    "dismiss": "关闭此回执",
+    "storageFailed": "恢复存储不可用。新的提交已被阻止，请重试存储。",
+    "retryStorage": "重试恢复存储",
+    "signIn": "请验证账号以恢复其请求。",
+    "reference": "请求 {id}",
+    "submitFailed": "未能确认响应。再次尝试前，请先查询已保存的结果。",
+    "refreshFailed": "请求已受理，但刷新失败。请刷新，勿再次提交。",
+    "readFailed": "无法核实已保存的结果。请再次查询。",
+    "refreshAuthority": "重新核实账号权限",
+    "modes": {
+      "DRAFT": "提交草稿",
+      "PUBLISH": "发布"
+    },
+    "operations": {
+      "localization": {
+        "setString": "界面文本"
+      },
+      "home": {
+        "setNewsTranslation": "新闻",
+        "setPageTitle": "页面标题",
+        "setContent": "首页文字",
+        "setSectionTranslation": "网站板块"
+      }
+    },
+    "authorityRequired": "重试原请求前，请重新核实账号权限，或停止该请求。",
+    "noRequests": "此账号没有保留的翻译请求。"
   }
 }

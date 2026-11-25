@@ -9,21 +9,22 @@ const mocks = vi.hoisted(() => ({
   auth: vi.fn(),
   me: vi.fn(),
   total: vi.fn(),
-  crew: vi.fn(),
   rooms: vi.fn(),
   features: vi.fn(),
   schedule: vi.fn(),
   availability: vi.fn(),
+  chairCount: vi.fn(),
 }));
 vi.mock("~/server/auth", () => ({ auth: mocks.auth }));
-vi.mock("~/server/db", () => ({ db: {} }));
+vi.mock("~/server/db", () => ({
+  db: { interviewAssignment: { count: mocks.chairCount } },
+}));
 vi.mock("~/server/program/features", () => ({ getFeatures: mocks.features }));
 vi.mock("~/trpc/server", () => ({
   api: {
     tutor: {
       me: mocks.me,
       myMonthlyTotal: mocks.total,
-      myCrew: mocks.crew,
       schedule: mocks.rooms,
     },
   },
@@ -89,13 +90,15 @@ vi.mock("~/app/(tutor)/_components/tutor-workspace", () => ({
   TutorWorkspace: ({
     attention,
     schedule,
+    chair,
     pairings,
     preferences,
     history,
   }: Record<string, ReactNode>) => (
     <>
       {attention}
-      {schedule}
+      <div data-testid="schedule-panel">{schedule}</div>
+      {chair !== undefined && <div data-testid="chair-panel">{chair}</div>}
       {pairings}
       {preferences}
       {history}
@@ -126,7 +129,9 @@ beforeEach(() => {
   mocks.auth.mockResolvedValue({
     user: { id: "tutor-login", name: "Synthetic Tutor" },
     tutorId: "tutor",
+    role: "ADMIN",
   });
+  mocks.chairCount.mockResolvedValue(0);
   mocks.me.mockResolvedValue({ status: "ACTIVE" });
   mocks.total.mockResolvedValue({
     periodLabel: "Synthetic quarter",
@@ -135,13 +140,12 @@ beforeEach(() => {
     extras: 0,
     punishments: 0,
   });
-  mocks.crew.mockResolvedValue({ isCrew: false });
   mocks.features.mockResolvedValue({ INTERVIEWS: true, MEETINGS: true });
 });
 afterEach(cleanup);
 
 it.each(["ACTIVE", "PENDING", "OPTED_OUT", "GRADUATED", "ARCHIVED"])(
-  "composes the workspace with %s access and retained feature owners",
+  "composes the workspace with %s access and separates the chair tab from Schedule",
   async (status) => {
     mocks.me.mockResolvedValue({ status });
     render(await TutorDashboard());
@@ -165,15 +169,45 @@ it.each(["ACTIVE", "PENDING", "OPTED_OUT", "GRADUATED", "ARCHIVED"])(
         .compareDocumentPosition(screen.getByText("Schedule content")) &
         Node.DOCUMENT_POSITION_FOLLOWING,
     ).toBeTruthy();
-    expect(!!screen.queryByText("Interview workspace: chair")).toBe(
-      status === "ACTIVE",
-    );
+    expect(
+      within(screen.getByTestId("schedule-panel")).queryByText(
+        "Interview workspace: chair",
+      ),
+    ).toBeNull();
+    expect(!!screen.queryByTestId("chair-panel")).toBe(status === "ACTIVE");
+    if (status === "ACTIVE") {
+      expect(
+        within(screen.getByTestId("chair-panel")).getByText(
+          "Interview workspace: chair",
+        ),
+      ).toBeTruthy();
+    }
     expect(screen.getByText("Personal tutor history")).toBeTruthy();
     expect(mocks.rooms).toHaveBeenCalledOnce();
     expect(screen.getByText("Read-only room grid")).toBeTruthy();
     expect(screen.getByText("School calendar notice")).toBeTruthy();
   },
 );
+
+it("omits the Interview chair tab for ordinary tutors without chair assignments and retains it for legacy chairs", async () => {
+  mocks.auth.mockResolvedValue({
+    user: { id: "tutor-login", name: "Synthetic Tutor" },
+    tutorId: "tutor",
+    role: "TUTOR",
+  });
+  mocks.chairCount.mockResolvedValueOnce(0);
+  const first = render(await TutorDashboard());
+  expect(screen.queryByTestId("chair-panel")).toBeNull();
+  first.unmount();
+
+  mocks.chairCount.mockResolvedValueOnce(1);
+  render(await TutorDashboard());
+  expect(
+    within(screen.getByTestId("chair-panel")).getByText(
+      "Interview workspace: chair",
+    ),
+  ).toBeTruthy();
+});
 
 it.each([
   [null, "/signin"],
@@ -250,24 +284,18 @@ it("keeps zero hours visible without inventing a missing reporting period", asyn
 });
 
 it.each([
-  { service: false, crew: false, member: true },
-  { service: true, crew: false, member: true },
-  { service: false, crew: true, member: true },
-  { service: true, crew: true, member: false },
-  { service: true, crew: true, member: true },
+  { service: false, crew: false },
+  { service: true, crew: false },
+  { service: false, crew: true },
+  { service: true, crew: true },
 ])(
-  "keeps service and Crew summaries independently gated for %j",
-  async ({ service, crew, member }) => {
+  "gates the tutoring service-hours card without rendering a crew hours card for %j",
+  async ({ service, crew }) => {
     mocks.features.mockResolvedValue({ SERVICE_HOURS: service, CREW: crew });
-    mocks.crew.mockResolvedValue({ isCrew: member, hours: 4.5, patrols: 9 });
     render(await TutorDashboard());
     expect(
       !!screen.queryByRole("region", { name: messages.dashboard.hours.title }),
     ).toBe(service);
-    expect(!!screen.queryByText(messages.tutor.dashboard.crew.title)).toBe(
-      crew && member,
-    );
-    expect(!!screen.queryByText("9 patrols")).toBe(crew && member);
-    expect(!!screen.queryByText("4.5", { exact: false })).toBe(crew && member);
+    expect(screen.queryByText(messages.tutor.dashboard.crew.title)).toBeNull();
   },
 );

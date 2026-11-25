@@ -387,12 +387,19 @@ export function CombineRecords({
             <Button
               disabled={busy}
               onClick={() => {
+                const startFresh = receipt.outcome !== "REVIEW_REQUIRED";
                 accepted.current = false;
                 setReceipt(null);
                 resetReview();
                 setAccounts([]);
                 setRetainedUserId(undefined);
                 setRetireDuplicateLogins(false);
+                if (startFresh) {
+                  setSelected(initial());
+                  setReason("");
+                  setSearch("");
+                  setQuery("");
+                }
               }}
             >
               {t(
@@ -568,7 +575,7 @@ export function CombineRecords({
                     <label className="block">
                       <span className="label">{t("retainedLogin")}</span>
                       <select
-                        className="input w-full"
+                        className="select w-full"
                         value={retainedUserId ?? ""}
                         onChange={(event) => {
                           resetReview();

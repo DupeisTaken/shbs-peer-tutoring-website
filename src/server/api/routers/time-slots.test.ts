@@ -14,6 +14,7 @@ vi.mock("~/server/auth", () => ({ auth: async () => null }));
 
 import { createCaller } from "~/server/api/root";
 import { db } from "~/server/db";
+import { assertIsolatedTestDatabase } from "~/test/database-guard";
 
 const TERM = "test-slot-term";
 const TUTOR = "test-slot-tutor";
@@ -50,6 +51,7 @@ async function cleanup() {
 }
 
 beforeAll(async () => {
+  assertIsolatedTestDatabase(process.env.DATABASE_URL);
   await cleanup();
   await db.user.create({
     data: {
@@ -99,6 +101,7 @@ beforeAll(async () => {
 });
 
 beforeEach(async () => {
+  assertIsolatedTestDatabase(process.env.DATABASE_URL);
   await db.session.deleteMany({ where: { id: { in: SESSION_IDS } } });
   await db.timeSlot.update({
     where: { id: SLOT },
@@ -162,8 +165,12 @@ beforeEach(async () => {
 });
 
 afterAll(async () => {
-  await cleanup();
-  await db.$disconnect();
+  try {
+    assertIsolatedTestDatabase(process.env.DATABASE_URL);
+    await cleanup();
+  } finally {
+    await db.$disconnect();
+  }
 });
 
 describe("time-slot schedule propagation", () => {

@@ -81,6 +81,9 @@ function TutorInterviewApproval({
       refresh={() =>
         settleRefreshes([
           () => invalidateAndReport(utils.tutor.myInterviews),
+          ...(utils.personalSchedule?.interviews
+            ? [() => invalidateAndReport(utils.personalSchedule.interviews)]
+            : []),
           () => invalidateAndReport(utils.notification.list),
           () => invalidateAndReport(utils.notification.unreadCount),
           () => utils.admin.registrationCodes.invalidate(),
@@ -123,7 +126,10 @@ function HeadScheduler({
     current ? programDateTimeInput(current, timeZone) : "",
   );
   const save = api.tutor.setInterviewTime.useMutation({
-    onSuccess: () => utils.tutor.myInterviews.invalidate(),
+    onSuccess: () => {
+      void utils.tutor.myInterviews.invalidate();
+      void utils.personalSchedule?.interviews?.invalidate();
+    },
   });
 
   return (
@@ -370,7 +376,10 @@ function HeadDecision({
   const [reloading, setReloading] = useState(false);
   const [reloadError, setReloadError] = useState("");
   const decide = api.tutor.decideInterview.useMutation({
-    onSuccess: () => utils.tutor.myInterviews.invalidate(),
+    onSuccess: () => {
+      void utils.tutor.myInterviews.invalidate();
+      void utils.personalSchedule?.interviews?.invalidate();
+    },
     onError: () => utils.tutor.myInterviews.invalidate(),
   });
 
@@ -545,11 +554,12 @@ function HeadDecision({
   );
 }
 
-/** Share evidence and voting presentation without moving chair authority to Schedule. */
+/** Share evidence presentation while keeping chair actions and member voting separate. */
 function InterviewRow({
   interview: a,
   hidden = false,
   chairActions = true,
+  showVote = true,
   approvalBlocked = false,
   onApprove,
   voteForm,
@@ -557,6 +567,7 @@ function InterviewRow({
   interview: TutorInterview;
   hidden?: boolean;
   chairActions?: boolean;
+  showVote?: boolean;
   approvalBlocked?: boolean;
   onApprove?: (comment: string, version: Date) => void;
   voteForm?: ReactNode;
@@ -649,7 +660,7 @@ function InterviewRow({
             : t("tutor.interviews.awaitingSchedule")}
         </p>
       )}
-      {a.isHead && !canChair && !a.isInvalid && isOpenInterview(a) && (
+      {a.isHead && !a.canChair && !a.isInvalid && isOpenInterview(a) && (
         <p className="mt-2 text-sm text-amber-800">
           {t("interviewReview.chairNeedsUpdate")}
         </p>
@@ -681,14 +692,44 @@ function InterviewRow({
           {t("interviewReview.decisionPending")}
         </p>
       )}
-      {/* Your vote */}
-      {voteForm ?? (
-        <VoteForm
-          applicationId={a.id}
-          myVote={a.myVote}
-          status={a.status}
-          paused={a.isInvalid}
-        />
+      {/* Member voting belongs in Schedule; the chair workspace links there instead. */}
+      {showVote ? (
+        voteForm ?? (
+          <VoteForm
+            applicationId={a.id}
+            myVote={a.myVote}
+            status={a.status}
+            paused={a.isInvalid}
+          />
+        )
+      ) : (
+        (!!a.myVote || (!a.isInvalid && a.status === "INTERVIEW")) && (
+          <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1">
+            {a.myVote && (
+              <span className="muted text-xs">
+                {t("tutor.interviews.yourVote", {
+                  vote: a.myVote.accept
+                    ? t("tutor.interviews.voteAccept")
+                    : t("tutor.interviews.voteReject"),
+                })}
+              </span>
+            )}
+            {!a.isInvalid && a.status === "INTERVIEW" && (
+              <a
+                className="link inline-flex min-h-11 items-center text-sm lg:min-h-8"
+                href={
+                  a.interviewAt ? `#interview-${a.id}` : "#tutor-appointments"
+                }
+              >
+                {t(
+                  a.myVote
+                    ? "tutor.interviews.updateVoteInSchedule"
+                    : "tutor.interviews.voteInSchedule",
+                )}
+              </a>
+            )}
+          </div>
+        )
       )}
 
       {/* Panel votes (visible to all panelists) */}
@@ -759,6 +800,7 @@ export function MyInterviews({
   audience?: "all" | "chair" | "panelist";
 }) {
   const t = useTranslations();
+  const utils = api.useUtils();
   const interviews = api.tutor.myInterviews.useQuery();
   const [approvalSaved, setApprovalSaved] = useState(false);
   const [approval, setApproval] = useState<{
@@ -798,6 +840,37 @@ export function MyInterviews({
   const currentApproval = approval
     ? list.find((row) => row.id === approval.evidence.id)
     : undefined;
+  const chairOnly = audience === "chair";
+  const refreshing = !!interviews.isFetching;
+  const refreshChairWorkspace = () => {
+    void interviews.refetch?.();
+    void utils.personalSchedule?.interviews?.invalidate();
+  };
+  const refreshButton = chairOnly ? (
+    <Button
+      size="compact"
+      className="gap-1.5"
+      disabled={refreshing}
+      onClick={refreshChairWorkspace}
+    >
+      <svg
+        aria-hidden="true"
+        viewBox="0 0 16 16"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.75"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        className={`h-3.5 w-3.5 shrink-0 ${refreshing ? "animate-spin" : ""}`}
+      >
+        <path d="M13.5 8a5.5 5.5 0 1 1-1.35-3.6" />
+        <path d="M13.5 2.75v2.75h-2.75" />
+      </svg>
+      <span>
+        {t(refreshing ? "interviewReview.refreshing" : "interviewReview.refresh")}
+      </span>
+    </Button>
+  ) : null;
   const followups = history.filter(
     (row) =>
       !row.isInvalid && row.status !== "RECALLED" && !row.interviewCompletedAt,
@@ -821,8 +894,23 @@ export function MyInterviews({
       </section>
     );
 
-  if (list.length === 0 && !interviews.error && !interviews.isLoading)
-    return null;
+  if (list.length === 0 && !interviews.error && !interviews.isLoading) {
+    if (!chairOnly) return null;
+    return (
+      <section
+        id="tutor-interviews"
+        tabIndex={-1}
+        className="card scroll-mt-6 space-y-2 p-5"
+      >
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <h2 className="section-title">{t("dashboard.interviews.title")}</h2>
+          {refreshButton}
+        </div>
+        <p className="muted">{t("tutor.interviews.chairHelp")}</p>
+        <p className="muted text-sm">{t("interviewReview.noChairInterviews")}</p>
+      </section>
+    );
+  }
 
   return (
     <section
@@ -837,16 +925,21 @@ export function MyInterviews({
         <h2 className="section-title">
           {t("dashboard.interviews.title")} ({list.length})
         </h2>
-        <Button
-          size="compact"
-          aria-expanded={expanded}
-          aria-controls="interview-section-content"
-          onClick={() => setExpanded(!expanded)}
-        >
-          {t(expanded ? "interviewReview.collapse" : "interviewReview.expand")}
-        </Button>
+        <div className="flex flex-wrap items-center gap-2">
+          {refreshButton}
+          <Button
+            size="compact"
+            aria-expanded={expanded}
+            aria-controls="interview-section-content"
+            onClick={() => setExpanded(!expanded)}
+          >
+            {t(expanded ? "interviewReview.collapse" : "interviewReview.expand")}
+          </Button>
+        </div>
       </div>
-      <p className="muted mt-1 mb-3">{t("tutor.interviews.help")}</p>
+      <p className="muted mt-1 mb-3">
+        {t(chairOnly ? "tutor.interviews.chairHelp" : "tutor.interviews.help")}
+      </p>
       {approvalSaved && (
         <p role="status" className="mb-3 text-sm text-green-700">
           {t("interviewApproval.saved")}
@@ -932,6 +1025,7 @@ export function MyInterviews({
             <InterviewRow
               key={a.id}
               interview={a}
+              showVote={!chairOnly}
               hidden={!isOpenInterview(a) && !historyOpen}
               approvalBlocked={!!approval}
               onApprove={(comment, version) =>
@@ -945,6 +1039,44 @@ export function MyInterviews({
   );
 }
 
+function ChairWorkspaceAction({
+  href,
+  label,
+  pending = false,
+  onClick,
+}: {
+  href: string;
+  label: string;
+  pending?: boolean;
+  onClick: (event: React.MouseEvent<HTMLAnchorElement>) => void;
+}) {
+  return (
+    <div className="mt-4 flex flex-wrap items-center justify-end border-t border-slate-100 pt-3">
+      <a
+        className={`btn control-compact border-accent-200 bg-accent-50 text-accent-800 hover:border-accent-300 hover:bg-accent-100 active:bg-accent-200/70 gap-1.5 border ${pending ? "pointer-events-none opacity-50" : ""}`}
+        href={href}
+        aria-disabled={pending || undefined}
+        onClick={onClick}
+      >
+        <span>{label}</span>
+        <svg
+          aria-hidden="true"
+          viewBox="0 0 16 16"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.75"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          className="h-3.5 w-3.5 shrink-0"
+        >
+          <path d="M3.5 8h9" />
+          <path d="M8.75 4.25 12.5 8l-3.75 3.75" />
+        </svg>
+      </a>
+    </div>
+  );
+}
+
 /** Keep each deliberately opened vote owner alive even after its reader closes.
  * Cached evidence is never rendered after denial or removal from the live panel. */
 function RetainedScheduleInterview({
@@ -955,6 +1087,8 @@ function RetainedScheduleInterview({
   onPendingChange,
   feedback,
   readable,
+  chairHref,
+  onOpenChair,
 }: {
   interview: TutorInterview;
   authorized: boolean;
@@ -963,7 +1097,13 @@ function RetainedScheduleInterview({
   onPendingChange: (id: string, pending: boolean) => void;
   feedback: ReactNode;
   readable: boolean;
+  chairHref: string;
+  onOpenChair: (
+    event: React.MouseEvent<HTMLAnchorElement>,
+    pending: boolean,
+  ) => void;
 }) {
+  const t = useTranslations();
   const reportPending = useCallback(
     (pending: boolean) => onPendingChange(interview.id, pending),
     [interview.id, onPendingChange],
@@ -988,6 +1128,14 @@ function RetainedScheduleInterview({
               chairActions={false}
               voteForm={vote}
             />
+            {interview.isHead && (
+              <ChairWorkspaceAction
+                href={chairHref}
+                label={t("unifiedScheduleInterview.chairWorkspace")}
+                pending={pending}
+                onClick={(event) => onOpenChair(event, pending)}
+              />
+            )}
           </ProfileDialog>
         ) : null
       }
@@ -997,18 +1145,20 @@ function RetainedScheduleInterview({
 
 /** Schedule owns one always-mounted controller. Its first deliberate open starts
  * private reads; later closes retain independent drafts and in-flight vote observers.
- * Accepted votes synchronize their readers; retries never repeat the vote write. */
+ * Every assigned panelist (including the chair) casts their member vote here. */
 export function ScheduleInterviewDetails({
   applicationId,
   onClose,
   showAll = false,
   enabled = true,
+  compact = false,
 }: {
   applicationId: string | null;
   onClose: () => void;
   showAll?: boolean;
   /** The summary owner conceals this retained controller when live access changes. */
   enabled?: boolean;
+  compact?: boolean;
 }) {
   const t = useTranslations();
   const format = useFormatter();
@@ -1046,28 +1196,58 @@ export function ScheduleInterviewDetails({
     setSelection({ request: applicationId, id: applicationId });
   const rows = orderInterviews(interviews.data ?? []);
   const current = rows.find((row) => row.id === selection.id);
-  if (
-    enabled &&
-    current &&
-    !current.isHead &&
-    !accessDenied &&
-    !retained.has(current.id)
-  )
+  if (enabled && current && !accessDenied && !retained.has(current.id))
     setRetained(new Map(retained).set(current.id, current));
   const close = () => {
     if (pending) return;
     setSelection({ request: applicationId, id: null });
     onClose();
   };
+  const chairHref = compact
+    ? "#chair-interviews"
+    : "/dashboard#chair-interviews";
+  // Close the modal before switching to the Chair tab so TutorWorkspace sees no open dialog.
+  const openChairWorkspace = (
+    event: React.MouseEvent<HTMLAnchorElement>,
+    busy: boolean,
+  ) => {
+    if (
+      event.button !== 0 ||
+      event.metaKey ||
+      event.ctrlKey ||
+      event.shiftKey ||
+      event.altKey
+    )
+      return;
+    if (busy || pending) {
+      event.preventDefault();
+      return;
+    }
+    const url = new URL(
+      event.currentTarget.getAttribute("href") ?? chairHref,
+      window.location.href,
+    );
+    if (
+      url.origin === window.location.origin &&
+      ["/dashboard", "/schedule"].includes(url.pathname) &&
+      url.hash &&
+      !url.search
+    ) {
+      event.preventDefault();
+      close();
+      window.history.pushState(null, "", url.hash);
+      window.requestAnimationFrame(() => {
+        window.dispatchEvent(new HashChangeEvent("hashchange"));
+      });
+    }
+  };
   // Include the first selected record immediately, then retain it by stable ID.
   const owners = new Map(retained);
-  if (enabled && current && !current.isHead && !accessDenied)
-    owners.set(current.id, current);
+  if (enabled && current && !accessDenied) owners.set(current.id, current);
   const visible = enabled && (requested || pending);
   const authorizedCurrent = !accessDenied && !!current;
-  const showFallback =
-    visible && (!selection.id || !authorizedCurrent || current?.isHead);
-  const panelistRows = rows.filter((row) => !row.isHead);
+  const showFallback = visible && (!selection.id || !authorizedCurrent);
+  const hasChairRows = rows.some((row) => row.isHead);
   const feedback = interviews.error ? (
     <div className="mb-3 space-y-2">
       <p role="alert">{interviews.error.message}</p>
@@ -1087,12 +1267,14 @@ export function ScheduleInterviewDetails({
           <RetainedScheduleInterview
             key={snapshot.id}
             interview={live ?? snapshot}
-            authorized={enabled && !accessDenied && !!live && !live.isHead}
+            authorized={enabled && !accessDenied && !!live}
             open={visible && selection.id === snapshot.id}
             onClose={close}
             onPendingChange={reportPending}
             feedback={feedback}
             readable={!interviews.error}
+            chairHref={chairHref}
+            onOpenChair={openChairWorkspace}
           />
         );
       })}
@@ -1107,20 +1289,11 @@ export function ScheduleInterviewDetails({
           ) : interviews.isLoading ? (
             <p role="status">{t("tutor.tasks.loading")}</p>
           ) : selection.id ? (
-            current?.isHead ? (
-              <a
-                className="link inline-flex min-h-11 items-center"
-                href="/dashboard#tutor-interviews"
-              >
-                {t("unifiedScheduleInterview.chairWorkspace")}
-              </a>
-            ) : (
-              <p role="alert">{t("unifiedScheduleInterview.unavailable")}</p>
-            )
+            <p role="alert">{t("unifiedScheduleInterview.unavailable")}</p>
           ) : (
             <div className="space-y-4">
               {[true, false].map((active) => {
-                const group = panelistRows.filter(
+                const group = rows.filter(
                   (row) => isOpenInterview(row) === active,
                 );
                 return (
@@ -1145,7 +1318,14 @@ export function ScheduleInterviewDetails({
                             className="flex flex-wrap items-center justify-between gap-2 py-2"
                           >
                             <div>
-                              <p className="font-medium">{row.name}</p>
+                              <p className="font-medium">
+                                {row.name}
+                                {row.isHead && (
+                                  <span className="badge-slate ml-2">
+                                    {t("unifiedSchedule.chair")}
+                                  </span>
+                                )}
+                              </p>
                               <p className="muted text-sm">
                                 {row.interviewAt
                                   ? format.dateTime(row.interviewAt, {
@@ -1176,12 +1356,14 @@ export function ScheduleInterviewDetails({
                   </section>
                 );
               })}
-              <a
-                className="link inline-flex min-h-11 items-center"
-                href="/dashboard#tutor-interviews"
-              >
-                {t("unifiedScheduleInterview.chairWorkspace")}
-              </a>
+              {hasChairRows && (
+                <ChairWorkspaceAction
+                  href={chairHref}
+                  label={t("unifiedScheduleInterview.chairWorkspace")}
+                  pending={pending}
+                  onClick={(event) => openChairWorkspace(event, pending)}
+                />
+              )}
             </div>
           )}
           {(!!interviews.error || accessDenied) && (

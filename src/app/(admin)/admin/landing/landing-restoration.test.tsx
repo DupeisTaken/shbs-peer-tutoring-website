@@ -2,6 +2,7 @@
 import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { NextIntlClientProvider } from "next-intl";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import en from "../../../../../messages/en.json";
 import fr from "../../../../../messages/fr.json";
 import zh from "../../../../../messages/zh.json";
@@ -9,7 +10,10 @@ import LandingAdminPage from "./landing-editor";
 import type * as SessionViewState from "~/app/_components/session-view-state";
 import { SessionViewProvider } from "~/app/_components/session-view-state";
 import { viewStateKey, writeViewState } from "~/lib/session-view-state";
+import { installSessionReadReceipts } from "~/lib/session-read-receipts";
 import type { LandingEditorView } from "~/lib/landing-editor-view";
+
+let queryClient: QueryClient;
 
 const state = vi.hoisted(() => {
   const records: Record<string, unknown[]> = {};
@@ -23,15 +27,55 @@ const state = vi.hoisted(() => {
 vi.mock("~/app/_components/session-view-state", async (original) => ({
   ...await original<typeof SessionViewState>(), useSessionPageScroll: state.scroll,
 }));
-vi.mock("~/app/_components/ui/action-review", () => ({ useActionReview: () => ({ dialog: null, blocked: () => false, open: vi.fn() }) }));
+vi.mock("~/app/_components/ui/action-review", () => ({ useActionReview: () => ({ dialog: null, blocked: () => false, open: vi.fn(), revoke: vi.fn() }) }));
 vi.mock("~/app/_components/read-only", () => ({ useReadOnly: () => false }));
-vi.mock("~/trpc/react", () => {
+vi.mock("~/trpc/react", async () => {
+  const { useQuery } = await import("@tanstack/react-query");
+  const { translationFixtureKey } =
+    await import("~/test/translation-query-bindings");
+  const account = { id: "head", role: "HEAD", canTranslate: true };
+  const accountProcedure = { _def: () => ({ path: ["account", "me"] }) };
   const home = new Proxy({}, { get: (_target, name) => ({
+    _def: () => ({ path: ["home", String(name)] }),
     useQuery: () => ({ data: name === "news" ? state.news : state.records[String(name)] ?? [], error: name === "news" ? state.error : null,
       isLoading: name === "news" && !state.news, isSuccess: name !== "news" || !!state.news && !state.error, isFetching: false, refetch: () => state.read(String(name)) }),
     useMutation: () => ({ mutate: state.mutate, mutateAsync: (input: unknown) => { state.mutate(input); return state.write(String(name), input); }, isPending: false, error: name === state.mutationError?.procedure ? state.mutationError : null }), invalidate: vi.fn(),
   }) });
-  return { api: { home, useUtils: () => ({ home }), i18n: { languages: { useQuery: () => ({ data: [{ code: "en", label: "English" }], isSuccess: true }) } } } };
+  return {
+    api: {
+      account: {
+        me: {
+          ...accountProcedure,
+          useQuery: () =>
+            useQuery({
+              queryKey: translationFixtureKey("account.me"),
+              queryFn: async () => account,
+              initialData: account,
+              staleTime: Infinity,
+            }),
+        },
+      },
+      translationIntent: {
+        stop: {
+          useMutation: () => ({ mutateAsync: vi.fn(), isPending: false }),
+        },
+      },
+      home,
+      useUtils: () => ({
+        home,
+        translationIntent: { get: { fetch: vi.fn() } },
+        client: { translationIntent: { get: { query: vi.fn() } } },
+      }),
+      i18n: {
+        languages: {
+          useQuery: () => ({
+            data: [{ code: "en", label: "English" }],
+            isSuccess: true,
+          }),
+        },
+      },
+    },
+  };
 });
 const catalogs = { en, zh, fr };
 const tree = (
@@ -39,14 +83,37 @@ const tree = (
   initialView?: LandingEditorView,
   verified = true,
 ) => (
-  <SessionViewProvider identity="head" pathname="/admin/landing" verified={verified}>
-    <NextIntlClientProvider locale={locale} messages={catalogs[locale]}>
-      <LandingAdminPage initialView={initialView} />
-    </NextIntlClientProvider>
-  </SessionViewProvider>
+  <QueryClientProvider client={queryClient}>
+    <SessionViewProvider identity="head" pathname="/admin/landing" verified={verified}>
+      <NextIntlClientProvider
+        locale={locale}
+        timeZone="UTC"
+        messages={catalogs[locale]}
+      >
+        <LandingAdminPage initialView={initialView} />
+      </NextIntlClientProvider>
+    </SessionViewProvider>
+  </QueryClientProvider>
 );
-beforeEach(() => { window.sessionStorage.clear(); state.news = undefined; state.records = {}; state.error = null; state.mutationError = null; state.scroll.mockClear(); state.mutate.mockClear(); state.write.mockReset().mockResolvedValue({ ok: true }); state.read.mockReset().mockImplementation(async (name) => ({ data: state.records[name] ?? [] })); });
-afterEach(cleanup);
+beforeEach(() => {
+  queryClient = new QueryClient({
+    defaultOptions: { queries: { retry: false } },
+  });
+  installSessionReadReceipts(queryClient);
+  window.sessionStorage.clear();
+  state.news = undefined;
+  state.records = {};
+  state.error = null;
+  state.mutationError = null;
+  state.scroll.mockClear();
+  state.mutate.mockClear();
+  state.write.mockReset().mockResolvedValue({ ok: true });
+  state.read.mockReset().mockImplementation(async (name) => ({ data: state.records[name] ?? [] }));
+});
+afterEach(() => {
+  cleanup();
+  queryClient.clear();
+});
 afterEach(() => vi.restoreAllMocks());
 
 it.each(["en", "zh"] as const)(

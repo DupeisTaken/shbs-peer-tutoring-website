@@ -24,6 +24,7 @@ import {
   type RegistrationKind,
 } from "~/lib/registration-kind";
 import { setApplicationInvalidity } from "~/server/request-invalidity";
+import { assertIsolatedTestDatabase } from "~/test/database-guard";
 let ip = 0;
 
 it("bounds replacement-code retries when the random source repeatedly returns the prior code", () => {
@@ -58,11 +59,8 @@ const publicCaller = () =>
     session: null,
   });
 beforeEach(async () => {
-  const url = new URL(process.env.DATABASE_URL!);
-  if (
-    !["localhost", "127.0.0.1"].includes(url.hostname) ||
-    url.pathname !== "/shbs_shipping_test"
-  )
+  assertIsolatedTestDatabase(process.env.DATABASE_URL);
+  if (new URL(process.env.DATABASE_URL!).pathname !== "/shbs_shipping_test")
     throw Error("Dedicated local test database required");
   const tables = await db.$queryRaw<
     { tablename: string }[]
@@ -85,9 +83,15 @@ beforeEach(async () => {
   mail.send.mockReset();
 });
 afterAll(async () => {
-  // Retired identity guards intentionally reject deletes; isolated fixture cleanup uses TRUNCATE.
-  await db.$executeRawUnsafe('TRUNCATE "User" CASCADE');
-  await db.$disconnect();
+  try {
+    assertIsolatedTestDatabase(process.env.DATABASE_URL);
+    if (new URL(process.env.DATABASE_URL!).pathname !== "/shbs_shipping_test")
+      throw Error("Dedicated local test database required");
+    // Retired identity guards intentionally reject deletes; isolated fixture cleanup uses TRUNCATE.
+    await db.$executeRawUnsafe('TRUNCATE "User" CASCADE');
+  } finally {
+    await db.$disconnect();
+  }
 });
 async function verified(kind: RegistrationKind, email = "new@example.test") {
   const issued = await actor("head").admin.issueRegistrationCode({

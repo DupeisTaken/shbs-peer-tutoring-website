@@ -466,7 +466,7 @@ export function DatabaseInspector({
             </label>
             <select
               id="record-table"
-              className="input w-full"
+              className="select w-full"
               value={selected}
               onChange={(event) => setSelected(event.target.value)}
             >

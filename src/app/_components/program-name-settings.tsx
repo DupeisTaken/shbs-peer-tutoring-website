@@ -225,7 +225,7 @@ function NamePolicyEditor({
           <label key={field} className="block">
             <span className="label">{names(field)}</span>
             <select
-              className="input w-full"
+              className="select w-full"
               value={states[field]}
               onChange={(event) => {
                 setStates((before) => ({

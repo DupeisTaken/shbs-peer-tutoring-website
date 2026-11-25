@@ -1,12 +1,17 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useLayoutEffect, useRef, useState } from "react";
 import { useFormatter, useTranslations } from "next-intl";
 import { api } from "~/trpc/react";
+import { getQueryKey } from "@trpc/react-query";
 import { translationAccess } from "~/lib/translation-access";
 import { TRANSLATION_PAGE_MISSING } from "~/lib/translation-review-errors";
+import { invalidateAndReport } from "~/lib/invalidate-refresh";
+import { settleRefreshes } from "~/lib/settle-refreshes";
+import { viewAccessDenied } from "~/lib/session-view-state";
 import { Pager } from "./student-portal";
+import { useSessionAccessDenied } from "./session-view-state";
 import { TranslationReviewError } from "./translation-review-error";
 
 type DraftState = "PENDING" | "APPROVED" | "REJECTED";
@@ -23,7 +28,9 @@ const operationLabels: Record<
 
 /** Review authority is independent of Translator assignment. Coordinator clicks queue
  * an Admin/Head request through the server; they never optimistically publish a draft. */
-export function TranslationReview() {
+export function TranslationReview({
+  concealed = false,
+}: { concealed?: boolean } = {}) {
   const t = useTranslations("translationEditor");
   const workflow = useTranslations("workflows");
   const format = useFormatter();
@@ -31,32 +38,177 @@ export function TranslationReview() {
   const [state, setState] = useState<DraftState | "ALL">("PENDING");
   const [requested, setRequested] = useState<Record<string, string>>({});
   const [missingPages, setMissingPages] = useState<Record<string, boolean>>({});
+  const acceptedIds = useRef(new Set<string>());
+  const [accepted, setAccepted] = useState<ReadonlySet<string>>(new Set());
+  const admission = useRef(false);
+  const synchronizationAllowed = useRef(false);
+  const ownerActive = useRef(false);
+  useLayoutEffect(() => {
+    ownerActive.current = true;
+    return () => {
+      ownerActive.current = false;
+    };
+  }, []);
+  const submittedRead = useRef<(() => Promise<unknown>) | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
+  const [refreshError, setRefreshError] = useState<Error | null>(null);
   const me = api.account.me.useQuery();
   const access = translationAccess(me.data);
-  const rows = api.translationReview.list.useQuery(
-    { page, state: state === "ALL" ? undefined : state },
+  const reviewInput = { page, state: state === "ALL" ? undefined : state };
+  const rows = api.translationReview.list.useQuery(reviewInput, {
     // Current page labels must revalidate on return after a title/slug edit.
-    { enabled: access.enter, staleTime: 0 },
-  );
+    enabled: !concealed && access.enter,
+    staleTime: 0,
+  });
   const utils = api.useUtils();
-  const decide = api.translationReview.decide.useMutation({
-    onSuccess: async () => {
-      await Promise.all([
-        utils.translationReview.list.invalidate(),
-        utils.localization.strings.invalidate(),
-        utils.home.invalidate(),
+  const denied = useSessionAccessDenied(
+    ...[
+      { ...me, queryKey: getQueryKey(api.account.me, undefined, "query") },
+      {
+        ...rows,
+        denialKey: "review",
+        queryKey: getQueryKey(api.translationReview.list, reviewInput, "query"),
+      },
+    ].map((query) => ({
+      ...query,
+      isSuccess: query.isSuccess && query.data != null,
+    })),
+  );
+  useLayoutEffect(() => {
+    synchronizationAllowed.current = !concealed && !denied && access.enter;
+  });
+  const refresh = async () => {
+    setRefreshing(true);
+    try {
+      if (!ownerActive.current || !synchronizationAllowed.current)
+        throw new Error(t("acceptedRefreshFailed"));
+      const invalidations = await Promise.allSettled([
+        invalidateAndReport(utils.translationReview.list),
+        invalidateAndReport(utils.localization.strings),
+        invalidateAndReport(utils.home),
       ]);
+      if (!ownerActive.current || !synchronizationAllowed.current)
+        throw new Error(t("acceptedRefreshFailed"));
+      for (const result of invalidations) {
+        if (
+          result.status === "rejected" &&
+          viewAccessDenied(result.reason as { data?: { code?: string } })
+        )
+          throw result.reason as unknown;
+      }
+      // Avoid default cancelRefetch cancelling the exact list fetch ourselves.
+      await settleRefreshes([
+        async () => {
+          for (const result of invalidations)
+            if (result.status === "rejected") throw result.reason as unknown;
+        },
+        async () => {
+          await submittedRead.current?.();
+        },
+        async () => {
+          await me.refetch({ throwOnError: true });
+        },
+      ]);
+      setRefreshError(null);
+    } catch (error) {
+      setRefreshError(
+        error instanceof Error ? error : new Error(String(error)),
+      );
+    } finally {
+      setRefreshing(false);
+    }
+  };
+  const decide = api.translationReview.decide.useMutation({
+    onSuccess: async (_result, input) => {
+      acceptedIds.current.add(input.id);
+      setAccepted((previous) => new Set(previous).add(input.id));
+      await refresh();
     },
-    onError: (error, input) => {
+    onError: async (error, input) => {
       if (error.message === TRANSLATION_PAGE_MISSING)
         setMissingPages((previous) => ({ ...previous, [input.id]: true }));
       if (error.data?.approvalId) {
         const id = error.data.approvalId;
+        acceptedIds.current.add(input.id);
+        setAccepted((previous) => new Set(previous).add(input.id));
         setRequested((previous) => ({ ...previous, [input.id]: id }));
+        await refresh();
       }
     },
+    onSettled: () => {
+      admission.current = false;
+    },
   });
-  if (!access.enter) return null;
+  const missingRead = [me, rows].some(
+    (query) => query.isSuccess && query.data == null,
+  );
+  const readError =
+    me.error ?? rows.error ?? (missingRead ? new Error(t("readFailed")) : null);
+  const blocked =
+    concealed ||
+    decide.isPending ||
+    refreshing ||
+    !!readError ||
+    !!refreshError;
+  const retryRead = () => {
+    if (!ownerActive.current || concealed || refreshing || admission.current)
+      return;
+    if (refreshError && !denied) {
+      void refresh();
+      return;
+    }
+    setRefreshing(true);
+    void settleRefreshes([
+      async () => {
+        await me.refetch();
+      },
+      async () => {
+        await rows.refetch();
+      },
+    ])
+      .catch(() => undefined)
+      .finally(() => setRefreshing(false));
+  };
+  const submitDecision = (
+    id: string,
+    approve: boolean,
+    expectedUpdatedAt: Date,
+  ) => {
+    if (
+      !ownerActive.current ||
+      admission.current ||
+      blocked ||
+      acceptedIds.current.has(id) ||
+      !access.enter
+    )
+      return;
+    admission.current = true;
+    const scope = { page, state: state === "ALL" ? undefined : state };
+    submittedRead.current = async () => {
+      const data = await utils.translationReview.list.fetch(scope, {
+        staleTime: 0,
+      });
+      if (data == null) throw new Error(t("readFailed"));
+    };
+    decide.mutate({ id, approve, expectedUpdatedAt });
+  };
+  if (concealed) return null;
+  if (denied || !access.enter)
+    return (
+      <div className="space-y-2">
+        <p role="alert">{t("noAccess")}</p>
+        {(denied || me.error) && (
+          <button
+            type="button"
+            className="btn-secondary"
+            disabled={refreshing}
+            onClick={retryRead}
+          >
+            {t("retryRead")}
+          </button>
+        )}
+      </div>
+    );
   const decisionError = decide.error?.data?.approvalId ? null : decide.error;
   return (
     <div className="space-y-4">
@@ -218,27 +370,20 @@ export function TranslationReview() {
                 <button
                   className="btn-primary"
                   disabled={
-                    decide.isPending || draft.needsResubmission || pageMissing
+                    blocked ||
+                    accepted.has(draft.id) ||
+                    draft.needsResubmission ||
+                    pageMissing
                   }
-                  onClick={() =>
-                    decide.mutate({
-                      id: draft.id,
-                      approve: true,
-                      expectedUpdatedAt: draft.updatedAt,
-                    })
-                  }
+                  onClick={() => submitDecision(draft.id, true, draft.updatedAt)}
                 >
                   {workflow("approve")}
                 </button>
                 <button
                   className="btn-secondary"
-                  disabled={decide.isPending}
+                  disabled={blocked || accepted.has(draft.id)}
                   onClick={() =>
-                    decide.mutate({
-                      id: draft.id,
-                      approve: false,
-                      expectedUpdatedAt: draft.updatedAt,
-                    })
+                    submitDecision(draft.id, false, draft.updatedAt)
                   }
                 >
                   {workflow("rejectDraft")}
@@ -249,18 +394,13 @@ export function TranslationReview() {
               <button
                 className="btn-secondary"
                 disabled={
-                  decide.isPending ||
+                  blocked ||
+                  accepted.has(draft.id) ||
                   draft.needsResubmission ||
                   pageMissing ||
                   !!requested[draft.id]
                 }
-                onClick={() =>
-                  decide.mutate({
-                    id: draft.id,
-                    approve: true,
-                    expectedUpdatedAt: draft.updatedAt,
-                  })
-                }
+                onClick={() => submitDecision(draft.id, true, draft.updatedAt)}
               >
                 {t("requestApproval")}
               </button>
@@ -285,10 +425,23 @@ export function TranslationReview() {
           </article>
         );
       })}
-      {rows.error && (
-        <p role="alert" className="text-red-700">
-          {rows.error.message}
-        </p>
+      {(readError != null || refreshError != null) && (
+        <div className="space-y-2">
+          <p role="alert" className="text-red-700">
+            {(readError ?? refreshError)?.message}
+          </p>
+          <p className="text-sm">
+            {t(refreshError ? "acceptedRefreshFailed" : "readFailed")}
+          </p>
+          <button
+            type="button"
+            className="btn-secondary"
+            disabled={decide.isPending || refreshing}
+            onClick={retryRead}
+          >
+            {t("retryRead")}
+          </button>
+        </div>
       )}
       {!!rows.data?.length && (
         <Pager page={page} setPage={setPage} more={rows.data.length === 30} />

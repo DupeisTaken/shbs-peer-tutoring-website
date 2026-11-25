@@ -1,4 +1,8 @@
 "use client";
+import {
+  NEW_PASSWORD_MIN_LENGTH,
+  PASSWORD_MAX_LENGTH,
+} from "~/lib/password-contract";
 import { CodeInput } from "~/app/_components/ui/code-field";
 import { useSessionPageScroll } from "~/app/_components/session-view-state";
 import {
@@ -12,6 +16,7 @@ import {
 } from "~/lib/person-name";
 
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import Link from "next/link";
 import { useFormatter, useTranslations } from "next-intl";
 
 import { api, type RouterOutputs } from "~/trpc/react";
@@ -23,12 +28,14 @@ import {
   InlineNotice,
   StatePanel,
 } from "~/app/_components/ui/patterns";
+import { SectionTabs } from "~/app/_components/ui/section-tabs";
 import { QueryFeedback } from "~/app/_components/ui/query-feedback";
 import { invalidateAndReport } from "~/lib/invalidate-refresh";
 import { settleRefreshes } from "~/lib/settle-refreshes";
+import { SYMBOLS } from "~/lib/symbols";
 import { useQueryClient } from "@tanstack/react-query";
 import { getQueryKey } from "@trpc/react-query";
-import { SchoolDeparturePanel } from "~/app/_components/school-departure";
+import { SchoolDepartureAction } from "~/app/_components/school-departure";
 import { AcademicPanel } from "~/app/_components/academic-profile";
 import { ProfilePolicyError } from "~/app/_components/profile-policy";
 import { AcademicError } from "~/app/_components/academic-error";
@@ -39,12 +46,70 @@ import {
   EmailPreferences,
 } from "~/app/_components/account-emails";
 
+type TutorSettingsSection =
+  | "profile"
+  | "security"
+  | "notifications"
+  | "membership";
+
+function sectionForTutorHash(hash: string): TutorSettingsSection | null {
+  switch (hash.replace(/^#/, "")) {
+    case "notification-preferences":
+      return "notifications";
+    case "account-password":
+    case "associated-emails":
+    case "account-twofactor":
+      return "security";
+    case "tutor-membership":
+      return "membership";
+    case "academic-details":
+      return "profile";
+    default:
+      return null;
+  }
+}
+
+function initialsOf(
+  name?: string | null,
+  username?: string | null,
+  email?: string | null,
+): string {
+  const display = (name ?? "").trim();
+  if (display) {
+    const parts = display.split(/\s+/).filter(Boolean);
+    if (parts.length >= 2)
+      return (parts[0]![0]! + parts[parts.length - 1]![0]!).toUpperCase();
+    return display.slice(0, 2).toUpperCase();
+  }
+  const handle = (username ?? email ?? "").trim();
+  return handle.slice(0, 2).toUpperCase() || "··";
+}
+
 export default function SettingsPage() {
   const programFormat = useFormatter();
   const t = useTranslations();
   const utils = api.useUtils();
   const queryClient = useQueryClient();
+  const [section, setSection] = useState<TutorSettingsSection>("profile");
   const [profileDenied, setProfileDenied] = useState(false);
+
+  useEffect(() => {
+    const syncHash = () => {
+      const hash = window.location.hash;
+      const target = sectionForTutorHash(hash);
+      if (!target) return;
+      setSection(target);
+      const id = hash.slice(1);
+      if (id) {
+        requestAnimationFrame(() => {
+          document.getElementById(id)?.scrollIntoView?.({ block: "start" });
+        });
+      }
+    };
+    syncHash();
+    window.addEventListener("hashchange", syncHash);
+    return () => window.removeEventListener("hashchange", syncHash);
+  }, []);
   const profile = api.tutor.myProfile.useQuery(undefined, {
     enabled: !profileDenied,
   });
@@ -251,8 +316,12 @@ export default function SettingsPage() {
     )
       return;
     setPwError(null);
-    if (next.length < 8) {
+    if (next.length < NEW_PASSWORD_MIN_LENGTH) {
       setPwError(t("tutor.settings.pwTooShort"));
+      return;
+    }
+    if (next.length > PASSWORD_MAX_LENGTH) {
+      setPwError(t("tutor.settings.pwTooLong", { max: PASSWORD_MAX_LENGTH }));
       return;
     }
     if (next !== confirm) {
@@ -280,6 +349,18 @@ export default function SettingsPage() {
       !code.trim()
     )
       return;
+    if (next.length < NEW_PASSWORD_MIN_LENGTH) {
+      setPwError(t("tutor.settings.pwTooShort"));
+      return;
+    }
+    if (next.length > PASSWORD_MAX_LENGTH) {
+      setPwError(t("tutor.settings.pwTooLong", { max: PASSWORD_MAX_LENGTH }));
+      return;
+    }
+    if (next !== confirm) {
+      setPwError(t("tutor.settings.pwMismatch"));
+      return;
+    }
     passwordAdmission.current = true;
     setPwError(null);
     changePassword.mutate({
@@ -395,168 +476,245 @@ export default function SettingsPage() {
     });
   };
 
+  const initials = initialsOf(
+    profile.data?.englishName,
+    profile.data?.username,
+    profile.data?.email,
+  );
+
   return (
-    <main id="main-content" className="mx-auto max-w-2xl space-y-8 px-4 py-8">
-      <div>
+    <main
+      id="main-content"
+      className="mx-auto max-w-3xl space-y-6 px-4 py-6 sm:py-8"
+    >
+      <div className="space-y-1">
+        <Link
+          href="/dashboard"
+          className="link inline-flex min-h-11 items-center text-sm lg:min-h-8"
+        >
+          ← {t("tutor.settings.backToDashboard")}
+        </Link>
         <h1 className="page-title">{t("tutor.settings.title")}</h1>
-        <p className="muted mt-1">{t("tutor.settings.subtitle")}</p>
+        <p className="muted">{t("tutor.settings.subtitle")}</p>
       </div>
 
-      {/* Profile */}
-      <section className="card space-y-4 p-5">
-        {profileDenied || deniedNow ? (
-          <StatePanel
-            kind="denied"
-            title={recovery("accessDenied")}
-            action={
-              <Button
-                disabled={profileReloading}
-                onClick={() => void reloadProfile()}
-              >
-                {recovery("retry")}
-              </Button>
-            }
-          >
-            {recovery("accessDeniedHelp")}
-          </StatePanel>
-        ) : (
-          <QueryFeedback
-            hasData={!!profile.data}
-            loading={!profile.data && !profile.error}
-            error={!!profile.error}
-            retrying={profile.isFetching}
-            loadingTitle={recovery("loading")}
-            errorTitle={recovery(profile.data ? "refreshFailed" : "loadFailed")}
-            retryLabel={recovery("retry")}
-            onRetry={() => void profile.refetch()}
-          />
-        )}
-        {profile.data && !profileDenied && !deniedNow && (
-          <>
-            <p className="text-sm [overflow-wrap:anywhere]">
-              {profile.data.username
-                ? `@${profile.data.username}`
-                : t("academics.usernameMissing")}
-            </p>
-            <form
-              aria-label={t("tutor.settings.profileHeading")}
-              onSubmit={(event) => {
-                event.preventDefault();
-                if (
-                  profileBlocked ||
-                  profileAdmission.current ||
-                  !namePolicyReady ||
-                  !editableNames
-                )
-                  return;
-                profileAdmission.current = true;
-                updateProfile.mutate({
-                  ...identity.fields,
-                  expectedProfileVersion: profileVersion,
-                });
-              }}
-            >
-              <FormSection
-                title={t("tutor.settings.profileHeading")}
-                busy={updateProfile.isPending || profileReloading}
-                disabled={profileBlocked}
-                actions={
-                  editableNames ? (
-                    <>
+      <SectionTabs
+        label={t("tutor.settings.title")}
+        value={section}
+        onChange={setSection}
+        items={[
+          { value: "profile", label: t("account.sections.profile") },
+          { value: "security", label: t("account.sections.security") },
+          {
+            value: "notifications",
+            label: t("account.sections.notifications"),
+          },
+          { value: "membership", label: t("account.sections.membership") },
+        ]}
+      >
+        {/* Hidden panels stay mounted so unsaved profile/password/membership drafts survive tab switches. */}
+        <div hidden={section !== "profile"} className="space-y-6">
+          {/* Profile */}
+          <section className="card overflow-hidden">
+            {(profileDenied || deniedNow || !profile.data || profile.error) && (
+              <div className="px-5 py-5 sm:px-6">
+                {profileDenied || deniedNow ? (
+                  <StatePanel
+                    kind="denied"
+                    title={recovery("accessDenied")}
+                    action={
                       <Button
-                        type="submit"
-                        variant="primary"
-                        disabled={profileBlocked || !namePolicyReady}
+                        disabled={profileReloading}
+                        onClick={() => void reloadProfile()}
                       >
-                        {t(
-                          updateProfile.isPending
-                            ? "tutor.settings.saving"
-                            : "tutor.settings.save",
-                        )}
+                        {recovery("retry")}
                       </Button>
-                      <Button
-                        onClick={() => {
-                          if (
-                            profileBlocked ||
-                            profileAdmission.current ||
-                            !profile.data
-                          )
-                            return;
-                          // Cancel explicitly discards this section only; sibling forms keep their drafts.
-                          adoptProfile(profile.data);
-                          updateProfile.reset();
-                        }}
-                      >
-                        {t("uiPatterns.cancel")}
-                      </Button>
-                    </>
-                  ) : undefined
-                }
-              >
-                <PersonNameFields
-                  onPolicyAvailabilityChange={observeNamePolicy}
-                  value={names}
-                  legacyName={legacyName}
-                  originalValue={originalNames}
-                  onChange={(value) => {
-                    setNames(value);
-                    setProfileDirty(true);
-                    updateProfile.reset();
-                  }}
-                />
-              </FormSection>
-            </form>
-            {updateProfile.isSuccess && (
-              <p role="status" className="text-sm text-green-700">
-                {t("tutor.settings.saved")}
-              </p>
-            )}
-            {updateProfile.error && (
-              <p role="alert" className="text-sm text-red-600">
-                <ProfilePolicyError message={updateProfile.error.message} />
-              </p>
-            )}
-            {updateProfile.error?.data?.code === "CONFLICT" && (
-              <Button
-                disabled={profileReloading || updateProfile.isPending}
-                onClick={() => void reloadProfile()}
-              >
-                {t("accountProfile.reloadIdentity")}
-              </Button>
-            )}
-            {profileSyncError && (
-              <InlineNotice
-                tone="error"
-                announcement="alert"
-                action={
-                  <Button
-                    disabled={profileReloading}
-                    onClick={() =>
-                      void (profileCommitted
-                        ? refreshProfile()
-                        : reloadProfile())
                     }
                   >
-                    {t("accountProfile.retryRefresh")}
-                  </Button>
-                }
-              >
-                {t(
-                  profileCommitted
-                    ? "tutor.settings.profileSyncFailed"
-                    : "participantRecovery.loadFailed",
+                    {recovery("accessDeniedHelp")}
+                  </StatePanel>
+                ) : (
+                  <QueryFeedback
+                    hasData={!!profile.data}
+                    loading={!profile.data && !profile.error}
+                    error={!!profile.error}
+                    retrying={profile.isFetching}
+                    loadingTitle={recovery("loading")}
+                    errorTitle={recovery(
+                      profile.data ? "refreshFailed" : "loadFailed",
+                    )}
+                    retryLabel={recovery("retry")}
+                    onRetry={() => void profile.refetch()}
+                  />
                 )}
-              </InlineNotice>
+              </div>
             )}
-          </>
-        )}
-      </section>
+            {profile.data && !profileDenied && !deniedNow && (
+              <>
+                <div className="from-accent-50 bg-gradient-to-br to-white px-5 py-5 sm:px-6">
+                  <div className="flex items-start gap-4">
+                    <div
+                      aria-hidden
+                      className="bg-accent-600 grid h-14 w-14 shrink-0 place-items-center rounded-full text-lg font-bold text-white shadow-sm ring-2 ring-white"
+                    >
+                      {initials}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                        <h2 className="truncate text-xl font-bold tracking-tight text-slate-900">
+                          {profile.data.englishName || "—"}
+                        </h2>
+                        <span className="badge-slate">
+                          {t("admin.users.roles.TUTOR")}
+                        </span>
+                      </div>
+                      <p className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-sm">
+                        <span className="text-accent-700 font-mono font-medium [overflow-wrap:anywhere]">
+                          {profile.data.username
+                            ? `@${profile.data.username}`
+                            : t("academics.usernameMissing")}
+                        </span>
+                        {profile.data.email && (
+                          <>
+                            <span className="text-slate-300" aria-hidden>
+                              {SYMBOLS.dot}
+                            </span>
+                            <span className="truncate text-slate-500">
+                              {profile.data.email}
+                            </span>
+                          </>
+                        )}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+                <div className="space-y-4 border-t border-slate-100 px-5 py-5 sm:px-6">
+                  <form
+                    aria-label={t("tutor.settings.profileHeading")}
+                    onSubmit={(event) => {
+                      event.preventDefault();
+                      if (
+                        profileBlocked ||
+                        profileAdmission.current ||
+                        !namePolicyReady ||
+                        !editableNames
+                      )
+                        return;
+                      profileAdmission.current = true;
+                      updateProfile.mutate({
+                        ...identity.fields,
+                        expectedProfileVersion: profileVersion,
+                      });
+                    }}
+                  >
+                    <FormSection
+                      title={t("tutor.settings.profileHeading")}
+                      busy={updateProfile.isPending || profileReloading}
+                      disabled={profileBlocked}
+                      actions={
+                        editableNames ? (
+                          <>
+                            <Button
+                              type="submit"
+                              variant="primary"
+                              disabled={profileBlocked || !namePolicyReady}
+                            >
+                              {t(
+                                updateProfile.isPending
+                                  ? "tutor.settings.saving"
+                                  : "tutor.settings.save",
+                              )}
+                            </Button>
+                            <Button
+                              onClick={() => {
+                                if (
+                                  profileBlocked ||
+                                  profileAdmission.current ||
+                                  !profile.data
+                                )
+                                  return;
+                                // Cancel explicitly discards this section only; sibling forms keep their drafts.
+                                adoptProfile(profile.data);
+                                updateProfile.reset();
+                              }}
+                            >
+                              {t("uiPatterns.cancel")}
+                            </Button>
+                          </>
+                        ) : undefined
+                      }
+                    >
+                      <PersonNameFields
+                        onPolicyAvailabilityChange={observeNamePolicy}
+                        value={names}
+                        legacyName={legacyName}
+                        originalValue={originalNames}
+                        onChange={(value) => {
+                          setNames(value);
+                          setProfileDirty(true);
+                          updateProfile.reset();
+                        }}
+                      />
+                    </FormSection>
+                  </form>
+                  {updateProfile.isSuccess && (
+                    <p role="status" className="text-sm text-green-700">
+                      {t("tutor.settings.saved")}
+                    </p>
+                  )}
+                  {updateProfile.error && (
+                    <p role="alert" className="text-sm text-red-600">
+                      <ProfilePolicyError
+                        message={updateProfile.error.message}
+                      />
+                    </p>
+                  )}
+                  {updateProfile.error?.data?.code === "CONFLICT" && (
+                    <Button
+                      disabled={profileReloading || updateProfile.isPending}
+                      onClick={() => void reloadProfile()}
+                    >
+                      {t("accountProfile.reloadIdentity")}
+                    </Button>
+                  )}
+                  {profileSyncError && (
+                    <InlineNotice
+                      tone="error"
+                      announcement="alert"
+                      action={
+                        <Button
+                          disabled={profileReloading}
+                          onClick={() =>
+                            void (profileCommitted
+                              ? refreshProfile()
+                              : reloadProfile())
+                          }
+                        >
+                          {t("accountProfile.retryRefresh")}
+                        </Button>
+                      }
+                    >
+                      {t(
+                        profileCommitted
+                          ? "tutor.settings.profileSyncFailed"
+                          : "participantRecovery.loadFailed",
+                      )}
+                    </InlineNotice>
+                  )}
+                </div>
+              </>
+            )}
+          </section>
 
-      <AcademicPanel />
-      <SchoolDeparturePanel />
+          <AcademicPanel actions={<SchoolDepartureAction />} />
+        </div>
 
-      {/* Password — two-step: verify current password to email a code, then submit code + new pw. */}
-      <section className="card space-y-4 p-5">
+        <div hidden={section !== "security"} className="space-y-6">
+          {/* Password — two-step: verify current password to email a code, then submit code + new pw. */}
+          <section
+            id="account-password"
+            className="card scroll-mt-24 space-y-4 p-5 sm:p-6"
+          >
         <div>
           <h2 className="section-title">
             {t("tutor.settings.passwordHeading")}
@@ -593,30 +751,37 @@ export default function SettingsPage() {
               className="input"
             />
           </label>
-          <label className="block space-y-1">
-            <span className="label">{t("tutor.settings.newPassword")}</span>
-            <input
-              value={next}
-              onChange={(e) => setNext(e.target.value)}
-              type="password"
-              autoComplete="new-password"
-              minLength={8}
-              disabled={!!sentTo}
-              className="input"
-            />
-            <span className="muted text-xs">{t("tutor.settings.pwHelp")}</span>
-          </label>
-          <label className="block space-y-1">
-            <span className="label">{t("tutor.settings.confirmPassword")}</span>
-            <input
-              value={confirm}
-              onChange={(e) => setConfirm(e.target.value)}
-              type="password"
-              autoComplete="new-password"
-              disabled={!!sentTo}
-              className="input"
-            />
-          </label>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <label className="block space-y-1">
+              <span className="label">{t("tutor.settings.newPassword")}</span>
+              <input
+                value={next}
+                onChange={(e) => setNext(e.target.value)}
+                type="password"
+                autoComplete="new-password"
+                minLength={NEW_PASSWORD_MIN_LENGTH}
+                maxLength={PASSWORD_MAX_LENGTH}
+                disabled={!!sentTo}
+                className="input"
+              />
+              <span className="muted text-xs">{t("tutor.settings.pwHelp")}</span>
+            </label>
+            <label className="block space-y-1">
+              <span className="label">
+                {t("tutor.settings.confirmPassword")}
+              </span>
+              <input
+                value={confirm}
+                onChange={(e) => setConfirm(e.target.value)}
+                type="password"
+                autoComplete="new-password"
+                minLength={NEW_PASSWORD_MIN_LENGTH}
+                maxLength={PASSWORD_MAX_LENGTH}
+                disabled={!!sentTo}
+                className="input"
+              />
+            </label>
+          </div>
 
           {/* Step 2 appears once the code is emailed. */}
           {sentTo && (
@@ -708,19 +873,30 @@ export default function SettingsPage() {
               >
                 {pwError ??
                   changePassword.error?.message ??
-                  requestCode.error?.message}
+                  (requestCode.error?.data?.emailDeliveryFailed
+                    ? t("account.password.deliveryFailed")
+                    : requestCode.error?.message)}
               </span>
             )}
           </FormActions>
         </fieldset>
       </section>
 
-      <AccountEmails />
-      <EmailPreferences />
-      <TwoFactorSettings />
+          <AccountEmails />
+          <TwoFactorSettings />
+        </div>
 
-      {/* Membership — opt-out / reentry */}
-      <section className="card space-y-4 p-5">
+        <div hidden={section !== "notifications"} className="space-y-6">
+          <EmailPreferences />
+        </div>
+
+        <div
+          id="tutor-membership"
+          hidden={section !== "membership"}
+          className="scroll-mt-24 space-y-6"
+        >
+          {/* Membership — opt-out / reentry */}
+          <section className="card space-y-4 p-5 sm:p-6">
         <h2 className="section-title">
           {t("tutor.settings.membershipHeading")}
         </h2>
@@ -831,7 +1007,20 @@ export default function SettingsPage() {
             })}
           </p>
         )}
-      </section>
+          </section>
+          <section className="card space-y-3 p-5 sm:p-6">
+            <h2 className="section-title">
+              {t("accountInvitation.addAccess")}
+            </h2>
+            <p className="muted text-sm">
+              {t("accountInvitation.addAccessHelp")}
+            </p>
+            <Link className="btn-secondary" href="/register">
+              {t("accountInvitation.code")}
+            </Link>
+          </section>
+        </div>
+      </SectionTabs>
       {!membershipDenied && optOutReview.dialog}
     </main>
   );

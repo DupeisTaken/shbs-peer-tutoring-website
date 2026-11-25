@@ -42,7 +42,11 @@ const mock = vi.hoisted(() => {
   });
   return {
     locale: "en",
-    access: { audiences: ["public"] as HelpAudience[], canDownload: false },
+    access: {
+      audiences: ["public"] as HelpAudience[],
+      downloadableAudiences: ["public"] as HelpAudience[],
+      canDownload: false,
+    },
     screenshot: vi.fn(),
     articles: [
       makeArticle("getting-started", "public", "Public starting guide"),
@@ -86,7 +90,11 @@ vi.mock("~/lib/help/screenshots", async (importOriginal) => ({
 beforeEach(() => {
   vi.clearAllMocks();
   mock.locale = "en";
-  mock.access = { audiences: ["public"], canDownload: false };
+  mock.access = {
+    audiences: ["public"],
+    downloadableAudiences: ["public"],
+    canDownload: false,
+  };
   for (const article of mock.articles) {
     delete article.requiresPrivateLink;
     delete article.externalAction;
@@ -135,7 +143,7 @@ it("filters forbidden articles before serializing catalogue props or audience sh
   expect(serialized).not.toContain("synthetic.ts");
   expect(serialized).not.toContain("访客");
   render(page);
-  expect(screen.getByRole("heading", { name: "Help & How-to" })).toBeTruthy();
+  expect(screen.getByRole("heading", { name: "Help Center" })).toBeTruthy();
   expect(screen.getByRole("status").textContent).toBe("1 of 1 guides found");
   expect(
     screen.getByRole("link", { name: "Sign in" }).getAttribute("href"),
@@ -143,7 +151,18 @@ it("filters forbidden articles before serializing catalogue props or audience sh
   expect(
     screen.queryByRole("button", { name: "Tutoring training" }),
   ).toBeNull();
-  expect(screen.queryByRole("link", { name: "PDF handbooks" })).toBeNull();
+  // Visitors can jump to and download only the public PDF handbook, never private ones.
+  expect(
+    screen.getByRole("link", { name: "PDF handbooks" }).getAttribute("href"),
+  ).toBe("#handbooks");
+  expect(
+    screen
+      .getByRole("link", { name: "Download PDF · English" })
+      .getAttribute("href"),
+  ).toBe("/api/help/pdf/public?locale=en");
+  expect(
+    screen.queryByRole("heading", { name: "Tutoring training" }),
+  ).toBeNull();
 });
 
 it.each(["tutor-only", "head-only", "missing-article"])(
@@ -235,6 +254,16 @@ it("offers staff participant PDFs without granting participant guide access or a
       "staff",
       "translator",
     ],
+    downloadableAudiences: [
+      "public",
+      "account",
+      "student",
+      "tutor",
+      "crew",
+      "observer",
+      "staff",
+      "translator",
+    ],
     canDownload: true,
   };
   render(await HelpDownloadsPage());
@@ -265,6 +294,17 @@ it("keeps the Head handbook out of Admin downloads and rejects non-staff downloa
       "admin",
       "translator",
     ],
+    downloadableAudiences: [
+      "public",
+      "account",
+      "student",
+      "tutor",
+      "crew",
+      "observer",
+      "staff",
+      "admin",
+      "translator",
+    ],
     canDownload: true,
   };
   render(await HelpDownloadsPage());
@@ -284,6 +324,18 @@ it("includes the Head edition only when the current allowlist contains Head auth
       "public",
       "account",
       "student",
+      "observer",
+      "staff",
+      "admin",
+      "head",
+      "translator",
+    ],
+    downloadableAudiences: [
+      "public",
+      "account",
+      "student",
+      "tutor",
+      "crew",
       "observer",
       "staff",
       "admin",

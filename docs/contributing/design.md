@@ -97,10 +97,7 @@ must not introduce a new computed next-session feature or domain rule.
 Render recurring weekday labels with `formatWeekday(dayOfWeek, locale)` using the
 active `next-intl` locale, including availability group names exposed to assistive
 technology. Keep stored ISO weekday numbers, group order, slot IDs and minute
-values unchanged. A translated label must not change an availability Save or
-schedule-review request payload.
-Use a feature-specific final action label in the meeting absence-reason editor
-(“Submit absence excuse”), while preserving its cutoff, reason and request rules.
+values unchanged; translated labels must not change Save or schedule-review payloads.
 
 ## Align controls to their visual row
 
@@ -126,41 +123,31 @@ not grow to fill the row. Translated or enlarged text may grow beyond that minim
 Show each subject as a brief row with its name, level badge, qualification and
 willingness. Do not repeat a Qualification heading beside a Qualified badge.
 Order qualified and willing subjects first, qualified and unwilling next, then
-qualified subjects whose willingness is not recorded, then unqualified subjects.
-Keep the current catalog order within a group. Unknown willingness is a distinct
-state, not an inferred No. Put editing behind a rightmost Edit action and retain
-the feature's independent mutation, approval and failed-save recovery rules.
-
-Bulk selection is a deliberate exception to the trailing-action rule: a checkbox
-column goes at the far left, with a named select-all control. Details and editors
-remain in the rightmost Actions column. Selection remains stable while filtering;
-subject catalogs use the same default order as signup forms.
+qualified subjects whose willingness is not recorded, then unqualified subjects
+(preserving catalog order within each group). Unknown willingness is a distinct
+state, not an inferred No. Put editing behind a rightmost Edit action.
 
 Use one compact warning for an academic value needing review rather than an
 unknown-value sentence followed by the same review instruction. Put full reasons,
 self-excused absences, comments, evaluations and recorded service hours in named
-detail readers. Attendance abbreviations such as P, EA and UA require a visible
+detail readers. Attendance abbreviations (`P`, `EA`, `UA`) require a visible
 legend and accessible expanded column names. Keep all columns and trailing actions
 reachable on narrow screens; avoid side-by-side tables that compress either table
 below its useful width.
 
-In a record action group, put ordinary text links on the left, boxed decision
-buttons next, and Delete last. For example, Set Up Account precedes Flag invalid
-and the other decision buttons. Keep this DOM order and keyboard order consistent
-when the group wraps on a narrow screen; do not reorder unrelated form actions.
+In a record action group, place ordinary text links first, boxed decision buttons
+next, and Delete last (for example, `Set Up Account` before `Flag invalid` and
+other decision buttons). Keep DOM and keyboard order aligned when wrapped on
+narrow screens.
 
-Delete and Decline labels are red at rest, including when their control is boxed.
-Assign destructive styling explicitly in the owning component rather than matching
-translated label text. All in-table link actions, including destructive actions
-and semantic buttons that open details, remain unboxed at rest and on hover: no
-border or filled hover surface. Preserve their readable text, underline affordance,
-visible keyboard focus, disabled behavior and existing desktop/touch target sizes.
-Shared table text actions use a 3 px underline with a 4 px offset for keyboard
-focus, rather than a surrounding ring that looks like a boxed action. Keep this
-indicator distinct from the ordinary hover underline; mouse focus adds no box.
-Boxed consequential buttons keep their boundary and interaction treatment; the red
-label must not depend on hover. Confirmation, approval, authorization, action
-tickets and pending-dismissal rules remain owned by the existing feature.
+Delete and Decline labels are red at rest, including when boxed — assign
+destructive styling explicitly in the owning component rather than matching
+translated text. Keep in-table actions unboxed at rest and on hover (no border or
+filled hover surface), using a 3 px underline with a 4 px offset for keyboard
+focus so it stays distinct from hover underline without adding a box on mouse
+focus. Boxed consequential buttons keep their boundary and red rest label;
+confirmation, approval, authorization and pending-dismissal rules stay with the
+owning feature.
 
 ## Room and participant composition
 
@@ -244,22 +231,57 @@ weight, not an arbitrary height difference.
 - Let groups wrap on narrow screens. Long translations or enlarged text may
   grow beyond the baseline height to avoid clipping; never hide text or reduce
   accessibility just to force a fixed height.
-- When changing shared header sizing, verify management, tutor and tutee pages
-  on the complete running site at desktop and mobile widths. Capture screenshots
-  and compare the entry/return button heights with the language selector. Keep
-  browser/server work serial and stop temporary processes after verification.
+- When changing shared header sizing, verify management, tutor and tutee pages at
+  desktop and mobile widths against the language selector's rendered height.
+
+## Selectors and dropdown menus
+
+Keep native `<select>` elements across single-value forms, dialogs and filter toolbars
+so keyboard navigation, screen-reader announcements and OS mobile pickers stay intact.
+
+- **Single-value `.select`:** Always give `<select>` controls the `.select` class
+  (never `.input`). In [global styles](../../src/styles/globals.css), single-value
+  `.select` controls (`:not([multiple]):not([size])` and `[size="1"]`) use
+  `appearance-none`, a 14 px `slate-500` SVG chevron (4.76:1 contrast on white),
+  and logical inline padding (`ps-3 pe-8`, chevron `0.625rem` from the trailing edge)
+  so long translated option labels never collide with the indicator.
+- **Compact & inline selects:** Pair `.select.control-compact` with `field-auto`
+  (or `field-auto-bounded` with `[--field-min-width:...]` in wrapping forms) for
+  headers, filter toolbars and inline row selectors. `.select.control-compact` tightens
+  padding to `ps-2.5 pe-7` with the chevron `0.5rem` from the trailing edge while
+  preserving 44 px narrow-screen targets and a 32 px desktop baseline. Full-width form
+  selects keep `w-full` and standard `ps-3 pe-8` padding.
+- **Multi-select listboxes (avoid raw `<select multiple>`):** Do not use native
+  `<select multiple>` (ambiguous `Ctrl`/`Cmd`-click gestures, unfocused gray row bars
+  and cramped touch targets). Use `CheckboxListbox`
+  (`src/app/_components/ui/checkbox-listbox.tsx`) for multi-select forms, `ChoiceButton`
+  groups for small 2–6 option filter toggles, and `MultiFilter` when explicit
+  Include/Exclude filtering is needed. For long option sets (8+ items), `CheckboxListbox`
+  keeps a bounded scroll container (`max-h-60`) with sticky group headers, local search
+  filtering that preserves hidden selections, a `Selected only` view, and a capped
+  removable summary strip (`+N more`) so very long lists stay scannable and never expand
+  the page unboundedly.
+- **States and accessibility exceptions:** Disabled selects use a quiet `slate-50`
+  surface with readable `slate-500` text and `cursor-not-allowed`; invalid selects
+  (`aria-invalid="true"`) show semantic red borders and focus rings; `:dir(rtl)` flips
+  the chevron to the left edge; and `@media (forced-colors: active)` restores the native
+  OS indicator.
+- **Floating menus vs. inline disclosures:** Floating header/picker menus (`HeaderMenu`,
+  `UserAvatar`, `ThemeSwitcher`, `NotificationBell` and workspace switchers) share the
+  sculpted `.popover-surface` card (`rounded-xl border border-slate-200/90 bg-white
+  shadow-xl shadow-slate-900/10 ring-1 ring-slate-900/5`) and rotating `ChevronDownIcon`
+  triggers with `DetailsAutoClose` or Escape/outside-click handling. Keep in-flow
+  collapsible sections (`DisclosureSection` / `DisclosureIcon`) visually distinct from
+  floating menus.
 
 ## Mobile header hierarchy
 
-- Use a prominent brand (20 px on mobile) and the language selector on the top row.
-- Put the management hamburger menu at the far left of the second row; align theme,
-  notifications and account controls to its right. Give the icon an accessible name.
-- Keep workspace entry/return links together on a third row, separated with a subtle
-  top border and space. Let long translated labels wrap without clipping.
-- Preserve 44 px mobile touch targets. Make the header spacious and the rows clear
-  rather than shrinking interactive controls to obtain a shorter header.
-- At desktop widths retain a single compact row, 18 px branding, and 32 px workspace
-  buttons/language selector. Keep only one instance of each interactive control.
+- Pair the official PT `BrandMark` logo with a bold franchise-style wordmark (`text-xl font-bold tracking-tight lg:text-lg`) inside the `(Logo) Title ⌄` workspace switcher across signed-in workspaces (`Management` for staff, `Program Overview` for Viewers/read-only observers, `Tutor`, `Tutee`, `Crew`, `Translations`, `Help Center`, and the configured site title on signed-in Program Home). Clicking opens an access-gated selector for the user's other authorized areas plus `Program Home` and `Help Center`, omitting whichever area is currently open.
+- On Program Home (`/` and signed-in `/?home=1`), show the configured program title (`SHBS Peer Tutoring`) beside the PT logo. For guests, merge `Sign In`, `Join the Program`, and `Access Program Information` into one far-right `Sign In & Join` menu after `?`, `Theme`, and `Language`; when signed in, hide guest actions and show the workspace switcher and account menu.
+- Keep the signed-in right-side utility order consistent across viewports: **Notifications (Bell) → Help Center (`?`, hidden when already on `/help`) → Theme → Language → User & Portrait (far right)**, using soft circular `32px` desktop badges (`36px` inside `44px` mobile touch targets) and a pill language selector so every utility badge aligns flush top-to-bottom with the `32px` avatar circle.
+- In `WorkspaceHeader`, mobile (`<lg`) puts the optional management hamburger menu and `(Logo) Title ⌄` on row 1 (preventing title truncation in any language) and `Bell · ? · Theme` (left) + `Language · Avatar` (right) on row 2, separated by a full-width hairline.
+- In `PublicHeader`, Program Home mirrors that exact 2-row mobile structure (`[PT] SHBS Peer Tutoring` on row 1, `? · Theme` left and `Language · Sign In & Join` right on row 2); subpages with a return link place `[PT] <Title>` + `Language` on row 1 and the return link + `? · Theme` on row 2.
+- Preserve 44 px mobile touch targets. At desktop widths retain a single compact ~56 px row with 32 px utility controls and one instance of each interactive control.
 
 `WorkspaceHeaderFrame` measures the rendered header for native document scroll
 padding, including translated wrapping and enlarged text. After ordinary focus
@@ -330,10 +352,9 @@ Display labels use neutral `slate-600` text to meet normal-text contrast on both
 purpose backgrounds; retain the same readable label treatment for each purpose.
 Email keeps the legacy single code panel's layout, typography and border, with dark
 green (`#18342C`) or blue (`#172F49`) backgrounds and no added label/guidance wrapper.
-Never infer authorization from this presentation metadata. Include old-format
-acceptance, purpose confusion, attempt limits, resend and failed delivery in tests;
-capture both site and email panels at desktop/mobile widths and verify that stripping
-email styles preserves readable instructions, full codes and contrast.
+Never infer authorization from presentation metadata. See
+[verification](verification.md#ui-verification-matrix) for code-field and email
+testing requirements.
 
 ## Writing UI copy
 

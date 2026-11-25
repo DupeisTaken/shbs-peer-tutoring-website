@@ -245,12 +245,20 @@ export function useTutorMeetingController() {
             const canExcuse =
               m.canExcuse &&
               (!now || canExcusePersonalMeeting(meetingDate, now));
+            const staffRecorded = !!m.status && !m.excused;
+            const editing =
+              !history &&
+              upcoming &&
+              !m.excused &&
+              !staffRecorded &&
+              canExcuse &&
+              openId === m.id;
             return (
               <li
                 key={m.id}
                 className="grid gap-3 rounded-lg border border-slate-200 p-3 sm:flex sm:flex-wrap sm:items-center sm:justify-between"
               >
-                <div className="min-w-0">
+                <div className="min-w-0 flex-1">
                   <p className="font-medium text-slate-900">{m.title}</p>
                   <p className="muted text-xs">
                     {programFormat.dateTime(meetingDate, {
@@ -271,9 +279,16 @@ export function useTutorMeetingController() {
                   )}
                 </div>
 
-                <div className="min-w-0 sm:shrink-0">
+                {/* Give the open excuse editor its own bounded full-width row so input and actions wrap inside ProfileDialog. */}
+                <div
+                  className={
+                    editing
+                      ? "w-full min-w-0 basis-full"
+                      : "min-w-0 max-w-full sm:shrink-0"
+                  }
+                >
                   {/* Staff attendance stays read-only even before the excuse cutoff. */}
-                  {history || !upcoming || (!!m.status && !m.excused) ? (
+                  {history || !upcoming || staffRecorded ? (
                     <span className="badge-slate">
                       {m.status
                         ? t(
@@ -310,8 +325,8 @@ export function useTutorMeetingController() {
                     <span className="muted text-xs">
                       {t("tutor.meetings.tooLate")}
                     </span>
-                  ) : openId === m.id ? (
-                    <div className="grid gap-2 sm:flex sm:flex-wrap sm:items-center">
+                  ) : editing ? (
+                    <div className="flex w-full min-w-0 flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
                       <input
                         value={drafts[m.id] ?? ""}
                         aria-label={`${m.title}: ${t("tutor.meetings.reasonPlaceholder")}`}
@@ -324,34 +339,42 @@ export function useTutorMeetingController() {
                           }))
                         }
                         placeholder={t("tutor.meetings.reasonPlaceholder")}
-                        className="input control-standard sm:field-auto min-w-0 sm:min-w-44 lg:min-h-10 lg:py-2"
+                        className="input control-standard min-w-0 sm:w-auto sm:flex-[1_1_12rem] lg:min-h-10 lg:py-2"
                       />
-                      <button
-                        className="btn-primary control-standard"
-                        disabled={blocked}
-                        onClick={() => {
-                          if (blocked || admitted.current || !canExcuse) return;
-                          admitted.current = m.id;
-                          setLastAction("excuse");
-                          const reason = (drafts[m.id] ?? "").trim();
-                          excuse.mutate({
-                            meetingId: m.id,
-                            reason: reason.length > 0 ? reason : undefined,
-                          });
-                        }}
-                      >
-                        {t("tutor.meetings.submitExcuse")}
-                      </button>
-                      <button
-                        className="btn-secondary control-standard"
-                        disabled={pending}
-                        onClick={() => {
-                          setOpenId(null);
-                          setDrafts((current) => ({ ...current, [m.id]: "" }));
-                        }}
-                      >
-                        {t("common.dismiss")}
-                      </button>
+                      <div className="flex max-w-full min-w-0 flex-wrap items-center gap-2">
+                        <button
+                          type="button"
+                          className="btn-primary control-standard max-w-full lg:whitespace-normal"
+                          disabled={blocked}
+                          onClick={() => {
+                            if (blocked || admitted.current || !canExcuse)
+                              return;
+                            admitted.current = m.id;
+                            setLastAction("excuse");
+                            const reason = (drafts[m.id] ?? "").trim();
+                            excuse.mutate({
+                              meetingId: m.id,
+                              reason: reason.length > 0 ? reason : undefined,
+                            });
+                          }}
+                        >
+                          {t("tutor.meetings.submitExcuse")}
+                        </button>
+                        <button
+                          type="button"
+                          className="btn-secondary control-standard max-w-full lg:whitespace-normal"
+                          disabled={pending}
+                          onClick={() => {
+                            setOpenId(null);
+                            setDrafts((current) => ({
+                              ...current,
+                              [m.id]: "",
+                            }));
+                          }}
+                        >
+                          {t("common.dismiss")}
+                        </button>
+                      </div>
                     </div>
                   ) : (
                     <button

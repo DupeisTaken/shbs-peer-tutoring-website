@@ -21,6 +21,7 @@ export type InterviewApprovalEvidence = {
 export type InterviewApprovalInput = {
   comment: string;
   expectedUpdatedAt: Date;
+  retainRecordedService?: true;
   completion: {
     completedAt: Date;
     durationMin: number;
@@ -182,6 +183,9 @@ export function InterviewApprovalDialog({
           : {
               comment: draft.comment.trim(),
               expectedUpdatedAt: draft.evidence.updatedAt,
+              ...(retainRecordedService
+                ? { retainRecordedService: true as const }
+                : {}),
               completion: {
                 completedAt:
                   draft.evidence.interviewCompletedAt ??
@@ -197,7 +201,7 @@ export function InterviewApprovalDialog({
         !Number.isInteger(durationMin) ||
         durationMin < 1 ||
         durationMin > 480 ||
-        !attendedTutorIds.length ||
+        (!input.retainRecordedService && !attendedTutorIds.length) ||
         !input.comment
       )
         throw new Error(all("interviewReview.invalidEvidence"));
@@ -227,29 +231,41 @@ export function InterviewApprovalDialog({
               })}
             </p>
             <p className="break-words whitespace-pre-wrap">{input.comment}</p>
-            {recorded && <InlineNotice>{t("recorded")}</InlineNotice>}
-            <ul className="space-y-2">
-              {draft.evidence.panel
-                .filter((person) => attendedTutorIds.includes(person.tutorId))
-                .map((person) => (
-                  <li
-                    key={person.tutorId}
-                    className="flex flex-wrap justify-between gap-2 border-b border-slate-100 py-2"
-                  >
-                    <span>{person.name}</span>
-                    <span>
-                      {all("interviewReview.credit", {
-                        hours: number(durationMin / 60),
-                      })}
-                    </span>
-                  </li>
-                ))}
-            </ul>
-            <p className="font-semibold">
-              {all("interviewReview.total", {
-                hours: number((durationMin / 60) * attendedTutorIds.length),
-              })}
-            </p>
+            {recorded && (
+              <InlineNotice>
+                {t(
+                  input.retainRecordedService ? "retainedService" : "recorded",
+                )}
+              </InlineNotice>
+            )}
+            {!input.retainRecordedService && (
+              <>
+                <ul className="space-y-2">
+                  {draft.evidence.panel
+                    .filter((person) =>
+                      attendedTutorIds.includes(person.tutorId),
+                    )
+                    .map((person) => (
+                      <li
+                        key={person.tutorId}
+                        className="flex flex-wrap justify-between gap-2 border-b border-slate-100 py-2"
+                      >
+                        <span>{person.name}</span>
+                        <span>
+                          {all("interviewReview.credit", {
+                            hours: number(durationMin / 60),
+                          })}
+                        </span>
+                      </li>
+                    ))}
+                </ul>
+                <p className="font-semibold">
+                  {all("interviewReview.total", {
+                    hours: number((durationMin / 60) * attendedTutorIds.length),
+                  })}
+                </p>
+              </>
+            )}
           </div>
         ),
         commit: async () => {
@@ -344,18 +360,25 @@ export function InterviewApprovalDialog({
               draft={visibleDraft}
               update={update}
               recorded={recorded}
+              retainRecordedService={retainRecordedService}
               retryOnly={retryOnly}
             />
           </form>
-          {!!visibleDraft.duration && Number.isFinite(hours) && (
-            <p className="my-3 text-sm font-semibold">
-              {t("hours", {
-                minutes: Number(visibleDraft.duration),
-                hours: number(hours),
-              })}
-            </p>
+          {!retainRecordedService &&
+            !!visibleDraft.duration &&
+            Number.isFinite(hours) && (
+              <p className="my-3 text-sm font-semibold">
+                {t("hours", {
+                  minutes: Number(visibleDraft.duration),
+                  hours: number(hours),
+                })}
+              </p>
+            )}
+          {recorded && (
+            <InlineNotice>
+              {t(retainRecordedService ? "retainedService" : "recorded")}
+            </InlineNotice>
           )}
-          {recorded && <InlineNotice>{t("recorded")}</InlineNotice>}
           {!canSubmit && (
             <InlineNotice tone="warning">{t("waitingVotes")}</InlineNotice>
           )}
@@ -394,11 +417,13 @@ function ApprovalFields({
   draft,
   update,
   recorded,
+  retainRecordedService,
   retryOnly,
 }: {
   draft: InterviewApprovalDraft;
   update: (values: Partial<InterviewApprovalDraft>) => void;
   recorded: boolean;
+  retainRecordedService: boolean;
   retryOnly: boolean;
 }) {
   const t = useTranslations();
@@ -438,33 +463,37 @@ function ApprovalFields({
           />
         </label>
       </div>
-      <fieldset disabled={recorded || busy}>
-        <legend className="label">{t("workflows.attended")}</legend>
-        <p className="muted mb-2 text-sm">
-          {t("interviewApproval.attendanceHelp")}
-        </p>
-        <div className="space-y-1">
-          {draft.evidence.panel.map((person) => (
-            <label
-              key={person.tutorId}
-              className="flex min-h-11 items-center gap-2 lg:min-h-8"
-            >
-              <input
-                type="checkbox"
-                checked={draft.attended.includes(person.tutorId)}
-                onChange={(event) =>
-                  update({
-                    attended: event.target.checked
-                      ? [...draft.attended, person.tutorId]
-                      : draft.attended.filter((id) => id !== person.tutorId),
-                  })
-                }
-              />
-              {person.name}
-            </label>
-          ))}
-        </div>
-      </fieldset>
+      {/* Current panel membership cannot reconstruct all original attendees after
+          repair. The server validates the preserved source ledger separately. */}
+      {!retainRecordedService && (
+        <fieldset disabled={recorded || busy}>
+          <legend className="label">{t("workflows.attended")}</legend>
+          <p className="muted mb-2 text-sm">
+            {t("interviewApproval.attendanceHelp")}
+          </p>
+          <div className="space-y-1">
+            {draft.evidence.panel.map((person) => (
+              <label
+                key={person.tutorId}
+                className="flex min-h-11 items-center gap-2 lg:min-h-8"
+              >
+                <input
+                  type="checkbox"
+                  checked={draft.attended.includes(person.tutorId)}
+                  onChange={(event) =>
+                    update({
+                      attended: event.target.checked
+                        ? [...draft.attended, person.tutorId]
+                        : draft.attended.filter((id) => id !== person.tutorId),
+                    })
+                  }
+                />
+                {person.name}
+              </label>
+            ))}
+          </div>
+        </fieldset>
+      )}
       <label className="block">
         <span className="label">{t("qualificationRequests.decisionNote")}</span>
         <textarea

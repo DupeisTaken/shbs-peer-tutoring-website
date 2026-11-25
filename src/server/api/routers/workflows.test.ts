@@ -6,6 +6,7 @@ import type { Session } from "next-auth";
 vi.mock("~/server/auth", () => ({ auth: async () => null }));
 import { createCaller } from "~/server/api/root";
 import { db } from "~/server/db";
+import { assertIsolatedTestDatabase } from "~/test/database-guard";
 import { currentPolicy } from "~/server/policy-acceptance";
 import {
   acceptStudentPolicy,
@@ -28,6 +29,7 @@ import { hashCode } from "~/server/auth/registration";
 import { auditActorScope, databaseScope } from "~/server/db-scope";
 import { parseProposal } from "~/server/approvals";
 import { lockEntity, type DomainDb } from "~/server/transactions";
+import { lockUsernameNamespace } from "~/server/auth/username";
 import * as audit from "~/server/audit/log";
 import { availableSubjectIds } from "~/server/subject-willingness";
 import { ensureSessionPlanningWindow } from "~/server/session-planning";
@@ -1063,6 +1065,8 @@ const sessionFor = (
   user: { id: userId, name: "Review Actor", email: `${userId}@example.test` },
   role,
   tutorId,
+  sessionVersion: 0,
+  historyAccessRevision: 0,
   expires: "2099-01-01T00:00:00Z",
 });
 const caller = (
@@ -1142,18 +1146,8 @@ it("filters recorded attendance-flag states without reopening decisions or expos
 });
 
 beforeEach(async () => {
-  // Refuse destructive fixture cleanup anywhere except the explicitly created local review DB.
-  const url = new URL(process.env.DATABASE_URL!);
-  if (
-    !["localhost", "127.0.0.1"].includes(url.hostname) ||
-    !(
-      url.pathname === "/shbs_functional_review" ||
-      url.pathname.endsWith("_test")
-    )
-  )
-    throw Error(
-      "Workflow tests require an explicitly named local test database",
-    );
+  // Refuse destructive fixture cleanup anywhere except an explicit local *_test DB.
+  assertIsolatedTestDatabase(process.env.DATABASE_URL);
   const tables = await db.$queryRaw<
     { tablename: string }[]
   >`SELECT tablename FROM pg_tables WHERE schemaname='public' AND tablename <> '_prisma_migrations'`;
@@ -4362,8 +4356,15 @@ it("Coordinator completion proposals deduplicate, replay on approval, and retry 
   expect(
     await db.serviceHourAdjustment.findMany({ orderBy: { id: "asc" } }),
   ).toEqual(credits);
-  // Missing credit is a correction even when every form field still matches;
-  // Coordinator cannot recreate it through the receipt exception.
+  const approvedRequest = await db.approvalRequest.findUniqueOrThrow({
+    where: { id: request.id },
+  });
+  const sourceEvidence = await db.auditLog.findMany({
+    where: { entityId: app.id, operation: "interviewService.record" },
+    orderBy: { id: "asc" },
+  });
+  // A deleted credit corrupts the approved source ledger even if every form
+  // field matches. It is neither an applied receipt nor a new correction proposal.
   await db.serviceHourAdjustment.delete({ where: { id: credits[0]!.id } });
   const recorded = await db.tutorApplication.findUniqueOrThrow({
     where: { id: app.id },
@@ -4373,13 +4374,30 @@ it("Coordinator completion proposals deduplicate, replay on approval, and retry 
       ...input,
       expectedUpdatedAt: recorded.updatedAt,
     }),
-  ).rejects.toMatchObject({ code: "PRECONDITION_FAILED" });
+  ).rejects.toMatchObject({ code: "CONFLICT" });
   expect(await db.serviceHourAdjustment.count()).toBe(2);
   expect(
     await db.approvalRequest.count({
       where: { operation: "interviewManagement.complete", state: "PENDING" },
     }),
-  ).toBe(1);
+  ).toBe(0);
+  expect(
+    await db.approvalRequest.findUniqueOrThrow({
+      where: { id: request.id },
+    }),
+  ).toEqual(approvedRequest);
+  expect(await db.approvalRequest.count()).toBe(1);
+  expect(
+    await db.auditLog.findMany({
+      where: { entityId: app.id, operation: "interviewService.record" },
+      orderBy: { id: "asc" },
+    }),
+  ).toEqual(sourceEvidence);
+  expect(
+    await db.tutorApplication.findUniqueOrThrow({
+      where: { id: app.id },
+    }),
+  ).toEqual(recorded);
 });
 
 it("Coordinator receipt retry cannot overwrite a correction committed while it waits for the source lock", async () => {
@@ -4400,8 +4418,12 @@ it("Coordinator receipt retry cannot overwrite a correction committed while it w
     where: { id: app.id },
   });
   let pending: Promise<unknown> | undefined;
+  let winningEvidence: { application: unknown; credits: unknown } | undefined;
   await db
     .$transaction(async (tx) => {
+      // Model a legal production writer: it owns namespace before application.
+      // Holding application first would deadlock with the retry's namespace fence.
+      await lockUsernameNamespace(tx);
       await lockEntity(tx, `interview:${app.id}`);
       await tx.$queryRaw`SELECT id FROM "TutorApplication" WHERE id=${app.id} FOR UPDATE`;
       pending = caller("COORDINATOR", "review-viewer")
@@ -4415,7 +4437,7 @@ it("Coordinator receipt retry cannot overwrite a correction committed while it w
       while (!waiting && Date.now() < deadline) {
         const [state] = await tx.$queryRaw<
           { waiting: boolean }[]
-        >`SELECT EXISTS (SELECT 1 FROM pg_locks WHERE NOT granted AND pg_backend_pid() = ANY(pg_blocking_pids(pid))) AS waiting`;
+        >`SELECT EXISTS (SELECT 1 FROM pg_locks WHERE locktype = 'advisory' AND NOT granted AND pg_backend_pid() = ANY(pg_blocking_pids(pid))) AS waiting`;
         waiting = state!.waiting;
         if (!waiting) await new Promise((resolve) => setTimeout(resolve, 20));
       }
@@ -4428,11 +4450,26 @@ it("Coordinator receipt retry cannot overwrite a correction committed while it w
           expectedUpdatedAt: recorded.updatedAt,
         }),
       );
+      winningEvidence = {
+        application: await tx.tutorApplication.findUniqueOrThrow({
+          where: { id: app.id },
+        }),
+        credits: await tx.serviceHourAdjustment.findMany({
+          orderBy: { id: "asc" },
+        }),
+      };
     })
     .finally(async () => {
       await pending;
     });
   expect(await pending).toMatchObject({ code: "CONFLICT" });
+  expect(
+    await db.tutorApplication.findUniqueOrThrow({ where: { id: app.id } }),
+  ).toEqual(winningEvidence?.application);
+  expect(
+    await db.serviceHourAdjustment.findMany({ orderBy: { id: "asc" } }),
+  ).toEqual(winningEvidence?.credits);
+  expect(await db.serviceHourAdjustment.count()).toBe(panel.length);
   expect(
     (await db.tutorApplication.findUniqueOrThrow({ where: { id: app.id } }))
       .interviewDurationMin,
@@ -4471,9 +4508,12 @@ it.each(["first changed", "first exact", "recorded changed"] as const)(
         : input;
     let pending: Promise<unknown> | undefined;
     let winner:
-      Awaited<ReturnType<typeof interviewCompletionState>> | undefined;
+      | Awaited<ReturnType<typeof interviewCompletionState>>
+      | undefined;
     await db
       .$transaction(async (tx) => {
+        // Match the writer's namespace-before-application lock order.
+        await lockUsernameNamespace(tx);
         await lockEntity(tx, `interview:${app.id}`);
         await tx.$queryRaw`SELECT id FROM "TutorApplication" WHERE id=${app.id} FOR UPDATE`;
         pending = caller("COORDINATOR", "review-viewer")
@@ -4488,7 +4528,7 @@ it.each(["first changed", "first exact", "recorded changed"] as const)(
           const [state] = await tx.$queryRaw<
             { waiting: boolean }[]
           >`SELECT EXISTS (
-          SELECT 1 FROM pg_locks WHERE NOT granted
+          SELECT 1 FROM pg_locks WHERE locktype = 'advisory' AND NOT granted
             AND pg_backend_pid() = ANY(pg_blocking_pids(pid))
         ) AS waiting`;
           waiting = state!.waiting;

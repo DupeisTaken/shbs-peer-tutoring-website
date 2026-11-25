@@ -17,6 +17,7 @@ import {
   allocationData,
   notifyRoomShortage,
 } from "~/server/room-allocation";
+import { ensureSessionPlanningWindow } from "~/server/session-planning";
 import { assertIsolatedTestDatabase } from "~/test/database-guard";
 
 // These fixtures reset a dedicated, local integration database before each case.
@@ -124,7 +125,15 @@ async function blockAll(except: string[] = []) {
 const shortages = () =>
   db.notification.findMany({ where: { title: "Pairing needs a room" } });
 
-beforeEach(async () => {
+const fixtureHookTimeout = 20_000;
+const fixtureControlTimeout = 30_000;
+let fixtureResetCount = 0;
+
+/** Reset and seed the allocation fixture inside one bounded transaction so a
+ * slow cold start or active lock always rolls back and drains before Vitest's
+ * hook deadline can advance to the next test. */
+async function resetFixture(statementTimeoutMs = 6_000) {
+  assertIsolatedTestDatabase(process.env.DATABASE_URL);
   termId = "allocation-term";
   tutorId = "allocation-tutor-01";
   otherTutorId = "allocation-tutor-02";
@@ -137,96 +146,183 @@ beforeEach(async () => {
   otherSlotId = "allocation-slot-04";
   learners = ["allocation-learner-01", "allocation-learner-02"];
 
+  const resetIndex = ++fixtureResetCount;
+  const started = performance.now();
+  let phaseStarted = started;
+  let phase = "acquire";
+  let tableCount = 0;
+  let committed = false;
+  let sqlState: string | null = null;
+  const timings: Record<string, number> = {};
+  const nextPhase = (next: string) => {
+    const now = performance.now();
+    timings[phase] = Math.round(now - phaseStarted);
+    phase = next;
+    phaseStarted = now;
+  };
+
   // Only fixture construction shares a transaction. Its real commit completes
   // before root callers run; test-owned commits, concurrency and triggers stay real.
-  await db.$transaction(async (tx) => {
-    const tables = await tx.$queryRaw<
-      { tablename: string }[]
-    >`SELECT tablename FROM pg_tables WHERE schemaname='public' AND tablename <> '_prisma_migrations'`;
-    await tx.$executeRawUnsafe(
-      "TRUNCATE " +
-        tables
-          .map((t) => '"' + t.tablename.replaceAll('"', '""') + '"')
-          .join(",") +
-        " CASCADE",
-    );
-    await tx.term.create({
-      data: {
-        id: termId,
-        name: "Allocation 26-27 Q1",
-        schoolYear: "26-27",
-        quarter: "Q1",
-        active: true,
+  // Keep the single schema-wide TRUNCATE: scheduling and calendar triggers also
+  // fire on empty tables. 2s acquisition + 10s transaction + up to 6s active
+  // statement drain leaves rollback headroom inside this fixture's 20s hook.
+  try {
+    await db.$transaction(
+      async (tx) => {
+        nextPhase("configure");
+        await tx.$executeRawUnsafe("SET LOCAL lock_timeout = '1s'");
+        await tx.$executeRawUnsafe(
+          `SET LOCAL statement_timeout = '${statementTimeoutMs}ms'`,
+        );
+        nextPhase("catalog");
+        const tables = await tx.$queryRaw<
+          { tablename: string }[]
+        >`SELECT tablename FROM pg_tables WHERE schemaname='public' AND tablename <> '_prisma_migrations'`;
+        tableCount = tables.length;
+        nextPhase("truncate");
+        await tx.$executeRawUnsafe(
+          "TRUNCATE " +
+            tables
+              .map((t) => '"' + t.tablename.replaceAll('"', '""') + '"')
+              .join(",") +
+            " CASCADE",
+        );
+        nextPhase("seed");
+        await tx.term.create({
+          data: {
+            id: termId,
+            name: "Allocation 26-27 Q1",
+            schoolYear: "26-27",
+            quarter: "Q1",
+            active: true,
+          },
+        });
+        await tx.tutor.createMany({
+          data: [
+            { id: tutorId, englishName: "Allocation Tutor", status: "ACTIVE" },
+            {
+              id: otherTutorId,
+              englishName: "Evidence Tutor",
+              status: "ACTIVE",
+            },
+            {
+              id: thirdTutorId,
+              englishName: "Independent blocker tutor",
+              status: "ACTIVE",
+            },
+          ],
+        });
+        await tx.user.createMany({
+          data: (
+            ["HEAD", "ADMIN", "COORDINATOR", "TUTOR", "VIEWER"] as const
+          ).map((role) => ({
+            id: `allocation-${role}`,
+            name: `Allocation ${role}`,
+            email: `allocation-${role}@example.test`,
+            role,
+            tutorId: role === "TUTOR" ? tutorId : null,
+          })),
+        });
+        await tx.subject.create({ data: { id: subjectId, name: subject } });
+        await tx.tutorQualification.createMany({
+          data: [tutorId, otherTutorId, thirdTutorId].map((id) => ({
+            tutorId: id,
+            subjectId,
+            approvedById: "allocation-ADMIN",
+          })),
+        });
+        await tx.qualificationGrant.createMany({
+          data: [tutorId, otherTutorId, thirdTutorId].map((id) => ({
+            tutorId: id,
+            sourceSubjectId: subjectId,
+            subjectId,
+          })),
+        });
+        await tx.room.createMany({
+          data: ["Allocation A", "Allocation B", "Allocation C"].map(
+            (name, index) => ({
+              id: rooms[index]!,
+              name,
+            }),
+          ),
+        });
+        await tx.timeSlot.createMany({
+          data: [
+            {
+              id: slotId,
+              label: "Sunday primary",
+              dayOfWeek: 7,
+              startMin: 600,
+              endMin: 660,
+            },
+            {
+              id: overlapId,
+              label: "Sunday overlap",
+              dayOfWeek: 7,
+              startMin: 630,
+              endMin: 690,
+            },
+            {
+              id: adjacentId,
+              label: "Sunday adjacent",
+              dayOfWeek: 7,
+              startMin: 660,
+              endMin: 720,
+            },
+            {
+              id: otherSlotId,
+              label: "Monday primary",
+              dayOfWeek: 1,
+              startMin: 600,
+              endMin: 660,
+            },
+          ],
+        });
+        await tx.tutee.createMany({
+          data: ["Allocation Learner A", "Allocation Learner B"].map(
+            (englishName, index) => ({
+              id: learners[index]!,
+              englishName,
+            }),
+          ),
+        });
+        nextPhase("commit");
       },
-    });
-    await tx.tutor.createMany({
-      data: [
-        { id: tutorId, englishName: "Allocation Tutor", status: "ACTIVE" },
-        { id: otherTutorId, englishName: "Evidence Tutor", status: "ACTIVE" },
-        { id: thirdTutorId, englishName: "Independent blocker tutor", status: "ACTIVE" },
-      ],
-    });
-    await tx.user.createMany({
-      data: (["HEAD", "ADMIN", "COORDINATOR", "TUTOR", "VIEWER"] as const).map((role) => ({
-        id: `allocation-${role}`,
-        name: `Allocation ${role}`,
-        email: `allocation-${role}@example.test`,
-        role,
-        tutorId: role === "TUTOR" ? tutorId : null,
-      })),
-    });
-    await tx.subject.create({ data: { id: subjectId, name: subject } });
-    await tx.tutorQualification.createMany({
-      data: [tutorId, otherTutorId, thirdTutorId].map((id) => ({
-        tutorId: id, subjectId, approvedById: "allocation-ADMIN",
-      })),
-    });
-    await tx.qualificationGrant.createMany({
-      data: [tutorId, otherTutorId, thirdTutorId].map((id) => ({
-        tutorId: id,
-        sourceSubjectId: subjectId,
-        subjectId,
-      })),
-    });
-    await tx.room.createMany({
-      data: ["Allocation A", "Allocation B", "Allocation C"].map((name, index) => ({
-        id: rooms[index]!, name,
-      })),
-    });
-    await tx.timeSlot.createMany({
-      data: [{
-        id: slotId,
-        label: "Sunday primary",
-        dayOfWeek: 7,
-        startMin: 600,
-        endMin: 660,
-      }, {
-        id: overlapId,
-        label: "Sunday overlap",
-        dayOfWeek: 7,
-        startMin: 630,
-        endMin: 690,
-      }, {
-        id: adjacentId,
-        label: "Sunday adjacent",
-        dayOfWeek: 7,
-        startMin: 660,
-        endMin: 720,
-      }, {
-        id: otherSlotId,
-        label: "Monday primary",
-        dayOfWeek: 1,
-        startMin: 600,
-        endMin: 660,
-      }],
-    });
-    await tx.tutee.createMany({
-      data: ["Allocation Learner A", "Allocation Learner B"].map((englishName, index) => ({
-        id: learners[index]!, englishName,
-      })),
-    });
-  }, { timeout: 20_000 });
-});
+      { maxWait: 2_000, timeout: 10_000 },
+    );
+    committed = true;
+  } catch (error: unknown) {
+    // Log only the stable SQLSTATE, never a connection string or fixture rows.
+    if (error instanceof Error)
+      sqlState = /Code: `([A-Z0-9]{5})`/.exec(error.message)?.[1] ?? null;
+    throw error instanceof Error
+      ? error
+      : new Error("Room-allocation fixture reset failed", { cause: error });
+  } finally {
+    const settledPhase = phase;
+    nextPhase("settled");
+    if (
+      process.env.CI ||
+      process.env.SHBS_PROFILE_ROOM_ALLOCATION_FIXTURE === "1"
+    ) {
+      console.info(
+        "[room-allocation fixture reset]",
+        JSON.stringify({
+          resetIndex,
+          committed,
+          phase: settledPhase,
+          sqlState,
+          tableCount,
+          statementTimeoutMs,
+          timings,
+          totalMs: Math.round(performance.now() - started),
+        }),
+      );
+    }
+  }
+}
+
+beforeEach(() => resetFixture(), fixtureHookTimeout);
 
 afterAll(() => db.$disconnect());
 
@@ -1944,3 +2040,204 @@ it("validates reactivated retained group coverage but allows unrelated edits to 
     status: "INACTIVE", notes: "Unrelated profile correction",
   });
 });
+
+it("allows moving automatic pairings and editing catalog slots after session planning publishes cohorts, including back-to-back moves and historical terms", async () => {
+  const tuesdaySlot = await db.timeSlot.create({
+    data: { label: "Tuesday morning", dayOfWeek: 2, startMin: 600, endMin: 660 },
+  });
+  const wednesdaySlot = await db.timeSlot.create({
+    data: { label: "Wednesday morning", dayOfWeek: 3, startMin: 600, endMin: 660 },
+  });
+  // Tutor 1 (AUTO) on Tuesday gets rooms[0]; Tutor 2 (FIXED rooms[0]) on Monday also uses rooms[0].
+  const moving = await create({
+    tutorId,
+    timeSlotId: tuesdaySlot.id,
+    tuteeIds: [learners[0]!],
+    roomMode: "AUTO",
+  });
+  const mondayFixed = await create({
+    tutorId: otherTutorId,
+    timeSlotId: otherSlotId,
+    tuteeIds: [learners[1]!],
+    roomMode: "FIXED",
+    roomId: rooms[0],
+  });
+  expect(moving.roomId).toBe(rooms[0]);
+  expect(mondayFixed.roomId).toBe(rooms[0]);
+
+  // Opening an agenda publishes future ordinary REGULAR SessionPlanCohorts for both pairings.
+  await ensureSessionPlanningWindow(db);
+  expect(await db.sessionPlanCohort.count({ where: { status: "SCHEDULED" } })).toBeGreaterThan(0);
+
+  // 1. Moving an AUTO pairing into Monday (where another pairing holds its OLD room rooms[0]
+  //    in published dated sessions) must reallocate to another free room instead of conflicting.
+  const moved = await actor("TUTOR").tutor.setPairingSlot({
+    pairingId: moving.id,
+    slotId: otherSlotId,
+    expectedRoomVersion: moving.roomVersion,
+  });
+  expect(moved.timeSlotId).toBe(otherSlotId);
+  expect(moved.roomId).toBeTruthy();
+  expect(moved.roomId).not.toBe(rooms[0]);
+
+  // 2. Immediately moving another pairing into Tuesday (without running session maintenance first)
+  //    must not be blocked by moving's stale ordinary Tuesday SessionPlanCohorts.
+  const swapped = await actor("HEAD").admin.updatePairing({
+    id: mondayFixed.id,
+    tutorId: otherTutorId,
+    subject,
+    subjectId,
+    timeSlotId: tuesdaySlot.id,
+    roomMode: "FIXED",
+    roomId: rooms[0],
+    tuteeIds: [learners[1]!],
+    expectedRoomVersion: mondayFixed.roomVersion,
+  });
+  expect(swapped.timeSlotId).toBe(tuesdaySlot.id);
+  expect(swapped.roomId).toBe(rooms[0]);
+
+  // 3. Give another pairing moving's current room on Wednesday, publish its cohorts,
+  //    then edit moving's Monday catalog slot to Wednesday:
+  //    moving (AUTO) must reallocate away from its old room instead of conflicting.
+  await create({
+    tutorId: thirdTutorId,
+    timeSlotId: wednesdaySlot.id,
+    tuteeIds: [learners[1]!],
+    roomMode: "FIXED",
+    roomId: moved.roomId!,
+  });
+  await ensureSessionPlanningWindow(db);
+  await actor("HEAD").admin.updateTimeSlot({
+    id: otherSlotId,
+    label: "Moved Monday to Wednesday",
+    dayOfWeek: 3,
+    startMin: 600,
+    endMin: 660,
+    active: true,
+  });
+  const afterCatalogEdit = await db.pairing.findUniqueOrThrow({
+    where: { id: moving.id },
+  });
+  expect(afterCatalogEdit.dayOfWeek).toBe(3);
+  expect(afterCatalogEdit.roomId).toBeTruthy();
+  expect(afterCatalogEdit.roomId).not.toBe(moved.roomId);
+
+  // 4. An inactive historical term pairing linked to a slot must not conflict with
+  //    active-term published future cohorts when editing that catalog slot.
+  const thursdaySlot = await db.timeSlot.create({
+    data: { label: "Thursday morning", dayOfWeek: 4, startMin: 600, endMin: 660 },
+  });
+  const pastTerm = await db.term.create({
+    data: { name: "Past quarter", schoolYear: "25-26", quarter: "Q4", active: false },
+  });
+  await db.pairing.create({
+    data: {
+      tutorId: otherTutorId,
+      termId: pastTerm.id,
+      subject,
+      timeSlotId: thursdaySlot.id,
+      scheduleConfirmed: true,
+      dayOfWeek: 4,
+      startMin: 600,
+      endMin: 660,
+      roomMode: "FIXED",
+      roomId: rooms[0],
+    },
+  });
+  await actor("HEAD").admin.updateTimeSlot({
+    id: thursdaySlot.id,
+    label: "Historical slot edited to Tuesday",
+    dayOfWeek: 2,
+    startMin: 600,
+    endMin: 660,
+    active: true,
+  });
+  expect(
+    await db.timeSlot.findUniqueOrThrow({ where: { id: thursdaySlot.id } }),
+  ).toMatchObject({ dayOfWeek: 2, startMin: 600, endMin: 660 });
+});
+
+it("allows re-slotting a member immediately after splitting a combined group with published cohorts", async () => {
+  const tuesdaySlot = await db.timeSlot.create({
+    data: { label: "Split test Tuesday", dayOfWeek: 2, startMin: 600, endMin: 660 },
+  });
+  const physics = await db.subject.create({ data: { name: "Split Cohort Physics" } });
+  await db.tutorQualification.create({
+    data: {
+      tutorId,
+      subjectId: physics.id,
+      approvedById: "allocation-ADMIN",
+      grants: { create: { subjectId: physics.id } },
+    },
+  });
+  const first = await create({
+    tutorId,
+    timeSlotId: otherSlotId,
+    tuteeIds: [learners[0]!],
+    roomMode: "AUTO",
+  });
+  const second = await create({
+    tutorId,
+    subject: physics.name,
+    subjectId: physics.id,
+    timeSlotId: tuesdaySlot.id,
+    tuteeIds: [learners[0]!],
+    roomMode: "AUTO",
+  });
+  await combineRoomUnit([first.id, second.id], otherSlotId);
+  await ensureSessionPlanningWindow(db);
+  expect(
+    await db.sessionPlanCohort.count({ where: { status: "SCHEDULED" } }),
+  ).toBeGreaterThan(0);
+
+  // Split the combined group so both members return to Awaiting schedule, then
+  // immediately assign `first` back onto `otherSlotId` without running maintenance.
+  const state = await actor("TUTOR").pairingGroups.mine();
+  await actor("TUTOR").pairingGroups.save({
+    snapshot: state.snapshot,
+    groups: [],
+  });
+  const rescheduled = await actor("TUTOR").tutor.setPairingSlot({
+    pairingId: first.id,
+    slotId: otherSlotId,
+  });
+  expect(rescheduled.timeSlotId).toBe(otherSlotId);
+  expect(rescheduled.scheduleConfirmed).toBe(true);
+});
+
+it(
+  "bounded fixture reset rolls back before the hook deadline on an active table lock and leaves the next reset clean",
+  async () => {
+    let releaseLock!: () => void;
+    let lockAcquired!: () => void;
+    const released = new Promise<void>((resolve) => {
+      releaseLock = resolve;
+    });
+    const acquired = new Promise<void>((resolve) => {
+      lockAcquired = resolve;
+    });
+    const holder = db.$transaction(
+      async (tx) => {
+        await tx.$queryRaw`SELECT id FROM "Room" LIMIT 1 FOR UPDATE`;
+        lockAcquired();
+        await released;
+      },
+      { maxWait: 2_000, timeout: 10_000 },
+    );
+    try {
+      await acquired;
+      const started = performance.now();
+      await expect(resetFixture()).rejects.toThrow(/55P03|lock timeout/i);
+      expect(performance.now() - started).toBeLessThan(fixtureHookTimeout);
+    } finally {
+      releaseLock();
+      await holder;
+    }
+    await resetFixture();
+    expect(await db.room.count()).toBe(3);
+    expect(await db.timeSlot.count()).toBe(4);
+    expect(await db.tutor.count()).toBe(3);
+    expect(await db.tutee.count()).toBe(2);
+  },
+  fixtureControlTimeout,
+);

@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { allocateRoom } from "./room-allocation";
+import { allocateRoom, roomUnitSchedule } from "./room-allocation";
 import {
   assertPairingGroupsRemainEligible,
   assertTutorScheduleAvailable,
@@ -231,6 +231,177 @@ describe("authoritative tutor scheduling", () => {
     await expect(
       allocateRoom(db, { ...candidate, tuteeIds: [] }, { roomMode: "NONE" }),
     ).rejects.toThrow("Occupancy read unavailable");
+  });
+  it("never leaks a unit's old roomId into tutor/participant weekly availability checks", async () => {
+    const { db, raw } = fixture();
+    raw.sessionPlanCohort.findMany.mockResolvedValue([
+      {
+        id: "other-room-cohort",
+        planId: "other-plan",
+        date: "2026-11-02",
+        startMin: 600,
+        endMin: 645,
+        roomId: "old-room",
+        rescheduled: false,
+        refreshSuppressed: false,
+        plan: {
+          kind: "REGULAR",
+          termId: "current",
+          tutorId: "other-tutor",
+          originalDate: "2026-11-02",
+          assignments: [{ pairingId: "other-pairing" }],
+        },
+        participants: [{ tuteeId: "other-learner", scheduleOverride: false }],
+      },
+    ]);
+    raw.pairing.findMany.mockResolvedValue([
+      {
+        id: "other-pairing",
+        tutorId: "other-tutor",
+        termId: "current",
+        groupId: null,
+        scheduleConfirmed: true,
+        dayOfWeek: 1,
+        startMin: 600,
+        roomId: "old-room",
+        term: { active: true },
+        tutor: { status: "ACTIVE" },
+        tutees: [{ tuteeId: "other-learner" }],
+      },
+    ]);
+    const unitSchedule = roomUnitSchedule([
+      {
+        id: "moving",
+        termId: "current",
+        tutorId: "tutor",
+        dayOfWeek: 2,
+        startMin: 600,
+        endMin: 660,
+        scheduleConfirmed: true,
+        roomId: "old-room",
+        roomMode: "AUTO",
+        roomNeedsAssignment: false,
+        roomShortageKey: null,
+        roomVersion: 1,
+        groupId: null,
+        group: null,
+        term: { active: true },
+        tutees: [{ tuteeId: "my-learner", tutee: { status: "ACTIVE" } }],
+      } as unknown as Parameters<typeof roomUnitSchedule>[0][number],
+    ]);
+    expect("roomId" in unitSchedule).toBe(false);
+    await expect(
+      assertTutorScheduleAvailable(db, {
+        ...unitSchedule,
+        dayOfWeek: 1,
+        startMin: 600,
+        endMin: 660,
+      }),
+    ).resolves.toBeUndefined();
+  });
+  it("ignores stale ordinary weekly cohorts after their source pairing moved, while preserving agreed dated exceptions", async () => {
+    const { db, raw } = fixture();
+    raw.sessionPlanCohort.findMany.mockResolvedValue([
+      {
+        id: "stale-ordinary",
+        planId: "stale-plan",
+        date: "2026-11-02",
+        startMin: 600,
+        endMin: 645,
+        roomId: "room-a",
+        rescheduled: false,
+        refreshSuppressed: false,
+        plan: {
+          kind: "REGULAR",
+          termId: "current",
+          tutorId: "tutor",
+          originalDate: "2026-11-02",
+          assignments: [{ pairingId: "moved-pairing" }],
+        },
+        participants: [{ tuteeId: "learner-a", scheduleOverride: false }],
+      },
+    ]);
+    // Source pairing has already moved to Tuesday (dayOfWeek: 2).
+    raw.pairing.findMany.mockResolvedValue([
+      {
+        id: "moved-pairing",
+        tutorId: "tutor",
+        termId: "current",
+        groupId: null,
+        scheduleConfirmed: true,
+        dayOfWeek: 2,
+        startMin: 600,
+        roomId: "room-a",
+        term: { active: true },
+        tutor: { status: "ACTIVE" },
+        tutees: [{ tuteeId: "learner-a" }],
+      },
+    ]);
+    await expect(
+      assertTutorScheduleAvailable(db, {
+        ...candidate,
+        tuteeIds: ["learner-a"],
+      }),
+    ).resolves.toBeUndefined();
+
+    // An explicit scheduleOverride participant on that same date still conflicts.
+    raw.sessionPlanCohort.findMany.mockResolvedValue([
+      {
+        id: "agreed-override",
+        planId: "stale-plan",
+        date: "2026-11-02",
+        startMin: 600,
+        endMin: 645,
+        roomId: "room-a",
+        rescheduled: false,
+        refreshSuppressed: false,
+        plan: {
+          kind: "REGULAR",
+          termId: "current",
+          tutorId: "tutor",
+          originalDate: "2026-11-02",
+          assignments: [{ pairingId: "moved-pairing" }],
+        },
+        participants: [{ tuteeId: "learner-a", scheduleOverride: true }],
+      },
+    ]);
+    await expect(
+      assertTutorScheduleAvailable(db, {
+        ...candidate,
+        tuteeIds: ["learner-a"],
+      }),
+    ).rejects.toMatchObject({ code: "CONFLICT" });
+  });
+  it("skips active-period dated session conflicts when validating an inactive historical term", async () => {
+    const { db, raw } = fixture();
+    raw.term.findUniqueOrThrow.mockResolvedValue({
+      active: false,
+      startDate: null,
+      endDate: null,
+    });
+    raw.sessionPlanCohort.findMany.mockResolvedValue([
+      {
+        id: "live-active-cohort",
+        planId: "live-plan",
+        date: "2026-11-02",
+        startMin: 600,
+        endMin: 645,
+        roomId: "room-a",
+        rescheduled: true,
+        refreshSuppressed: false,
+        plan: {
+          kind: "EXTRA",
+          termId: "active-term",
+          tutorId: "tutor",
+          originalDate: "2026-11-02",
+          assignments: [],
+        },
+        participants: [{ tuteeId: "learner-a", scheduleOverride: true }],
+      },
+    ]);
+    await expect(
+      assertTutorScheduleAvailable(db, { ...candidate, termId: "past-term" }),
+    ).resolves.toBeUndefined();
   });
 });
 

@@ -20,7 +20,7 @@ export function assertDemoDatabase(
     !["postgres:", "postgresql:"].includes(url.protocol) ||
     !["localhost", "127.0.0.1", "[::1]"].includes(url.hostname) ||
     [...url.searchParams.keys()].some((key) =>
-      ["host", "hostaddr", "port", "dbname", "service"].includes(
+      ["host", "hostaddr", "port", "dbname", "database", "service"].includes(
         key.toLowerCase(),
       ),
     ) ||

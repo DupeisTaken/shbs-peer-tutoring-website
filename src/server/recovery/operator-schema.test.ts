@@ -69,24 +69,32 @@ function reviewedSchemaPhases() {
 }
 
 describe("static operator recovery schema review", () => {
-  it("composes complete optional language and import bundles across every reviewed policy and identity phase", () => {
+  it("composes complete optional language, import and translation-intent bundles across every reviewed policy and identity phase", () => {
     expect(schemaMetadata.emailLocaleColumns).toHaveLength(10);
     expect(schemaMetadata.importProvenanceColumns).toHaveLength(3);
+    expect(schemaMetadata.translationIntentReceiptColumns).toHaveLength(10);
     for (const { columns, expected } of reviewedSchemaPhases())
       for (const withLocale of [false, true])
         for (const withProvenance of [false, true])
-          expect(
-            assertReviewedRecoverySchema(
-              [
-                ...columns,
-                ...(withLocale ? schemaMetadata.emailLocaleColumns : []),
-                ...(withProvenance
-                  ? schemaMetadata.importProvenanceColumns
-                  : []),
-              ],
-              schemaMetadata.enums,
-            ),
-          ).toEqual({ emailLocale: withLocale, ...expected });
+          for (const withTranslation of [false, true])
+            expect(
+              assertReviewedRecoverySchema(
+                [
+                  ...columns,
+                  ...(withLocale ? schemaMetadata.emailLocaleColumns : []),
+                  ...(withProvenance
+                    ? schemaMetadata.importProvenanceColumns
+                    : []),
+                  ...(withTranslation
+                    ? schemaMetadata.translationIntentReceiptColumns
+                    : []),
+                ],
+                schemaMetadata.enums,
+              ),
+            ).toEqual({
+              emailLocale: withLocale,
+              ...expected,
+            });
   });
   it("refuses incomplete, duplicated, mistyped and widened optional bundles in every reviewed phase", () => {
     const bundles = [
@@ -140,6 +148,41 @@ describe("static operator recovery schema review", () => {
               ),
             ).toThrow("UNREVIEWED_PUBLIC_RECOVERY_SCHEMA");
       }
+  });
+  it("refuses incomplete, duplicated, mistyped and widened TranslationIntentReceipt columns across reviewed schemas", () => {
+    const receipt = schemaMetadata.translationIntentReceiptColumns;
+    for (const base of [
+      schemaMetadata.columns,
+      schemaMetadata.legacyDeclineColumns,
+      schemaMetadata.identityColumns,
+      schemaMetadata.identityLegacyDeclineColumns,
+    ]) {
+      expect(
+        assertReviewedRecoverySchema([...base, ...receipt], schemaMetadata.enums),
+      ).toEqual(assertReviewedRecoverySchema(base, schemaMetadata.enums));
+      for (const invalid of [
+        receipt.slice(1),
+        [...receipt, receipt[0]!],
+        [
+          ...receipt,
+          {
+            table_name: "TranslationIntentReceipt",
+            column_name: "privateBody",
+            udt_name: "jsonb",
+          },
+        ],
+        receipt.map((row) =>
+          row.column_name === "intentId" ? { ...row, udt_name: "uuid" } : row,
+        ),
+        receipt.map((row) =>
+          row.column_name === "cleared" ? { ...row, udt_name: "text" } : row,
+        ),
+      ]) {
+        expect(() =>
+          assertReviewedRecoverySchema([...base, ...invalid], schemaMetadata.enums),
+        ).toThrow("UNREVIEWED_PUBLIC_RECOVERY_SCHEMA");
+      }
+    }
   });
   it("keeps notification-lock compatibility independent from reviewed history, labels and complete archive provenance", () => {
     const metadata = reviewedRecoverySchemaMetadata;
@@ -394,6 +437,50 @@ describe("static operator recovery schema review", () => {
             table_name: "ImportedRecordProvenance",
             column_name: "liveAuthority",
             udt_name: "bool",
+          },
+        ],
+        metadata.enums,
+      ),
+    ).toThrow("UNREVIEWED_PUBLIC_RECOVERY_SCHEMA");
+  });
+  it("accepts complete archive-provenance receipt metadata across reviewed schema versions and refuses partial or widened tables", () => {
+    const metadata = reviewedRecoverySchemaMetadata;
+    for (const columns of [
+      metadata.columns,
+      metadata.identityColumns,
+      metadata.legacyDeclineColumns,
+      metadata.identityLegacyDeclineColumns,
+    ]) {
+      expect(() =>
+        assertReviewedRecoverySchema(
+          [
+            ...columns,
+            ...metadata.importProvenanceColumns,
+            ...metadata.archiveProvenanceReceiptColumns,
+          ],
+          metadata.enums,
+        ),
+      ).not.toThrow();
+      expect(() =>
+        assertReviewedRecoverySchema(
+          [
+            ...columns,
+            ...metadata.importProvenanceColumns,
+            ...metadata.archiveProvenanceReceiptColumns.slice(1),
+          ],
+          metadata.enums,
+        ),
+      ).toThrow("UNREVIEWED_PUBLIC_RECOVERY_SCHEMA");
+    }
+    expect(() =>
+      assertReviewedRecoverySchema(
+        [
+          ...metadata.columns,
+          ...metadata.archiveProvenanceReceiptColumns,
+          {
+            table_name: "ArchiveProvenanceReceipt",
+            column_name: "bypassToken",
+            udt_name: "text",
           },
         ],
         metadata.enums,

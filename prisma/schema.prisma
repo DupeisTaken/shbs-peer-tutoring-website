@@ -2503,6 +2503,23 @@ model MessageModeration {
   @@index([messageId, createdAt])
 }
 
+/// Immutable original-actor replay/stop evidence, not a capability or a live publication.
+/// No relations/cascades: account or draft removal must never reopen an old UUID.
+model TranslationIntentReceipt {
+  actorId         String
+  intentId        String
+  protocolVersion Int
+  status          String
+  operation       String?
+  mode            String?
+  inputHash       String?
+  draftId         String?
+  cleared         Boolean?
+  createdAt       DateTime @default(now())
+
+  @@id([actorId, intentId])
+}
+
 /// Draft proposals never affect public rendering until a management member approves them.
 model TranslationDraft {
   id String @id @default(cuid())
@@ -2693,6 +2710,24 @@ model ImportedRecordProvenance {
   importedAt DateTime @default(now())
 
   @@id([entity, recordId])
+}
+
+/// Durable immutable receipt for operator-reviewed archive provenance reconciliation.
+model ArchiveProvenanceReceipt {
+  id          String   @id @default(cuid())
+  actorId     String
+  clientKey   String   @db.Uuid
+  inputHash   String
+  planHash    String
+  fingerprint String
+  reason      String
+  channel     String   @default("OPERATOR")
+  evidence    Json
+  subjects    Json
+  createdAt   DateTime @default(now())
+
+  @@unique([actorId, clientKey])
+  @@index([createdAt])
 }
 
 /// Independent school issue chain; previews and mail delivery never advance it.

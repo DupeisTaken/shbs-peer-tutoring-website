@@ -1,5 +1,6 @@
 import { readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
+import { isValidElement, type ReactNode } from "react";
 import { beforeEach, expect, it, vi } from "vitest";
 const mocks = vi.hoisted(() => ({
   account: {
@@ -22,6 +23,12 @@ vi.mock("~/server/auth", () => ({
 vi.mock("~/server/db", () => ({
   db: { user: { findUnique: async () => mocks.account } },
 }));
+vi.mock("~/server/program/features", () => ({
+  getFeatures: async () => ({ CREW: true }),
+}));
+vi.mock("~/app/_components/help-link", () => ({
+  HelpLink: () => null,
+}));
 vi.mock("~/app/_components/language-switcher", () => ({
   LanguageSwitcher: () => null,
 }));
@@ -34,12 +41,25 @@ vi.mock("~/app/_components/notification-bell", () => ({
 vi.mock("~/app/_components/sign-out-button", () => ({
   SignOutButton: () => null,
 }));
+vi.mock("~/app/_components/user-avatar", () => ({
+  UserAvatar: () => null,
+}));
 vi.mock("~/app/_components/admin-nav", () => ({
   NavSidebar: () => null,
   NavMobileRow: () => null,
 }));
 import LocalizationLayout from "./layout";
 import RetiredPage from "../translation-review/page";
+import { TranslationIntentRecoveryEntry } from "~/app/_components/translation-intent-recovery";
+
+// Inspect the server layout's returned tree without mounting client recovery or
+// starting account/receipt queries in this route-boundary fixture.
+function descendants(node: ReactNode): ReactNode[] {
+  if (Array.isArray(node)) return node.flatMap(descendants);
+  return isValidElement<{ children?: ReactNode }>(node)
+    ? [node, ...descendants(node.props.children)]
+    : [node];
+}
 beforeEach(() => {
   mocks.account = {
     role: "ADMIN",
@@ -55,13 +75,34 @@ it("admits management reviewers without editing assignment", async () => {
   await expect(LocalizationLayout({ children: null })).resolves.toBeTruthy();
 });
 it("checks live revocation and suspension instead of the session rank", async () => {
+  const privateEditor = <p>Private destination editor</p>;
   mocks.account.role = "STUDENT";
-  await expect(LocalizationLayout({ children: null })).rejects.toThrow(
-    "redirect:/",
+  const revokedTree = descendants(
+    await LocalizationLayout({ children: privateEditor }),
   );
+  expect(
+    revokedTree.some(
+      (node) =>
+        isValidElement(node) && node.type === TranslationIntentRecoveryEntry,
+    ),
+  ).toBe(true);
+  expect(revokedTree).not.toContain(privateEditor);
+  expect(revokedTree).not.toContain("Private destination editor");
+
   mocks.account.canTranslate = true;
+  const assignedTree = descendants(
+    await LocalizationLayout({ children: privateEditor }),
+  );
+  expect(assignedTree).toContain(privateEditor);
+  expect(
+    assignedTree.some(
+      (node) =>
+        isValidElement(node) && node.type === TranslationIntentRecoveryEntry,
+    ),
+  ).toBe(false);
+
   mocks.account.suspendedAt = new Date();
-  await expect(LocalizationLayout({ children: null })).rejects.toThrow(
+  await expect(LocalizationLayout({ children: privateEditor })).rejects.toThrow(
     "redirect:/suspended",
   );
 });

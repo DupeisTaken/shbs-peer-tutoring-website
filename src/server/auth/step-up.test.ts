@@ -13,6 +13,7 @@ vi.mock("~/server/email/sender", () => ({
 }));
 
 import { db } from "~/server/db";
+import { assertIsolatedTestDatabase } from "~/test/database-guard";
 import { issueStepUpCode, verifyStepUpCode } from "./step-up";
 
 const USER_ID = "test-step-up-user";
@@ -30,6 +31,7 @@ async function cleanup() {
 }
 
 beforeEach(async () => {
+  assertIsolatedTestDatabase(process.env.DATABASE_URL);
   send.mockClear();
   await cleanup();
   await db.user.create({
@@ -37,7 +39,14 @@ beforeEach(async () => {
   });
 });
 
-afterAll(cleanup);
+afterAll(async () => {
+  try {
+    assertIsolatedTestDatabase(process.env.DATABASE_URL);
+    await cleanup();
+  } finally {
+    await db.$disconnect();
+  }
+});
 
 describe("step-up verification codes", () => {
   it("allows exactly one concurrent consumer", async () => {

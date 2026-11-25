@@ -22,6 +22,7 @@ import { insertSessionNotices } from "./notice-inserts";
 import { readContinuationPairingIds } from "./publication-continuations";
 import { lockPlanningSources } from "./source-locks";
 import { readOverlappingCohorts, readOverlappingHolds } from "./conflict-reads";
+import { evaluateOrdinaryCohorts } from "./room-occupancy";
 import {
   readSessionRefreshSchedules,
   readSessionRequestSources,
@@ -4566,6 +4567,9 @@ export async function assertSessionPlanningWeeklyAvailable(
   const term = await tx.term.findUniqueOrThrow({
     where: { id: schedule.termId },
   });
+  // Inactive historical periods never publish future weekly sessions and must
+  // not collide with live dated commitments from a newer active period.
+  if (term.active === false) return;
   const calendar = createSchoolCalendarSnapshot(overrides);
   const tutoringPauses = await pauseRanges(tx);
   const refreshSchedules = await readSessionRefreshSchedules(tx);
@@ -4591,7 +4595,7 @@ export async function assertSessionPlanningWeeklyAvailable(
       plan: { include: { assignments: true } },
       participants: {
         where: { status: "SCHEDULED" },
-        select: { tuteeId: true },
+        select: { tuteeId: true, scheduleOverride: true },
       },
     },
     take: 5001,
@@ -4644,22 +4648,70 @@ export async function assertSessionPlanningWeeklyAvailable(
       ]),
     ],
   );
-  for (const cohort of cohorts) {
-    if (schedule.preservedPlanIds?.includes(cohort.planId)) continue;
+  const candidateCohorts = cohorts.filter((cohort) => {
+    if (schedule.preservedPlanIds?.includes(cohort.planId)) return false;
     if (
       !cohort.participants.length ||
-      cohort.refreshSuppressed || sessionRefreshSuppressed(cohort, refreshSchedules.get(cohort.plan.termId), now) ||
+      cohort.refreshSuppressed ||
+      sessionRefreshSuppressed(
+        cohort,
+        refreshSchedules.get(cohort.plan.termId),
+        now,
+      ) ||
       !applies(cohort.date) ||
       cohort.startMin >= schedule.startMin + 45 ||
       cohort.endMin <= schedule.startMin
     )
-      continue;
+      return false;
     if (
       cohort.plan.originalDate === cohort.date &&
       cohort.plan.assignments.length &&
       cohort.plan.assignments.every((row) => excluded.has(row.pairingId))
     )
+      return false;
+    return true;
+  });
+  const ordinaryStatus = await evaluateOrdinaryCohorts(
+    tx,
+    candidateCohorts,
+    calendar,
+    excluded,
+    executions,
+  );
+  for (const cohort of candidateCohorts) {
+    const status = ordinaryStatus.get(cohort.id);
+    if (status) {
+      const overrideTutees = cohort.participants
+        .filter((person) => person.scheduleOverride)
+        .map((person) => person.tuteeId);
+      const ordinaryTutees = status.scheduleLive
+        ? cohort.participants
+            .filter(
+              (person) =>
+                !person.scheduleOverride &&
+                status.liveOrdinaryTuteeIds.has(person.tuteeId),
+            )
+            .map((person) => person.tuteeId)
+        : [];
+      const hasLiveSchedule = overrideTutees.length > 0 || status.scheduleLive;
+      const hasLiveRoom = overrideTutees.length > 0 || status.roomLive;
+      if (!hasLiveSchedule) continue;
+      if (
+        (hasLiveRoom && schedule.roomId && schedule.roomId === cohort.roomId) ||
+        participantsOverlap(
+          keys,
+          schedule.tutorId,
+          schedule.tuteeIds ?? [],
+          cohort.plan.tutorId,
+          [...overrideTutees, ...ordinaryTutees],
+        )
+      )
+        return fail(
+          "The weekly change conflicts with an agreed dated session.",
+          "CONFLICT",
+        );
       continue;
+    }
     if (
       (schedule.roomId && schedule.roomId === cohort.roomId) ||
       participantsOverlap(

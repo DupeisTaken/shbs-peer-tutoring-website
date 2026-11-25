@@ -4,7 +4,7 @@ import { getTranslations } from "next-intl/server";
 import { authorizeHomeEditor } from "~/server/home/images";
 import { StatePanel } from "~/app/_components/ui/patterns";
 import { parseLandingEditorView } from "~/lib/landing-editor-view";
-import LandingEditor from "./landing-editor";
+import LandingEditor, { LandingIntentRecovery } from "./landing-editor";
 
 /** Entry and Preview share the same live permission gate; no editor queries run on denial. */
 export async function generateMetadata() {
@@ -38,6 +38,7 @@ export default async function LandingPage({
       >
         {t("uiPatterns.editorDeniedHelp")}
       </StatePanel>
+      <LandingIntentRecovery />
     </div>
   );
 }

@@ -284,7 +284,16 @@ export const managementReadModels = {
   "admin.adjustments": list(
     summary(
       "id month schoolYear quarter type amount createdAt tutorId",
-      { tutor: person },
+      {
+        tutor: person,
+        source: z
+          .object({
+            kind: z.enum(["INDEPENDENT", "INTERVIEW"]),
+            canDelete: z.boolean().transform(() => false),
+            correctionHref: hidden,
+          })
+          .optional(),
+      },
       "reason",
     ),
   ),

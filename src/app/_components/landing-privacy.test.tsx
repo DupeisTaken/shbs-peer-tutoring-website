@@ -11,11 +11,20 @@ import { LandingView } from "./landing-view";
 
 const mocks = vi.hoisted(() => ({
   locale: "en",
-  blocks: [] as { id: string; type: "HERO" }[],
+  timeZone: "Asia/Shanghai",
+  blocks: [] as { id: string; type: "HERO" | "NEWS" }[],
+  news: [] as {
+    id: string;
+    title: string;
+    body: string;
+    date: string | null;
+    published: boolean;
+  }[],
   navPages: [] as { slug: string; label: string; labelLocale: string }[],
 }));
 vi.mock("next-intl/server", () => ({
   getLocale: async () => mocks.locale,
+  getTimeZone: async () => mocks.timeZone,
   getTranslations: async () => (key: string) => key,
 }));
 vi.mock("~/server/db", () => ({ db: {} }));
@@ -24,7 +33,9 @@ vi.mock("~/server/home/content", () => ({
   getHomeOverrides: async () => ({}),
   applyHomeVars: (text: string) => text,
 }));
-vi.mock("~/server/home/news", () => ({ getLandingNews: async () => [] }));
+vi.mock("~/server/home/news", () => ({
+  getLandingNews: async () => mocks.news,
+}));
 vi.mock("~/server/home/sections", () => ({
   getLandingSections: async () => [],
 }));
@@ -51,11 +62,14 @@ vi.mock("~/app/_components/page-blocks", () => ({
 }));
 afterEach(() => {
   cleanup();
+  mocks.locale = "en";
+  mocks.timeZone = "Asia/Shanghai";
   mocks.blocks = [];
+  mocks.news = [];
   mocks.navPages = [];
 });
 
-it("carries each custom page label's language into both landing menus", async () => {
+it("carries each custom page label's language into the unified landing menu", async () => {
   mocks.locale = "zh";
   mocks.navPages = [
     {
@@ -66,16 +80,15 @@ it("carries each custom page label's language into both landing menus", async ()
     { slug: "synthetic-chinese", label: "中文导航", labelLocale: "zh" },
   ];
   render(<div lang="zh">{await LandingView({})}</div>);
-  for (const name of ["nav.menu", "nav.accessProgramInformation"]) {
-    const trigger = screen.getByRole("button", { name });
-    expect(trigger.closest("[lang]")?.getAttribute("lang")).toBe("zh");
-    fireEvent.click(trigger);
-    const menu = within(screen.getByRole("dialog", { name }));
-    const english = menu.getByRole("link", { name: "English navigation" });
-    expect(english.lang).toBe("en");
-    expect(english.getAttribute("href")).toBe("/p/synthetic-english");
-    expect(menu.getByRole("link", { name: "中文导航" }).lang).toBe("zh");
-  }
+  const name = "nav.signInAndJoin";
+  const trigger = screen.getByRole("button", { name });
+  expect(trigger.closest("[lang]")?.getAttribute("lang")).toBe("zh");
+  fireEvent.click(trigger);
+  const menu = within(screen.getByRole("dialog", { name }));
+  const english = menu.getByRole("link", { name: "English navigation" });
+  expect(english.lang).toBe("en");
+  expect(english.getAttribute("href")).toBe("/p/synthetic-english");
+  expect(menu.getByRole("link", { name: "中文导航" }).lang).toBe("zh");
 });
 
 it.each([
@@ -92,14 +105,13 @@ it.each([
         .getByRole("link", { name: label })
         .getAttribute("href"),
     ).toBe("/privacy");
-    for (const menu of ["nav.menu", "nav.accessProgramInformation"]) {
-      fireEvent.click(screen.getByRole("button", { name: menu }));
-      expect(
-        within(screen.getByRole("dialog", { name: menu }))
-          .getByRole("link", { name: label })
-          .getAttribute("href"),
-      ).toBe("/privacy");
-    }
+    const menu = "nav.signInAndJoin";
+    fireEvent.click(screen.getByRole("button", { name: menu }));
+    expect(
+      within(screen.getByRole("dialog", { name: menu }))
+        .getByRole("link", { name: label })
+        .getAttribute("href"),
+    ).toBe("/privacy");
   },
 );
 
@@ -112,5 +124,36 @@ it.each([0, 1, 2])(
     }));
     render(await LandingView({}));
     expect(screen.getAllByRole("heading", { level: 1 })).toHaveLength(1);
+  },
+);
+
+it.each([
+  {
+    timeZone: "Asia/Shanghai",
+    date: "2026-11-20T16:30:00.000Z",
+    expected: "Nov 21, 2026",
+  },
+  {
+    timeZone: "America/Los_Angeles",
+    date: "2026-11-22T07:30:00.000Z",
+    expected: "Nov 21, 2026",
+  },
+])(
+  "formats public Program News dates in the configured program timezone ($timeZone, #788)",
+  async ({ timeZone, date, expected }) => {
+    mocks.locale = "en";
+    mocks.timeZone = timeZone;
+    mocks.blocks = [{ id: "news-1", type: "NEWS" }];
+    mocks.news = [
+      {
+        id: "post-1",
+        title: "Fall Update",
+        body: "Welcome back.",
+        date,
+        published: true,
+      },
+    ];
+    render(await LandingView({}));
+    expect(screen.getByText(expected)).toBeTruthy();
   },
 );

@@ -98,6 +98,7 @@ vi.mock("~/app/_components/academic-profile", () => ({
 }));
 vi.mock("~/app/_components/school-departure", () => ({
   SchoolDeparturePanel: () => null,
+  SchoolDepartureAction: () => null,
 }));
 vi.mock("~/app/_components/account-emails", () => ({
   AccountEmails: () => <section>Email ownership</section>,
@@ -505,6 +506,9 @@ it("shows an initial profile failure without fabricating an editable identity an
 
 it("guards a direct password change when emailed step-up is disabled", () => {
   render(ui());
+  fireEvent.click(
+    screen.getByRole("tab", { name: messages.account.sections.security }),
+  );
   for (const [label, value] of [
     [messages.tutor.settings.currentPassword, "CurrentPass"],
     [messages.tutor.settings.newPassword, "NewPassword"],
@@ -530,6 +534,9 @@ it("guards a direct password change when emailed step-up is disabled", () => {
 it("guards same-turn password changes and preserves four-digit emailed-code behavior", () => {
   state.feature = true;
   const view = render(ui());
+  fireEvent.click(
+    screen.getByRole("tab", { name: messages.account.sections.security }),
+  );
   for (const [label, value] of [
     [messages.tutor.settings.currentPassword, "CurrentPass"],
     [messages.tutor.settings.newPassword, "NewPassword"],
@@ -633,11 +640,17 @@ it("evicts a denied shared query once per episode with an enabled sibling subscr
   expect(state.save).not.toHaveBeenCalled();
 });
 
+const openMembershipTab = () => {
+  fireEvent.click(
+    screen.getByRole("tab", { name: messages.account.sections.membership }),
+  );
+};
 const optOutReason = () =>
   screen.getByRole<HTMLTextAreaElement>("textbox", {
     name: messages.tutor.settings.optOutReasonLabel,
   });
 function openOptOut() {
+  openMembershipTab();
   reviewTime = 0;
   vi.spyOn(performance, "now").mockImplementation(() => reviewTime);
   fireEvent.click(
@@ -659,6 +672,7 @@ function confirmOptOut() {
 
 it("labels the opt-out reason and reviews the named request without writing on Cancel or Escape", () => {
   render(ui());
+  openMembershipTab();
   const reason = optOutReason();
   expect(
     document.getElementById(reason.getAttribute("aria-describedby")!)
@@ -705,6 +719,7 @@ it("admits one opt-out write, freezes its own draft while pending, and preserves
       }),
   );
   render(ui());
+  openMembershipTab();
   fireEvent.change(optOutReason(), {
     target: { value: "  Retained reason  " },
   });
@@ -804,6 +819,7 @@ it.each(["status", "request", "read error", "identity"])(
 
 it("conceals an opt-out review after authoritative access denial", () => {
   const view = render(ui());
+  openMembershipTab();
   fireEvent.change(optOutReason(), { target: { value: "Private reason" } });
   openOptOut();
   state.membershipError = {
@@ -851,4 +867,20 @@ it("shows a fresh pending request, preserves Recall, and permits a new deliberat
   fireEvent.click(confirmOptOut());
   await waitFor(() => expect(state.optOut).toHaveBeenCalledTimes(2));
   await screen.findByText(messages.tutor.settings.optOutSubmitted);
+});
+
+it("offers a direct return link to the tutor dashboard and preserves profile drafts across section tabs", () => {
+  render(ui());
+  const back = screen.getByRole("link", {
+    name: new RegExp(messages.tutor.settings.backToDashboard),
+  });
+  expect(back.getAttribute("href")).toBe("/dashboard");
+  fireEvent.change(first(), { target: { value: "Kept across tabs" } });
+  fireEvent.click(
+    screen.getByRole("tab", { name: messages.account.sections.security }),
+  );
+  fireEvent.click(
+    screen.getByRole("tab", { name: messages.account.sections.profile }),
+  );
+  expect(first().value).toBe("Kept across tabs");
 });
