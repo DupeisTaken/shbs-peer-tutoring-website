@@ -39,7 +39,7 @@ export default async function TutorDashboard() {
   // is sent to their area instead of throwing the tutorProcedure "requires a tutor account" error
   // while the layout redirect resolves.
   if (!session?.user) redirect("/signin");
-  if (!session.tutorId) redirect("/");
+  if (!session.tutorId) redirect("/admin");
   const me = await api.tutor.me();
   const t = await getTranslations();
 
