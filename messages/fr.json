@@ -5036,7 +5036,10 @@
     "clear": "Clear filters",
     "noRole": "No account role",
     "noTutor": "No linked tutor",
-    "count": "Showing {count} of {total} users"
+    "count": "Showing {count} of {total} users",
+    "resetFilter": "Réinitialiser",
+    "removeFilter": "Retirer {label}",
+    "selectedCount": "{count} sélectionnés"
   },
   "saveErrors": {
     "staleRecord": "This changed since you loaded it — refresh and try again."
