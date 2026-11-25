@@ -8,8 +8,10 @@ import { forgotPasswordAction } from "./actions";
 
 export function ForgotPasswordForm({
   emailAvailable = true,
+  signedIn = false,
 }: {
   emailAvailable?: boolean;
+  signedIn?: boolean;
 }) {
   const t = useTranslations();
   const [state, formAction, pending] = useActionState(forgotPasswordAction, undefined);
@@ -22,9 +24,11 @@ export function ForgotPasswordForm({
         {!emailAvailable && (
           <p className="muted text-xs">{t("auth.forgot.sentEmailNote")}</p>
         )}
-        <Link href="/signin" className="link">
-          {t("auth.forgot.backToSignIn")}
-        </Link>
+        {!signedIn && (
+          <Link href="/signin" className="link">
+            {t("auth.forgot.backToSignIn")}
+          </Link>
+        )}
       </div>
     );
   }

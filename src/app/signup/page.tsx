@@ -6,6 +6,7 @@ import { SignupIntro } from "./signup-intro";
 import { db } from "~/server/db";
 import { readPublicSignupTransition } from "~/server/program/public-signup-transition";
 import { PublicFormPage } from "~/app/_components/public-form-page";
+import { getSignedInWorkspaceHeader } from "~/app/_components/signed-in-workspace-header";
 import { auth } from "~/server/auth";
 import { notFound, redirect } from "next/navigation";
 import { TRPCError } from "@trpc/server";
@@ -74,11 +75,20 @@ export default async function SignupPage({
     return { transition, restriction };
   });
 
+  const signedInHeader = session?.user
+    ? await getSignedInWorkspaceHeader({
+        href: "/tutee-signup",
+        title: t("public.signup.title"),
+        session,
+      })
+    : null;
+
   return (
     <PublicFormPage
       wide
       title={t("public.signup.title")}
       backLabel={t("common.backToMain")}
+      header={signedInHeader ?? undefined}
       description={restriction?.blocked ? undefined : <SignupIntro />}
     >
       <div className="mt-6">

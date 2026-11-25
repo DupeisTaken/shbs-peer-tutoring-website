@@ -3,6 +3,7 @@ import {
   PublicFormCard,
   PublicFormRoute,
 } from "~/app/_components/public-form-page";
+import { getSignedInWorkspaceHeader } from "~/app/_components/signed-in-workspace-header";
 import { getTranslations } from "next-intl/server";
 
 import { pageMetadata } from "~/server/branding-metadata";
@@ -29,30 +30,41 @@ export default async function RegisterPage({
     searchParams,
     auth(),
   ]);
+  const signedIn = Boolean(session?.user);
+  const signedInHeader = signedIn
+    ? await getSignedInWorkspaceHeader({
+        href: "/register-account",
+        title: t("accountInvitation.pageTitle"),
+        session,
+      })
+    : null;
   return (
     <PublicFormPage
       title={t("accountInvitation.pageTitle")}
       backLabel={t("common.backToMain")}
+      header={signedInHeader ?? undefined}
       footer={
-        <div className="space-y-4">
-          {features.VIEWER_SIGNUP && (
-            <PublicFormRoute
-              href="/viewer"
-              label={t("auth.signupRoutes.viewerLink")}
-            >
-              {t("auth.signupRoutes.viewerHelp")}
+        signedIn ? undefined : (
+          <div className="space-y-4">
+            {features.VIEWER_SIGNUP && (
+              <PublicFormRoute
+                href="/viewer"
+                label={t("auth.signupRoutes.viewerLink")}
+              >
+                {t("auth.signupRoutes.viewerHelp")}
+              </PublicFormRoute>
+            )}
+            <PublicFormRoute href="/tutee" label={t("survey.requestTutor")}>
+              {t("auth.signupRoutes.tuteeHelp")}
             </PublicFormRoute>
-          )}
-          <PublicFormRoute href="/tutee" label={t("survey.requestTutor")}>
-            {t("auth.signupRoutes.tuteeHelp")}
-          </PublicFormRoute>
-          <div className="border-t border-slate-200 pt-4">
-            <PublicFormRoute
-              href="/signin"
-              label={t("auth.register.backToSignIn")}
-            />
+            <div className="border-t border-slate-200 pt-4">
+              <PublicFormRoute
+                href="/signin"
+                label={t("auth.register.backToSignIn")}
+              />
+            </div>
           </div>
-        </div>
+        )
       }
     >
       <PublicFormCard>
@@ -65,7 +77,7 @@ export default async function RegisterPage({
               ? (await cookies()).get(`invitation-${params.invitation}`)?.value
               : undefined
           }
-          signedIn={Boolean(session?.user)}
+          signedIn={signedIn}
           viewerSignupAvailable={features.VIEWER_SIGNUP}
         />
       </PublicFormCard>

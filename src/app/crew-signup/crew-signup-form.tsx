@@ -41,7 +41,7 @@ type FormError = {
 
 /** Verification submits a staged application for review; only an approved grant
  * yields a receipt. Checking existing applications also proves mailbox ownership. */
-export function CrewSignupForm() {
+export function CrewSignupForm({ signedIn = false }: { signedIn?: boolean }) {
   const t = useTranslations("public.crewSignup");
   const shared = useTranslations();
   const policy = useProfilePolicy();
@@ -414,7 +414,7 @@ export function CrewSignupForm() {
               invitation={receipt}
             />
           )}
-          {acceptedState === "USED" && (
+          {acceptedState === "USED" && !signedIn && (
             <Link
               className="text-link inline-flex min-h-11 items-center"
               href="/signin"

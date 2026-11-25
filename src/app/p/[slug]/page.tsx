@@ -18,6 +18,7 @@ import { Markdown } from "~/app/_components/markdown";
 import { PageBlocks } from "~/app/_components/page-blocks";
 import { HeaderMenu, HeaderMenuGroup } from "~/app/_components/header-menu";
 import { PublicHeader } from "~/app/_components/public-header";
+import { getSignedInWorkspaceHeader } from "~/app/_components/signed-in-workspace-header";
 
 /**
  * Public page at /p/<slug>. The slug resolves to either a standalone custom page (a block layout) or
@@ -93,11 +94,16 @@ async function Shell({
   nav: { slug: string; label: string; labelLocale: string | undefined }[];
   children: ReactNode;
 }) {
-  const [t, tc] = await Promise.all([
+  const [t, tc, help, signedInHeader] = await Promise.all([
     getTranslations("landing"),
     getTranslations("common"),
+    getTranslations("helpNav"),
+    getSignedInWorkspaceHeader({
+      href: "/?home=1",
+      title: APP_TITLE,
+      containerClassName: "mx-auto max-w-5xl",
+    }),
   ]);
-  const help = await getTranslations("helpNav");
   const navItems = nav
     .filter((page) => page.slug !== "faq")
     .map((page) => ({
@@ -107,29 +113,31 @@ async function Shell({
     }));
   return (
     <div className="flex min-h-screen flex-col">
-      <PublicHeader
-        skipLabel={tc("skipToContent")}
-        navigation={
-          <HeaderMenuGroup
-            label={t("nav.landmark")}
-            className="flex min-w-0 items-center"
-          >
-            <HeaderMenu
-              label={t("nav.accessProgramInformation")}
-              items={navItems}
-              tone="ghost"
-              className="hidden lg:block"
-              compact
-            />
-            <HeaderMenu
-              label={t("nav.menu")}
-              items={navItems}
-              className="lg:hidden"
-              panelWidth="wide"
-            />
-          </HeaderMenuGroup>
-        }
-      />
+      {signedInHeader ?? (
+        <PublicHeader
+          skipLabel={tc("skipToContent")}
+          navigation={
+            <HeaderMenuGroup
+              label={t("nav.landmark")}
+              className="flex min-w-0 items-center"
+            >
+              <HeaderMenu
+                label={t("nav.accessProgramInformation")}
+                items={navItems}
+                tone="ghost"
+                className="hidden lg:block"
+                compact
+              />
+              <HeaderMenu
+                label={t("nav.menu")}
+                items={navItems}
+                className="lg:hidden"
+                panelWidth="wide"
+              />
+            </HeaderMenuGroup>
+          }
+        />
+      )}
 
       <main id="main-content" className="flex-1">
         <div className="mx-auto max-w-3xl px-4 pt-12">
@@ -163,7 +171,7 @@ async function Shell({
               {t("preview.ribbon.back")}
             </Link>
           ) : (
-            <Link href="/" className="link">
+            <Link href={signedInHeader ? "/?home=1" : "/"} className="link">
               {tc("backToMain")}
             </Link>
           )}

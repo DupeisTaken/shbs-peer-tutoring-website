@@ -125,7 +125,15 @@ export default async function StudentPage({
             <Link href="/student?view=messages" className="btn-secondary">
               {t("messages")}
             </Link>
-            <Link href="/student-support" className="btn-secondary">
+            <Link
+              href={
+                session &&
+                ["HEAD", "ADMIN", "COORDINATOR"].includes(session.role)
+                  ? "/admin/student-support"
+                  : "/student-support"
+              }
+              className="btn-secondary"
+            >
               {workflows("feedback")}
             </Link>
           </div>

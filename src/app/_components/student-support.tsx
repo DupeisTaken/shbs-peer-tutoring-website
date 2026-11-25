@@ -223,7 +223,7 @@ export function StudentSupport({ viewScope = "" }: { viewScope?: string }) {
                 aria-label={t("support")}
                 className="flex flex-wrap gap-4 text-sm"
               >
-                <Link href="/messages" className="link">
+                <Link href="/admin/messages" className="link">
                   {t("messages")}
                 </Link>
                 <Link
