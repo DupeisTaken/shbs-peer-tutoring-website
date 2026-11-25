@@ -5039,7 +5039,10 @@
     "clear": "清除筛选",
     "noRole": "无账号角色",
     "noTutor": "未关联辅导伙伴",
-    "count": "显示 {count} / {total} 位用户"
+    "count": "显示 {count} / {total} 位用户",
+    "resetFilter": "重置",
+    "removeFilter": "移除 {label}",
+    "selectedCount": "已选 {count} 项"
   },
   "saveErrors": {
     "staleRecord": "此内容自加载后已发生变化。请刷新后重试。"

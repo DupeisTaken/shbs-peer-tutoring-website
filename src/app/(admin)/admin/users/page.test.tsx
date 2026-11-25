@@ -1602,6 +1602,7 @@ it("shows status for Tutor-only, then clears it on mixed selection and Tutor exc
   expect(screen.queryByText("Management account")).toBeNull();
   fireEvent.click(statusControl()!);
   fireEvent.click(screen.getByRole("checkbox", { name: "Include Active" }));
+  openRole();
   fireEvent.click(screen.getByRole("checkbox", { name: "Include Admin" }));
   expect(statusControl()).toBeNull();
   expect(screen.queryByText("Management account")).not.toBeNull();
@@ -1613,8 +1614,17 @@ it("shows status for Tutor-only, then clears it on mixed selection and Tutor exc
       .checked,
   ).toBe(false);
   fireEvent.click(screen.getByRole("checkbox", { name: "Include Active" }));
-  fireEvent.click(screen.getByRole("checkbox", { name: "Exclude Tutor" }));
+  openRole();
+  const roleDetails = screen
+    .getByText(messages.admin.users.filters.role, { selector: "summary" })
+    .closest("details")!;
+  fireEvent.click(within(roleDetails).getByRole("button", { name: "Exclude" }));
+  expect(
+    screen.getByRole<HTMLInputElement>("checkbox", { name: "Exclude Tutor" })
+      .checked,
+  ).toBe(true);
   expect(statusControl()).toBeNull();
+  expect(storedFilters().role).toEqual({ include: [], exclude: ["TUTOR"] });
   expect(storedFilters().status).toEqual({ include: [], exclude: [] });
 });
 
