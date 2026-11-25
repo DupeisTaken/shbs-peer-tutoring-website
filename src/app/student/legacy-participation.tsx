@@ -107,7 +107,10 @@ function Participation({
   });
   const pending = row.reviews.some((r) => r.state === "PENDING");
   return (
-    <section className="card space-y-3 p-6">
+    <section
+      data-tone={row.status !== "INACTIVE" ? "warning" : undefined}
+      className={`card space-y-3 p-6 ${row.status !== "INACTIVE" ? "warning-surface" : ""}`}
+    >
       <h2 className="section-title">
         {t("participation")} · {row.englishName}
       </h2>

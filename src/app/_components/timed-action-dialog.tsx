@@ -21,6 +21,7 @@ function TimedActionInstance({
   error,
   canConfirm = true,
   mandatory = false,
+  tone,
 }: {
   action: StudentAction;
   target: string;
@@ -36,6 +37,8 @@ function TimedActionInstance({
   error?: string;
   canConfirm?: boolean;
   mandatory?: boolean;
+  /** Semantic warning surface override; destructive, assignment and review actions default to warning. */
+  tone?: "default" | "warning";
 }) {
   const t = useTranslations("workflow");
   const ref = useRef<HTMLDialogElement>(null);
@@ -115,6 +118,7 @@ function TimedActionInstance({
   const { remaining, expired } = clock;
   const pending = busy || submission.admitted;
   const blocked = !clock.eligible || pending || !canConfirm;
+  const warning = (tone ?? (action === "POLICY" ? "default" : "warning")) === "warning";
   const status = pending
     ? t("working")
     : expired
@@ -127,6 +131,7 @@ function TimedActionInstance({
   return (
     <dialog
       ref={ref}
+      data-tone={warning ? "warning" : undefined}
       aria-labelledby={titleId}
       aria-describedby={descriptionId}
       // Match NativeDialog's close-watcher guard. Repeated Escape can bypass a
@@ -146,7 +151,7 @@ function TimedActionInstance({
         e.preventDefault();
         if (!mandatory && !pending) onCancel();
       }}
-      className="m-auto max-h-[90dvh] w-[calc(100%-2rem)] max-w-xl overflow-y-auto rounded-2xl border border-slate-200 bg-white p-6 text-slate-900 shadow-2xl backdrop:bg-slate-950/60"
+      className={`m-auto max-h-[90dvh] w-[calc(100%-2rem)] max-w-xl overflow-y-auto rounded-2xl border bg-white p-6 text-slate-900 backdrop:bg-slate-950/60 ${warning ? "warning-surface" : "border-slate-200 shadow-2xl"}`}
     >
       <p className="mb-2 text-xs font-semibold tracking-widest text-slate-500 uppercase">
         {t("pleaseReview")}

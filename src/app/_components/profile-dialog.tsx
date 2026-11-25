@@ -12,6 +12,7 @@ export function ProfileDialog({
   children,
   size = "default",
   pending = false,
+  tone = "default",
   returnFocusFallback,
 }: {
   title: string;
@@ -20,18 +21,22 @@ export function ProfileDialog({
   size?: "default" | "wide";
   /** This owner's write; children register independent writes with useDialogPending. */
   pending?: boolean;
+  /** Optional semantic amber warning wrap for destructive or high-consequence reviews. */
+  tone?: "default" | "warning";
   /** Current logical destination when the opening row has disappeared. */
   returnFocusFallback?: () => HTMLElement | null;
 }) {
   const t = useTranslations("accountProfile");
   const titleId = useId();
+  const warning = tone === "warning";
   return (
     <NativeDialog
       labelledBy={titleId}
       busy={pending}
+      tone={tone}
       onClose={onClose}
       returnFocusFallback={returnFocusFallback}
-      className={`m-auto max-h-[min(88dvh,850px)] w-[calc(100%-2rem)] ${size === "wide" ? "max-w-4xl" : "max-w-2xl"} overflow-y-auto rounded-2xl border border-slate-200 bg-white p-0 text-slate-900 shadow-2xl backdrop:bg-slate-950/40`}
+      className={`m-auto max-h-[min(88dvh,850px)] w-[calc(100%-2rem)] ${size === "wide" ? "max-w-4xl" : "max-w-2xl"} overflow-y-auto rounded-2xl border bg-white p-0 text-slate-900 backdrop:bg-slate-950/40 ${warning ? "warning-surface" : "border-slate-200 shadow-2xl"}`}
     >
       {(busy) => (
         <>

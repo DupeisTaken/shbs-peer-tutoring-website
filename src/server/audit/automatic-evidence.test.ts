@@ -91,6 +91,11 @@ function expiredFixture(failAudit = false) {
     },
     participantConsolidation: { findUnique: async () => null, findMany: async () => [] },
     pairingExecutionSuccessor: { findMany: async () => [], count: async () => 0 },
+    pairing: {
+      findMany: async () => [],
+      updateMany: async () => ({ count: 0 }),
+    },
+    pairingGroup: { deleteMany: async () => ({ count: 0 }) },
     pairingTutee: { findMany: async ({ select }: { select: { pairing?: unknown } }) => current.linked
       ? [select.pairing ? { pairing: { tutorId: "tutor" } } : { pairingId: "pairing", tuteeId: "student" }]
       : [],
