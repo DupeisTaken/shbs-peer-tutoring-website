@@ -9,7 +9,6 @@ import { DepartureBanner } from "~/app/_components/school-departure";
 import { TRPCError } from "@trpc/server";
 import { currentPolicy, findAccountPolicy } from "~/server/policy-acceptance";
 import { WorkspaceHeader } from "~/app/_components/workspace-header";
-import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getMessages, getTranslations } from "next-intl/server";
 import { NextIntlClientProvider } from "next-intl";
@@ -114,21 +113,6 @@ export default async function TuteeLayout({
         switcherLabels={workspaceSwitcherLabels(t)}
         skipLabel={t("common.skipToContent")}
         containerClassName="mx-auto max-w-6xl"
-        identity={
-          <Link
-            href="/student?view=account"
-            className="hidden shrink-0 rounded-md px-2 py-0.5 text-right leading-tight hover:bg-slate-100 lg:block"
-            title={t("tuteePortal.account")}
-          >
-            <p className="max-w-44 truncate text-[13px] font-medium text-slate-900">
-              {me.name ?? me.username}
-            </p>
-            <p className="muted text-[11px]">
-              {me.username ? `@${me.username} · ` : ""}
-              {t(`admin.users.roles.${me.role}`)}
-            </p>
-          </Link>
-        }
         account={
           <UserAvatar
             name={me.name ?? me.username ?? me.email}

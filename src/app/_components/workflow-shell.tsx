@@ -6,7 +6,6 @@ import { getFeatures } from "~/server/program/features";
 import { WorkspaceHeader } from "./workspace-header";
 import { SectionLinks } from "./section-links";
 import { UserAvatar } from "./user-avatar";
-import Link from "next/link";
 import {
   resolveWorkspaceNavigation,
   workspaceNavLabels,
@@ -74,7 +73,6 @@ export async function WorkflowShell({
         ]
       : []),
   ];
-  const handle = user.username;
   return (
     <div className="min-h-screen">
       <WorkspaceHeader
@@ -84,21 +82,6 @@ export async function WorkflowShell({
         switcherLabels={workspaceSwitcherLabels(rootT)}
         skipLabel={common("skipToContent")}
         containerClassName="mx-auto max-w-5xl"
-        identity={
-          <Link
-            href="/my-account"
-            className="hidden shrink-0 rounded-md px-2 py-0.5 text-right leading-tight hover:bg-slate-100 lg:block"
-            title={t("settings")}
-          >
-            <p className="max-w-44 truncate text-[13px] font-medium text-slate-900">
-              {user.name ?? user.username}
-            </p>
-            <p className="muted text-[11px]">
-              {handle ? `@${handle} · ` : ""}
-              {rootT(`admin.users.roles.${user.role}`)}
-            </p>
-          </Link>
-        }
         account={await UserAvatar({
           name: user.name ?? user.username ?? user.email,
           username: user.username,
