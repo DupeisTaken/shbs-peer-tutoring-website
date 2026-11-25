@@ -9,8 +9,16 @@ import {
   within,
 } from "@testing-library/react";
 import { NextIntlClientProvider } from "next-intl";
+import {
+  QueryClient,
+  QueryClientProvider,
+  useQuery,
+} from "@tanstack/react-query";
 import messages from "../../../messages/en.json";
 import zhMessages from "../../../messages/zh.json";
+import { invalidateAndReport } from "~/lib/invalidate-refresh";
+import { installSessionReadReceipts } from "~/lib/session-read-receipts";
+import { settleRefreshes } from "~/lib/settle-refreshes";
 import {
   DepartureBanner,
   SchoolDepartureAction,
@@ -24,13 +32,29 @@ const fixture = vi.hoisted(() => ({
     departure: { reason: "TRANSFERRED", revision: 2, observerRevoked: false },
     access: { canReadManagement: true },
     role: "STUDENT",
-    events: [],
+    events: [] as Array<{ id: string; action: string; explanation: string }>,
   },
   save: vi.fn(),
   request: vi.fn(),
+  saveReset: vi.fn(),
+  requestReset: vi.fn(),
+  invalidate: vi.fn(),
   pending: false,
+  savePending: false,
   readError: null as null | { message: string; data?: { code: string } },
+  saveError: null as null | { message: string; data?: { code?: string; approvalId?: string } },
+  requestError: null as null | { message: string; data?: { code?: string } },
   refetch: vi.fn(),
+  useStateQuery: undefined as
+    | undefined
+    | ((input: { userId?: string }) => unknown),
+  saveCallbacks: undefined as
+    | undefined
+    | {
+        onSuccess: () => Promise<void>;
+        onError?: (error: { message: string; data?: { code?: string; approvalId?: string } }) => void;
+        onSettled: () => void;
+      },
   callbacks: undefined as
     | undefined
     | {
@@ -44,22 +68,39 @@ vi.mock("./management-actions", () => ({
 }));
 vi.mock("~/trpc/react", () => ({
   api: {
-    useUtils: () => ({ invalidate: vi.fn() }),
+    useUtils: () => ({ invalidate: fixture.invalidate }),
     departure: {
       state: {
-        useQuery: () => ({
-          data: fixture.data,
-          error: fixture.readError,
-          refetch: fixture.refetch,
-        }),
+        useQuery: (input: { userId?: string }) =>
+          fixture.useStateQuery
+            ? fixture.useStateQuery(input)
+            : {
+                data: fixture.data,
+                error: fixture.readError,
+                isSuccess: !fixture.readError && !!fixture.data,
+                isFetching: false,
+                refetch: fixture.refetch,
+              },
       },
-      setState: { useMutation: () => ({ mutate: fixture.save }) },
+      setState: {
+        useMutation: (callbacks: typeof fixture.saveCallbacks) => {
+          fixture.saveCallbacks = callbacks;
+          return {
+            mutate: fixture.save,
+            isPending: fixture.savePending,
+            error: fixture.saveError,
+            reset: fixture.saveReset,
+          };
+        },
+      },
       request: {
         useMutation: (callbacks: typeof fixture.callbacks) => {
           fixture.callbacks = callbacks;
           return {
             mutate: fixture.request,
             isPending: fixture.pending,
+            error: fixture.requestError,
+            reset: fixture.requestReset,
           };
         },
       },
@@ -76,15 +117,26 @@ beforeEach(() => {
   cleanup();
   fixture.save.mockClear();
   fixture.request.mockClear();
+  fixture.saveReset.mockReset();
+  fixture.requestReset.mockReset();
+  fixture.invalidate.mockReset().mockResolvedValue(undefined);
   fixture.pending = false;
+  fixture.savePending = false;
   fixture.readError = null;
-  fixture.refetch.mockReset();
+  fixture.useStateQuery = undefined;
+  fixture.saveError = null;
+  fixture.requestError = null;
+  fixture.refetch.mockReset().mockImplementation(async () => ({
+    isSuccess: true,
+    data: fixture.data,
+  }));
   fixture.data.access.canReadManagement = true;
   fixture.data.departure.revision = 2;
   fixture.data.retired = false;
   fixture.data.role = "STUDENT";
   fixture.data.departure.reason = "TRANSFERRED";
   fixture.data.departure.observerRevoked = false;
+  fixture.data.events = [];
   Object.defineProperties(HTMLDialogElement.prototype, {
     showModal: {
       configurable: true,
@@ -414,7 +466,9 @@ it("keeps a completed review mounted while its write is pending, then clears the
   expect(screen.getAllByRole("dialog")).toHaveLength(2);
   expect(reason().value).toBe("Moving to a new school");
   fixture.pending = false;
-  fixture.callbacks!.onSettled();
+  act(() => {
+    fixture.callbacks!.onSettled();
+  });
   view.rerender(content());
   expect(screen.getAllByRole("dialog")).toHaveLength(1);
   expect(reason().value).toBe("");
@@ -447,4 +501,235 @@ it("gives another departure target a fresh reason and review", () => {
     }).value,
   ).toBe("");
   expect(fixture.save).not.toHaveBeenCalled();
+});
+
+it.each(["en", "zh"] as const)(
+  "provides explicit version-aware Reload after CONFLICT while keeping the reason draft in %s",
+  async (locale) => {
+    const copy = locale === "en" ? messages : zhMessages;
+    fixture.data.role = "HEAD";
+    fixture.data.departure.revision = 2;
+    const content = () => (
+      <NextIntlClientProvider locale={locale} messages={copy}>
+        <SchoolDeparturePanel userId="target-user" />
+      </NextIntlClientProvider>
+    );
+    const view = render(content());
+    const reason = () =>
+      screen.getByRole<HTMLTextAreaElement>("textbox", {
+        name: copy.schoolDeparture.reason,
+      });
+    // Preserve PR #746's full-width stacked field layout.
+    expect(reason().closest(".grid")?.className).toBe("grid gap-3");
+    fireEvent.change(reason(), { target: { value: "Confirmed transfer note" } });
+    fireEvent.click(
+      screen.getByRole("button", { name: copy.schoolDeparture.review }),
+    );
+    fireEvent.click(
+      screen.getByRole("button", { name: copy.schoolDeparture.confirm }),
+    );
+    expect(fixture.save).toHaveBeenCalledWith({
+      userId: "target-user",
+      action: "TRANSFERRED",
+      expectedRevision: 2,
+      explanation: "Confirmed transfer note",
+    });
+    fixture.saveError = {
+      message: "Departure changed. Reload and review the current record.",
+      data: { code: "CONFLICT" },
+    };
+    act(() => {
+      fixture.saveCallbacks!.onSettled();
+    });
+    view.rerender(content());
+    expect(screen.getByText(copy.schoolDeparture.reloadHelp)).toBeTruthy();
+    expect(
+      screen.getByRole<HTMLButtonElement>("button", {
+        name: copy.schoolDeparture.confirm,
+      }).disabled,
+    ).toBe(true);
+    // Failed reload retains the draft and conflict state.
+    fixture.refetch.mockRejectedValueOnce(new Error("temporary read outage"));
+    await act(async () => {
+      fireEvent.click(
+        screen.getByRole("button", { name: copy.schoolDeparture.reload }),
+      );
+    });
+    expect(screen.getByText(copy.schoolDeparture.readFailed)).toBeTruthy();
+    expect(reason().value).toBe("Confirmed transfer note");
+    // Successful reload adopts revision 5, keeps draft, closes stale confirmation.
+    fixture.data.departure.revision = 5;
+    fixture.saveReset.mockImplementation(() => {
+      fixture.saveError = null;
+    });
+    await act(async () => {
+      fireEvent.click(
+        screen.getByRole("button", { name: copy.schoolDeparture.reload }),
+      );
+    });
+    view.rerender(content());
+    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(reason().value).toBe("Confirmed transfer note");
+    fireEvent.click(
+      screen.getByRole("button", { name: copy.schoolDeparture.review }),
+    );
+    fireEvent.click(
+      screen.getByRole("button", { name: copy.schoolDeparture.confirm }),
+    );
+    expect(fixture.save).toHaveBeenLastCalledWith({
+      userId: "target-user",
+      action: "TRANSFERRED",
+      expectedRevision: 5,
+      explanation: "Confirmed transfer note",
+    });
+  },
+);
+
+it("recovers accepted saves and queued proposals with read-only Retry refresh without replaying writes", async () => {
+  fixture.data.role = "HEAD";
+  fixture.data.departure.revision = 2;
+  const content = () => (
+    <NextIntlClientProvider locale="en" messages={messages}>
+      <SchoolDeparturePanel userId="target-user" />
+    </NextIntlClientProvider>
+  );
+  const view = render(content());
+  fireEvent.change(
+    screen.getByRole("textbox", { name: messages.schoolDeparture.reason }),
+    { target: { value: "Graduating early" } },
+  );
+  fireEvent.click(
+    screen.getByRole("button", { name: messages.schoolDeparture.review }),
+  );
+  fireEvent.click(
+    screen.getByRole("button", { name: messages.schoolDeparture.confirm }),
+  );
+  expect(fixture.save).toHaveBeenCalledTimes(1);
+  fixture.invalidate.mockRejectedValueOnce(new Error("refresh failed"));
+  await act(async () => {
+    await fixture.saveCallbacks!.onSuccess();
+    fixture.saveCallbacks!.onSettled();
+  });
+  view.rerender(content());
+  expect(screen.getByText(messages.schoolDeparture.saved)).toBeTruthy();
+  expect(screen.getByText(messages.schoolDeparture.refreshFailed)).toBeTruthy();
+  expect(
+    screen.getByRole<HTMLButtonElement>("button", {
+      name: messages.schoolDeparture.confirm,
+    }).disabled,
+  ).toBe(true);
+  // Closing the confirmation keeps read-only Retry refresh available inline.
+  fireEvent.click(screen.getByRole("button", { name: "Close" }));
+  expect(screen.queryByRole("dialog")).toBeNull();
+  expect(screen.getByText(messages.schoolDeparture.refreshFailed)).toBeTruthy();
+  fixture.data.departure.revision = 3;
+  await act(async () => {
+    fireEvent.click(
+      screen.getByRole("button", { name: messages.schoolDeparture.retryRefresh }),
+    );
+  });
+  view.rerender(content());
+  expect(fixture.save).toHaveBeenCalledTimes(1);
+  expect(
+    screen.getByRole<HTMLTextAreaElement>("textbox", {
+      name: messages.schoolDeparture.reason,
+    }).value,
+  ).toBe("");
+});
+
+it("conceals cached departure evidence on authoritative denial until retry succeeds", async () => {
+  const client = new QueryClient({
+    defaultOptions: { queries: { retry: false } },
+  });
+  installSessionReadReceipts(client);
+  fixture.data.events = [
+    { id: "ev1", action: "TRANSFERRED", explanation: "Private departure reason" },
+  ];
+  const remote = vi
+    .fn<() => Promise<typeof fixture.data>>()
+    .mockResolvedValueOnce(fixture.data)
+    .mockRejectedValueOnce(
+      Object.assign(new Error("Denied"), { data: { code: "FORBIDDEN" } }),
+    )
+    .mockRejectedValueOnce(new Error("Network down"))
+    .mockResolvedValue(fixture.data);
+  const useLiveState = (input: { userId?: string }) =>
+    useQuery({
+      queryKey: [["departure", "state"], { input, type: "query" }],
+      queryFn: () => remote(),
+      retry: false,
+    });
+  fixture.useStateQuery = useLiveState;
+  render(
+    <QueryClientProvider client={client}>
+      <NextIntlClientProvider locale="en" messages={messages}>
+        <SchoolDeparturePanel userId="target-user" />
+      </NextIntlClientProvider>
+    </QueryClientProvider>,
+  );
+  expect(await screen.findByText("Private departure reason")).toBeTruthy();
+
+  await act(async () => {
+    await client.refetchQueries({ queryKey: [["departure", "state"]] });
+  });
+  expect(screen.queryByText("Private departure reason")).toBeNull();
+  expect(screen.getByText(messages.schoolDeparture.accessDenied)).toBeTruthy();
+
+  // Subsequent transport failure retains denial concealment.
+  await act(async () => {
+    fireEvent.click(
+      screen.getByRole("button", { name: messages.participantRecovery.retry }),
+    );
+  });
+  expect(screen.queryByText("Private departure reason")).toBeNull();
+  expect(screen.getByText(messages.schoolDeparture.accessDenied)).toBeTruthy();
+
+  // A fresh post-denial authorized read releases concealment.
+  await act(async () => {
+    fireEvent.click(
+      screen.getByRole("button", { name: messages.participantRecovery.retry }),
+    );
+  });
+  expect(await screen.findByText("Private departure reason")).toBeTruthy();
+  client.clear();
+});
+
+it("reports active query GET failures through invalidateAndReport + settleRefreshes on a real QueryClient", async () => {
+  const client = new QueryClient({
+    defaultOptions: { queries: { retry: false } },
+  });
+  const okCalls = vi.fn().mockResolvedValue({ ok: true });
+  const failingCalls = vi
+    .fn()
+    .mockResolvedValueOnce({ ok: true })
+    .mockRejectedValueOnce(new Error("variant GET failed"));
+  await client.fetchQuery({ queryKey: ["departure", "ok"], queryFn: okCalls });
+  await client.fetchQuery({
+    queryKey: ["departure", "fail"],
+    queryFn: failingCalls,
+  });
+  // Re-fetch both queries via invalidateQueries wrapped in invalidateAndReport.
+  const target = {
+    invalidate: (
+      _input?: undefined,
+      filters?: {
+        predicate?: (query: {
+          state: { errorUpdateCount: number; error: unknown };
+        }) => boolean;
+      },
+      options?: { throwOnError?: boolean },
+    ) =>
+      client.invalidateQueries(
+        {
+          queryKey: ["departure"],
+          refetchType: "all",
+          predicate: filters?.predicate,
+        },
+        options,
+      ),
+  };
+  await expect(
+    settleRefreshes([() => invalidateAndReport(target)]),
+  ).rejects.toThrow("variant GET failed");
+  client.clear();
 });

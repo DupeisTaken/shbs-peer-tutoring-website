@@ -859,3 +859,38 @@ it("skips unresolved-work, readiness SQL and extra feature reads on event-only p
     meetingReads.mockRestore();
   }
 });
+
+it("marks upcoming meetings with staff-recorded attendance as non-excusable and not self-excused", async () => {
+  await db.tutorMeeting.create({
+    data: {
+      id: "staff-recorded-meeting",
+      title: "Staff recorded meeting",
+      date: new Date("2026-10-29T08:00:00Z"),
+      termId: "current",
+      attendances: {
+        create: {
+          tutorId: "mine",
+          status: "PRESENT",
+          excusedAt: null,
+        },
+      },
+    },
+  });
+  const list = await caller().meetings({ view: "upcoming" });
+  const item = list.appointments.find(
+    (row) => row.id === "staff-recorded-meeting",
+  );
+  expect(item).toMatchObject({
+    status: "PRESENT",
+    excused: false,
+    canExcuse: false,
+  });
+  const detail = await caller().meetingDetail({
+    meetingId: "staff-recorded-meeting",
+  });
+  expect(detail).toMatchObject({
+    status: "PRESENT",
+    excused: false,
+    canExcuse: false,
+  });
+});

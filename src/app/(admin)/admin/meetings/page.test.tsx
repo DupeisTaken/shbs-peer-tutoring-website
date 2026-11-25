@@ -33,6 +33,7 @@ const state = vi.hoisted(() => ({
     reason: string | null;
     tutor: { englishName: string };
   }[],
+  extraTutors: [] as { id: string; englishName: string; status: string }[],
   longName: "AlexandraMontgomeryWellingtonSyntheticTutor",
   refresh: vi.fn<() => Promise<void>>(),
   completion: undefined as undefined | (() => Promise<void>),
@@ -101,6 +102,7 @@ vi.mock("~/trpc/react", () => ({
               englishName: "Recorded Graduate",
               status: "GRADUATED",
             },
+            ...state.extraTutors,
           ],
         }),
       },
@@ -128,6 +130,7 @@ beforeEach(() => {
   sessionStorage.clear();
   state.readError = null;
   state.attendances = [];
+  state.extraTutors = [];
   state.pending = false;
   state.error = null;
   state.refresh.mockResolvedValue(undefined);
@@ -720,4 +723,48 @@ it("clears meeting view choices and conceals cached attendance through failed re
     screen.getByRole("button", { name: messages.admin.meetings.summary.show }),
   ).toBeTruthy();
   expect(state.save).not.toHaveBeenCalled();
+});
+
+it("omits unchanged read-only self-excused tutors when saving attendance for another tutor", () => {
+  state.extraTutors = [
+    { id: "excused-active", englishName: "Excused Active Tutor", status: "ACTIVE" },
+  ];
+  state.attendances = [
+    {
+      tutorId: "excused-active",
+      status: "EXCUSED_ABSENT",
+      excusedAt: new Date("2026-09-28T04:00:00Z"),
+      reason: "Medical appointment",
+      tutor: { englishName: "Excused Active Tutor" },
+    },
+  ];
+  render(
+    <NextIntlClientProvider
+      locale="en"
+      messages={messages}
+      timeZone="Asia/Shanghai"
+    >
+      <ReadOnlyProvider value={false}>
+        <MeetingsPage />
+      </ReadOnlyProvider>
+    </NextIntlClientProvider>,
+  );
+  fireEvent.click(
+    screen.getByRole("button", { name: /^Synthetic briefing ·/ }),
+  );
+  const group = screen.getByRole("group", {
+    name: `Attendance for ${state.longName}`,
+  });
+  fireEvent.click(
+    within(group).getByRole("button", {
+      name: messages.admin.meetings.status.present,
+    }),
+  );
+  fireEvent.click(
+    screen.getByRole("button", { name: messages.admin.meetings.saveAttendance }),
+  );
+  expect(state.save).toHaveBeenCalledWith({
+    meetingId: "meeting",
+    entries: [{ tutorId: "active", status: "PRESENT" }],
+  });
 });
