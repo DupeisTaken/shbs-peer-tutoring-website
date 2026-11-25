@@ -3,6 +3,7 @@ import {
   PublicFormCard,
   PublicFormRoute,
 } from "~/app/_components/public-form-page";
+import { getSignedInWorkspaceHeader } from "~/app/_components/signed-in-workspace-header";
 import { redirect } from "next/navigation";
 import { getTranslations } from "next-intl/server";
 
@@ -22,11 +23,20 @@ export default async function ViewerSignupPage() {
   if (!features.VIEWER_SIGNUP) redirect("/");
 
   const [t, session] = await Promise.all([getTranslations(), auth()]);
+  const signedIn = Boolean(session?.user);
+  const signedInHeader = signedIn
+    ? await getSignedInWorkspaceHeader({
+        href: "/viewer-signup",
+        title: t("accountInvitation.requestTitle"),
+        session,
+      })
+    : null;
   return (
     <PublicFormPage
       title={t("accountInvitation.requestTitle")}
       description={t("accountInvitation.requestHelp")}
       backLabel={t("common.backToMain")}
+      header={signedInHeader ?? undefined}
       footer={
         <div className="space-y-4">
           <PublicFormRoute
@@ -38,20 +48,22 @@ export default async function ViewerSignupPage() {
           <PublicFormRoute href="/tutee" label={t("survey.requestTutor")}>
             {t("auth.signupRoutes.tuteeHelp")}
           </PublicFormRoute>
-          <div className="border-t border-slate-200 pt-4">
-            <p className="text-slate-600">
-              {t("public.viewerSignup.alreadyHave")}
-            </p>
-            <PublicFormRoute
-              href="/signin"
-              label={t("public.viewerSignup.signIn")}
-            />
-          </div>
+          {!signedIn && (
+            <div className="border-t border-slate-200 pt-4">
+              <p className="text-slate-600">
+                {t("public.viewerSignup.alreadyHave")}
+              </p>
+              <PublicFormRoute
+                href="/signin"
+                label={t("public.viewerSignup.signIn")}
+              />
+            </div>
+          )}
         </div>
       }
     >
       <PublicFormCard>
-        <ViewerSignupFlow signedIn={Boolean(session?.user)} />
+        <ViewerSignupFlow signedIn={signedIn} />
       </PublicFormCard>
     </PublicFormPage>
   );

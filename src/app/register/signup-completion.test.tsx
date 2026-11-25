@@ -558,9 +558,67 @@ it("shows a saved write separately from failed sign-in and never offers resubmis
       screen.getByText(en.accountInvitation.savedLoginFailed),
     ).toBeTruthy(),
   );
+  expect(
+    screen
+      .getByRole("link", { name: en.accountInvitation.signIn })
+      .getAttribute("href"),
+  ).toBe(`/signin?callbackUrl=${encodeURIComponent("/dashboard")}`);
   expect(container.querySelector("form")).toBeNull();
   expect(container.querySelector("input[type=password]")).toBeNull();
 });
+
+it.each([
+  ["VIEWER", "/admin"],
+  ["ADMIN", "/admin"],
+  ["COORDINATOR", "/admin"],
+  ["CREW", "/patrol"],
+  ["TUTEE", "/student"],
+  ["TUTOR", "/dashboard"],
+  ["HISTORY", "/history/claim?invitation=invite"],
+  ["LOGIN", "/"],
+] as const)(
+  "waits for session creation after saving and routes %s straight to %s",
+  async (kind, destination) => {
+    Object.assign(state.info, { kind });
+    let resolveLogin!: (value: { signedIn: boolean; mfaRequired: boolean }) => void;
+    const { rerender } = render(view());
+    await verified();
+    state.saved = true;
+    state.login.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          resolveLogin = resolve;
+        }),
+    );
+    act(() => state.callbacks.complete!.onSuccess!({ ok: true, kind }));
+    rerender(view());
+    // While sign-in is still in flight, do not render a live link that could prefetch unauthenticated.
+    expect(screen.queryByRole("link", { name: en.accountInvitation.continue })).toBeNull();
+    expect(screen.queryByRole("link", { name: en.accountInvitation.signIn })).toBeNull();
+    expect(
+      screen
+        .getByRole<HTMLButtonElement>("button", {
+          name: en.accountInvitation.continue,
+        })
+        .disabled,
+    ).toBe(true);
+    await act(async () => resolveLogin({ signedIn: true, mfaRequired: false }));
+    const continueLink = await screen.findByRole("link", {
+      name: en.accountInvitation.continue,
+    });
+    expect(continueLink.getAttribute("href")).toBe(destination);
+    expect(screen.queryByText(en.accountInvitation.savedLoginFailed)).toBeNull();
+    if (kind === "TUTEE") {
+      // Bookmarkable QR/URL card stays visible, without a redundant "Go to Sign In" button.
+      expect(
+        screen.getByRole("region", { name: en.survey.signinAccess }),
+      ).toBeTruthy();
+      expect(
+        screen.queryByRole("link", { name: en.survey.signIn }),
+      ).toBeNull();
+    }
+  },
+);
 
 it("staff-key navigation focuses its next heading and Back retains the key", async () => {
   render(view("en", true));

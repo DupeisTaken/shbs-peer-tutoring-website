@@ -33,6 +33,7 @@ export function PublicFormPage({
   backLabel,
   backHref,
   skipLabel,
+  header,
   children,
   footer,
   notice,
@@ -44,6 +45,8 @@ export function PublicFormPage({
   /** The owning form selects its return route; ordinary public forms return home. */
   backHref?: string;
   skipLabel?: string;
+  /** Optional signed-in WorkspaceHeader replacement when an authenticated user visits a shared form. */
+  header?: ReactNode;
   children: ReactNode;
   footer?: ReactNode;
   notice?: ReactNode;
@@ -51,11 +54,13 @@ export function PublicFormPage({
 }) {
   return (
     <div className="min-h-screen">
-      <PublicPageNavigation
-        backLabel={backLabel}
-        backHref={backHref}
-        skipLabel={skipLabel}
-      />
+      {header ?? (
+        <PublicPageNavigation
+          backLabel={backLabel}
+          backHref={backHref}
+          skipLabel={skipLabel}
+        />
+      )}
       <main
         id="main-content"
         className={`public-form mx-auto w-full px-4 pt-6 pb-12 sm:px-6 sm:pt-10 ${wide ? "max-w-3xl" : "max-w-lg"}`}
@@ -69,7 +74,7 @@ export function PublicFormPage({
             {title}
           </h1>
           {description && (
-            <div className="mt-3 text-sm leading-6 text-pretty text-slate-600">
+            <div className="mt-3 text-sm leading-6 text-balance text-slate-600">
               {description}
             </div>
           )}
@@ -109,7 +114,7 @@ export function PublicFormRoute({
         {label}
       </Link>
       {children && (
-        <p className="mx-auto max-w-sm text-sm leading-6 text-pretty text-slate-600">
+        <p className="mx-auto max-w-sm text-sm leading-6 text-balance text-slate-600">
           {children}
         </p>
       )}

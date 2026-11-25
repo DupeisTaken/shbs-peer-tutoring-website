@@ -7,6 +7,7 @@ import { getFeatures } from "~/server/program/features";
 import { WorkspaceHeader } from "~/app/_components/workspace-header";
 import { UserAvatar } from "~/app/_components/user-avatar";
 import { NavSidebar, NavMobileRow } from "~/app/_components/admin-nav";
+import { portalAccess } from "~/lib/portal-access";
 import { translationAccess } from "~/lib/translation-access";
 import {
   resolveWorkspaceNavigation,
@@ -36,6 +37,8 @@ export default async function LocalizationLayout({
       canTranslate: true,
       role: true,
       crewStatus: true,
+      tuteeMember: true,
+      studentId: true,
       tutorId: true,
       tutorAccessRevoked: true,
       suspendedAt: true,
@@ -52,6 +55,8 @@ export default async function LocalizationLayout({
   // session and original-actor authorization on the server.
   const content = access.enter ? children : <TranslationIntentRecoveryEntry />;
   const elevated = access.publish || access.request;
+  const elevatedOrViewer = elevated || me.role === "VIEWER";
+  const portal = portalAccess(me);
 
   const [t, features] = await Promise.all([getTranslations(), getFeatures(db)]);
   const nav = resolveWorkspaceNavigation({
@@ -63,12 +68,16 @@ export default async function LocalizationLayout({
   const canTutor =
     !me.tutorAccessRevoked &&
     Boolean(me.tutorId ?? me.tutor) &&
-    (!elevated || me.tutor?.status !== "ARCHIVED");
-  const accountHref = elevated
+    (!elevatedOrViewer || me.tutor?.status !== "ARCHIVED");
+  const canTutee =
+    me.role !== "VIEWER" && (portal.canParticipate || portal.departed);
+  const accountHref = elevatedOrViewer
     ? "/admin/account"
     : canTutor
       ? "/settings"
-      : "/my-account";
+      : canTutee
+        ? "/student?view=account"
+        : "/my-account";
   const accountItems = [
     ...(!elevated
       ? [
@@ -79,9 +88,20 @@ export default async function LocalizationLayout({
           },
         ]
       : []),
+    ...(me.role === "VIEWER"
+      ? [
+          {
+            href: "/student-support",
+            label: t("workflows.support"),
+            group: "tools" as const,
+          },
+        ]
+      : []),
     {
       href: accountHref,
-      label: t(elevated ? "account.title" : "components.userMenu.settings"),
+      label: t(
+        elevatedOrViewer ? "account.title" : "components.userMenu.settings",
+      ),
       group: "account" as const,
     },
   ];
