@@ -678,7 +678,7 @@
     "sessionExpired": "Your session expired or could not be verified. Please sign in again.",
     "passwordChangedSignIn": "비밀번호가 변경되었습니다. 현재 브라우저를 포함한 모든 세션에서 로그아웃되었습니다. 새 비밀번호로 다시 로그인하세요.",
     "signupRoutes": {
-      "viewerHelp": "이메일을 인증하면 초대를 받습니다. 새 계정에는 참관자 권한이 부여되며, 기존 계정은 이메일로 받은 코드로 로그인합니다.",
+      "viewerHelp": "학교 교직원, 학부모, 대학 관계자 및 방문객을 위한 읽기 전용 개요입니다.",
       "viewerLink": "참관자로 등록",
       "invitationHelp": "이메일 초대 또는 운영팀의 승인 코드가 있나요?",
       "invitationLink": "초대 코드로 등록",
@@ -698,6 +698,7 @@
       "landmark": "사이트 탐색",
       "signInAndJoin": "로그인 및 참여"
     },
+    "viewerSignupHelp": "교직원·학부모·대학 관계자용",
     "tagline": "또래 튜터링 프로그램",
     "heroTitle": "함께 배우고, 함께 성장하세요.",
     "intro": "임시 소개 문구 — {appTitle} 프로그램에 대한 짧은 단락이 여기에 들어갑니다. 대상, 도움받을 수 있는 과목, 또래 튜터의 역할에 대해 설명해 주세요. 이 내용을 실제 프로그램 개요로 교체하세요.",
@@ -2913,7 +2914,7 @@
       "fields": {
         "name": "이름",
         "affiliation": "관계",
-        "affiliationPlaceholder": "예: 학생 학부모, 수학 교사, 지역 주민",
+        "affiliationPlaceholder": "예: 학교 교직원, 학부모, 대학 관계자, 방문객",
         "email": "이메일",
         "code": "이메일 인증 코드",
         "password": "비밀번호",
@@ -6199,7 +6200,7 @@
     "pageTitle": "계정 초대",
     "pageHelp": "이메일로 받은 초대 코드를 입력하거나 직원이 제공한 초대 키로 코드를 요청하세요.",
     "requestTitle": "계정 초대 요청",
-    "requestHelp": "이메일을 확인하면 별도의 초대 코드를 받습니다. 새 계정에는 읽기 전용 Viewer 권한이 부여됩니다. 기존 계정은 이메일 코드로 로그인하며 비밀번호, 신원 정보, 참여 자격은 유지됩니다. 설정된 추가 인증은 계속 필요합니다.",
+    "requestHelp": "학교 교직원, 학부모, 대학 관계자 및 방문객을 위한 읽기 전용 개요입니다. 계속하려면 이메일을 인증하세요.",
     "receiptTitle": "Your invitation is ready",
     "receiptHelp": "Keep this code to continue with your account. Your email is verified.",
     "showCode": "Show invitation code",
