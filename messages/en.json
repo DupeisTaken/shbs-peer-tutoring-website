@@ -668,7 +668,7 @@
       }
     },
     "signupRoutes": {
-      "viewerHelp": "Verify your email, then use your invitation to create an account or sign in.",
+      "viewerHelp": "Read-only overview for school faculty, parents, college staff, and guests.",
       "viewerLink": "Register as a Viewer",
       "invitationHelp": "Have an emailed invitation or a staff authorization code?",
       "invitationLink": "Register with an Invitation Code",
@@ -694,6 +694,7 @@
       "landmark": "Site Navigation",
       "signInAndJoin": "Sign In & Join"
     },
+    "viewerSignupHelp": "Faculty, parents & college staff",
     "tagline": "Peer Tutoring Program",
     "heroTitle": "Learn together. Grow together.",
     "intro": "At {appTitle}, tutors and tutees are fellow students who learn together and support one another. Share experience in subjects you know well, ask peers for help where you need it, and grow together.",
@@ -2909,7 +2910,7 @@
       "fields": {
         "name": "Name",
         "affiliation": "Your Affiliation",
-        "affiliationPlaceholder": "e.g. Parent of a tutee, Math faculty, community member",
+        "affiliationPlaceholder": "e.g. School faculty, parent, college staff, community guest",
         "email": "Email",
         "code": "Email verification code",
         "password": "Password",
@@ -6229,7 +6230,7 @@
     "pageTitle": "Invitation Code",
     "pageHelp": "Enter your emailed invitation, or use a staff key to request one.",
     "requestTitle": "Viewer Registration",
-    "requestHelp": "Tell us about yourself and verify your email. You will receive an invitation code to continue.",
+    "requestHelp": "Read-only overview for school faculty, parents, college staff, and guests. Verify your email to continue.",
     "receiptTitle": "Your Invitation Is Ready",
     "receiptHelp": "Keep this code to continue with your account. Your email is verified.",
     "showCode": "Show invitation code",
