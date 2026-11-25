@@ -4603,8 +4603,8 @@ export const managementArticles: HelpArticle[] = [
       [
         t("Open handbook downloads", "打开手册下载"),
         t(
-          "In management navigation open Administration → PDF handbooks, or open PDF handbooks from Help Center. Visitors and participants can download handbooks for their own authorized collections; staff can distribute participant training handbooks, while Admin and Head editions follow current authority.",
-          "在管理导航打开系统管理→PDF操作手册，或从帮助中心打开PDF操作手册。访客与参与者可下载本人有权查看的指南集手册；工作人员可分发参与者培训手册，管理员与负责人手册按当前权限提供。",
+          "Open Help Center from the top bar and select PDF handbooks (or open /admin/help directly). Visitors and participants can download handbooks for their own authorized collections; staff can distribute participant training handbooks, while Admin and Head editions follow current authority.",
+          "从顶部栏打开帮助中心并选择PDF操作手册（或直接访问 /admin/help）。访客与参与者可下载本人有权查看的指南集手册；工作人员可分发参与者培训手册，管理员与负责人手册按当前权限提供。",
         ),
       ],
       [

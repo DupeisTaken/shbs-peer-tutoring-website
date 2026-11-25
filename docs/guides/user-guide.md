@@ -352,12 +352,14 @@ Coordinators handle permitted daily operations, settings proposals, profile edit
 
 | Sidebar group | Pages |
 | --- | --- |
-| **Overview** | **Dashboard** (`/admin`), **Activity & Requests** (`/admin/activity`), **Help & How-to** (`/help`), **PDF handbooks** (`/admin/help`), **Messages** (`/admin/messages`), **Message Supervision** (`/admin/messages/supervision`), **Reports** (`/admin/history`), **Announcements** (`/admin/announcements`) |
+| **Overview** | **Dashboard** (`/admin`), **Activity & Requests** (`/admin/activity`), **Messages** (`/admin/messages`), **Message Supervision** (`/admin/messages/supervision`), **Reports** (`/admin/history`), **Announcements** (`/admin/announcements`) |
 | **Tutors** | **Tutor Roster** (`/admin/tutors`), **Subject Availability** (`/admin/subject-availability`), **Tutor Applications** (`/admin/applications`), **Tutor Status Requests** (`/admin/tutor-requests`), **Tutor Meetings** (`/admin/meetings`), **Service Hours** (`/admin/service-hours`), **Hour Adjustments** (`/admin/hour-adjustments`) |
 | **Tutees** | **Tutee Roster** (`/admin/tutees`), **Signup Requests** (`/admin/requests`), **Tutee Support** (`/admin/student-support`), **Withdrawals & Removals** (`/admin/tutee-requests`), **Tutee Discipline** (`/admin/discipline`) |
 | **Scheduling & Records** | **Pairings** (`/admin/pairings`), **Attendance Submissions** (`/admin/attendance`), **Attendance Flags** (`/admin/session-flags`), **Crew** (`/admin/crew`), **Time Slots** (`/admin/time-slots`), **Subjects & Levels** (`/admin/subjects`), **Rooms** (`/admin/rooms`) |
-| **Administration** | **Program Settings** (`/admin/program`), **Signup Forms** (`/admin/signup-forms`), **Landing Page** (`/admin/landing`), **Policy Documents** (`/admin/policies`), **Translations** (`/localization`), **Registration Codes** (`/admin/registration-codes`), **Management Actions** (`/admin/approvals`), **Users & Roles** (`/admin/users`) |
+| **Administration** | **Program Settings** (`/admin/program`), **Signup Forms** (`/admin/signup-forms`), **Landing Page** (`/admin/landing`), **Policy Documents** (`/admin/policies`), **Registration Codes** (`/admin/registration-codes`), **Management Actions** (`/admin/approvals`), **Users & Roles** (`/admin/users`) |
 | **Data & Recovery** | **Program Records** (`/admin/records`), **Academic Corrections** (`/admin/academic-corrections`), **Audit Log** (`/admin/audit`), **Admission Recovery** (`/admin/recovery`), **Database records** (`/admin/database`) |
+
+**Translations** (`/localization`) and **Help Center** (`/help`, including **PDF handbooks** at `/help#handbooks`) live in the top-bar workspace switcher rather than the management sidebar.
 
 ### Review a coordinator change
 

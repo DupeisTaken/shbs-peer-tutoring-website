@@ -55,7 +55,7 @@ See [approval-policy.ts](../../src/lib/approval-policy.ts).
 
 | Purpose | User entry | Management entry / outcome |
 | --- | --- | --- |
-| Help & guides | **Help & How-to** (`/help`) | **Overview → PDF handbooks** (`/admin/help`) for bilingual Geist PDF role handbooks |
+| Help & guides | **Help Center** (`/help`) | Top-bar **Help Center** (`/help#handbooks`, or direct `/admin/help`) for bilingual Geist PDF role handbooks |
 | Request tutoring | `/tutee-signup` (`/tutee`, `/signup` redirect) → 4-digit mailbox code → receipt popup → `/register-account` | **Tutees → Signup Requests** (`/admin/requests`): verify demand, match by original priority |
 | Become a tutor | `/tutor-signup` (`/tutor` redirects) | **Tutors → Tutor Applications**: assign qualified panel/chair, interview, vote and record completion |
 | Accept an invitation | `/register-account` (`/register` redirects) or signed-in **Add access** | **Administration → Registration Codes** and **Users & Roles**; codes alone never grant access without verification and review |
@@ -67,7 +67,7 @@ See [approval-policy.ts](../../src/lib/approval-policy.ts).
 | Get support | Tutee Support tab, feedback, card appeals, private messages | **Tutees → Tutee Support** (`/admin/student-support`); **Users & Roles → User details** holds policy acceptance history |
 | Observe the program | `/viewer-signup` (`/viewer` redirects) → mailbox code → receipt popup → `/register-account` | Exclusive **Viewer** sees permitted summaries with private fields masked; existing accounts keep credentials/access on login |
 | Patrol rooms | `/crew-signup` (`/crew` redirects); active Crew → `/patrol` | **Scheduling & Records → Crew** (applications, membership, patrol room order, patrols, corrections) |
-| Publish content & policies | Homepage, Info menu, custom pages | **Administration → Landing Page**, **Policy Documents**, **Translations** (`/localization`) |
+| Publish content & policies | Homepage, Info menu, custom pages | **Administration → Landing Page**, **Policy Documents**; top-bar switcher → **Translations** (`/localization`) |
 | Report, audit & recover | **Overview → Reports** (`/admin/history`) | Period summaries, CSV/print, **Data & Recovery → Program Records**, **Academic Corrections**, **Audit Log**, **Admission Recovery**, **Database records** |
 
 ### Invitation and verification codes
@@ -428,7 +428,7 @@ supervision; Coordinators have no supervision access.
   URL namespace; unpublished items still reserve slugs and are previewable by
   editors via **View page**). Missing translations fall back to English, then
   first stored language.
-- **Administration → Translations (`/localization`):** Assigned translators
+- **Top-bar switcher → Translations (`/localization`):** Assigned translators
   submit string/content drafts; Admin/Head approve (Coordinator publication
   requires Admin/Head approval). Translators can add languages with English
   fallback; management controls visibility/order (built-in catalogs cannot be
