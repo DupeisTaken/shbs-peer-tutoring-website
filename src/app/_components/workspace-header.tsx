@@ -12,9 +12,9 @@ import { WorkspaceSwitcher } from "./workspace-switcher";
  * One balanced, calm header for all signed-in workspaces and signed-in Program Home.
  *
  * Desktop (`lg+`, single 56px row):
- *   `[(PT Logo) Title ⌄]   ...   [Bell] [?] [Theme]  [Language]  |  [User & Portrait]`
+ *   `[(PT Logo) Title ⌄]   ...   [Account Text ⌄]  |  [Bell] [?] [Theme]  [Language]`
  *
- * Mobile (`<lg`, compact 2 rows with full 44px touch targets & zero title truncation):
+ * Mobile (`<lg`, legacy compact 2 rows with full 44px touch targets & zero title truncation):
  *   Row 1: `[☰?] [(PT Logo) Title ⌄]`
  *   Row 2: `[Bell] [?] [Theme]   ...   [Language] [Avatar]`
  */
@@ -43,7 +43,8 @@ export function WorkspaceHeader({
     workspacesGroupLabel: string;
     generalGroupLabel: string;
   };
-  identity: ReactNode;
+  /** Optional extra desktop-only identity node beside `account` (standard workspaces render text inside `UserAvatar`). */
+  identity?: ReactNode;
   account: ReactNode;
   navigation?: ReactNode;
   skipLabel?: string;
@@ -65,7 +66,7 @@ export function WorkspaceHeader({
         </a>
       ) : null}
       <div
-        className={`flex min-w-0 flex-col gap-1.5 px-3 py-2 sm:px-4 lg:flex-row lg:items-center lg:gap-1.5 lg:px-6 lg:py-2.5 ${containerClassName}`}
+        className={`flex min-w-0 flex-col gap-1.5 px-3 py-2 sm:px-4 lg:flex-row lg:items-center lg:gap-0 lg:px-6 lg:py-2.5 ${containerClassName}`}
       >
         {/* Left: optional mobile drawer trigger + (PT Logo) Title v workspace switcher */}
         <div className="flex min-w-0 items-center gap-1.5 lg:contents">
@@ -92,9 +93,23 @@ export function WorkspaceHeader({
         {/* Desktop flexible spacer */}
         <div aria-hidden="true" className="hidden lg:block lg:flex-1" />
 
-        {/* Right utilities in exact order: soft circular Bell, ?, Theme, pill Language | Name [Avatar] */}
-        <div className="flex min-w-0 flex-wrap items-center justify-between gap-2 lg:contents">
-          <div className="flex shrink-0 items-center gap-1 lg:gap-1.5">
+        {/* Right controls: desktop DOM & visual order puts text-only Account left of | Bell ? Theme Language
+            with symmetric 14px visual clearance around the divider and uniform 8px spacing across utilities;
+            mobile flex order retains legacy Row 2: Bell ? Theme (left) ... Language Avatar (right). */}
+        <div className="flex min-w-0 flex-wrap items-center gap-2 lg:contents">
+          <div className="order-3 flex shrink-0 items-center gap-2 lg:order-none">
+            {identity ? (
+              <div className="hidden shrink-0 lg:block">{identity}</div>
+            ) : null}
+            <div className="shrink-0">{account}</div>
+          </div>
+
+          <span
+            aria-hidden="true"
+            className="hidden h-5 w-px shrink-0 bg-slate-200 lg:mr-3.5 lg:ml-1.5 lg:block"
+          />
+
+          <div className="order-1 flex shrink-0 items-center gap-1 lg:order-none lg:gap-2">
             <div className="shrink-0">
               <NotificationBell />
             </div>
@@ -106,20 +121,8 @@ export function WorkspaceHeader({
             </div>
           </div>
 
-          <div className="flex shrink-0 items-center gap-2 lg:contents">
-            <div className="shrink-0 lg:ml-1.5">
-              <LanguageSwitcher compactAtDesktop />
-            </div>
-
-            <span
-              aria-hidden="true"
-              className="mx-2 hidden h-5 w-px shrink-0 bg-slate-200 lg:block"
-            />
-
-            <div className="flex shrink-0 items-center gap-2">
-              <div className="hidden shrink-0 lg:block">{identity}</div>
-              <div className="shrink-0">{account}</div>
-            </div>
+          <div className="order-2 ml-auto shrink-0 lg:order-none lg:ml-2">
+            <LanguageSwitcher compactAtDesktop />
           </div>
         </div>
       </div>
