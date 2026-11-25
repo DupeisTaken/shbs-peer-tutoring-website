@@ -1,4 +1,3 @@
-import Link from "next/link";
 import type { ReactNode } from "react";
 import { getTranslations } from "next-intl/server";
 import type { Session } from "next-auth";
@@ -133,9 +132,6 @@ export async function getSignedInWorkspaceHeader({
 
   const displayName = me.name ?? me.username ?? me.email;
   const username = me.username ?? me.tutor?.username;
-  const roleLabel = t.has?.(`admin.users.roles.${me.role}`)
-    ? t(`admin.users.roles.${me.role}`)
-    : me.role;
 
   return (
     <WorkspaceHeader
@@ -145,21 +141,6 @@ export async function getSignedInWorkspaceHeader({
       switcherLabels={workspaceSwitcherLabels(t)}
       skipLabel={t("common.skipToContent")}
       containerClassName={containerClassName}
-      identity={
-        <Link
-          href={accountHref}
-          className="hidden shrink-0 rounded-md px-2 py-0.5 text-right leading-tight hover:bg-slate-100 lg:block"
-          title={t("account.title")}
-        >
-          <p className="max-w-44 truncate text-[13px] font-medium text-slate-900">
-            {displayName}
-          </p>
-          <p className="muted text-[11px]">
-            {username ? `@${username} · ` : ""}
-            {roleLabel}
-          </p>
-        </Link>
-      }
       account={
         <UserAvatar
           name={displayName}

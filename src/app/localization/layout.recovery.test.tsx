@@ -40,7 +40,19 @@ vi.mock("~/app/_components/workspace-header", () => ({
   ),
 }));
 vi.mock("~/app/_components/user-avatar", () => ({
-  UserAvatar: () => null,
+  UserAvatar: ({
+    items = [],
+  }: {
+    items?: { href: string; label: string; group?: string }[];
+  }) => (
+    <nav aria-label="Account menu">
+      {items.map((item) => (
+        <a key={item.href} href={item.href}>
+          {item.label}
+        </a>
+      ))}
+    </nav>
+  ),
 }));
 vi.mock("~/app/_components/sign-out-button", () => ({
   SignOutButton: () => null,
@@ -190,7 +202,7 @@ it("routes VIEWER translators to /admin/account even with an archived linked tut
   });
   render(await LocalizationLayout({ children: <PrivateEditor /> }));
   expect(
-    screen.getByRole("link", { name: /Viewer Person/ }).getAttribute("href"),
+    screen.getByRole("link", { name: "account.title" }).getAttribute("href"),
   ).toBe("/admin/account");
 });
 
@@ -208,7 +220,7 @@ it("routes active STUDENT translators to /student?view=account", async () => {
   render(await LocalizationLayout({ children: <PrivateEditor /> }));
   expect(
     screen
-      .getByRole("link", { name: /Student Translator/ })
+      .getByRole("link", { name: "components.userMenu.settings" })
       .getAttribute("href"),
   ).toBe("/student?view=account");
 });

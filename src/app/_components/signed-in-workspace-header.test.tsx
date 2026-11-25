@@ -21,13 +21,11 @@ vi.mock("./workspace-header", () => ({
     href,
     title,
     switcherItems = [],
-    identity,
     account,
   }: {
     href: string;
     title: string;
     switcherItems?: { id: string; href: string; label: string }[];
-    identity: React.ReactNode;
     account: React.ReactNode;
   }) => (
     <header data-header="workspace" data-home={href} data-title={title}>
@@ -38,7 +36,6 @@ vi.mock("./workspace-header", () => ({
           </a>
         ))}
       </nav>
-      <div data-identity>{identity}</div>
       {account}
     </header>
   ),
