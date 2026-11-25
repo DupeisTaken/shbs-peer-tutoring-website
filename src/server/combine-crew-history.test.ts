@@ -64,14 +64,27 @@ it("shows one crew member with both patrol histories and refuses merge-family de
       crewStatus: "ACTIVE",
     },
   });
+  const activeTerm = await db.term.create({
+    data: { schoolYear: "26-27", quarter: "Q1", name: "26-27 Q1", active: true },
+  });
+  const previousSemesterTerm = await db.term.create({
+    data: { schoolYear: "25-26", quarter: "Q4", name: "25-26 Q4", active: false },
+  });
   const original = await db.patrol.create({
     data: {
       crewUserId: duplicate.id,
+      termId: activeTerm.id,
       hours: 1.5,
       note: "Original historical evidence",
     },
   });
-  await db.patrol.create({ data: { crewUserId: survivor.id, hours: 0.5 } });
+  await db.patrol.create({
+    data: { crewUserId: survivor.id, termId: activeTerm.id, hours: 0.5 },
+  });
+  // Prior-semester patrols stay preserved in history but do not add to the active semester total.
+  await db.patrol.create({
+    data: { crewUserId: duplicate.id, termId: previousSemesterTerm.id, hours: 2 },
+  });
   const caller = (
     id: string,
     role: Session["role"],
@@ -116,5 +129,5 @@ it("shows one crew member with both patrol histories and refuses merge-family de
       code: "CONFLICT",
     });
   }
-  expect(await db.patrol.count()).toBe(2);
+  expect(await db.patrol.count()).toBe(3);
 });
