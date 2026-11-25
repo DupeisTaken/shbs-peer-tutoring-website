@@ -3,10 +3,8 @@ import type { ReactElement, ReactNode } from "react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import {
   cleanup,
-  fireEvent,
   render,
   screen,
-  within,
 } from "@testing-library/react";
 import type { Block } from "~/lib/page-blocks";
 import SlugPage from "./page";
@@ -65,6 +63,10 @@ vi.mock("~/app/_components/language-switcher", () => ({
 vi.mock("~/app/_components/theme-switcher", () => ({
   ThemeSwitcher: () => null,
 }));
+vi.mock("~/app/_components/signed-in-workspace-header", () => ({
+  getSignedInLandingLinks: async () => undefined,
+  getSignedInWorkspaceHeader: async () => null,
+}));
 
 // Resolve the route's async shell explicitly; native verification covers the RSC boundary.
 async function renderRoute() {
@@ -93,24 +95,18 @@ beforeEach(() => {
 });
 afterEach(cleanup);
 
-it("keeps title, body, each menu label and Chinese chrome independently marked", async () => {
+it("keeps title, body, logo home link and Chinese chrome independently marked without banner nav menus", async () => {
   await renderRoute();
   expect(screen.getByRole("heading", { level: 1 }).lang).toBe("en");
   expect(
     screen.getByText("中文正文").closest("[lang]")?.getAttribute("lang"),
   ).toBe("zh");
-  const back = screen.getByRole("link", { name: "返回主页" });
-  expect(back.getAttribute("href")).toBe("/");
-  expect(back.closest("[lang]")?.getAttribute("lang")).toBe("zh");
+  const logoLink = document.querySelector("header a[href='/']");
+  expect(logoLink?.getAttribute("title")).toBe("返回主页");
+  expect(screen.queryByRole("link", { name: "返回主页" })).toBeNull();
+  expect(screen.queryByRole("button", { name: "项目信息" })).toBeNull();
+  expect(screen.queryByRole("button", { name: "菜单" })).toBeNull();
   expect(document.querySelector("main")?.hasAttribute("lang")).toBe(false);
-  for (const name of ["菜单", "项目信息"]) {
-    fireEvent.click(screen.getByRole("button", { name }));
-    const menu = within(screen.getByRole("dialog", { name }));
-    const english = menu.getByRole("link", { name: "English navigation" });
-    expect(english.lang).toBe("en");
-    expect(english.getAttribute("href")).toBe("/p/english");
-    expect(menu.getByRole("link", { name: "中文导航" }).lang).toBe("zh");
-  }
   expect(mocks.authorize).not.toHaveBeenCalled();
   expect(mocks.getLayout).toHaveBeenCalledWith(
     expect.anything(),

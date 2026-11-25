@@ -55,7 +55,8 @@ export type WorkspaceNavLabels = {
  * - Read-only observers (VIEWER or departed alumni observers) receive the alternate
  *   "Program Overview" label instead of "Management".
  * - The currently active area (e.g. Help Center when on /help, Program Home when on
- *   /?home=1) is omitted from the dropdown so users only see other destinations to jump to.
+ *   /) is omitted from the dropdown so users only see other destinations to jump to.
+ * - Signup forms are intentionally excluded from the switcher selection.
  */
 export function resolveWorkspaceNavigation({
   account,
@@ -147,7 +148,7 @@ export function resolveWorkspaceNavigation({
       : []),
     {
       id: "home",
-      href: "/?home=1",
+      href: "/",
       label: labels.programHome,
       group: "general",
     },

@@ -5,6 +5,7 @@ import Link from "next/link";
 
 import { Markdown } from "~/app/_components/markdown";
 import { DisclosureIcon } from "~/app/_components/icons";
+import type { SignedInLinkMap } from "~/lib/signed-in-landing-links";
 
 export type LandingSectionItem = {
   id: string;
@@ -23,7 +24,13 @@ export type LandingSectionItem = {
  * shared DisclosureIcon so the ▸/▾ gesture matches the rest of the app. Each panel's initial
  * open state comes from `openByDefault`; visitors can toggle freely.
  */
-export function LandingSections({ sections }: { sections: LandingSectionItem[] }) {
+export function LandingSections({
+  sections,
+  signedInLinks,
+}: {
+  sections: LandingSectionItem[];
+  signedInLinks?: SignedInLinkMap;
+}) {
   const [open, setOpen] = useState<Set<string>>(
     () => new Set(sections.filter((s) => s.openByDefault).map((s) => s.id)),
   );
@@ -73,7 +80,7 @@ export function LandingSections({ sections }: { sections: LandingSectionItem[] }
             </button>
             {isOpen && (
               <div className="pb-5 pl-7 text-sm leading-relaxed text-slate-600">
-                <Markdown>{s.body}</Markdown>
+                <Markdown signedInLinks={signedInLinks}>{s.body}</Markdown>
               </div>
             )}
           </li>

@@ -75,10 +75,11 @@ export default async function SignupPage({
     return { transition, restriction };
   });
 
+  const headerTitle = t("components.workspaceTitles.signupForms");
   const signedInHeader = session?.user
     ? await getSignedInWorkspaceHeader({
-        href: "/tutee-signup",
-        title: t("public.signup.title"),
+        href: "/",
+        title: headerTitle,
         session,
       })
     : null;
@@ -86,9 +87,10 @@ export default async function SignupPage({
   return (
     <PublicFormPage
       wide
+      headerTitle={headerTitle}
+      header={signedInHeader ?? undefined}
       title={t("public.signup.title")}
       backLabel={t("common.backToMain")}
-      header={signedInHeader ?? undefined}
       description={restriction?.blocked ? undefined : <SignupIntro />}
     >
       <div className="mt-6">

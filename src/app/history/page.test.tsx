@@ -82,10 +82,11 @@ it("falls back to shared public navigation and sign-out when WorkspaceHeader is 
   ).toBe("/my-account");
   expect(screen.getByRole("button", { name: "Sign out" })).toBeTruthy();
   expect(
-    screen
-      .getByRole("link", { name: en.tuteeHistory.back })
-      .getAttribute("href"),
-  ).toBe("/");
+    screen.queryByRole("link", { name: en.tuteeHistory.back }),
+  ).toBeNull();
+  expect(
+    document.querySelector('header a[href="/"]')?.getAttribute("title"),
+  ).toBe(en.tuteeHistory.back);
   expect(screen.getAllByRole("combobox", { name: "Language" })).toHaveLength(1);
   expect(
     screen

@@ -21,20 +21,22 @@ export default async function CrewSignupPage() {
 
   const [t, session] = await Promise.all([getTranslations(), auth()]);
   const signedIn = Boolean(session?.user);
+  const headerTitle = t("components.workspaceTitles.signupForms");
   const signedInHeader = signedIn
     ? await getSignedInWorkspaceHeader({
-        href: "/crew-signup",
-        title: t("public.crewSignup.title"),
+        href: "/",
+        title: headerTitle,
         session,
       })
     : null;
   return (
     <PublicFormPage
       wide
+      headerTitle={headerTitle}
+      header={signedInHeader ?? undefined}
       title={t("public.crewSignup.title")}
       description={t("public.crewSignup.intro")}
       backLabel={t("common.backToMain")}
-      header={signedInHeader ?? undefined}
     >
       <CrewSignupForm signedIn={signedIn} />
 

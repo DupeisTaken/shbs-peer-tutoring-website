@@ -14,25 +14,27 @@ export default async function StudentAccountPage({
 }: {
   searchParams: Promise<{ token?: string; intent?: string }>;
 }) {
-  const [{ token, intent }, t, session] = await Promise.all([
+  const [{ token, intent }, rootT, session] = await Promise.all([
     searchParams,
-    getTranslations("survey"),
+    getTranslations(),
     auth(),
   ]);
+  const headerTitle = rootT("components.workspaceTitles.signupForms");
   const signedInHeader = session?.user
     ? await getSignedInWorkspaceHeader({
-        href: "/tutee-signup/account",
-        title: t("accountTitle"),
+        href: "/",
+        title: headerTitle,
         session,
       })
     : null;
   return (
     <PublicFormPage
-      title={t("accountTitle")}
-      description={t("priority")}
-      backLabel={t("back")}
-      backHref="/tutee"
+      headerTitle={headerTitle}
       header={signedInHeader ?? undefined}
+      title={rootT("survey.accountTitle")}
+      description={rootT("survey.priority")}
+      backLabel={rootT("survey.back")}
+      backHref="/tutee"
       wide
     >
       <StudentRegistration

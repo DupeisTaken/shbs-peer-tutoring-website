@@ -121,11 +121,15 @@ it.each(["en", "zh"])(
     expect(screen.getByRole("heading", { level: 1 }).textContent).toBe(
       copy.pageRecovery.title,
     );
+    expect(screen.queryByRole("link", { name: copy.common.backToMain })).toBeNull();
     expect(
       screen
-        .getByRole("link", { name: copy.common.backToMain })
+        .getByRole("link", { name: copy.workflows.home })
         .getAttribute("href"),
     ).toBe("/");
+    expect(
+      document.querySelector("header a[href='/']")?.getAttribute("title"),
+    ).toBe(copy.common.backToMain);
     expect(
       screen
         .getByRole("link", { name: copy.auth.register.done.signIn })

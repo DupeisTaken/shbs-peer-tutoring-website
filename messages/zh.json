@@ -2937,6 +2937,9 @@
       "enterTutor": "进入辅导伙伴主页",
       "enterAdmin": "进入管理区",
       "enterTutee": "进入学习伙伴主页",
+      "enterCrew": "进入巡查队主页",
+      "enterOverview": "进入项目概览",
+      "enterTranslations": "进入翻译页面",
       "backToManagement": "返回管理主页",
       "groups": {
         "workspaces": "工作区",
@@ -2962,7 +2965,8 @@
       "tutee": "学习伙伴",
       "patrol": "巡查队",
       "translations": "翻译",
-      "programHome": "项目主页"
+      "programHome": "项目主页",
+      "signupForms": "报名表单"
     },
     "workspaceSwitcher": {
       "label": "切换页面",

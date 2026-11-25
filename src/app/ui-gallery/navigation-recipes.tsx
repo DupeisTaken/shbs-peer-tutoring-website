@@ -69,11 +69,6 @@ export function NavigationRecipes({ locale }: { locale: "en" | "zh" }) {
             {zh ? "示例主题" : "Example theme"}
           </Button>
         }
-        navigation={
-          <Link className="public-form-link" href="/">
-            {zh ? "返回主页" : "Back to main page"}
-          </Link>
-        }
       />
       <SectionLinks
         label={zh ? "导航示例" : "Navigation example"}

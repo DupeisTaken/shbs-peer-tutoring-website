@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { getTranslations } from "next-intl/server";
 
 import { auth } from "~/server/auth";
@@ -139,16 +138,10 @@ export default async function HelpLayout({
   return (
     <div className="min-h-screen">
       <PublicHeader
+        href="/"
         title={t("helpNav.title")}
+        linkTitle={t("common.backToMain")}
         skipLabel={t("common.skipToContent")}
-        navigation={
-          <Link
-            href="/"
-            className="public-form-link inline-flex min-h-11 items-center text-[13px] lg:min-h-8"
-          >
-            {t("common.backToMain")}
-          </Link>
-        }
       />
       {children}
     </div>

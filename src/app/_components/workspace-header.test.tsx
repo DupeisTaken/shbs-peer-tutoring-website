@@ -37,7 +37,7 @@ function renderHeader(withNavigation = true, hideTitle = false) {
       hideTitle={hideTitle}
       switcherItems={[
         { id: "tutor", href: "/dashboard", label: "Tutor", group: "workspaces" },
-        { id: "home", href: "/?home=1", label: "Program Home", group: "general" },
+        { id: "home", href: "/", label: "Program Home", group: "general" },
       ]}
       account={<button>Account</button>}
       navigation={withNavigation ? <button>Navigation</button> : undefined}
@@ -60,7 +60,7 @@ it.each([true, false])(
     ).toBe("/dashboard");
     expect(
       screen.getByRole("link", { name: "Program Home" }).getAttribute("href"),
-    ).toBe("/?home=1");
+    ).toBe("/");
 
     const controls = [
       ...container.querySelectorAll(

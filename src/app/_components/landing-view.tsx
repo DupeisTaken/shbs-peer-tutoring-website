@@ -11,6 +11,10 @@ import { getLandingLayout, type Block } from "~/server/home/blocks";
 import { getNavPages } from "~/server/home/pages";
 import { APP_TITLE, SUPPORT_EMAIL } from "~/lib/branding";
 import { getPrivacyPolicy } from "~/lib/privacy-policy";
+import {
+  resolveSignedInLink,
+  type SignedInLinkMap,
+} from "~/lib/signed-in-landing-links";
 import { Markdown } from "~/app/_components/markdown";
 import { LandingSections } from "~/app/_components/landing-sections";
 import {
@@ -39,10 +43,13 @@ import { PublicHeader } from "~/app/_components/public-header";
 export async function LandingView({
   preview = false,
   signedInHeader,
+  signedInLinks,
 }: {
   preview?: boolean;
   signedInHeader?: ReactNode;
+  signedInLinks?: SignedInLinkMap;
 }) {
+  const activeSignedInLinks = preview ? undefined : signedInLinks;
   const [locale, timeZone] = await Promise.all([getLocale(), getTimeZone()]);
   const [features, overrides, news, sections, layout, navPages, t, tc] =
     await Promise.all([
@@ -131,13 +138,33 @@ export async function LandingView({
                     heroImageId ? "" : "mx-auto sm:justify-center"
                   }`}
                 >
-                  <Link href="/tutee" className="btn-primary min-h-11">
-                    <span>{text("ctaPrimary")}</span>
-                    <ArrowRightIcon />
-                  </Link>
-                  <Link href="/tutor" className="btn-secondary min-h-11">
-                    {text("ctaSecondary")}
-                  </Link>
+                  {(() => {
+                    const primary = resolveSignedInLink(
+                      "/tutee",
+                      activeSignedInLinks,
+                    );
+                    const secondary = resolveSignedInLink(
+                      "/tutor",
+                      activeSignedInLinks,
+                    );
+                    return (
+                      <>
+                        <Link
+                          href={primary?.href ?? "/tutee"}
+                          className="btn-primary min-h-11"
+                        >
+                          <span>{primary?.label ?? text("ctaPrimary")}</span>
+                          <ArrowRightIcon />
+                        </Link>
+                        <Link
+                          href={secondary?.href ?? "/tutor"}
+                          className="btn-secondary min-h-11"
+                        >
+                          {secondary?.label ?? text("ctaSecondary")}
+                        </Link>
+                      </>
+                    );
+                  })()}
                 </div>
               </div>
               {heroImageId && (
@@ -192,6 +219,7 @@ export async function LandingView({
                   slug: s.slug,
                   draftLabel: preview && !s.published ? draftLabel : undefined,
                 }))}
+                signedInLinks={activeSignedInLinks}
               />
             </div>
           </section>
@@ -227,7 +255,9 @@ export async function LandingView({
                     )}
                   </div>
                   <div className="mt-2 text-sm text-slate-600">
-                    <Markdown>{item.body}</Markdown>
+                    <Markdown signedInLinks={activeSignedInLinks}>
+                      {item.body}
+                    </Markdown>
                   </div>
                 </li>
               ))}
@@ -236,19 +266,43 @@ export async function LandingView({
         );
 
       case "RICH_TEXT":
-        return <RichTextBlock block={block} locale={locale} />;
+        return (
+          <RichTextBlock
+            block={block}
+            locale={locale}
+            signedInLinks={activeSignedInLinks}
+          />
+        );
       case "IMAGE":
         return <ImageBlock block={block} locale={locale} />;
       case "BUTTONS":
-        return <ButtonsBlock block={block} locale={locale} />;
+        return (
+          <ButtonsBlock
+            block={block}
+            locale={locale}
+            signedInLinks={activeSignedInLinks}
+          />
+        );
       case "COLUMNS":
-        return <ColumnsBlock block={block} locale={locale} />;
+        return (
+          <ColumnsBlock
+            block={block}
+            locale={locale}
+            signedInLinks={activeSignedInLinks}
+          />
+        );
     }
   };
 
   return (
     <div className="flex min-h-screen flex-col">
-      {preview && <PreviewRibbon />}
+      {preview && (
+        <PreviewRibbon
+          title={t("preview.ribbon.title")}
+          note={t("preview.ribbon.note")}
+          back={t("preview.ribbon.back")}
+        />
+      )}
 
       {signedInHeader ?? (
         <PublicHeader
@@ -325,8 +379,15 @@ export async function LandingView({
 }
 
 /** Sticky banner shown only in the editor preview. */
-async function PreviewRibbon() {
-  const t = await getTranslations("landing.preview");
+function PreviewRibbon({
+  title,
+  note,
+  back,
+}: {
+  title: string;
+  note: string;
+  back: string;
+}) {
   return (
     // Not sticky: the page's own header is sticky top-0, so the ribbon stays at the very top and
     // scrolls away rather than overlapping it.
@@ -334,15 +395,15 @@ async function PreviewRibbon() {
       <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-2 px-4 py-2 text-sm">
         <span className="flex items-center gap-2">
           <span className="rounded bg-white/20 px-2 py-0.5 text-xs font-semibold tracking-wide uppercase">
-            {t("ribbon.title")}
+            {title}
           </span>
-          <span className="text-white/90">{t("ribbon.note")}</span>
+          <span className="text-white/90">{note}</span>
         </span>
         <Link
           href="/admin/landing"
           className="inline-flex min-h-11 items-center font-semibold underline-offset-2 hover:underline"
         >
-          {t("ribbon.back")}
+          {back}
         </Link>
       </div>
     </div>

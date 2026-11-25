@@ -162,6 +162,37 @@ it.each([
   },
 );
 
+it("replaces hero CTA links for signed-in roles on Program Home but leaves preview unchanged", async () => {
+  mocks.blocks = [{ id: "hero-1", type: "HERO" }];
+  const signedInLinks = {
+    byPath: {
+      "/tutee": { href: "/student", label: "Enter Tutee Page" },
+      "/tutor": { href: "/dashboard", label: "Enter Tutor Page" },
+    },
+  };
+  const { unmount } = render(
+    await LandingView({
+      signedInHeader: <header data-header="workspace" />,
+      signedInLinks,
+    }),
+  );
+  expect(
+    screen.getByRole("link", { name: "Enter Tutee Page" }).getAttribute("href"),
+  ).toBe("/student");
+  expect(
+    screen.getByRole("link", { name: "Enter Tutor Page" }).getAttribute("href"),
+  ).toBe("/dashboard");
+  unmount();
+
+  render(await LandingView({ preview: true, signedInLinks }));
+  expect(
+    screen.getByRole("link", { name: "ctaPrimary" }).getAttribute("href"),
+  ).toBe("/tutee");
+  expect(
+    screen.getByRole("link", { name: "ctaSecondary" }).getAttribute("href"),
+  ).toBe("/tutor");
+});
+
 it("includes the viewer role background description under Follow the Program when viewer signup is enabled", async () => {
   mocks.features = { VIEWER_SIGNUP: true };
   render(await LandingView({}));

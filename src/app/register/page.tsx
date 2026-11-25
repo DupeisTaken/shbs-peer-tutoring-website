@@ -31,18 +31,20 @@ export default async function RegisterPage({
     auth(),
   ]);
   const signedIn = Boolean(session?.user);
+  const headerTitle = t("components.workspaceTitles.signupForms");
   const signedInHeader = signedIn
     ? await getSignedInWorkspaceHeader({
-        href: "/register-account",
-        title: t("accountInvitation.pageTitle"),
+        href: "/",
+        title: headerTitle,
         session,
       })
     : null;
   return (
     <PublicFormPage
+      headerTitle={headerTitle}
+      header={signedInHeader ?? undefined}
       title={t("accountInvitation.pageTitle")}
       backLabel={t("common.backToMain")}
-      header={signedInHeader ?? undefined}
       footer={
         signedIn ? undefined : (
           <div className="space-y-4">
