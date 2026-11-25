@@ -1,4 +1,7 @@
-import { supersededPairingIds } from "./participant-execution";
+import {
+  activePairingRosterWhere,
+  supersededPairingIds,
+} from "./participant-execution";
 import { createHash } from "node:crypto";
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
@@ -35,10 +38,15 @@ export async function readPairingGroups(db: DomainDb, tutorId: string) {
     orderBy: { createdAt: "desc" },
     select: { id: true },
   });
+  const superseded = term ? await supersededPairingIds(db) : [];
   const pairings = term
     ? await db.pairing.findMany({
         where: {
-        AND: [{ id: { notIn: await supersededPairingIds(db) } }], tutorId, termId: term.id },
+          AND: [{ id: { notIn: superseded } }],
+          tutorId,
+          termId: term.id,
+          ...activePairingRosterWhere(superseded),
+        },
         orderBy: { id: "asc" },
         select: {
           id: true,

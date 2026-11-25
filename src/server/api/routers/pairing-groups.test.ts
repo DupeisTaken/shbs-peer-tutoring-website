@@ -690,3 +690,108 @@ it("an independent management schedule edit releases that member without disturb
   });
   expect((await mine()).groups[0]?.pairingIds).toEqual(["a", "c"]);
 });
+
+it("hides disbanded standalone pairings and empty groups from pairings views while retaining database history and repairable partial groups", async () => {
+  await save(["a", "b"]);
+  // Detaching every tutee from standalone pairing "c" disbands it while preserving its row.
+  await db.pairingTutee.deleteMany({ where: { pairingId: "c" } });
+  expect(await db.pairing.findUnique({ where: { id: "c" } })).not.toBeNull();
+  expect(
+    (await caller("HEAD", "groups-head").admin.pairings()).map((p) => p.id).sort(),
+  ).toEqual(["a", "b"]);
+  expect((await caller().tutor.myPairings()).map((p) => p.id).sort()).toEqual([
+    "a",
+    "b",
+  ]);
+  expect((await caller().tutor.schedule()).pairings.map((p) => p.id).sort()).toEqual([
+    "a",
+    "b",
+  ]);
+  expect((await mine()).pairings.map((p) => p.id).sort()).toEqual(["a", "b"]);
+
+  // Emptying one member of a saved group keeps the group visible for repair until split.
+  await db.pairingTutee.deleteMany({ where: { pairingId: "b" } });
+  const broken = await mine();
+  expect(broken.pairings.map((p) => p.id).sort()).toEqual(["a", "b"]);
+  expect(
+    (await caller("HEAD", "groups-head").admin.pairings()).map((p) => p.id).sort(),
+  ).toEqual(["a", "b"]);
+
+  // Splitting releases "b" as a disbanded standalone pairing and returns "a" to Awaiting schedule.
+  await caller().pairingGroups.save({ snapshot: broken.snapshot, groups: [] });
+  expect(
+    (await caller("HEAD", "groups-head").admin.pairings()).map((p) => p.id),
+  ).toEqual(["a"]);
+  expect((await caller().tutor.myPairings()).map((p) => p.id)).toEqual(["a"]);
+  expect((await caller().tutor.schedule()).pairings).toEqual([]);
+  expect((await mine()).pairings.map((p) => p.id)).toEqual(["a"]);
+
+  // Re-scheduling "a" restores it to the room grid; disbanding it hides it from every active view.
+  await caller().tutor.setPairingSlot({ pairingId: "a", slotId: "slot-one" });
+  expect((await caller().tutor.schedule()).pairings.map((p) => p.id)).toEqual([
+    "a",
+  ]);
+  await db.pairingTutee.deleteMany({ where: { pairingId: "a" } });
+  expect(await caller("HEAD", "groups-head").admin.pairings()).toEqual([]);
+  expect(await caller().tutor.myPairings()).toEqual([]);
+  expect((await caller().tutor.schedule()).pairings).toEqual([]);
+  expect((await mine()).pairings).toEqual([]);
+  expect(await db.pairing.count()).toBe(3);
+});
+
+it("releases room and tutor schedule reservations when a pairing or full group is disbanded so another pairing can reuse the room and slot", async () => {
+  await save(["a", "b"], "slot-one");
+  const firstTutee = await db.tutee.findUniqueOrThrow({ where: { id: "one" } });
+  const secondTutee = await db.tutee.findUniqueOrThrow({ where: { id: "two" } });
+
+  // Setting both tutees INACTIVE disbands standalone "c" and the entire saved group ("a", "b").
+  await caller("HEAD", "groups-head").admin.setTuteeStatus({
+    id: firstTutee.id,
+    status: "INACTIVE",
+    expectedUpdatedAt: firstTutee.updatedAt,
+  });
+  await caller("HEAD", "groups-head").admin.setTuteeStatus({
+    id: secondTutee.id,
+    status: "INACTIVE",
+    expectedUpdatedAt: secondTutee.updatedAt,
+  });
+
+  // Rows remain in DB for history, but roomId, scheduleConfirmed, and empty PairingGroup are released.
+  const rows = await db.pairing.findMany({ orderBy: { id: "asc" } });
+  expect(rows).toHaveLength(3);
+  expect(
+    rows.every(
+      (row) =>
+        row.scheduleConfirmed === false &&
+        row.roomId === null &&
+        row.groupId === null,
+    ),
+  ).toBe(true);
+  expect(await db.pairingGroup.count()).toBe(0);
+  expect(await caller("HEAD", "groups-head").admin.pairings()).toEqual([]);
+
+  // Another pairing can now reserve the exact same room and time slot on the same tutor without conflict.
+  const freshTutee = await db.tutee.create({
+    data: { id: "three", englishName: "Student Three", status: "ACTIVE" },
+  });
+  const reused = await db.pairing.create({
+    data: {
+      id: "reused-slot",
+      tutorId: "groups-tutor",
+      termId: "groups-term",
+      subject: "Biology",
+      roomId,
+      roomMode: "FIXED",
+      scheduleConfirmed: true,
+      dayOfWeek: 1,
+      startMin: 900,
+      endMin: 960,
+      timeSlotId: "slot-one",
+      tutees: { create: [{ tuteeId: freshTutee.id }] },
+    },
+  });
+  expect(reused.roomId).toBe(roomId);
+  expect(
+    (await caller("HEAD", "groups-head").admin.pairings()).map((p) => p.id),
+  ).toEqual(["reused-slot"]);
+});

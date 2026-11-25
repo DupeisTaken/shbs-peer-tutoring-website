@@ -5,8 +5,10 @@ import {
   parseAccountAppealDecisionReview,
 } from "~/server/account-appeals";
 import {
+  activePairingRosterWhere,
   assertOperationalPairing,
   executionParticipantId,
+  releaseDisbandedPairingReservations,
   supersededPairingIds,
 } from "~/server/participant-execution";
 import { requireParticipantSourceParticipation } from "~/server/participant-source-restrictions";
@@ -326,12 +328,14 @@ async function requeueTutorActiveTermTutees(
       ...new Set(pairings.flatMap((p) => p.tutees.map((t) => t.tuteeId))),
     ];
     if (tuteeIds.length === 0) return 0;
+    const pairingIds = pairings.map((p) => p.id);
     await tx.pairingTutee.deleteMany({
       where: {
-        pairingId: { in: pairings.map((p) => p.id) },
+        pairingId: { in: pairingIds },
         tuteeId: { in: tuteeIds },
       },
     });
+    await releaseDisbandedPairingReservations(tx, pairingIds);
     await tx.tutee.updateMany({
       where: { id: { in: tuteeIds }, status: "ACTIVE" },
       data: { status: "PENDING" },
@@ -1057,8 +1061,13 @@ export const adminRouter = createTRPCRouter({
   // the board clears automatically; past terms' pairings remain for history but aren't shown here.
   pairings: viewerProcedure.query(async ({ ctx }) => {
     const isViewer = ctx.portalAccess.maskManagementData;
+    const superseded = await supersededPairingIds(ctx.db);
     const pairings = await ctx.db.pairing.findMany({
-      where: { id: { notIn: await supersededPairingIds(ctx.db) }, term: { active: true } },
+      where: {
+        id: { notIn: superseded },
+        term: { active: true },
+        ...activePairingRosterWhere(superseded),
+      },
       orderBy: [{ dayOfWeek: "asc" }, { startMin: "asc" }],
       include: {
         tutor: true,
@@ -2976,10 +2985,19 @@ export const adminRouter = createTRPCRouter({
                 },
                 { management: true },
               );
-            if (fields.status === "INACTIVE")
+            if (fields.status === "INACTIVE") {
+              const affected = await tx.pairingTutee.findMany({
+                where: { tuteeId: id, pairing: { term: { active: true } } },
+                select: { pairingId: true },
+              });
               await tx.pairingTutee.deleteMany({
                 where: { tuteeId: id, pairing: { term: { active: true } } },
               });
+              await releaseDisbandedPairingReservations(
+                tx,
+                affected.map((row) => row.pairingId),
+              );
+            }
             await tx.auditLog.create({
               data: {
                 userId: ctx.session.user.id,
@@ -3261,12 +3279,23 @@ export const adminRouter = createTRPCRouter({
             // rosters/attendance immediately. Session history is kept. (Re-activating doesn't re-pair —
             // a coordinator reassigns on /admin/requests, consistent with requeueTutorTutees.)
             if (input.status === "INACTIVE" && prev.status !== "INACTIVE") {
+              const affected = await tx.pairingTutee.findMany({
+                where: {
+                  tuteeId: input.id,
+                  pairing: { term: { active: true } },
+                },
+                select: { pairingId: true },
+              });
               await tx.pairingTutee.deleteMany({
                 where: {
                   tuteeId: input.id,
                   pairing: { term: { active: true } },
                 },
               });
+              await releaseDisbandedPairingReservations(
+                tx,
+                affected.map((row) => row.pairingId),
+              );
             }
             if (prev.status !== input.status) {
               await recordAudit(
@@ -3320,7 +3349,15 @@ export const adminRouter = createTRPCRouter({
               "Cannot delete a tutee with attendance history. Set them inactive instead.",
           });
         }
+        const affected = await tx.pairingTutee.findMany({
+          where: { tuteeId: input.id, pairing: { term: { active: true } } },
+          select: { pairingId: true },
+        });
         await tx.pairingTutee.deleteMany({ where: { tuteeId: input.id } });
+        await releaseDisbandedPairingReservations(
+          tx,
+          affected.map((row) => row.pairingId),
+        );
         return tx.tutee.delete({ where: { id: input.id } });
       }),
     ),

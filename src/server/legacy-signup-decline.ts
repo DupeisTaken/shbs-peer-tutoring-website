@@ -17,6 +17,7 @@ import {
   lockLegacySignupReview,
 } from "./request-review";
 import { assertHeadDiscretionarySignupChange } from "./student-signup-management";
+import { releaseDisbandedPairingReservations } from "./participant-execution";
 import { inTransaction, lockEntity, type DomainDb } from "./transactions";
 
 export const legacySignupDeclineInput = z
@@ -229,6 +230,10 @@ export async function declineLegacySignup(
     await tx.pairingTutee.deleteMany({
       where: { tuteeId: row.id, pairing: { termId: term.id } },
     });
+    await releaseDisbandedPairingReservations(
+      tx,
+      snapshot.pairings.filter((pairing) => pairing.removed).map((pairing) => pairing.id),
+    );
     const decision = await tx.legacySignupDecline.create({
       data: {
         tuteeId: row.id,
