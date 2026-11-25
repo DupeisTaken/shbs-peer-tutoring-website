@@ -15,7 +15,7 @@ import * as transactions from "~/server/transactions";
 
 assertIsolatedTestDatabase(process.env.DATABASE_URL);
 if (new URL(process.env.DATABASE_URL!).pathname !== "/shbs_shipping_test") throw Error("Use shbs_shipping_test");
-let crewId: string, otherId: string, headId: string, roomId: string, otherRoomId: string;
+let crewId: string, otherId: string, headId: string, roomId: string, otherRoomId: string, activeTermId: string;
 const password = "Patrol-test-password!";
 const caller = (id = crewId, role: Session["role"] = "CREW") => createCaller({
   db, headers: new Headers(), session: { user: { id }, role, tutorId: null, expires: "2099-01-01" },
@@ -46,6 +46,7 @@ beforeEach(async () => {
   headId = (await db.user.create({ data: { email: "head@example.test", role: "HEAD", passwordHash: hashPassword(password) } })).id;
   roomId = (await db.room.create({ data: { name: "First" } })).id;
   otherRoomId = (await db.room.create({ data: { name: "Second" } })).id;
+  activeTermId = (await db.term.create({ data: { schoolYear: "26-27", quarter: "Q1", name: "26-27 Q1", active: true } })).id;
 });
 afterEach(() => vi.useRealTimers());
 afterAll(() => db.$disconnect());
@@ -232,10 +233,10 @@ it("restores overlapping legacy awards and an observation-free patrol without ch
   // The complete archived batch must already have happened at import time.
   vi.setSystemTime(new Date("2026-09-01T08:41:00Z"));
   const patrols = [
-    { id: "first", crewUserId: crewId, hours: 0.5, createdAt: "2026-09-01T08:10:00.000Z", updatedAt: "2026-09-01T08:30:00.000Z" },
-    { id: "duplicate", crewUserId: crewId, hours: 1, createdAt: "2026-09-01T08:11:00.000Z", updatedAt: "2026-09-01T08:11:00.000Z" },
-    { id: "empty", crewUserId: crewId, hours: 1.5, createdAt: "2026-09-01T08:20:00.000Z", updatedAt: "2026-09-01T08:20:00.000Z" },
-    { id: "zero", crewUserId: otherId, hours: 0, createdAt: "2026-09-01T08:40:00.000Z", updatedAt: "2026-09-01T08:40:00.000Z" },
+    { id: "first", crewUserId: crewId, termId: activeTermId, hours: 0.5, createdAt: "2026-09-01T08:10:00.000Z", updatedAt: "2026-09-01T08:30:00.000Z" },
+    { id: "duplicate", crewUserId: crewId, termId: activeTermId, hours: 1, createdAt: "2026-09-01T08:11:00.000Z", updatedAt: "2026-09-01T08:11:00.000Z" },
+    { id: "empty", crewUserId: crewId, termId: activeTermId, hours: 1.5, createdAt: "2026-09-01T08:20:00.000Z", updatedAt: "2026-09-01T08:20:00.000Z" },
+    { id: "zero", crewUserId: otherId, termId: activeTermId, hours: 0, createdAt: "2026-09-01T08:40:00.000Z", updatedAt: "2026-09-01T08:40:00.000Z" },
   ];
   const observations = [
     { id: "first-observation", patrolId: "first", roomId, headcount: "ONE", observedAt: "2026-09-01T08:00:00.000Z" },
@@ -344,7 +345,7 @@ it("fences a correction waiting behind account combination, then permits retry w
 
 it.each(["explicit", "default hours", "default creation time"] as const)("retries explicit-null legacy patrol credit with %s values without reopening evidence or changing timestamps", async (mode) => {
   const patrol = {
-    id: "null-credit-patrol", crewUserId: crewId,
+    id: "null-credit-patrol", crewUserId: crewId, termId: activeTermId,
     ...(mode === "default hours" ? {} : { hours: 0.5 }),
     creditAwardedAt: null,
     ...(mode === "default creation time" ? {} : { createdAt: new Date().toISOString() }),
