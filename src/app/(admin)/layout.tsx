@@ -104,23 +104,6 @@ export default async function AdminLayout({
         switcherLabels={workspaceSwitcherLabels(t)}
         skipLabel={t("common.skipToContent")}
         skipToId="admin-content"
-        identity={
-          <Link
-            href="/admin/account"
-            className="hidden shrink-0 rounded-md px-2 py-0.5 text-right leading-tight hover:bg-slate-100 lg:block"
-            title={t("account.title")}
-          >
-            <p className="text-[13px] font-medium text-slate-900">
-              {me?.name ?? session.user.name}
-            </p>
-            <p className="muted text-[11px]">
-              {(me?.username ?? me?.tutor?.username)
-                ? `@${me.username ?? me?.tutor?.username} · `
-                : ""}
-              {t(`admin.users.roles.${session.role}`)}
-            </p>
-          </Link>
-        }
         account={
           <UserAvatar
             name={

@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getTranslations } from "next-intl/server";
 
@@ -106,21 +105,6 @@ export default async function LocalizationLayout({
         skipToId={elevated ? "admin-content" : "main-content"}
         navigation={
           elevated ? <NavMobileRow role={me.role} embedded /> : undefined
-        }
-        identity={
-          <Link
-            href={accountHref}
-            className="hidden shrink-0 rounded-md px-2 py-0.5 text-right leading-tight hover:bg-slate-100 lg:block"
-            title={t(elevated ? "account.title" : "components.userMenu.settings")}
-          >
-            <p className="max-w-44 truncate text-[13px] font-medium text-slate-900">
-              {displayName}
-            </p>
-            <p className="muted text-[11px]">
-              {username ? `@${username} · ` : ""}
-              {t(`admin.users.roles.${me.role}`)}
-            </p>
-          </Link>
         }
         account={
           <UserAvatar

@@ -26,8 +26,35 @@ afterEach(cleanup);
 
 it("renders the visible Tutee label while retaining the existing role identifier", async () => {
   render(await UserAvatar({ name: "Alex", role: "STUDENT" }));
-  expect(screen.getByText("Tutee")).toBeTruthy();
+  expect(screen.getAllByText("Tutee").length).toBeGreaterThanOrEqual(1);
   expect(screen.queryByText("STUDENT")).toBeNull();
+});
+
+it("uses a text-only trigger on desktop and retains the circular initials avatar on mobile", async () => {
+  const { container } = render(
+    await UserAvatar({
+      name: "Admin User",
+      username: "admin",
+      email: "admin@example.edu",
+      role: "HEAD",
+      roleLabel: "Crew",
+    }),
+  );
+  const summary = container.querySelector("summary");
+  expect(summary).toBeTruthy();
+
+  // Mobile circular initials badge is hidden at lg+.
+  const mobileAvatar = summary!.querySelector("span.rounded-full");
+  expect(mobileAvatar?.textContent).toBe("AU");
+  expect(mobileAvatar?.className).toContain("lg:hidden");
+
+  // Desktop trigger shows the two-line account identity + chevron (hidden below lg).
+  const desktopIdentity = summary!.querySelector("span.hidden.lg\\:block");
+  expect(desktopIdentity?.textContent).toContain("Admin User");
+  expect(desktopIdentity?.textContent).toContain("@admin · Crew");
+  const chevron = summary!.querySelector("svg");
+  expect(chevron?.getAttribute("class")).toContain("hidden");
+  expect(chevron?.getAttribute("class")).toContain("lg:block");
 });
 
 it("groups links into Workspaces, Tools and Account and keeps Help in the header instead", async () => {
