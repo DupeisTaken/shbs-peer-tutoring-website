@@ -5,6 +5,7 @@ import { auth } from "~/server/auth";
 import { HistoryClaim } from "./history-claim";
 import { HistoryAccountSetup } from "./history-account-setup";
 import { PublicFormPage } from "~/app/_components/public-form-page";
+import { getSignedInWorkspaceHeader } from "~/app/_components/signed-in-workspace-header";
 import { SUPPORT_EMAIL } from "~/lib/branding";
 import { switchHistoryAccount } from "./actions";
 
@@ -22,6 +23,13 @@ export default async function HistoryClaimPage({
   const params = await searchParams;
   const token = params.token ?? "";
   const invitationId = params.invitation;
+  const signedInHeader = session?.user
+    ? await getSignedInWorkspaceHeader({
+        href: "/history/claim",
+        title: t("claimTitle"),
+        session,
+      })
+    : null;
   // Match inspection precedence so a different capability owns a fresh client
   // controller, including its confirmation, pending work and completion receipt.
   const capabilityKey = invitationId
@@ -37,6 +45,7 @@ export default async function HistoryClaimPage({
       title={t("claimTitle")}
       description={t("linkHelp")}
       backLabel={t("back")}
+      header={signedInHeader ?? undefined}
       wide
     >
       {/* Separate independent claim, account-setup and support sections at the feature boundary. */}

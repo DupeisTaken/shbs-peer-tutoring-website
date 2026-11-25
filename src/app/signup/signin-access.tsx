@@ -7,7 +7,7 @@ import { useTranslations } from "next-intl";
 const subscribe = () => () => undefined;
 
 /** Only the public sign-in URL is shareable; never encode an account-verification token. */
-export function SigninAccess() {
+export function SigninAccess({ signedIn = false }: { signedIn?: boolean } = {}) {
   const t = useTranslations("survey");
   const url = useSyncExternalStore(
     subscribe,
@@ -27,9 +27,11 @@ export function SigninAccess() {
             {t("signinAccess")}
           </h3>
           <p className="muted text-sm">{t("signinHelp")}</p>
-          <Link href="/signin" className="btn-primary min-h-11 lg:min-h-10">
-            {t("signIn")}
-          </Link>
+          {!signedIn && (
+            <Link href="/signin" className="btn-primary min-h-11 lg:min-h-10">
+              {t("signIn")}
+            </Link>
+          )}
           <a
             href={url}
             className="link flex min-h-11 items-center text-sm break-all lg:min-h-8"

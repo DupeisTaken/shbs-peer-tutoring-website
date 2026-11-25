@@ -5,6 +5,7 @@ import {
   PublicFormPage,
   PublicFormRoute,
 } from "~/app/_components/public-form-page";
+import { getSignedInWorkspaceHeader } from "~/app/_components/signed-in-workspace-header";
 import { brandingMetadata } from "~/server/branding-metadata";
 import { UnsubscribeForm } from "./unsubscribe-form";
 
@@ -25,14 +26,23 @@ export default async function UnsubscribePage({
 }) {
   const [params, t] = await Promise.all([searchParams, getTranslations()]);
   const token = typeof params.token === "string" ? params.token : undefined;
+  const signedInHeader = await getSignedInWorkspaceHeader({
+    href: "/unsubscribe",
+    title: t("unsubscribe.title"),
+  });
   return (
     <PublicFormPage
       title={t("unsubscribe.title")}
       description={t("unsubscribe.description")}
       backLabel={t("common.backToMain")}
+      header={signedInHeader ?? undefined}
       footer={
         <PublicFormRoute
-          href="/signin?callbackUrl=%2Fmy-account%23notification-preferences"
+          href={
+            signedInHeader
+              ? "/my-account#notification-preferences"
+              : "/signin?callbackUrl=%2Fmy-account%23notification-preferences"
+          }
           label={t("unsubscribe.manage")}
         >
           {t("unsubscribe.manageHelp")}

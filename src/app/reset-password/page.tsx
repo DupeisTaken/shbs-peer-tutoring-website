@@ -3,6 +3,7 @@ import {
   PublicFormCard,
   PublicFormRoute,
 } from "~/app/_components/public-form-page";
+import { getSignedInWorkspaceHeader } from "~/app/_components/signed-in-workspace-header";
 import { getTranslations } from "next-intl/server";
 
 import { pageMetadata } from "~/server/branding-metadata";
@@ -19,13 +20,20 @@ export default async function ResetPasswordPage({
 }) {
   const { token } = await searchParams;
   const t = await getTranslations();
+  const signedInHeader = await getSignedInWorkspaceHeader({
+    href: "/reset-password",
+    title: t("auth.reset.title"),
+  });
 
   return (
     <PublicFormPage
       title={t("auth.reset.title")}
       backLabel={t("common.backToMain")}
+      header={signedInHeader ?? undefined}
       footer={
-        <PublicFormRoute href="/signin" label={t("auth.reset.backToSignIn")} />
+        signedInHeader ? undefined : (
+          <PublicFormRoute href="/signin" label={t("auth.reset.backToSignIn")} />
+        )
       }
     >
       <PublicFormCard>

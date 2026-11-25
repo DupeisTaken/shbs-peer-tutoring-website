@@ -416,7 +416,7 @@ it("keeps membership and recall-window requests discoverable for inactive tutors
     screen
       .getByRole("link", { name: "Participation request awaiting review" })
       .getAttribute("href"),
-  ).toBe("/settings");
+  ).toBe("/settings#tutor-membership");
   expect(
     within(
       screen.getByRole("navigation", { name: messages.tutor.tasks.attention }),

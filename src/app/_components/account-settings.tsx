@@ -547,14 +547,19 @@ export function AccountSettings({ embedded = false }: { embedded?: boolean }) {
                 </InlineNotice>
               )}
 
-              {me.data?.tutor && (
-                <p className="muted flex items-center gap-1.5 border-t border-slate-100 pt-4 text-sm">
-                  <span>{t("account.tutorNote")}</span>
-                  <Link href="/settings" className="link">
-                    {t("account.openTutorSettings")} →
-                  </Link>
-                </p>
-              )}
+              {me.data?.tutor &&
+                !me.data.tutorAccessRevoked &&
+                (!["HEAD", "ADMIN", "COORDINATOR", "VIEWER"].includes(
+                  me.data.role,
+                ) ||
+                  me.data.tutor.status !== "ARCHIVED") && (
+                  <p className="muted flex items-center gap-1.5 border-t border-slate-100 pt-4 text-sm">
+                    <span>{t("account.tutorNote")}</span>
+                    <Link href="/settings" className="link">
+                      {t("account.openTutorSettings")} →
+                    </Link>
+                  </p>
+                )}
             </div>
           </>
         )}
