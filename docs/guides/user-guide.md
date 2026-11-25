@@ -322,7 +322,7 @@ Apply at `/crew` (`/crew-signup`) and verify the emailed 4-digit code to send yo
 
 Active Crew members use **Patrol** (when the Crew module is enabled) to log visited rooms once per sweep with observation time and headcount (`0`, `1`, `2`, `3`, `4+`):
 
-- **Credit rules:** an eligible sweep earns **0.5 crew service hours** (separate from tutoring hours) at most once every **20 minutes** per member, measured by the server. Every observation must be within the last 20 minutes (with a 1-minute clock-skew allowance; future times beyond 1 minute are rejected). Older or cooldown sweeps save with **0 hours**.
+- **Credit rules:** an eligible sweep earns **0.5 crew service hours** (separate from tutoring hours) at most once every **20 minutes** per member, measured by the server. Every observation must be within the last 20 minutes (with a 1-minute clock-skew allowance; future times beyond 1 minute are rejected). Older or cooldown sweeps save with **0 hours**. Live crew totals accumulate across a semester's quarters and start fresh each new semester while past patrol history and reports remain intact.
 - **Anti-abuse & corrections:** a sweep reserves every 20-minute interval it spans across all rooms; identical retries return the original record. Report mistakes to management for audited corrections (Admin/Head apply; Coordinators propose).
 - **Opt-out & flags:** opt-out requires a 7-day wait and staff approval (recallable while pending); reentry requires approval with no wait. Patrol mismatches create [Attendance Flags](program-configuration.md#review-attendance-flags) for staff review without imposing automatic penalties.
 
@@ -352,12 +352,14 @@ Coordinators handle permitted daily operations, settings proposals, profile edit
 
 | Sidebar group | Pages |
 | --- | --- |
-| **Overview** | **Dashboard** (`/admin`), **Activity & Requests** (`/admin/activity`), **Help & How-to** (`/help`), **PDF handbooks** (`/admin/help`), **Messages** (`/admin/messages`), **Message Supervision** (`/admin/messages/supervision`), **Reports** (`/admin/history`), **Announcements** (`/admin/announcements`) |
+| **Overview** | **Dashboard** (`/admin`), **Activity & Requests** (`/admin/activity`), **Messages** (`/admin/messages`), **Message Supervision** (`/admin/messages/supervision`), **Reports** (`/admin/history`), **Announcements** (`/admin/announcements`) |
 | **Tutors** | **Tutor Roster** (`/admin/tutors`), **Subject Availability** (`/admin/subject-availability`), **Tutor Applications** (`/admin/applications`), **Tutor Status Requests** (`/admin/tutor-requests`), **Tutor Meetings** (`/admin/meetings`), **Service Hours** (`/admin/service-hours`), **Hour Adjustments** (`/admin/hour-adjustments`) |
 | **Tutees** | **Tutee Roster** (`/admin/tutees`), **Signup Requests** (`/admin/requests`), **Tutee Support** (`/admin/student-support`), **Withdrawals & Removals** (`/admin/tutee-requests`), **Tutee Discipline** (`/admin/discipline`) |
 | **Scheduling & Records** | **Pairings** (`/admin/pairings`), **Attendance Submissions** (`/admin/attendance`), **Attendance Flags** (`/admin/session-flags`), **Crew** (`/admin/crew`), **Time Slots** (`/admin/time-slots`), **Subjects & Levels** (`/admin/subjects`), **Rooms** (`/admin/rooms`) |
-| **Administration** | **Program Settings** (`/admin/program`), **Signup Forms** (`/admin/signup-forms`), **Landing Page** (`/admin/landing`), **Policy Documents** (`/admin/policies`), **Translations** (`/localization`), **Registration Codes** (`/admin/registration-codes`), **Management Actions** (`/admin/approvals`), **Users & Roles** (`/admin/users`) |
+| **Administration** | **Program Settings** (`/admin/program`), **Signup Forms** (`/admin/signup-forms`), **Landing Page** (`/admin/landing`), **Policy Documents** (`/admin/policies`), **Registration Codes** (`/admin/registration-codes`), **Management Actions** (`/admin/approvals`), **Users & Roles** (`/admin/users`) |
 | **Data & Recovery** | **Program Records** (`/admin/records`), **Academic Corrections** (`/admin/academic-corrections`), **Audit Log** (`/admin/audit`), **Admission Recovery** (`/admin/recovery`), **Database records** (`/admin/database`) |
+
+**Translations** (`/localization`) and **Help Center** (`/help`, including **PDF handbooks** at `/help#handbooks`) live in the top-bar workspace switcher rather than the management sidebar.
 
 ### Review a coordinator change
 

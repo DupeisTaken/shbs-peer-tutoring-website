@@ -39,7 +39,6 @@ function renderHeader(withNavigation = true, hideTitle = false) {
         { id: "tutor", href: "/dashboard", label: "Tutor", group: "workspaces" },
         { id: "home", href: "/?home=1", label: "Program Home", group: "general" },
       ]}
-      identity={<span>Account identity</span>}
       account={<button>Account</button>}
       navigation={withNavigation ? <button>Navigation</button> : undefined}
     />,
@@ -47,7 +46,7 @@ function renderHeader(withNavigation = true, hideTitle = false) {
 }
 
 it.each([true, false])(
-  "renders the (Logo) Title workspace switcher and utilities in exact order Bell -> ? -> Theme -> Language -> User (navigation=%s)",
+  "renders the (Logo) Title switcher and desktop order Account -> Bell -> ? -> Theme -> Language while preserving mobile flex ordering (navigation=%s)",
   (withNavigation) => {
     const { container } = renderHeader(withNavigation);
     expect(
@@ -68,34 +67,36 @@ it.each([true, false])(
         "header button, header a, header select",
       ),
     ];
-    const bellIndex = controls.indexOf(
-      screen.getByRole("button", { name: "Notifications" }),
-    );
-    const helpIndex = controls.indexOf(
-      screen.getByRole("link", { name: "Help Center" }),
-    );
-    const themeIndex = controls.indexOf(
-      screen.getByRole("button", { name: "Theme" }),
-    );
-    const languageIndex = controls.indexOf(
-      screen.getByRole("combobox", { name: "Language" }),
-    );
-    const accountIndex = controls.indexOf(
-      screen.getByRole("button", { name: "Account" }),
-    );
+    const accountBtn = screen.getByRole("button", { name: "Account" });
+    const bellBtn = screen.getByRole("button", { name: "Notifications" });
+    const helpLink = screen.getByRole("link", { name: "Help Center" });
+    const themeBtn = screen.getByRole("button", { name: "Theme" });
+    const languageSelect = screen.getByRole("combobox", { name: "Language" });
 
-    expect(bellIndex).toBeGreaterThan(-1);
+    const accountIndex = controls.indexOf(accountBtn);
+    const bellIndex = controls.indexOf(bellBtn);
+    const helpIndex = controls.indexOf(helpLink);
+    const themeIndex = controls.indexOf(themeBtn);
+    const languageIndex = controls.indexOf(languageSelect);
+
+    // Desktop DOM & Tab order puts Account to the left of the utility icons.
+    expect(accountIndex).toBeGreaterThan(-1);
+    expect(bellIndex).toBeGreaterThan(accountIndex);
     expect(helpIndex).toBeGreaterThan(bellIndex);
     expect(themeIndex).toBeGreaterThan(helpIndex);
     expect(languageIndex).toBeGreaterThan(themeIndex);
-    expect(accountIndex).toBeGreaterThan(languageIndex);
 
-    expect(screen.getByRole("button", { name: "Theme" }).dataset.compact).toBe(
-      "true",
-    );
-    expect(
-      screen.getByRole("combobox", { name: "Language" }).getAttribute("data-compact"),
-    ).toBe("true");
+    // Mobile Row 2 preserves legacy visual order: Bell ? Theme (order-1) ... Language (order-2 ml-auto) Avatar (order-3).
+    expect(bellBtn.parentElement!.parentElement!.className).toContain("order-1");
+    expect(bellBtn.parentElement!.parentElement!.className).toContain("lg:order-none");
+    expect(languageSelect.parentElement!.className).toContain("order-2");
+    expect(languageSelect.parentElement!.className).toContain("ml-auto");
+    expect(languageSelect.parentElement!.className).toContain("lg:order-none");
+    expect(accountBtn.parentElement!.parentElement!.className).toContain("order-3");
+    expect(accountBtn.parentElement!.parentElement!.className).toContain("lg:order-none");
+
+    expect(themeBtn.dataset.compact).toBe("true");
+    expect(languageSelect.getAttribute("data-compact")).toBe("true");
     const navigation = screen.queryByRole("button", { name: "Navigation" });
     expect(!!navigation).toBe(withNavigation);
   },
@@ -124,19 +125,51 @@ function declarationsFor(output: Root, selector: string) {
   return values;
 }
 
-it("compiles responsive flex and desktop contents utilities against Tailwind", async () => {
-  renderHeader();
-  const group = screen.getByRole("button", { name: "Theme" }).parentElement!
-    .parentElement!.parentElement!;
+it("compiles responsive flex, mobile ordering, and desktop spacing utilities against Tailwind", async () => {
+  const { container } = renderHeader();
+  const row = container.querySelector("header > div")!;
+  const iconsGroup = screen.getByRole("button", { name: "Theme" }).parentElement!
+    .parentElement!;
+  const group = iconsGroup.parentElement!;
+  const divider = group.querySelector("span[aria-hidden='true']")!;
+  const languageWrap = screen.getByRole("combobox", { name: "Language" }).parentElement!;
+  const accountWrap = screen.getByRole("button", { name: "Account" }).parentElement!
+    .parentElement!;
+  const classes = [
+    ...row.classList,
+    ...group.classList,
+    ...divider.classList,
+    ...iconsGroup.classList,
+    ...languageWrap.classList,
+    ...accountWrap.classList,
+  ];
   const require = createRequire(import.meta.url);
   const theme = readFileSync(require.resolve("tailwindcss/theme.css"), "utf8");
   const compiler = await compile(`${theme}\n@tailwind utilities;`);
-  const output = parse(compiler.build([...group.classList]));
+  const output = parse(compiler.build(classes));
   expect(declarationsFor(output, ".flex")).toMatchObject({ display: "flex" });
   expect(declarationsFor(output, ".flex-wrap")).toMatchObject({
     "flex-wrap": "wrap",
   });
   expect(declarationsFor(output, ".lg\\:contents")).toMatchObject({
     display: "contents",
+  });
+  expect(declarationsFor(output, ".lg\\:gap-0")).toMatchObject({
+    gap: "0",
+  });
+  expect(declarationsFor(output, ".lg\\:gap-2")).toMatchObject({
+    gap: "calc(var(--spacing) * 2)",
+  });
+  expect(declarationsFor(output, ".lg\\:ml-2")).toMatchObject({
+    "margin-left": "calc(var(--spacing) * 2)",
+  });
+  expect(declarationsFor(output, ".order-1")).toMatchObject({ order: "1" });
+  expect(declarationsFor(output, ".order-2")).toMatchObject({ order: "2" });
+  expect(declarationsFor(output, ".order-3")).toMatchObject({ order: "3" });
+  expect(declarationsFor(output, ".lg\\:order-none")).toMatchObject({
+    order: "0",
+  });
+  expect(declarationsFor(output, ".ml-auto")).toMatchObject({
+    "margin-left": "auto",
   });
 });

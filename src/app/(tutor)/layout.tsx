@@ -5,7 +5,6 @@ import {
   workspaceNavLabels,
   workspaceSwitcherLabels,
 } from "~/lib/workspace-navigation";
-import Link from "next/link";
 import { redirect } from "next/navigation";
 
 import { getTranslations } from "next-intl/server";
@@ -143,20 +142,6 @@ export default async function TutorLayout({
         switcherLabels={workspaceSwitcherLabels(t)}
         skipLabel={t("common.skipToContent")}
         containerClassName="mx-auto max-w-6xl"
-        identity={
-          <Link
-            href="/settings"
-            className="hidden shrink-0 rounded-md px-2 py-0.5 text-right leading-tight hover:bg-slate-100 lg:block"
-            title={t("components.userMenu.settings")}
-          >
-            <p className="text-[13px] font-medium text-slate-900">
-              {session.user.name}
-            </p>
-            <p className="muted text-[11px]">
-              {me.tutor?.username ? `@${me.tutor.username}` : session.role}
-            </p>
-          </Link>
-        }
         account={
           <UserAvatar
             name={session.user.name ?? me.email}
