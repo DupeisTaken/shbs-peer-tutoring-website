@@ -550,6 +550,13 @@ function SchoolDepartureEditor({
       {confirming && (
         <ProfileDialog
           title={t("review")}
+          tone={
+            action === "TRANSFERRED" ||
+            action === "GRADUATED" ||
+            action === "REVOKE"
+              ? "warning"
+              : "default"
+          }
           pending={ownPending}
           onClose={() => setConfirming(false)}
         >

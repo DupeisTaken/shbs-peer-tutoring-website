@@ -149,6 +149,18 @@ focus. Boxed consequential buttons keep their boundary and red rest label;
 confirmation, approval, authorization and pending-dismissal rules stay with the
 owning feature.
 
+Use the semantic amber `.warning-surface` border frame (`border-amber-200` on
+the standard white `.card` surface, independent of the active accent and
+without changing inner layout or background fill) around destructive or
+high-consequence action cards (such as Program Refresh, account combination,
+record imports, and participant opt-out/withdrawal cards) and around
+confirmation/assignment dialogs (`Modal` with `tone="warning"`, destructive
+`useActionReview` / `useDialog`, `CreationRiskDialog`, `AccountDeletion`,
+`TimedActionDialog` for non-policy actions including tutee-request assignment,
+and `AssignmentConfirmation` warning states), where `dialog.warning-surface`
+adds a soft warm amber outer halo over the darkened backdrop. Keep request list
+cards, read-only views, and ordinary non-destructive primary reviews neutral.
+
 ## Room and participant composition
 
 Tutor pairing cards render both single-assignment groups and combined groups in one unified layout: subject heading (with leading combine selection checkboxes revealed only when Combine groups is active — dynamically greying out incompatible cards and auto-selecting required companion cards to preserve complete student × subject coverage — a combined badge for multi-assignment groups, and dated-session navigation ahead of the split action in the card header), split 50/50 on wider screens with shared schedule/room facts and a compact default slot selector on the left and distinct students listed one per row on the right (stacking on narrow screens). Show a single shared subject once; retain each student’s subject associations for mixed-subject groups, with direct per-assignment Details entries. Dashboard hour

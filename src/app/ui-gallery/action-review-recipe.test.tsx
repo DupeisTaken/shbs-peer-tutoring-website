@@ -45,6 +45,8 @@ it("shows a request receipt without claiming the eventual change was applied", a
   ).getByRole<HTMLButtonElement>("button", {
     name: messages.tutor.settings.optOutBtn,
   });
+  expect(screen.getByRole("dialog").getAttribute("data-tone")).toBe("warning");
+  expect(screen.getByRole("dialog").className).toContain("warning-surface");
   expect(confirm.disabled).toBe(true);
   expect(confirm.className).toContain("btn-danger");
   act(() => {

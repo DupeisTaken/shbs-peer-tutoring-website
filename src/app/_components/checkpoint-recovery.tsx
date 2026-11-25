@@ -198,6 +198,7 @@ function CheckpointConfirmation({
       title={t("confirmTitle")}
       description={t("confirmHelp")}
       busy={busy}
+      tone="warning"
       onClose={onClose}
       footer={
         <>

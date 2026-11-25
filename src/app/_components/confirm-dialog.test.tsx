@@ -245,3 +245,29 @@ it.each(["confirm", "prompt"] as const)(
     await expect(pending).resolves.toBe(kind === "confirm" ? false : null);
   },
 );
+
+it("wraps danger confirmations in the amber warning surface and keeps neutral confirmations plain", async () => {
+  const { handle } = setup();
+  let dangerous!: Promise<boolean>;
+  act(() => {
+    dangerous = handle.current!.confirm(confirmation);
+  });
+  const dangerDialog = screen.getByRole("dialog");
+  expect(dangerDialog.getAttribute("data-tone")).toBe("warning");
+  expect(dangerDialog.className).toContain("warning-surface");
+  fireEvent.click(screen.getByRole("button", { name: "Keep meeting" }));
+  await expect(dangerous).resolves.toBe(false);
+
+  let neutral!: Promise<boolean>;
+  act(() => {
+    neutral = handle.current!.confirm({
+      ...confirmation,
+      danger: false,
+    });
+  });
+  const neutralDialog = screen.getByRole("dialog");
+  expect(neutralDialog.getAttribute("data-tone")).toBeNull();
+  expect(neutralDialog.className).not.toContain("warning-surface");
+  fireEvent.click(screen.getByRole("button", { name: "Keep meeting" }));
+  await expect(neutral).resolves.toBe(false);
+});

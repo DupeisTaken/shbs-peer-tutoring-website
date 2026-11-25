@@ -896,7 +896,14 @@ export default function SettingsPage() {
           className="scroll-mt-24 space-y-6"
         >
           {/* Membership — opt-out / reentry */}
-          <section className="card space-y-4 p-5 sm:p-6">
+          <section
+            data-tone={
+              !statusReq.data && me.data?.status === "ACTIVE"
+                ? "warning"
+                : undefined
+            }
+            className={`card space-y-4 p-5 sm:p-6 ${!statusReq.data && me.data?.status === "ACTIVE" ? "warning-surface" : ""}`}
+          >
         <h2 className="section-title">
           {t("tutor.settings.membershipHeading")}
         </h2>

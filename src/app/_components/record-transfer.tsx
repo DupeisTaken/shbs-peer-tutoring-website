@@ -131,7 +131,8 @@ export function RecordTransfer() {
         </div>
       </section>
       <section
-        className="card space-y-4 p-5 sm:p-6"
+        data-tone="warning"
+        className="card warning-surface space-y-4 p-5 sm:p-6"
         aria-labelledby="import-heading"
       >
         <div>
