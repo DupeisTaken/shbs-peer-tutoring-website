@@ -14,8 +14,8 @@ import { WorkspaceSwitcher } from "./workspace-switcher";
  * Desktop (`lg+`, single 56px row):
  *   `[(PT Logo) Title ⌄]   ...   [Account Text ⌄]  |  [Bell] [?] [Theme]  [Language]`
  *
- * Mobile (`<lg`, legacy compact 2 rows with full 44px touch targets & zero title truncation):
- *   Row 1: `[☰?] [(PT Logo) Title ⌄]`
+ * Mobile (`<lg`, compact 2 rows with full 44px touch targets & centered brand lockup):
+ *   Row 1: `[☰?]   [(PT Logo) Title ⌄]   [   ]` (symmetric 44px tracks keep the brand centered)
  *   Row 2: `[Bell] [?] [Theme]   ...   [Language] [Avatar]`
  */
 export function WorkspaceHeader({
@@ -68,20 +68,32 @@ export function WorkspaceHeader({
       <div
         className={`flex min-w-0 flex-col gap-1.5 px-3 py-2 sm:px-4 lg:flex-row lg:items-center lg:gap-0 lg:px-6 lg:py-2.5 ${containerClassName}`}
       >
-        {/* Left: optional mobile drawer trigger + (PT Logo) Title v workspace switcher */}
-        <div className="flex min-w-0 items-center gap-1.5 lg:contents">
+        {/* Row 1 on mobile: centered (PT Logo) Title v switcher, balanced against the
+            44px drawer trigger when management navigation is present; flush-left on desktop. */}
+        <div
+          className={
+            navigation
+              ? "grid min-w-0 grid-cols-[2.75rem_minmax(0,1fr)_2.75rem] items-center gap-1.5 lg:contents"
+              : "flex min-w-0 items-center justify-center lg:contents"
+          }
+        >
           {navigation ? (
-            <div className="shrink-0 lg:hidden">{navigation}</div>
+            <div className="shrink-0 justify-self-start lg:hidden">
+              {navigation}
+            </div>
           ) : null}
-          <WorkspaceSwitcher
-            href={href}
-            title={title}
-            hideTitle={hideTitle}
-            items={switcherItems}
-            menuLabel={labels.menuLabel}
-            workspacesGroupLabel={labels.workspacesGroupLabel}
-            generalGroupLabel={labels.generalGroupLabel}
-          />
+          <div className="flex min-w-0 justify-center lg:contents">
+            <WorkspaceSwitcher
+              href={href}
+              title={title}
+              hideTitle={hideTitle}
+              items={switcherItems}
+              menuLabel={labels.menuLabel}
+              workspacesGroupLabel={labels.workspacesGroupLabel}
+              generalGroupLabel={labels.generalGroupLabel}
+            />
+          </div>
+          {navigation ? <div aria-hidden="true" className="lg:hidden" /> : null}
         </div>
 
         {/* Mobile row divider */}
@@ -113,7 +125,7 @@ export function WorkspaceHeader({
             <div className="shrink-0">
               <NotificationBell />
             </div>
-            <div className="shrink-0">
+            <div className="shrink-0 empty:hidden">
               <HelpLink />
             </div>
             <div className="shrink-0">

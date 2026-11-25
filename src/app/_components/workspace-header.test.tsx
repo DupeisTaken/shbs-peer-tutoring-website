@@ -99,6 +99,30 @@ it.each([true, false])(
     expect(languageSelect.getAttribute("data-compact")).toBe("true");
     const navigation = screen.queryByRole("button", { name: "Navigation" });
     expect(!!navigation).toBe(withNavigation);
+
+    // Mobile Row 1 centers the (Logo) Title switcher and its dropdown; when the 44px
+    // management drawer trigger is present, symmetric 2.75rem grid tracks keep it dead-center.
+    const switcher = container.querySelector("details")!;
+    const switcherWrap = switcher.parentElement!;
+    const brandRow = switcherWrap.parentElement!;
+    expect(switcherWrap.className).toContain("justify-center");
+    expect(switcherWrap.className).toContain("lg:contents");
+    if (withNavigation) {
+      expect(brandRow.className).toContain("grid");
+      expect(brandRow.className).toContain(
+        "grid-cols-[2.75rem_minmax(0,1fr)_2.75rem]",
+      );
+      expect(brandRow.className).toContain("lg:contents");
+      expect(brandRow.children).toHaveLength(3);
+    } else {
+      expect(brandRow.className).toContain("justify-center");
+      expect(brandRow.className).toContain("lg:contents");
+    }
+    const popover = container.querySelector("details > nav")!;
+    expect(popover.className).toContain("left-1/2");
+    expect(popover.className).toContain("-translate-x-1/2");
+    expect(popover.className).toContain("lg:left-0");
+    expect(popover.className).toContain("lg:translate-x-0");
   },
 );
 
@@ -125,9 +149,13 @@ function declarationsFor(output: Root, selector: string) {
   return values;
 }
 
-it("compiles responsive flex, mobile ordering, and desktop spacing utilities against Tailwind", async () => {
+it("compiles responsive flex, mobile centering, mobile ordering, and desktop spacing utilities against Tailwind", async () => {
   const { container } = renderHeader();
   const row = container.querySelector("header > div")!;
+  const brandRow = row.children[0]!;
+  const switcher = container.querySelector("details")!;
+  const switcherWrap = switcher.parentElement!;
+  const popover = container.querySelector("details > nav")!;
   const iconsGroup = screen.getByRole("button", { name: "Theme" }).parentElement!
     .parentElement!;
   const group = iconsGroup.parentElement!;
@@ -137,6 +165,9 @@ it("compiles responsive flex, mobile ordering, and desktop spacing utilities aga
     .parentElement!;
   const classes = [
     ...row.classList,
+    ...brandRow.classList,
+    ...switcherWrap.classList,
+    ...popover.classList,
     ...group.classList,
     ...divider.classList,
     ...iconsGroup.classList,
@@ -148,6 +179,30 @@ it("compiles responsive flex, mobile ordering, and desktop spacing utilities aga
   const compiler = await compile(`${theme}\n@tailwind utilities;`);
   const output = parse(compiler.build(classes));
   expect(declarationsFor(output, ".flex")).toMatchObject({ display: "flex" });
+  expect(declarationsFor(output, ".grid")).toMatchObject({ display: "grid" });
+  expect(
+    declarationsFor(
+      output,
+      ".grid-cols-\\[2\\.75rem_minmax\\(0\\,1fr\\)_2\\.75rem\\]",
+    ),
+  ).toMatchObject({
+    "grid-template-columns": "2.75rem minmax(0,1fr) 2.75rem",
+  });
+  expect(declarationsFor(output, ".justify-center")).toMatchObject({
+    "justify-content": "center",
+  });
+  expect(declarationsFor(output, ".left-1\\/2")).toMatchObject({
+    left: "calc(1 / 2 * 100%)",
+  });
+  expect(declarationsFor(output, ".-translate-x-1\\/2")).toMatchObject({
+    "--tw-translate-x": "calc(calc(1 / 2 * 100%) * -1)",
+  });
+  expect(declarationsFor(output, ".lg\\:left-0")).toMatchObject({
+    left: "0",
+  });
+  expect(declarationsFor(output, ".lg\\:translate-x-0")).toMatchObject({
+    "--tw-translate-x": "0",
+  });
   expect(declarationsFor(output, ".flex-wrap")).toMatchObject({
     "flex-wrap": "wrap",
   });
