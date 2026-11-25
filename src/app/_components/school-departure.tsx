@@ -228,7 +228,7 @@ function SchoolDepartureEditor({
     onSuccess: success,
     onError: (err) => {
       if (err.data?.approvalId) {
-        void beginAcceptedRefresh(true, false);
+        return beginAcceptedRefresh(true, false);
       }
     },
   });
@@ -306,8 +306,9 @@ function SchoolDepartureEditor({
   const canReview = retired
     ? !!userId && departed && ["HEAD", "ADMIN"].includes(state.data?.role ?? "")
     : !["RETURN", "REVOKE", "RESTORE"].includes(action) || departed;
+  const conflict = error?.data?.code === "CONFLICT";
   const reloadNeeded =
-    error?.data?.code === "CONFLICT" ||
+    conflict ||
     (expectedRevision !== null &&
       !!state.data &&
       expectedRevision !== (state.data.departure?.revision ?? 0));
@@ -319,7 +320,7 @@ function SchoolDepartureEditor({
     !!state.error ||
     state.isFetching ||
     readFailure ||
-    reloadNeeded ||
+    conflict ||
     !state.data;
   const submit = () => {
     if (
@@ -385,7 +386,7 @@ function SchoolDepartureEditor({
       }
     >
       <p>{t("reloadHelp")}</p>
-      {(error ?? readFailure) && (
+      {(conflict || readFailure) && (
         <p className="mt-1">{readFailure ? t("readFailed") : error?.message}</p>
       )}
     </InlineNotice>
@@ -541,7 +542,7 @@ function SchoolDepartureEditor({
           {outcome}
         </p>
       )}
-      {error && !confirming && !accepted && !reloadNeeded && (
+      {error && !confirming && !accepted && !conflict && (
         <p role="alert" className="text-sm text-red-700">
           {error.message}
         </p>
@@ -594,7 +595,7 @@ function SchoolDepartureEditor({
             }
           />
           {recoveryNotice}
-          {error && !accepted && !reloadNeeded && (
+          {error && !accepted && !conflict && (
             <p role="alert" className="text-sm text-red-700">
               {error.message}
             </p>

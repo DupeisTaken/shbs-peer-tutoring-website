@@ -206,7 +206,7 @@ export function useTutorMeetingController() {
     },
     onError: (err) => {
       admitted.current = null;
-      if (err.data?.code === "CONFLICT") {
+      if (err?.data?.code === "CONFLICT") {
         setOpenId(null);
         void refresh().catch(() => {
           setSyncFailed(true);
@@ -218,7 +218,7 @@ export function useTutorMeetingController() {
     onSuccess: synchronize,
     onError: (err) => {
       admitted.current = null;
-      if (err.data?.code === "CONFLICT") {
+      if (err?.data?.code === "CONFLICT") {
         void refresh().catch(() => {
           setSyncFailed(true);
         });
