@@ -1462,7 +1462,7 @@ Open: `/admin/help`
 
 ### Walkthrough
 
-1. **Open handbook downloads** In management navigation open Administration → PDF handbooks, or open PDF handbooks from Help Center. Visitors and participants can download handbooks for their own authorized collections; staff can distribute participant training handbooks, while Admin and Head editions follow current authority.
+1. **Open handbook downloads** Open Help Center from the top bar and select PDF handbooks (or open /admin/help directly). Visitors and participants can download handbooks for their own authorized collections; staff can distribute participant training handbooks, while Admin and Head editions follow current authority.
 
    Look for: Choose a permitted handbook audience and its English or Chinese PDF download.
 
