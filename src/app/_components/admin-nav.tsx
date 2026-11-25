@@ -1,4 +1,3 @@
-import { auth } from "~/server/auth";
 import { getTranslations } from "next-intl/server";
 
 import { AdminMobileNavigation } from "~/app/_components/admin-mobile-navigation";
@@ -149,11 +148,6 @@ export const NAV_SECTIONS: { titleKey: string; items: NavItem[] }[] = [
       },
       { href: "/admin/policies", labelKey: "admin.nav.links.policyDocuments" },
       {
-        href: "/localization",
-        labelKey: "localization.navLabel",
-        elevatedOnly: true,
-      },
-      {
         href: "/admin/registration-codes",
         labelKey: "admin.nav.links.registrationCodes",
         elevatedOnly: true,
@@ -166,11 +160,6 @@ export const NAV_SECTIONS: { titleKey: string; items: NavItem[] }[] = [
       {
         href: "/admin/users",
         labelKey: "admin.nav.links.usersRoles",
-        elevatedOnly: true,
-      },
-      {
-        href: "/admin/help",
-        labelKey: "helpNav.downloads",
         elevatedOnly: true,
       },
     ],
@@ -188,11 +177,10 @@ export const NAV_SECTIONS: { titleKey: string; items: NavItem[] }[] = [
   },
 ];
 
-function makeVisible(role: string, features: Features, canTranslate: boolean) {
+function makeVisible(role: string, features: Features) {
   const isAdminTier = role === "ADMIN" || role === "HEAD";
   const isElevated = isAdminTier || role === "COORDINATOR";
   return (item: NavItem) =>
-    (item.href !== "/localization" || canTranslate || isElevated) &&
     (!item.adminOnly || isAdminTier) &&
     (!item.headOnly || role === "HEAD") &&
     (!item.elevatedOnly || isElevated) &&
@@ -203,14 +191,7 @@ function makeVisible(role: string, features: Features, canTranslate: boolean) {
  *  role. Labels resolve server-side; the client component owns collapse state (persisted). */
 export async function NavSidebar({ role }: { role: string }) {
   const [t, features] = await Promise.all([getTranslations(), getFeatures(db)]);
-  const session = await auth();
-  const user = session?.user
-    ? await db.user.findUnique({
-        where: { id: session.user.id },
-        select: { canTranslate: true },
-      })
-    : null;
-  const visible = makeVisible(role, features, user?.canTranslate ?? false);
+  const visible = makeVisible(role, features);
   const sections = NAV_SECTIONS.map((section) => ({
     key: section.titleKey,
     title: t(section.titleKey),
@@ -245,14 +226,7 @@ export async function NavMobileRow({
   embedded?: boolean;
 }) {
   const [t, features] = await Promise.all([getTranslations(), getFeatures(db)]);
-  const session = await auth();
-  const user = session?.user
-    ? await db.user.findUnique({
-        where: { id: session.user.id },
-        select: { canTranslate: true },
-      })
-    : null;
-  const visible = makeVisible(role, features, user?.canTranslate ?? false);
+  const visible = makeVisible(role, features);
   return (
     <AdminMobileNavigation
       embedded={embedded}

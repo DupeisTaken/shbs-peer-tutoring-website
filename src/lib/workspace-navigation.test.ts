@@ -151,4 +151,33 @@ describe("resolveWorkspaceNavigation", () => {
     });
     expect(suspended.items).toEqual([]);
   });
+
+  it("includes Translations in the switcher for management reviewers without canTranslate, and never for Viewers", () => {
+    for (const role of ["HEAD", "ADMIN", "COORDINATOR"] as const) {
+      const res = resolveWorkspaceNavigation({
+        account: { role, canTranslate: false },
+        crewEnabled: false,
+        currentArea: "management",
+        labels,
+      });
+      expect(res.items.map((i) => i.id)).toContain("translations");
+    }
+
+    const onTranslations = resolveWorkspaceNavigation({
+      account: { role: "ADMIN", canTranslate: false },
+      crewEnabled: false,
+      currentArea: "translations",
+      labels,
+    });
+    expect(onTranslations.items.map((i) => i.id)).not.toContain("translations");
+    expect(onTranslations.items.map((i) => i.id)).toContain("management");
+
+    const viewer = resolveWorkspaceNavigation({
+      account: { role: "VIEWER", canTranslate: true },
+      crewEnabled: false,
+      currentArea: "management",
+      labels,
+    });
+    expect(viewer.items.map((i) => i.id)).not.toContain("translations");
+  });
 });
