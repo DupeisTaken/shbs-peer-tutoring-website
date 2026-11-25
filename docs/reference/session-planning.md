@@ -404,7 +404,20 @@ An unchanged warm publication checks the durable window and at most 1,000 visibl
 dirty event IDs, then returns without enumerating global pairings or published
 assignments. A missing state row, implementation-version mismatch, timezone
 change, Monday window change, Sunday preparation extension or any pending event
-requires the existing source reconciliation and publication pass. The pass keeps
+requires the existing source reconciliation and publication pass. Active tutors
+can also trigger an explicit scheduling refresh (`sessionPlanning.refreshSchedule`
+via the **Refresh scheduling** button in the agenda header), which re-checks active
+tutor authorization and runs a forced reconciliation and publication pass under
+the same period → room → planning fence without exposing global diagnostic counts.
+Combining, splitting, expanding or shrinking a `PairingGroup` retires future
+`REGULAR` plans whose captured assignment set no longer matches the current
+teaching unit, closes their open requests as stale, and allows a later return to
+that assignment shape to publish a new revision without reviving participant-cancelled
+or already-started lessons. Recording attendance on an already-ended lesson and
+already-agreed `EXTRA` sessions remain intact across later recurring group edits.
+Clearing a pairing back to awaiting schedule suppresses its ordinary future
+commitments while preserving explicitly agreed exceptions, and restores them if
+re-confirmed. The pass keeps
 the period → room → planning and source-row fences, current source validation,
 45-minute calculation, continuation handling, synchronous calendar reconciliation
 and transactional notice effects. Internal `normalized` and `unavailable` counter

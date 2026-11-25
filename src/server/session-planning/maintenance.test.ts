@@ -84,6 +84,15 @@ describe("durable scheduling watermark", () => {
     expect(mock.execute.mock.calls.filter(([sql]) => sql.join("").includes("IN ACCESS SHARE MODE"))).toHaveLength(1);
   });
 
+  it("bypasses the warm watermark short-circuit when force is requested", async () => {
+    const mock = fixture();
+    // Without sessionPlanAssignment delegate, bypassing the warm fast path
+    // proceeds into source invalidation rather than returning cached counters.
+    await expect(
+      ensureSessionPlanningWindow(mock.tx, now, { force: true }),
+    ).rejects.toThrow();
+  });
+
   it("keeps an empty unchanged sweep to six bounded operations", async () => {
     const mock = fixture();
     await expect(sweepSessionPlanning(mock.tx, now)).resolves.toBe(0);
