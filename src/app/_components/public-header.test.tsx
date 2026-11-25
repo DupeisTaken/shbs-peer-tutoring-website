@@ -64,7 +64,53 @@ it("renders one set of compact utilities with a wrapping configured brand", () =
   expect(screen.getByRole("banner").hasAttribute("data-sticky-header")).toBe(
     true,
   );
+  // Mobile row 1 centers the brand + logo; desktop dissolves into the left-aligned bar.
+  expect(brandLink.parentElement!.className).toContain("justify-center");
+  expect(brandLink.parentElement!.className).toContain("lg:contents");
 });
+
+it.each([
+  { label: "Program Home trailing menu", trailingAction: <button>Sign In & Join</button> },
+  { label: "standalone public page", trailingAction: undefined },
+])(
+  "centers the logo + program title on mobile row 1 for $label while preserving desktop row order",
+  ({ trailingAction }) => {
+    const { container } = render(
+      <BrandingProvider
+        branding={resolveBranding({
+          APP_TITLE: "SHBS Peer Tutoring",
+        })}
+      >
+        <PublicHeader trailingAction={trailingAction} />
+      </BrandingProvider>,
+    );
+    const brandLink = screen.getByRole("link", { name: "SHBS Peer Tutoring" });
+    expect(brandLink.parentElement!.className).toContain("justify-center");
+    expect(brandLink.parentElement!.className).toContain("lg:contents");
+
+    const controls = [
+      ...container.querySelectorAll("header a, header button, header select"),
+    ];
+    const helpIdx = controls.indexOf(
+      screen.getByRole("link", { name: "Help Center" }),
+    );
+    const themeIdx = controls.indexOf(
+      screen.getByRole("button", { name: "Theme" }),
+    );
+    const langIdx = controls.indexOf(
+      screen.getByRole("combobox", { name: "Language" }),
+    );
+    expect(helpIdx).toBeGreaterThan(0);
+    expect(themeIdx).toBeGreaterThan(helpIdx);
+    expect(langIdx).toBeGreaterThan(themeIdx);
+    if (trailingAction) {
+      const actionIdx = controls.indexOf(
+        screen.getByRole("button", { name: "Sign In & Join" }),
+      );
+      expect(actionIdx).toBeGreaterThan(langIdx);
+    }
+  },
+);
 it.each(["en", "zh"])(
   "provides localized branded not-found recovery with one page heading (%s)",
   async (locale) => {
