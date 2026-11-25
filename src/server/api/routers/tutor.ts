@@ -82,7 +82,10 @@ import {
 } from "~/server/api/trpc";
 import { computeSessionHours } from "~/lib/service-hours";
 import { semesterQuarters } from "~/lib/period";
-import { getActivePeriodOrNull } from "~/server/period";
+import {
+  getActivePeriodOrNull,
+  getActiveSemesterPatrolScope,
+} from "~/server/period";
 import { reconcileApplication } from "~/server/tutors/application-status";
 import {
   beginAdmissionRecoveryCapture,
@@ -300,18 +303,23 @@ export const tutorRouter = createTRPCRouter({
     }),
   ),
 
-  /** The signed-in tutor's crew patrol tally (separate from tutoring hours). Zero if not crew. */
+  /** The signed-in tutor's current-semester crew patrol tally (separate from tutoring hours). Zero if not crew. */
   myCrew: tutorProcedure.query(async ({ ctx }) => {
-    const me = await ctx.db.user.findUnique({
-      where: { id: ctx.session.user.id },
-      select: { crewStatus: true },
-    });
+    const [me, scope] = await Promise.all([
+      ctx.db.user.findUnique({
+        where: { id: ctx.session.user.id },
+        select: { crewStatus: true },
+      }),
+      getActiveSemesterPatrolScope(ctx.db),
+    ]);
     if (!me?.crewStatus) return { isCrew: false, patrols: 0, hours: 0 };
+    if (!scope) return { isCrew: true, patrols: 0, hours: 0 };
     const agg = await ctx.db.patrol.aggregate({
       where: {
         crewUserId: {
           in: await accountHistoryIds(ctx.db, ctx.session.user.id),
         },
+        termId: { in: scope.termIds },
       },
       _sum: { hours: true },
       _count: { _all: true },
