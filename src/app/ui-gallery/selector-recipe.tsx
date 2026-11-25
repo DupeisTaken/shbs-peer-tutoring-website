@@ -1,13 +1,19 @@
 "use client";
 
 import { useId, useState } from "react";
+import { NextIntlClientProvider } from "next-intl";
 import { DetailsAutoClose } from "~/app/_components/details-auto-close";
 import { ChevronDownIcon } from "~/app/_components/icons";
+import {
+  ActiveFilterChips,
+  MultiFilter,
+} from "~/app/_components/multi-filter";
 import {
   CheckboxListbox,
   type CheckboxListboxOption,
 } from "~/app/_components/ui/checkbox-listbox";
 import { FilterToolbar } from "~/app/_components/ui/patterns";
+import type { Selection } from "~/lib/user-filters";
 
 /**
  * Interactive selector gallery covering the shared `.select` hierarchy, compact
@@ -29,6 +35,14 @@ export function SelectorRecipe({ locale }: { locale: "en" | "zh" }) {
     "eng-11",
   ]);
   const [menuChoice, setMenuChoice] = useState("management");
+  const [roleFilter, setRoleFilter] = useState<Selection>({
+    include: ["TUTOR", "COORDINATOR"],
+    exclude: [],
+  });
+  const [accountFilter, setAccountFilter] = useState<Selection>({
+    include: [],
+    exclude: ["none"],
+  });
   const errorId = useId();
 
   const invalid = requiredChoice === "";
@@ -149,7 +163,7 @@ export function SelectorRecipe({ locale }: { locale: "en" | "zh" }) {
         </p>
         <code className="block text-xs break-words text-slate-500">
           .select · .select.control-compact · field-auto · CheckboxListbox ·
-          .popover-surface · ChevronDownIcon · DetailsAutoClose
+          MultiFilter · .popover-surface · ChevronDownIcon · DetailsAutoClose
         </code>
       </header>
 
@@ -336,6 +350,108 @@ export function SelectorRecipe({ locale }: { locale: "en" | "zh" }) {
             labels={listboxLabels}
           />
         </div>
+      </div>
+
+      <div className="space-y-3 border-t border-slate-100 pt-5">
+        <p className="eyebrow">
+          {zh
+            ? "浮动包含 / 排除筛选器与已选标签 (MultiFilter + ActiveFilterChips)"
+            : "Floating include / exclude filters & active chips (MultiFilter + ActiveFilterChips)"}
+        </p>
+        <p className="text-sm text-slate-600">
+          {zh
+            ? "点击筛选按钮打开浮动 .popover-surface 面板，在互斥的「包含 / 排除」模式间切换（未选中任何项时显示全部），并在下方以可移除标签展示当前生效条件。"
+            : "Open any filter trigger for a floating .popover-surface picker with a mutually exclusive Include / Exclude mode switch (empty matches all) and removable active filter chips underneath."}
+        </p>
+        <NextIntlClientProvider
+          locale={locale}
+          timeZone="Asia/Shanghai"
+          messages={{
+            userMultiFilters: zh
+              ? {
+                  all: "全部",
+                  value: "选项",
+                  include: "包含",
+                  exclude: "排除",
+                  resetFilter: "重置",
+                  removeFilter: "移除 {label}",
+                  selectedCount: "已选 {count} 项",
+                }
+              : {
+                  all: "All",
+                  value: "Value",
+                  include: "Include",
+                  exclude: "Exclude",
+                  resetFilter: "Reset",
+                  removeFilter: "Remove {label}",
+                  selectedCount: "{count} selected",
+                },
+          }}
+        >
+          {(() => {
+            const roleOpts = [
+              { value: "STUDENT", label: zh ? "学习伙伴" : "Tutee" },
+              { value: "VIEWER", label: zh ? "访客" : "Viewer" },
+              { value: "TUTOR", label: zh ? "辅导伙伴" : "Tutor" },
+              { value: "COORDINATOR", label: zh ? "协调员" : "Coordinator" },
+              { value: "ADMIN", label: zh ? "管理员" : "Admin" },
+            ];
+            const accountOpts = [
+              {
+                value: "registered",
+                label: zh ? "设置已完成" : "Setup complete",
+              },
+              {
+                value: "setup",
+                label: zh ? "设置未完成" : "Setup incomplete",
+              },
+              {
+                value: "invited",
+                label: zh ? "待接受邀请" : "Invitation pending",
+              },
+              {
+                value: "none",
+                label: zh ? "未关联直接登录账号" : "No direct login attached",
+              },
+            ];
+            return (
+              <div className="space-y-3">
+                <div className="relative flex flex-wrap items-center gap-2">
+                  <MultiFilter
+                    label={zh ? "角色" : "Role"}
+                    options={roleOpts}
+                    value={roleFilter}
+                    onChange={setRoleFilter}
+                  />
+                  <MultiFilter
+                    label={zh ? "账号" : "Account"}
+                    options={accountOpts}
+                    value={accountFilter}
+                    onChange={setAccountFilter}
+                  />
+                </div>
+                <ActiveFilterChips
+                  groups={[
+                    {
+                      id: "role",
+                      label: zh ? "角色" : "Role",
+                      options: roleOpts,
+                      value: roleFilter,
+                      onChange: setRoleFilter,
+                    },
+                    {
+                      id: "account",
+                      label: zh ? "账号" : "Account",
+                      options: accountOpts,
+                      value: accountFilter,
+                      onChange: setAccountFilter,
+                    },
+                  ]}
+                />
+              </div>
+            );
+          })()}
+        </NextIntlClientProvider>
       </div>
     </section>
   );

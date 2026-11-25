@@ -5043,7 +5043,10 @@
     "clear": "Clear filters",
     "noRole": "No account role",
     "noTutor": "No linked tutor",
-    "count": "Showing {count} of {total} users"
+    "count": "Showing {count} of {total} users",
+    "resetFilter": "Reset",
+    "removeFilter": "Remove {label}",
+    "selectedCount": "{count} selected"
   },
   "saveErrors": {
     "staleRecord": "This changed since you loaded it — refresh and try again."
