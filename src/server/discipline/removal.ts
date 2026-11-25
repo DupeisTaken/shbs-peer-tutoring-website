@@ -1,5 +1,4 @@
 import { notificationInAppEvent } from "~/lib/notification-details";
-import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import { recordDomainAudit } from "~/server/audit/evidence";
 import { auditActorScope } from "~/server/db-scope";
@@ -14,6 +13,20 @@ import {
   executionSourceIds,
   supersededPairingIds,
 } from "~/server/participant-execution";
+import { requireParticipantSourceParticipation } from "~/server/participant-source-restrictions";
+import { assertTutorScheduleAvailable } from "~/server/tutor-scheduling";
+import {
+  assertPlannedRoomAvailable,
+  lockPlannedRoomSchedule,
+} from "~/server/room-bookings";
+import {
+  assertSessionPlanningWeeklyAvailable,
+  lockSessionPlanning,
+} from "~/server/session-planning";
+import {
+  canReinstatePunishmentRemoval,
+  punishmentRemovalSnapshot,
+} from "./punishment-restoration";
 import {
   inTransaction,
   lockEntity,
@@ -22,17 +35,120 @@ import {
 } from "~/server/transactions";
 
 export const TUTEE_OPT_OUT_COOLDOWN_DAYS = 7;
-const snapshotSchema = z.object({
-  pairingIds: z.array(z.string()),
-  status: z.enum(["ACTIVE", "PENDING", "INACTIVE"]),
-});
+
+/** Keep original assignments/custom subjects, but never reenroll into a current
+ * independent restriction or collision. Validate every candidate before writing. */
+async function restorationPairings(
+  tx: TransactionDb,
+  tuteeId: string,
+  pairingIds: string[],
+) {
+  await lockPlannedRoomSchedule(tx);
+  await lockSessionPlanning(tx);
+  const superseded = await supersededPairingIds(tx);
+  const pairings = await tx.pairing.findMany({
+    where: {
+      AND: [{ id: { notIn: superseded } }],
+      id: { in: pairingIds },
+      term: { active: true },
+      tutor: { status: "ACTIVE" },
+    },
+    include: { tutor: { include: { user: true } } },
+    orderBy: { id: "asc" },
+  });
+  const existing = await tx.pairing.findMany({
+    where: {
+      id: { notIn: superseded },
+      term: { active: true },
+      tutees: { some: { tuteeId } },
+    },
+  });
+  const accepted: typeof pairings = [];
+  for (const pairing of pairings) {
+    if (
+      pairing.tutor.user &&
+      (pairing.tutor.user.tutorAccessRevoked ||
+        pairing.tutor.user.mergedIntoId ||
+        pairing.tutor.user.role === "VIEWER")
+    )
+      continue;
+    try {
+      await requireParticipantSourceParticipation(tx, "TUTOR", pairing.tutorId);
+      if (pairing.scheduleConfirmed) {
+        const group = pairing.groupId
+          ? await tx.pairing.findMany({
+              where: {
+                groupId: pairing.groupId,
+                tutorId: pairing.tutorId,
+                termId: pairing.termId,
+                dayOfWeek: pairing.dayOfWeek,
+                startMin: pairing.startMin,
+                endMin: pairing.endMin,
+                roomId: pairing.roomId,
+              },
+              select: { id: true },
+            })
+          : [];
+        const sameBlock = (other: typeof pairing | (typeof existing)[number]) =>
+          pairing.groupId &&
+          other.groupId === pairing.groupId &&
+          other.tutorId === pairing.tutorId &&
+          other.termId === pairing.termId &&
+          other.dayOfWeek === pairing.dayOfWeek &&
+          other.startMin === pairing.startMin &&
+          other.endMin === pairing.endMin &&
+          other.roomId === pairing.roomId;
+        if (
+          [...existing, ...accepted].some(
+            (other) =>
+              other.id !== pairing.id &&
+              other.scheduleConfirmed &&
+              other.dayOfWeek === pairing.dayOfWeek &&
+              other.startMin < pairing.endMin &&
+              other.endMin > pairing.startMin &&
+              !sameBlock(other),
+          )
+        )
+          continue;
+        const excludePairingIds = [pairing.id, ...group.map((row) => row.id)];
+        await assertTutorScheduleAvailable(tx, {
+          ...pairing,
+          excludePairingIds,
+        });
+        await assertPlannedRoomAvailable(tx, {
+          ...pairing,
+          excludePairingId: pairing.id,
+          excludePairingIds,
+        });
+        await assertSessionPlanningWeeklyAvailable(tx, {
+          ...pairing,
+          excludePairingIds,
+          tuteeIds: [tuteeId],
+        });
+      }
+      accepted.push(pairing);
+    } catch (error) {
+      if (
+        !(error instanceof TRPCError) ||
+        ![
+          "FORBIDDEN",
+          "PRECONDITION_FAILED",
+          "BAD_REQUEST",
+          "CONFLICT",
+        ].includes(error.code)
+      )
+        throw error;
+    }
+  }
+  return accepted;
+}
 
 /** Preserve current membership before removing it; historical pairings remain evidence. */
 async function finalizeRemoval(
   tx: TransactionDb,
   tuteeId: string,
   requestId: string,
-): Promise<void> {
+): Promise<boolean> {
   const period = await getActivePeriodOrNull(tx);
   const tutee = await tx.tutee.findUniqueOrThrow({ where: { id: tuteeId } });
   const links = await tx.pairingTutee.findMany({
@@ -50,15 +166,10 @@ async function finalizeRemoval(
     },
   });
   const now = new Date();
-  await tx.tutee.update({
-    where: { id: tuteeId },
-    data: { status: "INACTIVE", updatedAt: now },
-  });
-  await tx.pairingTutee.deleteMany({
-    where: { tuteeId, pairingId: { in: links.map((l) => l.pairingId) } },
-  });
-  await tx.tuteeRemovalRequest.update({
-    where: { id: requestId },
+  // Claim the PENDING request conditionally before mutating participation so a
+  // recalled or admin-cancelled removal can never be overwritten.
+  const claimed = await tx.tuteeRemovalRequest.updateMany({
+    where: { id: requestId, tuteeId, state: "PENDING" },
     data: {
       state: "APPROVED",
       resolvedAt: now,
@@ -71,6 +182,14 @@ async function finalizeRemoval(
         status: tutee.status,
       },
     },
+  });
+  if (claimed.count !== 1) return false;
+  await tx.tutee.update({
+    where: { id: tuteeId },
+    data: { status: "INACTIVE", updatedAt: now },
+  });
+  await tx.pairingTutee.deleteMany({
+    where: { tuteeId, pairingId: { in: links.map((l) => l.pairingId) } },
   });
   const recipients = new Map<string, string>();
   for (const link of links) {
@@ -123,6 +242,7 @@ async function finalizeRemoval(
         : null,
     },
   });
+  return true;
 }
 
 /** Cards, removal, membership and notifications share one transaction. A reversal restores
@@ -140,7 +260,7 @@ export async function syncPunishmentRemoval(
     // no-op; the mutation path below still locks and recomputes every condition.
     const candidate = await tx.tutee.findUniqueOrThrow({
       where: { id: tuteeId },
-      select: { status: true, updatedAt: true },
+      select: { id: true, status: true },
     });
     const valid = await tx.disciplinaryCard.groupBy({
       by: ["color"],
@@ -171,12 +291,7 @@ export async function syncPunishmentRemoval(
         (await isImportedProgramRecord(tx, "TuteeRemovalRequest", removal.id))
       )
         return { removed: false };
-      if (
-        !removal ||
-        !snapshotSchema.safeParse(removal.pairingSnapshot).success ||
-        candidate.status !== "INACTIVE" ||
-        removal.resolvedAt?.getTime() !== candidate.updatedAt.getTime()
-      )
+      if (!(await canReinstatePunishmentRemoval(tx, candidate, removal)))
         return { removed: false };
     }
     const { withAutomaticRecoveryCheckpoint } =
@@ -188,6 +303,7 @@ export async function syncPunishmentRemoval(
       actor ? { id: actor.id, name: actor.name } : null,
       async () => {
         await lockEntity(tx, `tutee:${tuteeId}`);
+        await tx.$queryRaw`SELECT id FROM "Tutee" WHERE id=${tuteeId} FOR UPDATE`;
         const tutee = await tx.tutee.findUniqueOrThrow({
           where: { id: tuteeId },
         });
@@ -220,12 +336,13 @@ export async function syncPunishmentRemoval(
             ))
           )
             return { removed: false };
-          const snapshot = snapshotSchema.safeParse(removal?.pairingSnapshot);
+          const snapshot = punishmentRemovalSnapshot.safeParse(
+            removal?.pairingSnapshot,
+          );
           if (
             removal &&
             snapshot.success &&
-            tutee.status === "INACTIVE" &&
-            removal.resolvedAt?.getTime() === tutee.updatedAt.getTime()
+            (await canReinstatePunishmentRemoval(tx, tutee, removal))
           ) {
             // Card corrections that restore roster membership are reversals of applied
             // removal, so their initiating correction must already have Admin/Head authority.
@@ -239,20 +356,18 @@ export async function syncPunishmentRemoval(
                 message:
                   "Admin or Head approval is required to restore removed participation.",
               });
-            const pairings = await tx.pairing.findMany({
-              where: {
-                AND: [{ id: { notIn: await supersededPairingIds(tx) } }],
-                id: { in: snapshot.data.pairingIds },
-                term: { active: true },
-                tutor: { status: "ACTIVE" },
-              },
-              select: { id: true },
-            });
+            const pairings = await restorationPairings(
+              tx,
+              tuteeId,
+              snapshot.data.pairingIds,
+            );
             await preserveHistoricalAcademics(tx, "TUTEE", tuteeId);
-            await tx.pairingTutee.createMany({
-              data: pairings.map((p) => ({ pairingId: p.id, tuteeId })),
-              skipDuplicates: true,
-            });
+            if (pairings.length) {
+              await tx.pairingTutee.createMany({
+                data: pairings.map((p) => ({ pairingId: p.id, tuteeId })),
+                skipDuplicates: true,
+              });
+            }
             await tx.tutee.update({
               where: { id: tuteeId },
               data: {
@@ -335,6 +450,11 @@ export async function finalizeDueOptOuts(db: DomainDb): Promise<number> {
     });
     let count = 0;
     for (const request of due) {
+      const pending = await tx.tuteeRemovalRequest.findUnique({
+        where: { id: request.id },
+        select: { state: true },
+      });
+      if (pending?.state !== "PENDING") continue;
       const { withAutomaticRecoveryCheckpoint } =
         await import("~/server/recovery/checkpoint");
       await withAutomaticRecoveryCheckpoint(
@@ -363,8 +483,12 @@ export async function finalizeDueOptOuts(db: DomainDb): Promise<number> {
                 })
               : null;
           if (!participation) {
-            await tx.tuteeRemovalRequest.update({
-              where: { id: current.id },
+            const cancelled = await tx.tuteeRemovalRequest.updateMany({
+              where: {
+                id: current.id,
+                tuteeId: request.tuteeId,
+                state: "PENDING",
+              },
               data: {
                 state: "DENIED",
                 resolvedAt: new Date(),
@@ -372,6 +496,7 @@ export async function finalizeDueOptOuts(db: DomainDb): Promise<number> {
                   "Participation changed; stale withdrawal cancelled",
               },
             });
+            if (cancelled.count !== 1) return;
             await recordDomainAudit(tx, {
               operation: "system.cancelStaleOptOut",
               entity: "TuteeRemovalRequest",
@@ -386,8 +511,7 @@ export async function finalizeDueOptOuts(db: DomainDb): Promise<number> {
             });
             return;
           }
-          await finalizeRemoval(tx, request.tuteeId, request.id);
-          count++;
+          if (await finalizeRemoval(tx, request.tuteeId, request.id)) count++;
         },
       );
     }
