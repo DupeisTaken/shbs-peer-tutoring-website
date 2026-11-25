@@ -383,7 +383,10 @@ it("nested source contention rolls back only admission, restores timeout and rel
     commit = signal();
   const writer = db.$transaction(
     async (tx) => {
-      await databaseScope.run(tx, f.mutate);
+      // Hold only the leaf meeting row so admission acquires the full lock
+      // prefix (program:period, email-notifications-setting, HistoryRowOwnership)
+      // before hitting contention on TutorMeeting FOR UPDATE NOWAIT.
+      await tx.$queryRaw`SELECT id FROM "TutorMeeting" WHERE id=${f.meeting!.id} FOR UPDATE`;
       changed.resolve();
       await commit.promise;
     },

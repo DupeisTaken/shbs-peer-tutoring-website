@@ -116,7 +116,8 @@ vi.mock("~/trpc/react", () => ({
                           ? "2026-12-10T08:00:00Z"
                           : "2026-10-10T08:00:00Z",
                       ),
-                      status: "PRESENT",
+                      status:
+                        input.period === "upcomingOutside" ? null : "PRESENT",
                       reason: null,
                       excused: false,
                       canExcuse: true,

@@ -263,7 +263,9 @@
       "ACCOUNT_CONFLICT": "Ownership conflicts require Admin-reviewed correction or combination.",
       "ACCOUNT_NOT_READY": "The existing owner must complete verified setup or recovery first.",
       "UNKNOWN": "Further review is required before sending."
-    }
+    },
+    "exactRetryHelp": "Retry sends this same reviewed invitation once if it was not recorded, or loads its saved result.",
+    "retryExact": "Retry this invitation"
   },
   "personParticipation": {
     "availableAt": "Earliest review: {date}",
@@ -5881,7 +5883,14 @@
     "confirm": "Confirm change",
     "requests": "My requests and decisions",
     "history": "Departure history",
-    "retiredReturnHelp": "Record the original source’s factual return only. Its login remains retired; participation, assignments and observer restrictions remain unchanged."
+    "retiredReturnHelp": "Record the original source’s factual return only. Its login remains retired; participation, assignments and observer restrictions remain unchanged.",
+    "reload": "Reload current status",
+    "reloadHelp": "This departure record changed in the background. Reload the current status to review it before submitting; your reason will be kept.",
+    "refreshing": "Refreshing related records...",
+    "refreshFailed": "Saved, but related records could not refresh. Retry refreshing instead of submitting again.",
+    "retryRefresh": "Retry refresh",
+    "readFailed": "Could not load the latest departure status. Try again before making changes.",
+    "accessDenied": "You do not have permission to view this departure record."
   },
   "personName": {
     "firstName": "Vorname",

@@ -263,7 +263,9 @@
       "ACCOUNT_CONFLICT": "归属冲突须由管理员审核更正或合并。",
       "ACCOUNT_NOT_READY": "现有归属账号需先完成验证设置或找回流程。",
       "UNKNOWN": "发送前需要进一步审核。"
-    }
+    },
+    "exactRetryHelp": "重试会使用同一份已审核邀请：若尚未记录则发送一次，若已受理则直接加载已保存的结果。",
+    "retryExact": "重试此邀请"
   },
   "personParticipation": {
     "availableAt": "最早审核时间：{date}",
@@ -5915,7 +5917,14 @@
     "confirm": "确认变更",
     "requests": "我的申请与审核结果",
     "history": "离校记录",
-    "retiredReturnHelp": "仅记录原始来源的返校事实。原登录仍保持停用；参与状态、辅导分配和观察权限限制均不变。"
+    "retiredReturnHelp": "仅记录原始来源的返校事实。原登录仍保持停用；参与状态、辅导分配和观察权限限制均不变。",
+    "reload": "重新加载当前状态",
+    "reloadHelp": "此离校记录已在后台更新。请先重新加载当前状态并核对后再提交，你的审核理由将会保留。",
+    "refreshing": "正在刷新相关记录…",
+    "refreshFailed": "已保存，但相关记录未能刷新。请重试刷新，不要重复提交。",
+    "retryRefresh": "重试刷新",
+    "readFailed": "无法加载最新离校状态。请重试后再进行修改。",
+    "accessDenied": "你无权查看此离校记录。"
   },
   "personName": {
     "firstName": "名",
