@@ -2930,6 +2930,9 @@
       "enterTutor": "Enter Tutor Page",
       "enterAdmin": "Enter Admin Area",
       "enterTutee": "Enter Tutee Page",
+      "enterCrew": "Enter Crew Page",
+      "enterOverview": "Enter Program Overview",
+      "enterTranslations": "Enter Translations",
       "backToManagement": "Back to Management",
       "groups": {
         "workspaces": "Workspaces",
@@ -2955,7 +2958,8 @@
       "tutee": "Tutee",
       "patrol": "Crew",
       "translations": "Translations",
-      "programHome": "Program Home"
+      "programHome": "Program Home",
+      "signupForms": "Signup Forms"
     },
     "workspaceSwitcher": {
       "label": "Switch page",

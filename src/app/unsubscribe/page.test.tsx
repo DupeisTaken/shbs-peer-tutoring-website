@@ -47,10 +47,11 @@ it("provides account settings through sign-in and a public home route", async ()
       .getAttribute("href"),
   ).toBe("/signin?callbackUrl=%2Fmy-account%23notification-preferences");
   expect(
-    screen
-      .getByRole("link", { name: en.common.backToMain })
-      .getAttribute("href"),
-  ).toBe("/");
+    screen.queryByRole("link", { name: en.common.backToMain }),
+  ).toBeNull();
+  expect(
+    document.querySelector("header a[href='/']")?.getAttribute("title"),
+  ).toBe(en.common.backToMain);
   expect(document.body.textContent).not.toContain("opaque");
 });
 

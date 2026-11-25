@@ -2,6 +2,7 @@ import { getTranslations } from "next-intl/server";
 import { StudentRegistration } from "../student-registration";
 import { auth } from "~/server/auth";
 import { PublicFormPage } from "~/app/_components/public-form-page";
+import { getSignedInWorkspaceHeader } from "~/app/_components/signed-in-header";
 
 export const metadata = {
   title: "Confirm Tutee Signup",
@@ -13,16 +14,22 @@ export default async function StudentAccountPage({
 }: {
   searchParams: Promise<{ token?: string; intent?: string }>;
 }) {
-  const [{ token, intent }, t, session] = await Promise.all([
+  const [{ token, intent }, rootT, session] = await Promise.all([
     searchParams,
-    getTranslations("survey"),
+    getTranslations(),
     auth(),
   ]);
+  const headerTitle = rootT("components.workspaceTitles.signupForms");
+  const signedInHeader = session?.user
+    ? await getSignedInWorkspaceHeader({ title: headerTitle })
+    : null;
   return (
     <PublicFormPage
-      title={t("accountTitle")}
-      description={t("priority")}
-      backLabel={t("back")}
+      headerTitle={headerTitle}
+      header={signedInHeader}
+      title={rootT("survey.accountTitle")}
+      description={rootT("survey.priority")}
+      backLabel={rootT("survey.back")}
       backHref="/tutee"
       wide
     >

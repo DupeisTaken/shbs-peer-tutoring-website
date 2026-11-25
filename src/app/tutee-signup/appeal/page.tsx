@@ -1,5 +1,6 @@
 import { getTranslations } from "next-intl/server";
 import { PublicFormPage } from "~/app/_components/public-form-page";
+import { getSignedInWorkspaceHeader } from "~/app/_components/signed-in-header";
 import { SignupAppeal } from "./signup-appeal";
 
 export const metadata = {
@@ -11,15 +12,18 @@ export const metadata = {
 /** This email capability is checked on the server by every read/write. The page
  * never looks up requests by contact email or exposes their submitted answers. */
 export default async function SignupAppealPage() {
-  const [t, survey] = await Promise.all([
-    getTranslations("signupAppeal"),
-    getTranslations("survey"),
-  ]);
+  const t = await getTranslations();
+  const headerTitle = t("components.workspaceTitles.signupForms");
+  const signedInHeader = await getSignedInWorkspaceHeader({
+    title: headerTitle,
+  });
   return (
     <PublicFormPage
-      title={t("title")}
-      description={t("help")}
-      backLabel={survey("back")}
+      headerTitle={headerTitle}
+      header={signedInHeader}
+      title={t("signupAppeal.title")}
+      description={t("signupAppeal.help")}
+      backLabel={t("survey.back")}
       backHref="/tutee"
     >
       <SignupAppeal />

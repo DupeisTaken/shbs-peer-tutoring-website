@@ -5,6 +5,7 @@ import { getTranslations } from "next-intl/server";
 import { pageMetadata } from "~/server/branding-metadata";
 import { CrewSignupForm } from "./crew-signup-form";
 import { PublicFormPage } from "~/app/_components/public-form-page";
+import { getSignedInWorkspaceHeader } from "~/app/_components/signed-in-header";
 import { db } from "~/server/db";
 import { getFeatures } from "~/server/program/features";
 
@@ -18,9 +19,15 @@ export default async function CrewSignupPage() {
   if (!features.CREW) redirect("/");
 
   const t = await getTranslations();
+  const headerTitle = t("components.workspaceTitles.signupForms");
+  const signedInHeader = await getSignedInWorkspaceHeader({
+    title: headerTitle,
+  });
   return (
     <PublicFormPage
       wide
+      headerTitle={headerTitle}
+      header={signedInHeader}
       title={t("public.crewSignup.title")}
       description={t("public.crewSignup.intro")}
       backLabel={t("common.backToMain")}

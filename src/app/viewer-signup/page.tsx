@@ -3,6 +3,7 @@ import {
   PublicFormCard,
   PublicFormRoute,
 } from "~/app/_components/public-form-page";
+import { getSignedInWorkspaceHeader } from "~/app/_components/signed-in-header";
 import { redirect } from "next/navigation";
 import { getTranslations } from "next-intl/server";
 
@@ -22,8 +23,14 @@ export default async function ViewerSignupPage() {
   if (!features.VIEWER_SIGNUP) redirect("/");
 
   const [t, session] = await Promise.all([getTranslations(), auth()]);
+  const headerTitle = t("components.workspaceTitles.signupForms");
+  const signedInHeader = session?.user
+    ? await getSignedInWorkspaceHeader({ title: headerTitle })
+    : null;
   return (
     <PublicFormPage
+      headerTitle={headerTitle}
+      header={signedInHeader}
       title={t("accountInvitation.requestTitle")}
       description={t("accountInvitation.requestHelp")}
       backLabel={t("common.backToMain")}

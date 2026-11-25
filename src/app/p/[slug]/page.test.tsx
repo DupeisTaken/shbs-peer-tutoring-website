@@ -40,16 +40,31 @@ vi.mock("next-intl/server", () => ({
     }),
 }));
 vi.mock("~/app/_components/public-header", () => ({
-  PublicHeader: () => <header />,
-}));
-vi.mock("~/app/_components/header-menu", () => ({
-  HeaderMenu: () => null,
-  HeaderMenuGroup: () => null,
+  PublicHeader: ({
+    href = "/",
+    linkTitle,
+    navigation,
+  }: {
+    href?: string;
+    linkTitle?: string;
+    navigation?: ReactNode;
+  }) => (
+    <header>
+      <a href={href} title={linkTitle}>
+        Logo
+      </a>
+      {navigation}
+    </header>
+  ),
 }));
 vi.mock("~/app/_components/page-blocks", () => ({
   PageBlocks: ({ locale }: { locale: string }) => (
     <div data-testid="page-blocks" lang={locale} />
   ),
+}));
+vi.mock("~/app/_components/signed-in-header", () => ({
+  getSignedInLandingLinks: async () => undefined,
+  getSignedInWorkspaceHeader: async () => null,
 }));
 vi.mock("~/app/_components/markdown", () => ({
   Markdown: ({ children }: { children: ReactNode }) => <p>{children}</p>,
@@ -159,10 +174,11 @@ it.each(["pages", "sections"] as const)(
     state.authorize.mockResolvedValue({ ok: false, name: null });
     await renderDetail();
     expect(
-      screen
-        .getByRole("link", { name: en.common.backToMain })
-        .getAttribute("href"),
+      screen.getByRole("link", { name: "Logo" }).getAttribute("href"),
     ).toBe("/");
+    expect(
+      screen.queryByRole("link", { name: en.common.backToMain }),
+    ).toBeNull();
     expect(screen.queryByText(en.landing.preview.draftBadge)).toBeNull();
     expect(
       screen.queryByRole("link", { name: en.landing.preview.ribbon.back }),

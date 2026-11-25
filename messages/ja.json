@@ -2930,6 +2930,9 @@
       "enterTutor": "チューターページへ",
       "enterAdmin": "管理者エリアへ",
       "enterTutee": "学習者ページへ",
+      "enterCrew": "巡回チームページへ",
+      "enterOverview": "プログラム概要へ",
+      "enterTranslations": "翻訳ページへ",
       "backToManagement": "管理ページに戻る",
       "groups": {
         "workspaces": "ワークスペース",
@@ -2955,7 +2958,8 @@
       "tutee": "受講者",
       "patrol": "巡回チーム",
       "translations": "翻訳",
-      "programHome": "プログラムホーム"
+      "programHome": "プログラムホーム",
+      "signupForms": "申込フォーム"
     },
     "workspaceSwitcher": {
       "label": "ページを切り替え",

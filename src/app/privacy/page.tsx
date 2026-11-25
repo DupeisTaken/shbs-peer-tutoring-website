@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { getLocale, getTranslations } from "next-intl/server";
 
 import { PublicHeader } from "~/app/_components/public-header";
@@ -23,18 +22,17 @@ export default async function PrivacyPage() {
 
   return (
     <div className="min-h-screen">
-      <PublicHeader sticky={false} skipLabel={t("skipToContent")} />
+      <PublicHeader
+        href="/"
+        linkTitle={t("backToMain")}
+        sticky={false}
+        skipLabel={t("skipToContent")}
+      />
 
       <main id="main-content" className="mx-auto max-w-5xl px-4 py-8 sm:py-12">
-        <Link
-          href="/"
-          className="link inline-flex min-h-11 items-center text-sm"
-        >
-          {t("backToMain")}
-        </Link>
         {/* Explicit language keeps the English fallback accessible in other interface locales. */}
         <article lang={policy.lang} aria-labelledby="privacy-title">
-          <div className="max-w-3xl border-b border-slate-200 pt-5 pb-8">
+          <div className="max-w-3xl border-b border-slate-200 pb-8">
             <p className="text-accent-700 text-sm font-semibold">{ORG_NAME}</p>
             <h1
               id="privacy-title"

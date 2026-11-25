@@ -175,3 +175,63 @@ it("preserves Markdown heading, link and sanitation behavior under a fallback la
   expect(container.querySelector("script")).toBeNull();
   expect(container.querySelector('a[href^="javascript:"]')).toBeNull();
 });
+
+it("replaces matching public signup buttons and markdown links for signed-in roles", () => {
+  render(
+    <div lang="en">
+      <PageBlocks
+        locale="en"
+        signedInLinks={{
+          byPath: {
+            "/tutor": { href: "/dashboard", label: "Enter Tutor Page" },
+            "/tutee": { href: "/student", label: "Enter Tutee Page" },
+            "/crew": { href: "/patrol", label: "Enter Crew Page" },
+          },
+        }}
+        blocks={[
+          {
+            id: "btns",
+            type: "BUTTONS",
+            buttons: [
+              { label: { en: "Get tutoring" }, href: "/tutee", style: "primary" },
+              {
+                label: { en: "Become a tutor" },
+                href: "/tutor-signup",
+                style: "secondary",
+              },
+              {
+                label: { en: "Join the crew" },
+                href: "/crew",
+                style: "secondary",
+              },
+              {
+                label: { en: "Register code" },
+                href: "/register",
+                style: "secondary",
+              },
+            ],
+          },
+          {
+            id: "md",
+            type: "RICH_TEXT",
+            text: { en: "Click [Become a tutor](/tutor) to continue." },
+          },
+        ]}
+      />
+    </div>,
+  );
+  expect(
+    screen.getByRole("link", { name: "Enter Tutee Page" }).getAttribute("href"),
+  ).toBe("/student");
+  const tutorLinks = screen.getAllByRole("link", { name: "Enter Tutor Page" });
+  expect(tutorLinks).toHaveLength(2);
+  for (const link of tutorLinks) {
+    expect(link.getAttribute("href")).toBe("/dashboard");
+  }
+  expect(
+    screen.getByRole("link", { name: "Enter Crew Page" }).getAttribute("href"),
+  ).toBe("/patrol");
+  expect(
+    screen.getByRole("link", { name: "Register code" }).getAttribute("href"),
+  ).toBe("/register");
+});

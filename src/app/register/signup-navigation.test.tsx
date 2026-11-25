@@ -57,6 +57,9 @@ vi.mock("~/app/_components/language-switcher", () => ({
 vi.mock("~/app/_components/theme-switcher", () => ({
   ThemeSwitcher: () => null,
 }));
+vi.mock("~/app/_components/signed-in-header", () => ({
+  getSignedInWorkspaceHeader: async () => null,
+}));
 vi.mock("./register-flow", () => ({
   RegisterFlow: (props: unknown) => {
     state.registerProps(props);
@@ -125,9 +128,12 @@ it("keeps canonical and legacy tutee confirmation on the same invitation workflo
   expect(state.studentProps).toHaveBeenCalledWith(
     expect.objectContaining({ token, signedInEmail: null }),
   );
-  expect(
-    screen.getByRole("link", { name: en.survey.back }).getAttribute("href"),
-  ).toBe("/tutee");
+  expect(screen.queryByRole("link", { name: en.survey.back })).toBeNull();
+  const brandLink = screen.getByRole("link", {
+    name: en.components.workspaceTitles.signupForms,
+  });
+  expect(brandLink.getAttribute("href")).toBe("/tutee");
+  expect(brandLink.getAttribute("title")).toBe(en.survey.back);
 });
 
 it("keeps recovery next to sign-in and alternate account routes outside the form card", async () => {

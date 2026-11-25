@@ -2930,6 +2930,9 @@
       "enterTutor": "튜터 페이지로 이동",
       "enterAdmin": "관리자 영역으로 이동",
       "enterTutee": "학습자 페이지로 이동",
+      "enterCrew": "순찰팀 페이지로 이동",
+      "enterOverview": "프로그램 개요로 이동",
+      "enterTranslations": "번역 페이지로 이동",
       "backToManagement": "관리 페이지로 돌아가기",
       "groups": {
         "workspaces": "작업 공간",
@@ -2955,7 +2958,8 @@
       "tutee": "튜티",
       "patrol": "순찰팀",
       "translations": "번역",
-      "programHome": "프로그램 홈"
+      "programHome": "프로그램 홈",
+      "signupForms": "신청 양식"
     },
     "workspaceSwitcher": {
       "label": "페이지 전환",

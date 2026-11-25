@@ -4,6 +4,7 @@ import { getTranslations } from "next-intl/server";
 import { pageMetadata } from "~/server/branding-metadata";
 import { TutorSignupForm } from "./tutor-signup-form";
 import { PublicFormPage } from "~/app/_components/public-form-page";
+import { getSignedInWorkspaceHeader } from "~/app/_components/signed-in-header";
 
 export async function generateMetadata() {
   return pageMetadata("public.tutorSignup.title");
@@ -11,9 +12,15 @@ export async function generateMetadata() {
 
 export default async function TutorSignupPage() {
   const t = await getTranslations();
+  const headerTitle = t("components.workspaceTitles.signupForms");
+  const signedInHeader = await getSignedInWorkspaceHeader({
+    title: headerTitle,
+  });
   return (
     <PublicFormPage
       wide
+      headerTitle={headerTitle}
+      header={signedInHeader}
       title={t("public.tutorSignup.title")}
       description={t("public.tutorSignup.intro")}
       backLabel={t("common.backToMain")}

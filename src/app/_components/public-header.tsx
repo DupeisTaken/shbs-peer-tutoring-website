@@ -11,20 +11,26 @@ import { ThemeSwitcher } from "./theme-switcher";
 /** The frame is also used by local gallery examples; production utilities keep
  * their existing preference behavior and one instance per page. */
 export function PublicHeader({
+  href = "/",
   navigation,
   trailingAction,
   title,
+  linkTitle,
   hideTitle = false,
   sticky = true,
   skipLabel,
   skipToId = "main-content",
   showHelp = true,
 }: {
+  /** Destination for clicking the PT logo and title (defaults to Program Home `/`). */
+  href?: string;
   navigation?: ReactNode;
   /** Optional primary menu/action anchored to the far right (e.g. Sign In & Join on Program Home). */
   trailingAction?: ReactNode;
   /** Optional location title beside the PT logo (defaults to configured APP_TITLE). */
   title?: string;
+  /** Optional tooltip title for the brand link (defaults to `title`). */
+  linkTitle?: string;
   /** Hide visible title text beside the logo while keeping an accessible name. */
   hideTitle?: boolean;
   sticky?: boolean;
@@ -35,7 +41,9 @@ export function PublicHeader({
   const { APP_TITLE } = useBranding();
   return (
     <PublicHeaderFrame
+      href={href}
       title={title ?? APP_TITLE}
+      linkTitle={linkTitle}
       hideTitle={hideTitle}
       navigation={navigation}
       trailingAction={trailingAction}
@@ -49,13 +57,15 @@ export function PublicHeader({
   );
 }
 
-/** Balanced, tidy public header: official PT logo + bold brand-lockup title anchor the left,
- * optional subpage return link sits beside the title, and ?, Theme, Language, plus an optional
- * far-right action/menu stay grouped on the right. */
+/** Balanced, tidy public header: official PT logo + bold brand-lockup title anchor the left
+ * (clicking returns to `href`, defaulting to Program Home `/`), and ?, Theme, Language, plus an
+ * optional far-right action/menu stay grouped on the right. */
 export function PublicHeaderFrame({
+  href = "/",
   navigation,
   trailingAction,
   title,
+  linkTitle,
   hideTitle = false,
   help,
   language,
@@ -64,7 +74,9 @@ export function PublicHeaderFrame({
   skipLabel,
   skipToId = "main-content",
 }: {
+  href?: string;
   title: string;
+  linkTitle?: string;
   hideTitle?: boolean;
   help?: ReactNode;
   language: ReactNode;
@@ -92,8 +104,8 @@ export function PublicHeaderFrame({
         <div className="mx-auto flex max-w-5xl min-w-0 flex-col gap-1.5 px-3 py-2 sm:px-4 lg:flex-row lg:items-center lg:gap-1.5 lg:py-2.5">
           <div className="flex min-w-0 items-center lg:contents">
             <Link
-              href="/"
-              title={title}
+              href={href}
+              title={linkTitle ?? title}
               aria-label={hideTitle ? title : undefined}
               className="focus-visible:ring-accent-500 flex min-h-11 min-w-0 items-center gap-2.5 rounded-md text-xl font-bold tracking-tight text-slate-900 transition hover:text-slate-700 focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-hidden lg:min-h-8 lg:shrink-0 lg:text-lg"
             >
@@ -123,8 +135,8 @@ export function PublicHeaderFrame({
       ) : (
         <div className="mx-auto grid max-w-5xl grid-cols-[minmax(0,1fr)_auto] items-center gap-x-2 gap-y-2 px-4 py-2 lg:flex lg:gap-2 lg:py-2.5">
           <Link
-            href="/"
-            title={title}
+            href={href}
+            title={linkTitle ?? title}
             aria-label={hideTitle ? title : undefined}
             className="focus-visible:ring-accent-500 col-start-1 row-start-1 flex min-h-11 min-w-0 items-center gap-2.5 rounded-md text-xl font-bold tracking-tight text-slate-900 transition hover:text-slate-700 focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-hidden lg:min-h-8 lg:shrink-0 lg:text-lg"
           >

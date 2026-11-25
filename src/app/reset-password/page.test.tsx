@@ -62,10 +62,11 @@ it("retains the recovery form and both return destinations", async () => {
       .getAttribute("href"),
   ).toBe("/signin");
   expect(
-    screen
-      .getByRole("link", { name: en.common.backToMain })
-      .getAttribute("href"),
-  ).toBe("/");
+    screen.queryByRole("link", { name: en.common.backToMain }),
+  ).toBeNull();
+  expect(
+    document.querySelector("header a[href='/']")?.getAttribute("title"),
+  ).toBe(en.common.backToMain);
 });
 
 vi.mock("~/app/_components/theme-switcher", () => ({

@@ -3,6 +3,7 @@ import {
   PublicFormCard,
   PublicFormRoute,
 } from "~/app/_components/public-form-page";
+import { getSignedInWorkspaceHeader } from "~/app/_components/signed-in-header";
 import { getTranslations } from "next-intl/server";
 
 import { pageMetadata } from "~/server/branding-metadata";
@@ -29,8 +30,14 @@ export default async function RegisterPage({
     searchParams,
     auth(),
   ]);
+  const headerTitle = t("components.workspaceTitles.signupForms");
+  const signedInHeader = session?.user
+    ? await getSignedInWorkspaceHeader({ title: headerTitle })
+    : null;
   return (
     <PublicFormPage
+      headerTitle={headerTitle}
+      header={signedInHeader}
       title={t("accountInvitation.pageTitle")}
       backLabel={t("common.backToMain")}
       footer={

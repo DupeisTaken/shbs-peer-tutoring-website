@@ -2930,6 +2930,9 @@
       "enterTutor": "Entrar a la página de tutor",
       "enterAdmin": "Entrar al área de administración",
       "enterTutee": "Entrar a la página de estudiante",
+      "enterCrew": "Entrar a la página del equipo",
+      "enterOverview": "Entrar al resumen del programa",
+      "enterTranslations": "Entrar a traducciones",
       "backToManagement": "Volver a gestión",
       "groups": {
         "workspaces": "Espacios de trabajo",
@@ -2955,7 +2958,8 @@
       "tutee": "Estudiante",
       "patrol": "Equipo de ronda",
       "translations": "Traducciones",
-      "programHome": "Inicio del programa"
+      "programHome": "Inicio del programa",
+      "signupForms": "Formularios de inscripción"
     },
     "workspaceSwitcher": {
       "label": "Cambiar página",

@@ -5,18 +5,17 @@ import type { ReactNode } from "react";
 
 import { db } from "~/server/db";
 import { getSectionBySlug } from "~/server/home/sections";
-import {
-  getCustomPageBySlug,
-  getNavPages,
-  pageOwnerKey,
-} from "~/server/home/pages";
+import { getCustomPageBySlug, pageOwnerKey } from "~/server/home/pages";
 import { getLayout } from "~/server/home/blocks";
 import { authorizeHomeEditor } from "~/server/home/images";
 import { APP_TITLE } from "~/lib/branding";
 import type { LandingEditorView } from "~/lib/landing-editor-view";
 import { Markdown } from "~/app/_components/markdown";
 import { PageBlocks } from "~/app/_components/page-blocks";
-import { HeaderMenu, HeaderMenuGroup } from "~/app/_components/header-menu";
+import {
+  getSignedInLandingLinks,
+  getSignedInWorkspaceHeader,
+} from "~/app/_components/signed-in-header";
 import { PublicHeader } from "~/app/_components/public-header";
 
 /**
@@ -33,20 +32,29 @@ export default async function SlugPage({
   // Preserve existing FAQ bookmarks while the maintained catalogue owns help.
   if (slug === "faq") redirect("/help");
   const locale = await getLocale();
-  const navPages = await getNavPages(db, locale);
 
   const page = await getCustomPageBySlug(db, slug, locale);
   if (page) {
     const editorView = await gateUnpublished(page.published);
-    const blocks = await getLayout(db, pageOwnerKey(page.id));
+    const [blocks, signedInLinks, signedInHeader] = await Promise.all([
+      getLayout(db, pageOwnerKey(page.id)),
+      editorView ? Promise.resolve(undefined) : getSignedInLandingLinks(),
+      editorView
+        ? Promise.resolve(null)
+        : getSignedInWorkspaceHeader({ href: "/", title: APP_TITLE }),
+    ]);
     return (
       <Shell
         editorView={editorView ? "pages" : null}
         title={page.title}
         titleLocale={page.titleLocale}
-        nav={navPages}
+        signedInHeader={signedInHeader}
       >
-        <PageBlocks blocks={blocks} locale={locale} />
+        <PageBlocks
+          blocks={blocks}
+          locale={locale}
+          signedInLinks={signedInLinks}
+        />
       </Shell>
     );
   }
@@ -54,15 +62,21 @@ export default async function SlugPage({
   const section = await getSectionBySlug(db, slug, locale);
   if (section) {
     const editorView = await gateUnpublished(section.published);
+    const [signedInLinks, signedInHeader] = editorView
+      ? [undefined, null]
+      : await Promise.all([
+          getSignedInLandingLinks(),
+          getSignedInWorkspaceHeader({ href: "/", title: APP_TITLE }),
+        ]);
     return (
       <Shell
         editorView={editorView ? "sections" : null}
         title={section.title}
-        nav={navPages}
+        signedInHeader={signedInHeader}
       >
         <article className="mx-auto max-w-3xl px-4 py-12">
           <div className="leading-relaxed text-slate-600">
-            <Markdown>{section.body}</Markdown>
+            <Markdown signedInLinks={signedInLinks}>{section.body}</Markdown>
           </div>
         </article>
       </Shell>
@@ -84,13 +98,13 @@ async function Shell({
   editorView,
   title,
   titleLocale,
-  nav,
+  signedInHeader,
   children,
 }: {
   editorView: LandingEditorView | null;
   title: string;
   titleLocale?: string;
-  nav: { slug: string; label: string; labelLocale: string | undefined }[];
+  signedInHeader?: ReactNode;
   children: ReactNode;
 }) {
   const [t, tc] = await Promise.all([
@@ -98,38 +112,15 @@ async function Shell({
     getTranslations("common"),
   ]);
   const help = await getTranslations("helpNav");
-  const navItems = nav
-    .filter((page) => page.slug !== "faq")
-    .map((page) => ({
-      href: `/p/${page.slug}`,
-      label: page.label,
-      lang: page.labelLocale,
-    }));
   return (
     <div className="flex min-h-screen flex-col">
-      <PublicHeader
-        skipLabel={tc("skipToContent")}
-        navigation={
-          <HeaderMenuGroup
-            label={t("nav.landmark")}
-            className="flex min-w-0 items-center"
-          >
-            <HeaderMenu
-              label={t("nav.accessProgramInformation")}
-              items={navItems}
-              tone="ghost"
-              className="hidden lg:block"
-              compact
-            />
-            <HeaderMenu
-              label={t("nav.menu")}
-              items={navItems}
-              className="lg:hidden"
-              panelWidth="wide"
-            />
-          </HeaderMenuGroup>
-        }
-      />
+      {signedInHeader ?? (
+        <PublicHeader
+          href="/"
+          linkTitle={tc("backToMain")}
+          skipLabel={tc("skipToContent")}
+        />
+      )}
 
       <main id="main-content" className="flex-1">
         <div className="mx-auto max-w-3xl px-4 pt-12">
@@ -148,10 +139,10 @@ async function Shell({
           </h1>
         </div>
         {children}
-        <div className="mx-auto max-w-3xl px-4 pb-12">
-          {/* The resolved draft owner selects a fixed editor view, including in a new tab
-              without session storage. Published pages keep their public return route. */}
-          {editorView ? (
+        {editorView && (
+          <div className="mx-auto max-w-3xl px-4 pb-12">
+            {/* The resolved draft owner selects a fixed editor view, including in a new tab
+                without session storage. */}
             <Link
               href={
                 editorView === "pages"
@@ -162,12 +153,8 @@ async function Shell({
             >
               {t("preview.ribbon.back")}
             </Link>
-          ) : (
-            <Link href="/" className="link">
-              {tc("backToMain")}
-            </Link>
-          )}
-        </div>
+          </div>
+        )}
       </main>
 
       <footer className="border-t border-slate-200 py-6">

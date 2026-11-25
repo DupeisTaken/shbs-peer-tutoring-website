@@ -16,8 +16,19 @@ vi.mock("next-intl/server", () => ({
     Object.assign((key: string) => key, { has: () => true }),
 }));
 vi.mock("~/app/_components/public-header", () => ({
-  PublicHeader: ({ navigation }: { navigation?: React.ReactNode }) => (
-    <header data-header="public">{navigation}</header>
+  PublicHeader: ({
+    href = "/",
+    title,
+    navigation,
+  }: {
+    href?: string;
+    title?: string;
+    navigation?: React.ReactNode;
+  }) => (
+    <header data-header="public">
+      <a href={href}>{title}</a>
+      {navigation}
+    </header>
   ),
 }));
 vi.mock("~/app/_components/workspace-header", () => ({
@@ -71,8 +82,11 @@ it("uses PublicHeader for visitors and suspended accounts", async () => {
     document.querySelector('[data-header="public"]'),
   ).toBeTruthy();
   expect(
-    screen.getByRole("link", { name: "common.backToMain" }).getAttribute("href"),
+    screen.getByRole("link", { name: "helpNav.title" }).getAttribute("href"),
   ).toBe("/");
+  expect(
+    screen.queryByRole("link", { name: "common.backToMain" }),
+  ).toBeNull();
   unmount();
 
   mocks.auth.mockResolvedValue({ user: { id: "u1" } });
@@ -129,7 +143,7 @@ it("uses WorkspaceHeader with access-gated switcher items and omits Help Center 
     screen
       .getByRole("link", { name: "components.workspaceTitles.programHome" })
       .getAttribute("href"),
-  ).toBe("/?home=1");
+  ).toBe("/");
   expect(document.querySelector('[data-area="help"]')).toBeNull();
 });
 
