@@ -422,9 +422,14 @@ export default function PatrolPage() {
                 aria-label={t("crew.patrol.myHours")}
                 className="min-w-0 rounded-lg border border-slate-200 bg-white p-4 text-right sm:min-w-48 sm:max-w-full"
               >
-                <h2 className="text-xs leading-4 font-medium tracking-wide text-slate-600 uppercase">
-                  {t("crew.patrol.myHours")}
-                </h2>
+                <div className="space-y-1 text-xs leading-4 text-slate-600">
+                  <h2 className="font-medium tracking-wide uppercase">
+                    {t("crew.patrol.myHours")}
+                  </h2>
+                  {config.data.periodLabel && (
+                    <p className="break-words">{config.data.periodLabel}</p>
+                  )}
+                </div>
                 <p className="mt-2 text-4xl leading-none font-bold tracking-tight text-slate-900 tabular-nums">
                   {config.data.myHours.toFixed(1)} <span>h</span>
                 </p>
