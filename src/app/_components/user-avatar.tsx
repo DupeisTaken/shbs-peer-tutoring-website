@@ -3,6 +3,7 @@ import { getTranslations } from "next-intl/server";
 
 import { SignOutButton } from "~/app/_components/sign-out-button";
 import { DetailsAutoClose } from "~/app/_components/details-auto-close";
+import { ChevronDownIcon } from "~/app/_components/icons";
 
 export type UserAvatarGroup = "workspaces" | "tools" | "account";
 
@@ -29,15 +30,18 @@ function initials(name: string): string {
 }
 
 /**
- * Top-right user menu: an avatar circle (initials) that opens a dropdown with the user's
- * name / username / email, clearly grouped workspace / tool / account links, and a sign-out
- * control. Built on a native <details>/<summary> with DetailsAutoClose so it closes on outside click.
+ * Top-bar account menu trigger: on desktop (`lg+`), renders the two-line account identity
+ * (`Name` / `@username · Role`) with a quiet chevron (no circular avatar); on mobile (`<lg`),
+ * retains the compact circular initials badge. Opens a dropdown with account details, clearly
+ * grouped workspace / tool / account links, and a sign-out control. Built on a native
+ * `<details>`/`<summary>` with `DetailsAutoClose` so it closes on outside click.
  */
 export async function UserAvatar({
   name,
   username,
   email,
   role,
+  roleLabel,
   items = [],
   compactAtDesktop = false,
 }: {
@@ -45,11 +49,25 @@ export async function UserAvatar({
   username?: string | null;
   email?: string | null;
   role?: string;
+  /** Optional desktop trigger subtitle role override (e.g. Crew in the patrol workspace). */
+  roleLabel?: string;
   items?: UserAvatarItem[];
   /** Keeps dashboard menus touch-friendly on mobile while removing desktop-only empty space. */
   compactAtDesktop?: boolean;
 }) {
   const t = await getTranslations();
+  const translatedRole = role
+    ? t.has(`admin.users.roles.${role}`)
+      ? t(`admin.users.roles.${role}`)
+      : role
+    : undefined;
+  const triggerRole = roleLabel ?? translatedRole;
+  const triggerSubtitle = [
+    username ? `@${username}` : null,
+    triggerRole ?? null,
+  ]
+    .filter(Boolean)
+    .join(" · ");
   const deduped = [
     ...items,
     {
@@ -74,11 +92,22 @@ export async function UserAvatar({
       <summary
         aria-label={t("account.title")}
         title={t("account.title")}
-        className="focus-visible:ring-accent-500 flex min-h-11 min-w-11 cursor-pointer list-none items-center justify-center rounded-md focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-hidden lg:min-h-8 lg:min-w-8 [&::-webkit-details-marker]:hidden"
+        className="focus-visible:ring-accent-500 lg:group-open:bg-accent-50 lg:group-open:ring-accent-200/80 flex min-h-11 min-w-11 cursor-pointer list-none items-center justify-center rounded-md transition focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-hidden lg:min-h-8 lg:min-w-0 lg:gap-1.5 lg:rounded-lg lg:px-2 lg:py-0.5 lg:leading-tight lg:hover:bg-slate-100/90 lg:group-open:ring-1 [&::-webkit-details-marker]:hidden"
       >
-        <span className="bg-accent-600 group-open:ring-accent-200 flex h-9 w-9 items-center justify-center rounded-full text-sm font-semibold text-white ring-2 ring-white transition lg:h-8 lg:w-8 lg:text-xs">
+        <span className="bg-accent-600 group-open:ring-accent-200 flex h-9 w-9 items-center justify-center rounded-full text-sm font-semibold text-white ring-2 ring-white transition lg:hidden">
           {initials(name)}
         </span>
+        <span className="hidden min-w-0 text-right lg:block">
+          <span className="block max-w-44 truncate text-[13px] font-medium text-slate-900">
+            {name}
+          </span>
+          {triggerSubtitle && (
+            <span className="muted block max-w-44 truncate text-[11px]">
+              {triggerSubtitle}
+            </span>
+          )}
+        </span>
+        <ChevronDownIcon className="group-open:text-accent-600 hidden h-3.5 w-3.5 shrink-0 text-slate-500 transition-transform duration-150 group-open:rotate-180 lg:block" />
       </summary>
 
       <div
@@ -92,11 +121,9 @@ export async function UserAvatar({
           </p>
           {username && <p className="muted truncate text-xs">@{username}</p>}
           {email && <p className="muted truncate text-xs">{email}</p>}
-          {role && (
+          {translatedRole && (
             <span className="badge-slate mt-2 inline-block text-[10px]">
-              {t.has(`admin.users.roles.${role}`)
-                ? t(`admin.users.roles.${role}`)
-                : role}
+              {translatedRole}
             </span>
           )}
         </div>

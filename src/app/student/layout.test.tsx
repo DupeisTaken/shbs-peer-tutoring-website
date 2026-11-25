@@ -134,14 +134,26 @@ vi.mock("~/app/_components/theme-switcher", () => ({
   ThemeSwitcher: () => null,
 }));
 vi.mock("~/app/_components/user-avatar", () => ({
-  UserAvatar: ({ items }: { items: { href: string; label: string }[] }) => (
-    <nav aria-label="Account destinations">
-      {items.map((item) => (
-        <a key={item.href} href={item.href}>
-          {item.label}
-        </a>
-      ))}
-    </nav>
+  UserAvatar: ({
+    name,
+    role,
+    items,
+  }: {
+    name?: string;
+    role?: string;
+    items: { href: string; label: string }[];
+  }) => (
+    <div>
+      {name ? <span>{name}</span> : null}
+      {role ? <span>{`admin.users.roles.${role}`}</span> : null}
+      <nav aria-label="Account destinations">
+        {items.map((item) => (
+          <a key={item.href} href={item.href}>
+            {item.label}
+          </a>
+        ))}
+      </nav>
+    </div>
   ),
 }));
 vi.mock("./navigation", () => ({
@@ -568,7 +580,7 @@ for (const view of ["account", "messages"] as const) {
     }
   });
 }
-it("follows the rendered identity and account-menu links as the cached layout's URL changes", async () => {
+it("follows the rendered account-menu links as the cached layout's URL changes", async () => {
   mocks.pathname = "/student";
   mocks.user.mockResolvedValue({
     name: "Synthetic Head",
@@ -577,17 +589,15 @@ it("follows the rendered identity and account-menu links as the cached layout's 
     tuteeMember: false,
   });
   mocks.acceptance.mockResolvedValue(null);
-  const { container } = render(
-    await TuteeLayout({ children: <PrivateStudentContent /> }),
-  );
+  render(await TuteeLayout({ children: <PrivateStudentContent /> }));
   expect(screen.getByText("workflow.policyTitle")).toBeTruthy();
+  expect(screen.getByText("Synthetic Head")).toBeTruthy();
   const menu = screen.getByRole("navigation", { name: "Account destinations" });
-  const identity = [...container.querySelectorAll("header a")].find(
-    (link) => !menu.contains(link) && link.textContent?.includes("Synthetic Head"),
-  );
-  expect(identity).toBeTruthy();
-  expect(identity!.getAttribute("href")).toBe("/student?view=account");
-  followShellLink(identity! as HTMLElement);
+  const accountLink = within(menu).getByRole("link", {
+    name: "tuteePortal.account",
+  });
+  expect(accountLink.getAttribute("href")).toBe("/student?view=account");
+  followShellLink(accountLink);
   expect(
     screen.getByRole("region", { name: "Own account controls" }),
   ).toBeTruthy();
