@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getTranslations } from "next-intl/server";
 
@@ -124,23 +123,6 @@ export default async function Home({
               switcherLabels={workspaceSwitcherLabels(t)}
               skipLabel={t("common.skipToContent")}
               containerClassName="mx-auto max-w-5xl"
-              identity={
-                <Link
-                  href={accountHref}
-                  className="hidden shrink-0 rounded-md px-2 py-0.5 text-right leading-tight hover:bg-slate-100 lg:block"
-                  title={t("account.title")}
-                >
-                  <p className="text-[13px] font-medium text-slate-900">
-                    {displayName}
-                  </p>
-                  <p className="muted text-[11px]">
-                    {username ? `@${username} · ` : ""}
-                    {t.has(`admin.users.roles.${account.role}`)
-                      ? t(`admin.users.roles.${account.role}`)
-                      : account.role}
-                  </p>
-                </Link>
-              }
               account={
                 <UserAvatar
                   name={displayName}

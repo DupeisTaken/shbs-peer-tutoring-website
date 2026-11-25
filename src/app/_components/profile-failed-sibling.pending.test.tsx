@@ -203,8 +203,8 @@ vi.mock("~/trpc/react", async () => {
       },
       departure: {
         state: {
-          useQuery: () => ({
-            data: {
+          useQuery: () => {
+            const read = () => ({
               departure: {
                 reason: null,
                 revision: mock.departureRevision,
@@ -213,8 +213,12 @@ vi.mock("~/trpc/react", async () => {
               role: mock.role,
               access: { canReadManagement: true },
               events: [],
-            },
-          }),
+            });
+            return {
+              data: read(),
+              refetch: async () => ({ isSuccess: true, data: read() }),
+            };
+          },
         },
         setState: mutation("departure"),
         request: mutation("requestDeparture"),

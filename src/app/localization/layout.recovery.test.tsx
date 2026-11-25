@@ -27,14 +27,14 @@ vi.mock("next-intl/server", () => ({
 }));
 vi.mock("~/app/_components/workspace-header", () => ({
   WorkspaceHeader: ({
-    identity,
+    account,
     navigation,
   }: {
-    identity: ReactNode;
+    account?: ReactNode;
     navigation?: ReactNode;
   }) => (
     <header>
-      {identity}
+      {account}
       {navigation}
     </header>
   ),

@@ -69,6 +69,9 @@ vi.mock("~/trpc/react", () => ({
             ? undefined
             : {
                 rooms: [{ id: "room", name: "Test room" }],
+                periodLabel: "26-27 S1",
+                schoolYear: "26-27",
+                semester: "S1",
                 myHours: 0.5,
                 myPatrols: 2,
               },
@@ -658,3 +661,10 @@ it.each(["status", "config"])(
     expect(fresh.submissionKey).not.toBe(original.submissionKey);
   },
 );
+
+it("displays the active semester label inside the crew service-hours card", () => {
+  show();
+  const card = screen.getByRole("region", { name: messages.crew.patrol.myHours });
+  expect(within(card).getByText("26-27 S1")).toBeTruthy();
+  expect(within(card).getByText(/0\.5/)).toBeTruthy();
+});

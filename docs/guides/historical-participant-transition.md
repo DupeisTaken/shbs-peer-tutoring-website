@@ -164,7 +164,11 @@ Requires configured `AUTH_URL` and security email delivery.
     attempts, 60-second resend cooldown). Opening the URL never claims records.
   - Sending stages an inactive attempt first so an existing invitation stays valid
     if replacement email fails. Use **Check delivery receipt** / **Refresh
-    invitation status** for uncertain responses (never resends email).
+    invitation status** for uncertain responses (never resends email); if no
+    receipt is recorded yet because the request may have been lost before reaching
+    the server, choose **Retry this invitation** to resend the exact reviewed
+    invitation under the same operation reference without duplicating an
+    already-admitted delivery.
   - **Cancel invitation** invalidates unused setup/claim steps without deleting an
     already-created account or completed claim.
   - **My Tutoring History** separates tutoring received from provided, paginating
