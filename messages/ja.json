@@ -674,7 +674,7 @@
     "sessionExpired": "Your session expired or could not be verified. Please sign in again.",
     "passwordChangedSignIn": "パスワードを変更しました。このブラウザーを含むすべてのセッションからログアウトしました。新しいパスワードでもう一度ログインしてください。",
     "signupRoutes": {
-      "viewerHelp": "メールアドレスを確認すると招待が届きます。新規アカウントには閲覧者権限が付与され、既存アカウントはメールのコードでログインできます。",
+      "viewerHelp": "学校教職員、保護者、大学関係者、地域の方など向けの閲覧専用概要です。",
       "viewerLink": "閲覧者として登録",
       "invitationHelp": "メールで届いた招待、または運営チームの認可コードをお持ちですか？",
       "invitationLink": "招待コードで登録",
@@ -694,6 +694,7 @@
       "landmark": "サイトナビゲーション",
       "signInAndJoin": "ログイン・参加"
     },
+    "viewerSignupHelp": "教職員・保護者・大学関係者向け",
     "tagline": "ピアチュータリングプログラム",
     "heroTitle": "一緒に学ぼう。一緒に成長しよう。",
     "intro": "プレースホルダー紹介文 — {appTitle} プログラムについての短い段落がここに入ります。対象者、生徒が支援を受けられる内容、ピアチューターがどのような違いをもたらすかを説明してください。この文章を実際のプログラム概要に置き換えてください。",
@@ -2909,7 +2910,7 @@
       "fields": {
         "name": "氏名",
         "affiliation": "ご関係",
-        "affiliationPlaceholder": "例：生徒の保護者、数学教員、地域の方",
+        "affiliationPlaceholder": "例：学校教職員、保護者、大学関係者、地域の方",
         "email": "メール",
         "code": "メール確認コード",
         "password": "パスワード",
@@ -6198,7 +6199,7 @@
     "pageTitle": "アカウント招待",
     "pageHelp": "メールで届いた招待コードを入力するか、スタッフの招待キーを使ってコードを受け取ってください。",
     "requestTitle": "アカウントの招待を申請",
-    "requestHelp": "メールアドレスを確認すると、別の招待コードが届きます。新規アカウントには閲覧専用のViewer権限が付与されます。既存アカウントではメールのコードでログインし、パスワード、本人情報、参加資格は維持されます。有効な追加認証は引き続き必要です。",
+    "requestHelp": "学校教職員、保護者、大学関係者、地域の方など向けの閲覧専用概要です。メールアドレスを確認して続けてください。",
     "receiptTitle": "Your invitation is ready",
     "receiptHelp": "Keep this code to continue with your account. Your email is verified.",
     "showCode": "Show invitation code",

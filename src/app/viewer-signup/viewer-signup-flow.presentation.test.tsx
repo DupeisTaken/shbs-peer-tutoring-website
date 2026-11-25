@@ -37,9 +37,13 @@ it("omits all-Hidden Viewer names and Latin help while retaining required affili
   );
   expect(view.container.querySelector('input[name="firstName"]')).toBeNull();
   expect(screen.queryByText(en.profilePolicy.nameHint)).toBeNull();
+  const affiliation =
+    view.container.querySelector<HTMLInputElement>("#obs-aff");
+  expect(affiliation?.required).toBe(true);
+  expect(affiliation?.getAttribute("aria-describedby")).toBe("obs-aff-hint");
   expect(
-    view.container.querySelector<HTMLInputElement>("#obs-aff")?.required,
-  ).toBe(true);
+    screen.getByText(en.public.viewerSignup.fields.affiliationPlaceholder),
+  ).toBeTruthy();
   expect(
     view.container.querySelector<HTMLInputElement>("#obs-email")?.required,
   ).toBe(true);

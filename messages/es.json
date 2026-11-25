@@ -674,7 +674,7 @@
     "sessionExpired": "Your session expired or could not be verified. Please sign in again.",
     "passwordChangedSignIn": "Tu contraseña ha cambiado. Se han cerrado todas las sesiones, incluida la de este navegador. Vuelve a iniciar sesión con tu nueva contraseña.",
     "signupRoutes": {
-      "viewerHelp": "Verifica tu correo para recibir una invitación. Las cuentas nuevas obtienen acceso de observador; las existentes inician sesión con el código recibido por correo.",
+      "viewerHelp": "Resumen de solo lectura para docentes, padres, personal universitario e invitados.",
       "viewerLink": "Registrarse como observador",
       "invitationHelp": "¿Tienes una invitación por correo o un código de autorización del equipo?",
       "invitationLink": "Registrarse con código de invitación",
@@ -694,6 +694,7 @@
       "landmark": "Navegación del sitio",
       "signInAndJoin": "Acceder y unirse"
     },
+    "viewerSignupHelp": "Docentes, padres y personal universitario",
     "tagline": "Programa de Tutoría entre Pares",
     "heroTitle": "Aprendamos juntos. Crezcamos juntos.",
     "intro": "Introducción de ejemplo: aquí va un breve párrafo sobre el programa {appTitle}. Describe para quién es, en qué pueden recibir ayuda los estudiantes y cómo los tutores pares marcan la diferencia. Reemplaza este texto con la descripción real del programa.",
@@ -2909,7 +2910,7 @@
       "fields": {
         "name": "Nombre",
         "affiliation": "Tu vínculo",
-        "affiliationPlaceholder": "p. ej. Padre/madre de un estudiante, profesor de Matemáticas, miembro de la comunidad",
+        "affiliationPlaceholder": "p. ej. Docente escolar, padre/madre, personal universitario, invitado",
         "email": "Correo",
         "code": "Código de verificación por correo",
         "password": "Contraseña",
@@ -6198,7 +6199,7 @@
     "pageTitle": "Invitación de cuenta",
     "pageHelp": "Introduce la invitación recibida por correo o usa una clave del equipo para solicitarla.",
     "requestTitle": "Solicitar una invitación de cuenta",
-    "requestHelp": "Verifica tu correo para recibir un código de invitación independiente. Las cuentas nuevas obtienen acceso Viewer de solo lectura. Para una cuenta existente, el código enviado por correo inicia sesión y conserva la contraseña, identidad y participaciones. La verificación adicional sigue siendo obligatoria si está activada.",
+    "requestHelp": "Resumen de solo lectura para docentes, padres, personal universitario e invitados. Verifica tu correo para continuar.",
     "receiptTitle": "Your invitation is ready",
     "receiptHelp": "Keep this code to continue with your account. Your email is verified.",
     "showCode": "Show invitation code",
