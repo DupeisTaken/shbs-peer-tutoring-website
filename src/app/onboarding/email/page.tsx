@@ -40,7 +40,13 @@ export default async function OnboardingEmailPage() {
     session.role === "ADMIN" ||
     session.role === "COORDINATOR";
   if (user && hasReadyCredentials(user))
-    redirect(isElevated ? "/admin" : "/dashboard");
+    redirect(
+      isElevated || session.role === "VIEWER"
+        ? "/admin"
+        : session.tutorId
+          ? "/dashboard"
+          : "/",
+    );
 
   const t = await getTranslations();
 

@@ -26,6 +26,8 @@ const state = vi.hoisted(() => {
     email: null;
     role: string;
     profileVersion: number;
+    tutorAccessRevoked?: boolean;
+    tutor?: { id: string; status: string } | null;
   } = {
     id: "self",
     name: "Original Person",
@@ -38,6 +40,8 @@ const state = vi.hoisted(() => {
     email: null,
     role: "STUDENT",
     profileVersion: 3,
+    tutorAccessRevoked: false,
+    tutor: null,
   };
   return {
     nameStates: undefined as NameFieldStates | undefined,
@@ -365,4 +369,47 @@ it("never carries a name draft into another account identity", () => {
     expect.objectContaining({ firstName: "Other", expectedProfileVersion: 1 }),
     expect.any(Object),
   );
+});
+
+it("only links to tutor settings when the account can enter the tutor workspace", () => {
+  state.account = {
+    ...state.account,
+    role: "ADMIN",
+    tutorAccessRevoked: false,
+    tutor: { id: "archived-tutor", status: "ARCHIVED" },
+  };
+  const view = render(ui());
+  expect(
+    screen.queryByRole("link", {
+      name: new RegExp(en.account.openTutorSettings),
+    }),
+  ).toBeNull();
+
+  state.account = {
+    ...state.account,
+    role: "TUTOR",
+    tutorAccessRevoked: true,
+    tutor: { id: "revoked-tutor", status: "ACTIVE" },
+  };
+  view.rerender(ui());
+  expect(
+    screen.queryByRole("link", {
+      name: new RegExp(en.account.openTutorSettings),
+    }),
+  ).toBeNull();
+
+  state.account = {
+    ...state.account,
+    role: "ADMIN",
+    tutorAccessRevoked: false,
+    tutor: { id: "active-tutor", status: "ACTIVE" },
+  };
+  view.rerender(ui());
+  expect(
+    screen
+      .getByRole("link", {
+        name: new RegExp(en.account.openTutorSettings),
+      })
+      .getAttribute("href"),
+  ).toBe("/settings");
 });

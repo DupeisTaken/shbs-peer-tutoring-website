@@ -66,7 +66,7 @@ export default async function Home({
         currentArea: "home",
         labels: workspaceNavLabels(t),
       });
-      const accountHref = staff
+      const accountHref = elevated
         ? "/admin/account"
         : canTutor
           ? "/settings"
@@ -89,7 +89,15 @@ export default async function Home({
                 group: "tools" as const,
               },
             ]
-          : []),
+          : account.role === "VIEWER"
+            ? [
+                {
+                  href: "/student-support",
+                  label: t("workflows.support"),
+                  group: "tools" as const,
+                },
+              ]
+            : []),
         ...(canTutor
           ? [
               {
@@ -101,7 +109,7 @@ export default async function Home({
           : []),
         {
           href: accountHref,
-          label: t(staff ? "account.title" : "components.userMenu.settings"),
+          label: t(elevated ? "account.title" : "components.userMenu.settings"),
           group: "account" as const,
         },
       ];
@@ -165,12 +173,15 @@ export default async function Home({
     // A transferred tutor can retain the TUTOR role while its execution link is
     // revoked. Preserve independent tutee participation, otherwise use history
     // instead of sending the login into a tutor-layout redirect loop.
+    // Likewise, if the crew module is disabled, avoid a `/` <-> `/patrol` loop.
+    const crewEnabled =
+      session.role === "CREW" ? (await getFeatures(db)).CREW : false;
     redirect(
       adminArea
         ? "/admin"
-        : session.role === "CREW"
+        : session.role === "CREW" && crewEnabled
           ? "/patrol"
-          : session.tutorId
+          : session.tutorId && !account?.tutorAccessRevoked
             ? "/dashboard"
             : account?.studentId || account?.tuteeMember
               ? "/student"

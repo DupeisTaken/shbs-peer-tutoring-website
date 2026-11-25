@@ -177,3 +177,38 @@ it.each(["HEAD", "ADMIN", "COORDINATOR"])(
     expect(fixture.recovery).not.toHaveBeenCalled();
   },
 );
+
+it("routes VIEWER translators to /admin/account even with an archived linked tutor", async () => {
+  fixture.account.mockResolvedValue({
+    role: "VIEWER",
+    name: "Viewer Person",
+    canTranslate: true,
+    suspendedAt: null,
+    tutorId: "archived-tutor",
+    tutorAccessRevoked: false,
+    tutor: { username: "viewer", status: "ARCHIVED" },
+  });
+  render(await LocalizationLayout({ children: <PrivateEditor /> }));
+  expect(
+    screen.getByRole("link", { name: /Viewer Person/ }).getAttribute("href"),
+  ).toBe("/admin/account");
+});
+
+it("routes active STUDENT translators to /student?view=account", async () => {
+  fixture.account.mockResolvedValue({
+    role: "STUDENT",
+    name: "Student Translator",
+    tuteeMember: true,
+    canTranslate: true,
+    suspendedAt: null,
+    tutorId: null,
+    tutorAccessRevoked: false,
+    tutor: null,
+  });
+  render(await LocalizationLayout({ children: <PrivateEditor /> }));
+  expect(
+    screen
+      .getByRole("link", { name: /Student Translator/ })
+      .getAttribute("href"),
+  ).toBe("/student?view=account");
+});

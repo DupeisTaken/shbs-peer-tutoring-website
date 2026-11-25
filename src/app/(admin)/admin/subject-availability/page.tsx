@@ -11,8 +11,9 @@ export async function generateMetadata() {
 
 export default async function SubjectAvailabilityPage() {
   const session = await auth();
-  if (!session || !["HEAD", "ADMIN", "COORDINATOR"].includes(session.role))
-    redirect("/");
+  if (!session?.user) redirect("/signin");
+  if (!["HEAD", "ADMIN", "COORDINATOR"].includes(session.role))
+    redirect("/admin");
   const t = await getTranslations("subjectAvailability");
   return (
     <div className="space-y-6">

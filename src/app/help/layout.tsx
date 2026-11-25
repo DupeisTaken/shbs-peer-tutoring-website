@@ -61,7 +61,7 @@ export default async function HelpLayout({
       labels: workspaceNavLabels(t),
     });
 
-    const accountHref = staff
+    const accountHref = elevated
       ? "/admin/account"
       : canTutor
         ? "/settings"
@@ -83,7 +83,15 @@ export default async function HelpLayout({
               group: "tools" as const,
             },
           ]
-        : []),
+        : me.role === "VIEWER"
+          ? [
+              {
+                href: "/student-support",
+                label: t("workflows.support"),
+                group: "tools" as const,
+              },
+            ]
+          : []),
       ...(canTutor
         ? [
             {
@@ -95,7 +103,7 @@ export default async function HelpLayout({
         : []),
       {
         href: accountHref,
-        label: t(staff ? "account.title" : "components.userMenu.settings"),
+        label: t(elevated ? "account.title" : "components.userMenu.settings"),
         group: "account" as const,
       },
     ];
