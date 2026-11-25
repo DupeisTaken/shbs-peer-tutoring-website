@@ -564,3 +564,34 @@ it("disables refresh while a saved preparation is bound to an old target", () =>
       .matches(":disabled"),
   ).toBe(true);
 });
+
+it("wraps the Program Refresh section and both scheduled and immediate review dialogs in the amber warning surface", () => {
+  render(tree());
+  const section = screen
+    .getByRole("heading", { name: en.admin.program.refreshHeading })
+    .closest("section");
+  expect(section?.getAttribute("data-tone")).toBe("warning");
+  expect(section?.className).toContain("warning-surface");
+
+  fireEvent.change(screen.getByLabelText(en.scheduledRefresh.timeLabel), {
+    target: { value: "2030-06-15T12:00" },
+  });
+  fireEvent.change(screen.getByLabelText(en.admin.program.confirmLabel), {
+    target: { value: "REFRESH" },
+  });
+  fireEvent.click(
+    screen.getByRole("button", { name: en.scheduledRefresh.review }),
+  );
+  const scheduledDialog = screen.getByRole("dialog");
+  expect(scheduledDialog.getAttribute("data-tone")).toBe("warning");
+  expect(scheduledDialog.className).toContain("warning-surface");
+  fireEvent.click(
+    within(scheduledDialog).getByRole("button", {
+      name: en.actionReview.cancel,
+    }),
+  );
+
+  const { dialog: immediateDialog } = openImmediate();
+  expect(immediateDialog.getAttribute("data-tone")).toBe("warning");
+  expect(immediateDialog.className).toContain("warning-surface");
+});

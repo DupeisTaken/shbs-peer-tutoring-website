@@ -491,3 +491,23 @@ it("recovers dialog focus after the browser blurs a disabled fieldset control to
   expect(document.activeElement).toBe(dialog);
   expect(fireEvent.keyDown(dialog, { key: "Escape" })).toBe(false);
 });
+
+it("applies the semantic amber warning wrap only when tone is warning", () => {
+  const view = render(
+    <Modal title="Neutral dialog" onClose={vi.fn()} footer={null} />,
+  );
+  const neutral = screen.getByRole("dialog");
+  expect(neutral.getAttribute("data-tone")).toBeNull();
+  expect(neutral.className).not.toContain("warning-surface");
+  view.rerender(
+    <Modal
+      title="Dangerous action"
+      tone="warning"
+      onClose={vi.fn()}
+      footer={null}
+    />,
+  );
+  const warning = screen.getByRole("dialog");
+  expect(warning.getAttribute("data-tone")).toBe("warning");
+  expect(warning.className).toContain("warning-surface");
+});

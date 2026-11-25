@@ -481,3 +481,22 @@ it("keeps a feature result through failed read recovery with a primary confirmat
   expect(commit).toHaveBeenCalledOnce();
   expect(refresh).toHaveBeenCalledTimes(2);
 });
+
+it("wraps destructive reviews in the amber warning surface while keeping primary reviews neutral", () => {
+  const view = show();
+  open();
+  const destructive = screen.getByRole("dialog");
+  expect(destructive.getAttribute("data-tone")).toBe("warning");
+  expect(destructive.className).toContain("warning-surface");
+  view.unmount();
+
+  render(
+    <NextIntlClientProvider locale="en" timeZone="UTC" messages={en}>
+      <Example primary />
+    </NextIntlClientProvider>,
+  );
+  open();
+  const primaryDialog = screen.getByRole("dialog");
+  expect(primaryDialog.getAttribute("data-tone")).toBeNull();
+  expect(primaryDialog.className).not.toContain("warning-surface");
+});

@@ -610,7 +610,11 @@ export function HistoricalAcademicCorrections({
         />
       )}
       {clearOpen && (
-        <ProfileDialog title={t("clear")} onClose={() => setClearOpen(false)}>
+        <ProfileDialog
+          title={t("clear")}
+          tone="warning"
+          onClose={() => setClearOpen(false)}
+        >
           <p>{t("clearConfirm")}</p>
           <div className="mt-4 flex flex-wrap gap-3">
             <button
@@ -638,6 +642,7 @@ export function HistoricalAcademicCorrections({
         <ProfileDialog
           title={t("reviewTitle")}
           size="wide"
+          tone="warning"
           pending={save.isPending || applying}
           onClose={closeReview}
         >

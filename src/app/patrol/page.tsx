@@ -348,7 +348,10 @@ export default function PatrolPage() {
           </button>
         </div>
       ) : showOptOut ? (
-        <div className="space-y-3 rounded-xl border border-slate-200 bg-white p-4">
+        <div
+          data-tone="warning"
+          className="warning-surface space-y-3 rounded-xl border bg-white p-4"
+        >
           <label
             className="block text-sm font-medium text-slate-700"
             htmlFor={`${fieldId}-reason`}

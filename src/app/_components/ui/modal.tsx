@@ -131,6 +131,7 @@ export function NativeDialog({
   labelledBy,
   describedBy,
   className,
+  tone = "default",
   closeOnBackdrop = false,
   returnFocusFallback,
 }: {
@@ -140,6 +141,7 @@ export function NativeDialog({
   labelledBy: string;
   describedBy?: string;
   className: string;
+  tone?: "default" | "warning";
   closeOnBackdrop?: boolean;
   /** The owner supplies a current logical target after opener/parent recovery. */
   returnFocusFallback?: () => HTMLElement | null;
@@ -218,6 +220,7 @@ export function NativeDialog({
       <dialog
         ref={ref}
         tabIndex={-1}
+        data-tone={tone === "warning" ? "warning" : undefined}
         data-identity-checking={checkingIdentity ? "" : undefined}
         inert={checkingIdentity}
         aria-hidden={checkingIdentity || undefined}
@@ -274,6 +277,7 @@ export function Modal({
   onClose,
   busy = false,
   wide = false,
+  tone = "default",
   returnFocusFallback,
 }: {
   title: string;
@@ -283,18 +287,21 @@ export function Modal({
   onClose: () => void;
   busy?: boolean;
   wide?: boolean;
+  tone?: "default" | "warning";
   returnFocusFallback?: () => HTMLElement | null;
 }) {
   const titleId = useId();
   const descriptionId = useId();
+  const warning = tone === "warning";
   return (
     <NativeDialog
       labelledBy={titleId}
       describedBy={description ? descriptionId : undefined}
       busy={busy}
+      tone={tone}
       onClose={onClose}
       returnFocusFallback={returnFocusFallback}
-      className={`card fixed inset-0 m-auto max-h-[90dvh] w-[calc(100%_-_2rem)] overflow-y-auto p-5 shadow-xl backdrop:bg-slate-900/50 ${wide ? "max-w-2xl" : "max-w-md"}`}
+      className={`card fixed inset-0 m-auto max-h-[90dvh] w-[calc(100%_-_2rem)] overflow-y-auto p-5 backdrop:bg-slate-900/50 ${warning ? "warning-surface" : "shadow-xl"} ${wide ? "max-w-2xl" : "max-w-md"}`}
     >
       {(effectiveBusy) => (
         <>
