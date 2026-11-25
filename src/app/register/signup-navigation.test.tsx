@@ -75,6 +75,20 @@ vi.mock("../viewer-signup/viewer-signup-flow", () => ({
 vi.mock("../signin/sign-in-form", () => ({
   SignInForm: () => <div>Sign-in form</div>,
 }));
+vi.mock("~/app/_components/signed-in-workspace-header", () => ({
+  getSignedInWorkspaceHeader: async ({
+    title,
+    session,
+  }: {
+    title: string;
+    session?: { user?: { id?: string } } | null;
+  }) =>
+    session?.user ? (
+      <header data-header="workspace" data-title={title}>
+        Workspace header
+      </header>
+    ) : null,
+}));
 
 import RegisterPage from "../register-account/page";
 import StudentAccountPage from "../tutee-signup/account/page";
@@ -262,6 +276,24 @@ it("omits closed viewer registration without hiding member or tutee routes", asy
     cleanup();
   }
   await expect(ViewerSignupPage()).rejects.toThrow("redirect:/");
+});
+
+it("renders WorkspaceHeader and hides guest sign-in links when signed in via Add access", async () => {
+  state.signedIn = true;
+  render(await RegisterPage());
+  expect(document.querySelector('[data-header="workspace"]')).toBeTruthy();
+  expect(
+    screen.queryByRole("link", { name: en.auth.register.backToSignIn }),
+  ).toBeNull();
+  expect(
+    screen.queryByRole("link", { name: en.auth.signupRoutes.viewerLink }),
+  ).toBeNull();
+  cleanup();
+  render(await ViewerSignupPage());
+  expect(document.querySelector('[data-header="workspace"]')).toBeTruthy();
+  expect(
+    screen.queryByRole("link", { name: en.public.viewerSignup.signIn }),
+  ).toBeNull();
 });
 
 it("provides signup navigation copy in every bundled language", () => {

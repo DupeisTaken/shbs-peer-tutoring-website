@@ -154,6 +154,12 @@ it("keeps Account Settings and Tutor Settings distinctly labeled in UserAvatar w
     { href: "/my-account", label: "workflows.settings", group: "account" },
     { href: "/settings", label: "account.tutorSettings", group: "account" },
   ]);
+  expect(
+    screen.getByRole("link", { name: "workflows.messages" }).getAttribute("href"),
+  ).toBe("/admin/messages");
+  expect(
+    screen.getByRole("link", { name: "workflows.support" }).getAttribute("href"),
+  ).toBe("/admin/student-support");
 });
 
 it.each(["signedOut", "absent", "suspended", "managementDenied"])(

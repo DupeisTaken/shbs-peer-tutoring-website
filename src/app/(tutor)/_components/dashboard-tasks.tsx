@@ -271,9 +271,12 @@ export function DashboardTasks({
       )}
       <nav aria-label={t("attention")}>
         {membership.data && (
-          <a className="btn-secondary btn-sm" href="/settings">
+          <Link
+            className="btn-secondary btn-sm"
+            href="/settings#tutor-membership"
+          >
             {t("membershipPending")}
-          </a>
+          </Link>
         )}
         <ul className="divide-y divide-slate-100">
           {links.map((entry) => (

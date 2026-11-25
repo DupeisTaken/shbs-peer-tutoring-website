@@ -4,19 +4,30 @@ import { getTranslations } from "next-intl/server";
 import { pageMetadata } from "~/server/branding-metadata";
 import { TutorSignupForm } from "./tutor-signup-form";
 import { PublicFormPage } from "~/app/_components/public-form-page";
+import { getSignedInWorkspaceHeader } from "~/app/_components/signed-in-workspace-header";
+import { auth } from "~/server/auth";
 
 export async function generateMetadata() {
   return pageMetadata("public.tutorSignup.title");
 }
 
 export default async function TutorSignupPage() {
-  const t = await getTranslations();
+  const [t, session] = await Promise.all([getTranslations(), auth()]);
+  const signedIn = Boolean(session?.user);
+  const signedInHeader = signedIn
+    ? await getSignedInWorkspaceHeader({
+        href: "/tutor-signup",
+        title: t("public.tutorSignup.title"),
+        session,
+      })
+    : null;
   return (
     <PublicFormPage
       wide
       title={t("public.tutorSignup.title")}
       description={t("public.tutorSignup.intro")}
       backLabel={t("common.backToMain")}
+      header={signedInHeader ?? undefined}
     >
       <ol
         aria-label={t("public.tutorSignup.journey.title")}
@@ -38,12 +49,14 @@ export default async function TutorSignupPage() {
       </ol>
       <TutorSignupForm />
 
-      <p className="muted mt-6 text-center">
-        {t("public.tutorSignup.alreadyTutor")}{" "}
-        <Link href="/signin" className="link">
-          {t("public.tutorSignup.signIn")}
-        </Link>
-      </p>
+      {!signedIn && (
+        <p className="muted mt-6 text-center">
+          {t("public.tutorSignup.alreadyTutor")}{" "}
+          <Link href="/signin" className="link">
+            {t("public.tutorSignup.signIn")}
+          </Link>
+        </p>
+      )}
     </PublicFormPage>
   );
 }

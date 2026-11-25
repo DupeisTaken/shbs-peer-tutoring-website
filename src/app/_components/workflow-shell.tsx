@@ -53,8 +53,10 @@ export async function WorkflowShell({
   const taskItems = [
     { href: "/my-account", label: t("settings") },
     { href: "/", label: t("home") },
-    { href: "/messages", label: t("messages") },
-    ...(staff ? [{ href: "/student-support", label: t("support") }] : []),
+    { href: staff ? "/admin/messages" : "/messages", label: t("messages") },
+    ...(staff
+      ? [{ href: "/admin/student-support", label: t("support") }]
+      : []),
   ];
   // Messages and Tutee Support are already in SectionLinks; keep the avatar menu focused on account destinations.
   const avatarItems = [

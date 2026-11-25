@@ -41,6 +41,9 @@ vi.mock("~/app/_components/language-switcher", () => ({
   ),
 }));
 vi.mock("./actions", () => ({ switchHistoryAccount: vi.fn() }));
+vi.mock("~/app/_components/signed-in-workspace-header", () => ({
+  getSignedInWorkspaceHeader: async () => null,
+}));
 beforeEach(() => {
   session.signedIn = false;
 });

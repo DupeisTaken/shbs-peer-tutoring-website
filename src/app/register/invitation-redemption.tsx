@@ -16,7 +16,7 @@ import { participantNameLabel } from "~/app/_components/participant-name";
 import { FieldRequirement } from "~/app/_components/field-requirement";
 import { RegistrationProgress } from "~/app/_components/registration-progress";
 import { Button } from "~/app/_components/ui/button";
-import { FormActions } from "~/app/_components/ui/patterns";
+import { FormActions, InlineNotice } from "~/app/_components/ui/patterns";
 import { SignupError } from "~/app/_components/signup-error";
 import { AcademicError } from "~/app/_components/academic-error";
 import {
@@ -156,6 +156,30 @@ export function InvitationRedemption(props: InvitationRedemptionProps) {
   return <InvitationRedemptionFlow key={props.invitationId} {...props} />;
 }
 
+/** Route each completed invitation straight to its authorized workspace instead of
+ * bouncing non-tutors through /dashboard -> / -> destination. */
+export function invitationDestination(
+  kind: string | undefined,
+  invitationId: string,
+): string {
+  switch (kind) {
+    case "HISTORY":
+      return `/history/claim?invitation=${invitationId}`;
+    case "VIEWER":
+    case "ADMIN":
+    case "COORDINATOR":
+      return "/admin";
+    case "CREW":
+      return "/patrol";
+    case "TUTEE":
+      return "/student";
+    case "TUTOR":
+      return "/dashboard";
+    default:
+      return "/";
+  }
+}
+
 function InvitationRedemptionFlow({
   invitationId,
   signedIn = false,
@@ -181,6 +205,7 @@ function InvitationRedemptionFlow({
   const [seeded, setSeeded] = useState(false);
   const [loginFailed, setLoginFailed] = useState(false);
   const [completedLogin, setCompletedLogin] = useState(false);
+  const [signingIn, setSigningIn] = useState(false);
   const [sessionPending, startSession] = useTransition();
   const admitted = useRef(false);
   const verifying = useRef(false);
@@ -244,18 +269,25 @@ function InvitationRedemptionFlow({
     setSeeded(true);
   }
   const effectiveProof = proof || (info?.completionProof ?? "");
+  const loginSequence = useRef(0);
   function login(recipientProof: string) {
+    const sequence = ++loginSequence.current;
+    setLoginFailed(false);
+    setSigningIn(true);
     startSession(async () => {
       try {
         const result = await invitationSignIn({
           invitationId,
           proof: recipientProof,
         });
+        if (sequence !== loginSequence.current) return;
         setLoginFailed(!result.signedIn);
         setCompletedLogin(Boolean(result.completedLogin));
         await loadReview(recipientProof);
       } catch {
-        setLoginFailed(true);
+        if (sequence === loginSequence.current) setLoginFailed(true);
+      } finally {
+        if (sequence === loginSequence.current) setSigningIn(false);
       }
     });
   }
@@ -308,11 +340,15 @@ function InvitationRedemptionFlow({
   });
   const saved =
     complete.isSuccess || info?.completed === true || completedLogin;
+  const sessionEstablishing = signingIn || sessionPending;
   const busy =
-    verify.isPending || complete.isPending || sessionPending || reading;
+    verify.isPending || complete.isPending || sessionEstablishing || reading;
   const step = saved ? 2 : info ? 1 : 0;
   const titles = [t("enterCode"), t("reviewTitle"), t("doneTitle")];
+  const completedKind = complete.data?.kind ?? info?.kind;
+  const nextHref = invitationDestination(completedKind, invitationId);
   const signInUrl = `/signin?callbackUrl=${encodeURIComponent(`/register?invitation=${invitationId}`)}`;
+  const postSaveSignInUrl = `/signin?callbackUrl=${encodeURIComponent(nextHref)}`;
   const error = complete.error ?? verify.error ?? reviewError;
   const editableIdentity = Boolean(
     info &&
@@ -344,34 +380,37 @@ function InvitationRedemptionFlow({
           <p>{t("saved")}</p>
           {(complete.data?.academicConfirmationRequired === true ||
             info?.academicConfirmationRequired === true) && (
-            <div className="rounded-lg bg-amber-50 p-3 text-sm" role="status">
+            <InlineNotice tone="warning" announcement="status">
               <AcademicError
                 message="ACADEMIC_CONFIRMATION_REQUIRED"
                 selfService
               />
-            </div>
+            </InlineNotice>
           )}
           <p className="muted text-sm">
-            {t(info?.kind === "HISTORY" ? "historyNext" : "nextHelp")}
+            {t(completedKind === "HISTORY" ? "historyNext" : "nextHelp")}
           </p>
-          {loginFailed && (
-            <p role="alert" className="rounded-lg bg-amber-50 p-3 text-sm">
-              {t("savedLoginFailed")}
-            </p>
+          {!sessionEstablishing && loginFailed && (
+            <InlineNotice tone="warning" announcement="alert">
+              <p>{t("savedLoginFailed")}</p>
+            </InlineNotice>
           )}
-          <Link
-            className="btn-primary"
-            href={
-              loginFailed
-                ? signInUrl
-                : info?.kind === "HISTORY"
-                  ? `/history/claim?invitation=${invitationId}`
-                  : "/dashboard"
-            }
-          >
-            {t(loginFailed ? "signIn" : "continue")}
-          </Link>
-          {info?.kind === "TUTEE" && <SigninAccess />}
+          {sessionEstablishing ? (
+            <Button type="button" variant="primary" disabled>
+              {t("continue")}
+            </Button>
+          ) : (
+            <Link
+              className="btn-primary"
+              prefetch={false}
+              href={loginFailed ? postSaveSignInUrl : nextHref}
+            >
+              {t(loginFailed ? "signIn" : "continue")}
+            </Link>
+          )}
+          {completedKind === "TUTEE" && (
+            <SigninAccess signedIn={!sessionEstablishing && !loginFailed} />
+          )}
         </section>
       ) : info ? (
         <form
@@ -433,23 +472,29 @@ function InvitationRedemptionFlow({
               <InvitationSignupReview request={info.signupRequest} />
             )}
             {info.requiresSignIn && info.existing && !info.needsPassword ? (
-              <div className="space-y-3 rounded-lg bg-amber-50 p-4">
-                <p>{t(info.mfaRequired ? "mfaRequired" : "signInRequired")}</p>
-                <Link className="btn-primary" href={signInUrl}>
-                  {t("signIn")}
-                </Link>
-                {signedIn && (
-                  <Button
-                    type="button"
-                    variant="secondary"
-                    onClick={() =>
-                      startSession(() => switchInvitationAccount(invitationId))
-                    }
-                  >
-                    {t("switchAccount")}
-                  </Button>
-                )}
-              </div>
+              <InlineNotice tone="warning">
+                <div className="space-y-3">
+                  <p>{t(info.mfaRequired ? "mfaRequired" : "signInRequired")}</p>
+                  <div className="flex flex-wrap gap-2">
+                    <Link className="btn-primary" href={signInUrl}>
+                      {t("signIn")}
+                    </Link>
+                    {signedIn && (
+                      <Button
+                        type="button"
+                        variant="secondary"
+                        onClick={() =>
+                          startSession(() =>
+                            switchInvitationAccount(invitationId),
+                          )
+                        }
+                      >
+                        {t("switchAccount")}
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              </InlineNotice>
             ) : (
               <>
                 {editableIdentity && (

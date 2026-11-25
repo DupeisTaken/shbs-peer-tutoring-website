@@ -5,6 +5,7 @@ import {
   PublicFormPage,
   PublicFormRoute,
 } from "~/app/_components/public-form-page";
+import { getSignedInWorkspaceHeader } from "~/app/_components/signed-in-workspace-header";
 import { brandingMetadata } from "~/server/branding-metadata";
 import { RequestAppealForm } from "./request-appeal-form";
 export async function generateMetadata(): Promise<Metadata> {
@@ -22,11 +23,16 @@ export default async function RequestAppealPage({
 }) {
   const [params, t] = await Promise.all([searchParams, getTranslations()]);
   const token = typeof params.token === "string" ? params.token : undefined;
+  const signedInHeader = await getSignedInWorkspaceHeader({
+    href: "/request-appeal",
+    title: t("requestAppeal.title"),
+  });
   return (
     <PublicFormPage
       title={t("requestAppeal.title")}
       description={t("requestAppeal.description")}
       backLabel={t("common.backToMain")}
+      header={signedInHeader ?? undefined}
       footer={
         <PublicFormRoute href="/privacy#contact" label={t("requestAppeal.contact")}>
           {t("requestAppeal.contactHelp")}

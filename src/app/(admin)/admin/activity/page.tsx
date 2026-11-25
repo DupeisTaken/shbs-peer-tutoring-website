@@ -94,7 +94,7 @@ export default function ActivityPage() {
                   label: t("workflows.staffAppeals"),
                   value: activitySummary.data.studentAppeals,
                   tone: "red" as const,
-                  href: "/student-support",
+                  href: "/admin/student-support",
                 },
               ]
             : []),
