@@ -107,6 +107,7 @@ vi.mock("~/trpc/react", async () => {
         requestSplit: write(remote.planningWrite),
         formalizeSplit: write(remote.planningWrite),
         retryNotice: write(remote.planningWrite),
+        refreshSchedule: write(remote.planningWrite),
         rotateCalendar: write(remote.planningWrite),
         revokeCalendar: write(remote.planningWrite),
       },

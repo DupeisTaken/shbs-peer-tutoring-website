@@ -370,6 +370,101 @@ describe("dated recurring room availability", () => {
     expect(db).toBeDefined();
   });
 
+  it("ignores stale ordinary cohorts after an individual pairing joins a group or a group gains a member", async () => {
+    const staleCombinedIndividual = {
+      ...booking("stale-indiv-combined"),
+      id: "cohort-stale-indiv",
+      planId: "plan-stale-indiv",
+      rescheduled: false,
+      participants: [{ id: "p1", scheduleOverride: false }],
+      plan: {
+        kind: "REGULAR",
+        termId: "term",
+        tutorId: "tutor-a",
+        originalDate: "2026-11-02",
+        assignments: [{ pairingId: "indiv-now-grouped" }],
+      },
+    };
+    const staleExpandedGroup = {
+      ...booking("stale-expanded-group"),
+      id: "cohort-stale-group",
+      planId: "plan-stale-group",
+      rescheduled: false,
+      participants: [{ id: "p2", scheduleOverride: false }],
+      plan: {
+        kind: "REGULAR",
+        termId: "term",
+        tutorId: "tutor-b",
+        originalDate: "2026-11-02",
+        assignments: [{ pairingId: "group-p1" }, { pairingId: "group-p2" }],
+      },
+    };
+    const { raw } = fixture({
+      cohorts: [staleCombinedIndividual, staleExpandedGroup],
+    });
+    const extended = Object.assign(raw, {
+      sessionPlanExecution: { findMany: vi.fn().mockResolvedValue([]) },
+      pairing: {
+        findMany: vi
+          .fn()
+          .mockResolvedValueOnce([
+            {
+              id: "indiv-now-grouped",
+              tutorId: "tutor-a",
+              termId: "term",
+              groupId: "group-new",
+              scheduleConfirmed: true,
+              dayOfWeek: 1,
+              startMin: 900,
+              roomId: "stale-indiv-combined",
+              term: { active: true },
+              tutor: { status: "ACTIVE" },
+              tutees: [{ tuteeId: "t1" }],
+            },
+            {
+              id: "group-p1",
+              tutorId: "tutor-b",
+              termId: "term",
+              groupId: "group-expanded",
+              scheduleConfirmed: true,
+              dayOfWeek: 1,
+              startMin: 900,
+              roomId: "stale-expanded-group",
+              term: { active: true },
+              tutor: { status: "ACTIVE" },
+              tutees: [{ tuteeId: "t2" }],
+            },
+            {
+              id: "group-p2",
+              tutorId: "tutor-b",
+              termId: "term",
+              groupId: "group-expanded",
+              scheduleConfirmed: true,
+              dayOfWeek: 1,
+              startMin: 900,
+              roomId: "stale-expanded-group",
+              term: { active: true },
+              tutor: { status: "ACTIVE" },
+              tutees: [{ tuteeId: "t2" }],
+            },
+          ])
+          .mockResolvedValueOnce([
+            { id: "group-p1", groupId: "group-expanded" },
+            { id: "group-p2", groupId: "group-expanded" },
+            { id: "group-p3", groupId: "group-expanded" },
+          ]),
+      },
+    });
+    expect(
+      await datedUnavailableRooms(
+        extended as unknown as TransactionDb,
+        schedule,
+        ["stale-indiv-combined", "stale-expanded-group"],
+        now,
+      ),
+    ).toEqual(new Set());
+  });
+
   it("ignores active-period dated room bookings when validating an inactive historical period", async () => {
     const { db } = fixture({
       term: { active: false, startDate: null, endDate: null } as unknown as {

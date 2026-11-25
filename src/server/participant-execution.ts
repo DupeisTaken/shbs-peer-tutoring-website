@@ -257,7 +257,7 @@ export const executionAssignments = z.array(z.object({ sourcePairingId: z.string
 /** Revalidate the pinned execution projection, including independent later roster
  * edits. A transfer receipt is not a blanket exception to source freshness. */
 export async function transferredPlanIsCurrent(db: DomainDb, plan: {
-  id: string; termId: string; term: { active: boolean };
+  id: string; termId: string; kind?: string; term: { active: boolean };
   assignments: readonly { pairingId: string; subject: string; tuteeIds: unknown }[];
   participants: readonly { id: string; tuteeId: string }[];
   continuationMembers: readonly { pairingId: string; tuteeId: string; releasedAt: Date | null }[];
@@ -282,6 +282,27 @@ export async function transferredPlanIsCurrent(db: DomainDb, plan: {
   await db.$queryRaw`SELECT id FROM "Pairing" WHERE id=ANY(${pairingIds}::text[]) ORDER BY id FOR UPDATE`;
   await db.$queryRaw`SELECT "pairingId","tuteeId" FROM "PairingTutee" WHERE "pairingId"=ANY(${pairingIds}::text[]) ORDER BY "pairingId","tuteeId" FOR SHARE`;
   const targets = await db.pairing.findMany({ where: { id: { in: mappings.map((row) => row.targetPairingId) } }, include: { tutees: { where: { tutee: { status: { not: "INACTIVE" } } }, select: { tuteeId: true } } } });
+  if (!allowEndedTerm && plan.kind !== "EXTRA") {
+    // Live recurring plans must match the current teaching unit: standalone
+    // pairings cannot be grouped, and grouped plans must cover the whole group.
+    if (targets.length !== plan.assignments.length) return false;
+    if (targets.length === 1) {
+      if (targets[0]!.groupId !== null) return false;
+    } else if (targets.length > 1) {
+      const groupId = targets[0]!.groupId;
+      if (!groupId || !targets.every((row) => row.groupId === groupId)) return false;
+      const superseded = await supersededPairingIds(db);
+      const liveGroupMembers = await db.pairing.findMany({
+        where: { id: { notIn: superseded }, groupId },
+        select: { id: true },
+      });
+      if (
+        liveGroupMembers.length !== targets.length ||
+        !liveGroupMembers.every((member) => targets.some((target) => target.id === member.id))
+      )
+        return false;
+    }
+  }
   const requestMappings = await db.studentRequestExecutionAssignment.findMany({ where: { pairingId: { in: pairingIds }, releasedAt: null } });
   const openRequests = await db.studentSurvey.findMany({ where: { id: { in: requestMappings.map((row) => row.surveyId) }, state: "OPEN" }, select: { id: true, tuteeId: true } });
   const activeRequests = requestMappings.filter((row) => openRequests.some((request) => request.id === row.surveyId && request.tuteeId === row.sourceTuteeId));
