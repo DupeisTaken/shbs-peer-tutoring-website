@@ -225,9 +225,13 @@ export function QualificationRequests({
                     className="max-w-full whitespace-normal"
                     disabled={submit.isPending}
                     onClick={() => {
+                      if (submit.isPending) return;
+                      // Cancel draft discards unsaved input and closes the modal,
+                      // whereas Close/Escape preserves the draft for reopen.
                       setSubjectId("");
                       setReason("");
                       submit.reset();
+                      closeRequest();
                     }}
                   >
                     {t("cancelDraft")}
