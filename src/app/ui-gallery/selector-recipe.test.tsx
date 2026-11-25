@@ -63,6 +63,22 @@ describe("SelectorRecipe", () => {
       expect(
         screen.getByText(zh ? "当前选择：帮助中心" : "Selected: Help Center"),
       ).toBeTruthy();
+
+      // MultiFilter opens a floating popover with Include/Exclude mode tabs and removable active chips.
+      fireEvent.click(
+        screen.getByText(zh ? "角色" : "Role", { selector: "summary" }),
+      );
+      const includeAdmin = screen.getByRole<HTMLInputElement>("checkbox", {
+        name: zh ? "包含 管理员" : "Include Admin",
+      });
+      expect(includeAdmin.checked).toBe(false);
+      fireEvent.click(includeAdmin);
+      expect(includeAdmin.checked).toBe(true);
+      expect(
+        screen.getByRole("button", {
+          name: zh ? "移除 角色: 管理员" : "Remove Role: Admin",
+        }),
+      ).toBeTruthy();
     },
   );
 });
