@@ -31,10 +31,10 @@ access on articles, image routes and PDF downloads.
 
 Everyone can download PDF handbooks directly from **Help Center** (`/help#handbooks`)
 for every collection their current session or account is authorized to read
-(visitors can download the public **Get started** handbook). Staff can also open
-**Management → Administration → PDF handbooks** at `/admin/help` to distribute
-participant training editions without having those memberships themselves; the
-Admin and Head editions still require their corresponding authority. Downloads
+(visitors can download the public **Get started** handbook). Staff can download
+participant training editions there (or at `/admin/help`) without having those
+memberships themselves; the Admin and Head editions still require their
+corresponding authority. Downloads
 render on demand using the website's **Geist** typography (with an embedded Noto
 Sans SC subset for Chinese text), stamp the download date and time into both the
 PDF and filename, and are served with `private, no-store` headers.

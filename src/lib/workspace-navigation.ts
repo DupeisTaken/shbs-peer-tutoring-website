@@ -1,4 +1,5 @@
 import { portalAccess } from "~/lib/portal-access";
+import { translationAccess } from "~/lib/translation-access";
 
 export type WorkspaceArea =
   | "management"
@@ -91,7 +92,7 @@ export function resolveWorkspaceNavigation({
   const canCrew =
     crewEnabled &&
     (account.crewStatus === "ACTIVE" || account.role === "CREW");
-  const canTranslate = !!account.canTranslate;
+  const canTranslate = translationAccess(account).enter;
 
   const all: WorkspaceSwitcherItem[] = [
     ...(access.canReadManagement
