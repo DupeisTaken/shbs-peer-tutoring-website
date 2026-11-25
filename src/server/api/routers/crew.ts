@@ -17,7 +17,10 @@ import {
   protectedProcedure,
   publicProcedure,
 } from "~/server/api/trpc";
-import { getActivePeriodOrNull } from "~/server/period";
+import {
+  getActivePeriodOrNull,
+  getActiveSemesterPatrolScope,
+} from "~/server/period";
 import { syncSessionFlag } from "~/server/crew/flags";
 import { assertObservedTimes } from "~/server/crew/observation-time";
 import { eligiblePatrolCredit, lockPatrolCreditOwner, reservePatrolEvidence, PATROL_HOURS } from "~/server/crew/patrol-credit";
@@ -53,21 +56,38 @@ async function crewMail<T>(work: () => Promise<T>) {
  * Gated by `crewProcedure` (any `isCrew` user, incl. tutors who also patrol).
  */
 export const crewRouter = createTRPCRouter({
-  /** Rooms in patrol order + the caller's crew-hour total, for the patrol portal. */
+  /** Rooms in patrol order + the caller's current-semester crew-hour total, for the patrol portal. */
   patrolConfig: crewProcedure.query(async ({ ctx }) => {
-    const [rooms, agg] = await Promise.all([
+    const [rooms, scope] = await Promise.all([
       ctx.db.room.findMany({
         orderBy: [{ patrolOrder: "asc" }, { name: "asc" }],
         select: { id: true, name: true },
       }),
-      ctx.db.patrol.aggregate({
-        where: { crewUserId: { in: await accountHistoryIds(ctx.db, ctx.session.user.id) } },
-        _sum: { hours: true },
-        _count: { _all: true },
-      }),
+      getActiveSemesterPatrolScope(ctx.db),
     ]);
+    if (!scope) {
+      return {
+        rooms,
+        periodLabel: null,
+        schoolYear: null,
+        semester: null,
+        myPatrols: 0,
+        myHours: 0,
+      };
+    }
+    const agg = await ctx.db.patrol.aggregate({
+      where: {
+        crewUserId: { in: await accountHistoryIds(ctx.db, ctx.session.user.id) },
+        termId: { in: scope.termIds },
+      },
+      _sum: { hours: true },
+      _count: { _all: true },
+    });
     return {
       rooms,
+      periodLabel: scope.periodLabel,
+      schoolYear: scope.schoolYear,
+      semester: scope.semester,
       myPatrols: agg._count._all,
       myHours: agg._sum.hours ?? 0,
     };

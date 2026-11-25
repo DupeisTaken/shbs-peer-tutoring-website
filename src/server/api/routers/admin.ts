@@ -236,7 +236,11 @@ import {
   quarterSemester,
   semesterQuarters,
 } from "~/lib/period";
-import { getActivePeriod, getActivePeriodOrNull } from "~/server/period";
+import {
+  getActivePeriod,
+  getActivePeriodOrNull,
+  getActiveSemesterPatrolScope,
+} from "~/server/period";
 import { assertFeatureEnabled, getFeatures } from "~/server/program/features";
 import { applyUndo, recordAudit } from "~/server/audit/log";
 import { expectedUpdatedAt, staleConflict } from "~/server/concurrency";
@@ -4948,6 +4952,7 @@ export const adminRouter = createTRPCRouter({
   /** Crew members (anyone with a crewStatus) + their patrol tally. Crew hours are separate from
    *  tutoring. Crew-only logins (role CREW) can be hard-deleted; tutor-crew are managed via status. */
   crewRoster: viewerProcedure.query(async ({ ctx }) => {
+    const scope = await getActiveSemesterPatrolScope(ctx.db);
     const [users, agg, retired] = await Promise.all([
       ctx.db.user.findMany({
         where: { crewStatus: { not: null }, mergedIntoId: null },
@@ -4963,11 +4968,20 @@ export const adminRouter = createTRPCRouter({
           tutor: { select: { englishName: true } },
         },
       }),
-      ctx.db.patrol.groupBy({
-        by: ["crewUserId"],
-        _sum: { hours: true },
-        _count: { _all: true },
-      }),
+      scope
+        ? ctx.db.patrol.groupBy({
+            by: ["crewUserId"],
+            where: { termId: { in: scope.termIds } },
+            _sum: { hours: true },
+            _count: { _all: true },
+          })
+        : Promise.resolve(
+            [] as {
+              crewUserId: string;
+              _sum: { hours: number | null };
+              _count: { _all: number };
+            }[],
+          ),
       ctx.db.user.findMany({
         where: { mergedIntoId: { not: null } },
         select: { id: true, mergedIntoId: true },
@@ -5027,15 +5041,22 @@ export const adminRouter = createTRPCRouter({
       return { ok: true };
     }),
 
-  /** Headline crew totals for the dashboard + activity: patrols, crew hours, open discrepancy
-   *  flags, active members, and the pending application / opt-out request counts. */
+  /** Headline current-semester crew totals for the dashboard + activity: patrols, crew hours,
+   *  open discrepancy flags, active members, and pending application / opt-out request counts. */
   crewSummary: viewerProcedure.query(async ({ ctx }) => {
+    const scope = await getActiveSemesterPatrolScope(ctx.db);
     const [patrolAgg, flagCount, crewCount, appCount, reqCount] =
       await Promise.all([
-        ctx.db.patrol.aggregate({
-          _sum: { hours: true },
-          _count: { _all: true },
-        }),
+        scope
+          ? ctx.db.patrol.aggregate({
+              where: { termId: { in: scope.termIds } },
+              _sum: { hours: true },
+              _count: { _all: true },
+            })
+          : Promise.resolve({
+              _sum: { hours: 0 },
+              _count: { _all: 0 },
+            }),
         ctx.db.sessionFlag.count({ where: { state: "PENDING" } }),
         ctx.db.user.count({ where: { crewStatus: "ACTIVE" } }),
         ctx.db.crewApplication.count({ where: { status: "PENDING" } }),

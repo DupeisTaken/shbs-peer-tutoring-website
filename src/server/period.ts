@@ -6,7 +6,13 @@
 import { TRPCError } from "@trpc/server";
 
 import type { PrismaClient } from "../../generated/prisma";
-import { type Quarter, type Semester, quarterSemester } from "~/lib/period";
+import {
+  type Quarter,
+  type Semester,
+  quarterSemester,
+  semesterLabel,
+  semesterQuarters,
+} from "~/lib/period";
 
 export interface ActivePeriod {
   termId: string;
@@ -78,5 +84,34 @@ export async function getActivePeriodOrNull(
     tutorSignupPreviewUrl: term.tutorSignupPreviewUrl,
     signupOpensAt: term.signupOpensAt,
     signupPreviewUrl: term.signupPreviewUrl,
+  };
+}
+
+/**
+ * Active semester scope for live crew patrol totals.
+ * Matches how tutor service hours reset across semester boundaries: Q1+Q2 accumulate in S1,
+ * Q3+Q4 accumulate in S2, and crossing into a new semester (or school year) starts fresh at 0
+ * while retaining historical Patrol rows for reports, history, and school-hours accounting.
+ */
+export async function getActiveSemesterPatrolScope(db: TermClient): Promise<{
+  periodLabel: string;
+  schoolYear: string;
+  semester: Semester;
+  termIds: string[];
+} | null> {
+  const active = await getActivePeriodOrNull(db);
+  if (!active) return null;
+  const terms = await db.term.findMany({
+    where: {
+      schoolYear: active.schoolYear,
+      quarter: { in: semesterQuarters(active.semester) },
+    },
+    select: { id: true },
+  });
+  return {
+    periodLabel: semesterLabel(active.schoolYear, active.semester),
+    schoolYear: active.schoolYear,
+    semester: active.semester,
+    termIds: terms.map((term) => term.id),
   };
 }
