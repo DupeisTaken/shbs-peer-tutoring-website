@@ -134,6 +134,37 @@ export async function evaluateOrdinaryCohorts(
   ]);
   const supersededSet = new Set(superseded);
   const pairingById = new Map(pairings.map((row) => [row.id, row]));
+  // For multi-assignment cohorts sharing a group, verify the live group has not
+  // gained additional members since the cohort was published.
+  const multiRowGroupIds = [
+    ...new Set(
+      candidates.flatMap((cohort) => {
+        const mapped = assignmentMaps.get(cohort.id)!;
+        if (mapped.length <= 1) return [];
+        const firstGroupId = pairingById.get(mapped[0]!.livePairingId)?.groupId;
+        return firstGroupId ? [firstGroupId] : [];
+      }),
+    ),
+  ];
+  const groupMemberCounts = new Map<string, Set<string>>();
+  if (multiRowGroupIds.length) {
+    const groupRows = await tx.pairing.findMany({
+      where: {
+        id: { notIn: superseded },
+        groupId: { in: multiRowGroupIds },
+      },
+      select: { id: true, groupId: true },
+    });
+    for (const member of groupRows) {
+      if (!member.groupId) continue;
+      let set = groupMemberCounts.get(member.groupId);
+      if (!set) {
+        set = new Set();
+        groupMemberCounts.set(member.groupId, set);
+      }
+      set.add(member.id);
+    }
+  }
 
   for (const cohort of candidates) {
     const mapped = assignmentMaps.get(cohort.id)!;
@@ -143,10 +174,18 @@ export async function evaluateOrdinaryCohorts(
     const day = calendar.resolve(cohort.date);
     const execution = executionByPlanId.get(cohort.planId);
     const expectedTutorId = execution?.tutorId ?? cohort.plan.tutorId;
-    const sharedGroupId = rows.length > 1 ? rows[0]?.groupId : null;
+    const sharedGroupId = rows.length > 1 ? (rows[0]?.groupId ?? null) : null;
+    const groupingMatches =
+      rows.length === 1
+        ? rows[0]!.groupId === null
+        : sharedGroupId !== null &&
+          rows.every((row) => row.groupId === sharedGroupId) &&
+          groupMemberCounts.get(sharedGroupId)?.size === rows.length &&
+          rows.every((row) => groupMemberCounts.get(sharedGroupId)!.has(row.id));
     const scheduleLive =
       day.isSchoolDay &&
       rows.length === mapped.length &&
+      groupingMatches &&
       rows.every(
         (row) =>
           !supersededSet.has(row.id) &&
@@ -156,9 +195,7 @@ export async function evaluateOrdinaryCohorts(
           row.termId === cohort.plan.termId &&
           (expectedTutorId === undefined || row.tutorId === expectedTutorId) &&
           row.dayOfWeek === day.effectiveTimetableWeekday &&
-          row.startMin === cohort.startMin &&
-          (rows.length <= 1 ||
-            (sharedGroupId !== null && row.groupId === sharedGroupId)),
+          row.startMin === cohort.startMin,
       ) &&
       rows.some((row) => row.tutees.length > 0);
 

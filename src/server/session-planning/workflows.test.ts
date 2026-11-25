@@ -26,8 +26,10 @@ import { plannedWindow, SESSION_REFRESH_BOUNDARY_ERROR, type PlanningTime } from
 import { schoolCalendarRangeDates } from "~/lib/school-calendar";
 import { assertNoPublishedTuteeDeletion } from "./deletion-guards";
 import { sessionCalendarFeed } from "~/server/session-planning-calendar";
+import { readPairingGroups, savePairingGroups } from "~/server/pairing-groups";
 import {
   ensureSessionPlanningWindow,
+  refreshTutorSessionPlanning,
   proposeSession,
   proposeSessionCancellation,
   respondSession,
@@ -4307,4 +4309,287 @@ it("retains pending request source cohorts beyond the displayed week and backlog
   expect(original.date > agenda.windowEnd).toBe(true);
   expect(agenda.requests.some((item) => item.id === request.id)).toBe(true);
   expect(agenda.cohorts.some((item) => item.id === original.id)).toBe(true);
+});
+
+describe("pairing group transitions and tutor scheduling refresh", () => {
+  it("retires future individual sessions when pairings combine and publishes the combined session on the same slot", async () => {
+    const individual = await source();
+    const agreedExtra = await propose("ONE", "EXTRA", "2026-11-05");
+    await respond(agreedExtra.id, one, "ACCEPT");
+    const extraCohort = await db.sessionPlanCohort.findFirstOrThrow({
+      where: { date: "2026-11-05", plan: { kind: "EXTRA" } },
+    });
+    const pending = await propose();
+    const slot = await db.timeSlot.create({
+      data: {
+        id: "combine-mon-slot",
+        label: "Monday 15:00",
+        dayOfWeek: 1,
+        startMin: 900,
+        endMin: 945,
+        active: true,
+      },
+    });
+    const extra = await db.pairing.create({
+      data: {
+        id: "planning-physics",
+        tutorId: tutor.tutorId,
+        termId: "planning-term",
+        subject: "Physics",
+        dayOfWeek: 2,
+        startMin: 900,
+        endMin: 945,
+        scheduleConfirmed: false,
+        roomMode: "NONE",
+        tutees: {
+          create: [{ tuteeId: "planning-one" }, { tuteeId: "planning-two" }],
+        },
+      },
+    });
+
+    const before = await readPairingGroups(db, tutor.tutorId);
+    await savePairingGroups(db, tutor.tutorId, {
+      snapshot: before.snapshot,
+      groups: [{ pairingIds: ["planning-pairing", extra.id], slotId: slot.id }],
+    });
+
+    const agenda = await readSessionAgenda(db, tutor, "tutor", now);
+    expect(
+      (await db.sessionPlanCohort.findUniqueOrThrow({ where: { id: individual.id } }))
+        .status,
+    ).toBe("CANCELLED");
+    expect((await read(pending.id)).status).toBe("STALE");
+    // Already-agreed extra sessions stay valid across recurring group changes.
+    expect(
+      (await db.sessionPlanCohort.findUniqueOrThrow({ where: { id: extraCohort.id } }))
+        .status,
+    ).toBe("SCHEDULED");
+
+    const scheduledOnDate = agenda.cohorts.filter(
+      (cohort) =>
+        cohort.date === "2026-11-02" &&
+        cohort.kind === "REGULAR" &&
+        cohort.status === "SCHEDULED",
+    );
+    expect(scheduledOnDate).toHaveLength(1);
+    expect(scheduledOnDate[0]?.subjects.sort()).toEqual(["Math", "Physics"]);
+    expect(scheduledOnDate[0]?.pairingIds.sort()).toEqual([
+      "planning-pairing",
+      extra.id,
+    ]);
+    expect(scheduledOnDate[0]?.tutees.map((person) => person.id).sort()).toEqual([
+      "planning-one",
+      "planning-two",
+    ]);
+  });
+
+  it("preserves attendance eligibility for already-ended individual sessions after combining pairings", async () => {
+    const mondayCohort = await db.sessionPlanCohort.findFirstOrThrow({
+      where: { date: "2026-10-26", plan: { tutorId: tutor.tutorId } },
+    });
+    const afterMondayEnded = new Date(mondayCohort.endsAt.getTime() + 60_000);
+    vi.setSystemTime(afterMondayEnded);
+    const slot = await db.timeSlot.create({
+      data: {
+        id: "combine-ended-slot",
+        label: "Monday 15:00",
+        dayOfWeek: 1,
+        startMin: 900,
+        endMin: 945,
+        active: true,
+      },
+    });
+    const second = await db.pairing.create({
+      data: {
+        id: "planning-chem",
+        tutorId: tutor.tutorId,
+        termId: "planning-term",
+        subject: "Chemistry",
+        dayOfWeek: 3,
+        startMin: 900,
+        endMin: 945,
+        scheduleConfirmed: false,
+        roomMode: "NONE",
+        tutees: {
+          create: [{ tuteeId: "planning-one" }, { tuteeId: "planning-two" }],
+        },
+      },
+    });
+    const before = await readPairingGroups(db, tutor.tutorId);
+    await savePairingGroups(db, tutor.tutorId, {
+      snapshot: before.snapshot,
+      groups: [{ pairingIds: ["planning-pairing", second.id], slotId: slot.id }],
+    });
+    await ensureSessionPlanningWindow(db, afterMondayEnded);
+
+    // Already-ended session remains SCHEDULED and recordable; next week is combined.
+    expect(
+      (await db.sessionPlanCohort.findUniqueOrThrow({ where: { id: mondayCohort.id } }))
+        .status,
+    ).toBe("SCHEDULED");
+    const attendance = await db.$transaction((tx) =>
+      sessionAttendanceContext(
+        tx,
+        tutor,
+        mondayCohort.id,
+        mondayCohort.version,
+        afterMondayEnded,
+      ),
+    );
+    expect(attendance.pairingIds).toEqual(["planning-pairing"]);
+    const nextWeek = await db.sessionPlanCohort.findMany({
+      where: {
+        date: "2026-11-02",
+        status: "SCHEDULED",
+        plan: { kind: "REGULAR", tutorId: tutor.tutorId },
+      },
+      include: { plan: { include: { assignments: true } } },
+    });
+    expect(nextWeek).toHaveLength(1);
+    expect(nextWeek[0]?.plan.assignments.map((a) => a.pairingId).sort()).toEqual([
+      "planning-chem",
+      "planning-pairing",
+    ]);
+  });
+
+  it("republishes a fresh revision after combine -> split -> reschedule and handles group expansion", async () => {
+    const slot = await db.timeSlot.create({
+      data: {
+        id: "combine-roundtrip-slot",
+        label: "Monday 15:00",
+        dayOfWeek: 1,
+        startMin: 900,
+        endMin: 945,
+        active: true,
+      },
+    });
+    const second = await db.pairing.create({
+      data: {
+        id: "planning-bio",
+        tutorId: tutor.tutorId,
+        termId: "planning-term",
+        subject: "Biology",
+        dayOfWeek: 2,
+        startMin: 900,
+        endMin: 945,
+        scheduleConfirmed: false,
+        roomMode: "NONE",
+        tutees: {
+          create: [{ tuteeId: "planning-one" }, { tuteeId: "planning-two" }],
+        },
+      },
+    });
+    const third = await db.pairing.create({
+      data: {
+        id: "planning-history",
+        tutorId: tutor.tutorId,
+        termId: "planning-term",
+        subject: "History",
+        dayOfWeek: 3,
+        startMin: 900,
+        endMin: 945,
+        scheduleConfirmed: false,
+        roomMode: "NONE",
+        tutees: {
+          create: [{ tuteeId: "planning-one" }, { tuteeId: "planning-two" }],
+        },
+      },
+    });
+
+    // Combine 2 pairings -> publish -> expand to 3 pairings -> publish.
+    const initial = await readPairingGroups(db, tutor.tutorId);
+    const twoGroup = await savePairingGroups(db, tutor.tutorId, {
+      snapshot: initial.snapshot,
+      groups: [{ pairingIds: ["planning-pairing", second.id], slotId: slot.id }],
+    });
+    await ensureSessionPlanningWindow(db, now);
+    const expanded = await savePairingGroups(db, tutor.tutorId, {
+      snapshot: twoGroup.snapshot,
+      groups: [
+        {
+          id: twoGroup.groups[0]!.id,
+          pairingIds: ["planning-pairing", second.id, third.id],
+          slotId: slot.id,
+        },
+      ],
+    });
+    const expandedAgenda = await readSessionAgenda(db, tutor, "tutor", now);
+    const threeSubjects = expandedAgenda.cohorts.filter(
+      (cohort) =>
+        cohort.date === "2026-11-02" &&
+        cohort.kind === "REGULAR" &&
+        cohort.status === "SCHEDULED",
+    );
+    expect(threeSubjects).toHaveLength(1);
+    expect(threeSubjects[0]?.subjects.sort()).toEqual(["Biology", "History", "Math"]);
+
+    // Split back to individual pairings and re-confirm planning-pairing on Monday.
+    await savePairingGroups(db, tutor.tutorId, {
+      snapshot: expanded.snapshot,
+      groups: [],
+    });
+    await db.pairing.update({
+      where: { id: "planning-pairing" },
+      data: { scheduleConfirmed: true, timeSlotId: slot.id, dayOfWeek: 1, startMin: 900, endMin: 945 },
+    });
+    const splitAgenda = await readSessionAgenda(db, tutor, "tutor", now);
+    const solo = splitAgenda.cohorts.filter(
+      (cohort) =>
+        cohort.date === "2026-11-02" &&
+        cohort.kind === "REGULAR" &&
+        cohort.status === "SCHEDULED",
+    );
+    expect(solo).toHaveLength(1);
+    expect(solo[0]?.subjects).toEqual(["Math"]);
+    expect(solo[0]?.pairingIds).toEqual(["planning-pairing"]);
+  });
+
+  it("suppresses ordinary future commitments when unconfirmed while keeping agreed exceptions, then restores when re-confirmed", async () => {
+    const { original } = await returnOneToOrdinaryCohort();
+    await db.pairing.update({
+      where: { id: "planning-pairing" },
+      data: { scheduleConfirmed: false },
+    });
+    await ensureSessionPlanningWindow(db, now);
+    const during = await db.sessionPlanParticipant.findMany({
+      where: { cohortId: original.id },
+    });
+    expect(during.find((p) => p.tuteeId === "planning-one")).toMatchObject({
+      status: "SCHEDULED",
+    });
+    expect(during.find((p) => p.tuteeId === "planning-two")).toMatchObject({
+      status: "CANCELLED",
+      calendarSuppressed: true,
+    });
+    await db.pairing.update({
+      where: { id: "planning-pairing" },
+      data: { scheduleConfirmed: true },
+    });
+    await ensureSessionPlanningWindow(db, now);
+    const restored = await db.sessionPlanParticipant.findMany({
+      where: { cohortId: original.id },
+    });
+    expect(restored.every((p) => p.status === "SCHEDULED")).toBe(true);
+  });
+
+  it("forces reconciliation via refreshTutorSessionPlanning for active tutors and denies unauthorized callers", async () => {
+    const result = await refreshTutorSessionPlanning(db, tutor, now);
+    expect(result).toEqual({
+      refreshedAt: now,
+      windowStart: "2026-10-26",
+      windowEnd: "2026-11-08",
+      preparedThrough: "2026-11-08",
+    });
+    expect(result).not.toHaveProperty("unavailable");
+    await expect(
+      refreshTutorSessionPlanning(db, { id: "planning-one-user", tutorId: null }, now),
+    ).rejects.toMatchObject({ code: "FORBIDDEN" });
+    await db.tutor.update({
+      where: { id: tutor.tutorId },
+      data: { status: "OPTED_OUT" },
+    });
+    await expect(
+      refreshTutorSessionPlanning(db, tutor, now),
+    ).rejects.toMatchObject({ code: "FORBIDDEN" });
+  });
 });
