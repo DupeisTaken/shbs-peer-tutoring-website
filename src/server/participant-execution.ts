@@ -82,6 +82,10 @@ export function activePairingRosterWhere(
  *
  * The Pairing rows stay in the database for attendance, audit and reinstatement
  * history, while freeing their room and tutor slot for future assignments.
+ * Reversible disciplinary/voluntary removals (`finalizeRemoval`) intentionally
+ * skip this helper so card-correction and checkpoint reinstatement preserve the
+ * original schedule, room and group identity; disbanded rows remain hidden from
+ * active rosters via `activePairingRosterWhere`.
  */
 export async function releaseDisbandedPairingReservations(
   tx: TransactionDb,
