@@ -1,5 +1,6 @@
 import { TRPCError } from "@trpc/server";
-import type { DomainDb } from "./transactions";
+import type { Prisma } from "../../generated/prisma";
+import type { DomainDb, TransactionDb } from "./transactions";
 import { z } from "zod";
 import { participantSourceRestrictions } from "./participant-source-restrictions";
 
@@ -39,6 +40,163 @@ export async function supersededPairingIds(db: DomainDb, candidates?: string[]) 
     select: { sourcePairingId: true },
   });
   return rows.map((row) => row.sourcePairingId);
+}
+
+/**
+ * Disbanded pairings (no remaining non-INACTIVE tutees) stay in the database
+ * for attendance, audit and reinstatement evidence, but are hidden from active
+ * pairings views. Members of an active-term saved group remain visible as long
+ * as at least one non-superseded member still has a current tutee so incomplete
+ * groups stay visible for repair or splitting.
+ */
+export function activePairingRosterWhere(
+  superseded: readonly string[],
+): Prisma.PairingWhereInput {
+  const populated: Prisma.PairingWhereInput = {
+    tutees: { some: { tutee: { status: { not: "INACTIVE" } } } },
+  };
+  return {
+    OR: [
+      populated,
+      {
+        group: {
+          pairings: {
+            some: {
+              ...(superseded.length ? { id: { notIn: [...superseded] } } : {}),
+              term: { active: true },
+              ...populated,
+            },
+          },
+        },
+      },
+    ],
+  };
+}
+
+/**
+ * Release schedule and room reservations on active-term pairings that no longer
+ * have any current (non-INACTIVE) tutees. Standalone pairings release immediately;
+ * saved PairingGroup members release together only when every non-superseded
+ * active-term member in the group is empty (preserving partially-empty groups
+ * that still need repair or splitting).
+ *
+ * The Pairing rows stay in the database for attendance, audit and reinstatement
+ * history, while freeing their room and tutor slot for future assignments.
+ */
+export async function releaseDisbandedPairingReservations(
+  tx: TransactionDb,
+  pairingIds: readonly string[],
+): Promise<string[]> {
+  const uniqueIds = [...new Set(pairingIds)].sort();
+  if (!uniqueIds.length) return [];
+  const superseded = await supersededPairingIds(tx);
+  const candidates = await tx.pairing.findMany({
+    where: {
+      id: { in: uniqueIds, notIn: superseded },
+      term: { active: true },
+    },
+    select: {
+      id: true,
+      groupId: true,
+      scheduleConfirmed: true,
+      roomId: true,
+      roomNeedsAssignment: true,
+      roomShortageKey: true,
+      tutees: {
+        where: { tutee: { status: { not: "INACTIVE" } } },
+        select: { tuteeId: true },
+        take: 1,
+      },
+    },
+    orderBy: { id: "asc" },
+  });
+
+  const emptyStandalone: string[] = [];
+  const candidateGroupIds = new Set<string>();
+  for (const row of candidates) {
+    if (row.tutees.length > 0) continue;
+    if (row.groupId) candidateGroupIds.add(row.groupId);
+    else if (
+      row.scheduleConfirmed ||
+      row.roomId !== null ||
+      row.roomNeedsAssignment ||
+      row.roomShortageKey !== null
+    ) {
+      emptyStandalone.push(row.id);
+    }
+  }
+
+  const emptyGroupMembers: string[] = [];
+  const emptyGroupIds: string[] = [];
+  if (candidateGroupIds.size > 0) {
+    const groupMembers = await tx.pairing.findMany({
+      where: {
+        groupId: { in: [...candidateGroupIds].sort() },
+        id: { notIn: superseded },
+        term: { active: true },
+      },
+      select: {
+        id: true,
+        groupId: true,
+        scheduleConfirmed: true,
+        roomId: true,
+        roomNeedsAssignment: true,
+        roomShortageKey: true,
+        tutees: {
+          where: { tutee: { status: { not: "INACTIVE" } } },
+          select: { tuteeId: true },
+          take: 1,
+        },
+      },
+      orderBy: { id: "asc" },
+    });
+    const byGroup = new Map<string, typeof groupMembers>();
+    for (const member of groupMembers) {
+      if (!member.groupId) continue;
+      const list = byGroup.get(member.groupId) ?? [];
+      list.push(member);
+      byGroup.set(member.groupId, list);
+    }
+    for (const [groupId, members] of byGroup) {
+      if (members.every((member) => member.tutees.length === 0)) {
+        emptyGroupIds.push(groupId);
+        for (const member of members) {
+          if (
+            member.groupId !== null ||
+            member.scheduleConfirmed ||
+            member.roomId !== null ||
+            member.roomNeedsAssignment ||
+            member.roomShortageKey !== null
+          ) {
+            emptyGroupMembers.push(member.id);
+          }
+        }
+      }
+    }
+  }
+
+  const toRelease = [...new Set([...emptyStandalone, ...emptyGroupMembers])].sort();
+  if (!toRelease.length && !emptyGroupIds.length) return [];
+
+  if (toRelease.length) {
+    await tx.pairing.updateMany({
+      where: { id: { in: toRelease } },
+      data: {
+        groupId: null,
+        scheduleConfirmed: false,
+        roomId: null,
+        roomNeedsAssignment: false,
+        roomShortageKey: null,
+        roomVersion: { increment: 1 },
+      },
+    });
+  }
+  if (emptyGroupIds.length) {
+    await tx.pairingGroup.deleteMany({
+      where: { id: { in: emptyGroupIds }, pairings: { none: {} } },
+    });
+  }
+  return toRelease;
 }
 
 export async function assertOperationalPairing(db: DomainDb, id: string) {

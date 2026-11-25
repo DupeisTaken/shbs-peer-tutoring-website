@@ -1,6 +1,11 @@
 import { TRPCError } from "@trpc/server";
 import type { StudentSurvey } from "../../generated/prisma";
-import { executionParticipantId, executionSourceIds, supersededPairingIds } from "./participant-execution";
+import {
+  executionParticipantId,
+  executionSourceIds,
+  releaseDisbandedPairingReservations,
+  supersededPairingIds,
+} from "./participant-execution";
 import { lockEntity, type DomainDb, type TransactionDb } from "./transactions";
 import { releaseSessionRequestParticipation } from "./session-planning";
 import { requireStudentSchoolParticipation } from "./school-departure";
@@ -152,6 +157,7 @@ export async function releaseStudentRequestExecution(
     const removed = await tx.pairingTutee.deleteMany({ where: { pairingId: member.pairingId, tuteeId: member.tuteeId } });
     if (removed.count) removedPairingIds.push(member.pairingId);
   }
+  await releaseDisbandedPairingReservations(tx, removedPairingIds);
   if (row.tuteeId && assignments.length)
     await releaseSessionRequestParticipation(tx, { surveyId: row.id, sourceTuteeId: row.tuteeId, assignments }, now);
   const superseded = await supersededPairingIds(tx);

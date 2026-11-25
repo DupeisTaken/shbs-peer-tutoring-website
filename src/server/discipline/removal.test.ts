@@ -89,6 +89,11 @@ function fixture(role: "ADMIN" | "HEAD", overlap = true) {
       $executeRaw: vi.fn().mockResolvedValue(0),
       term: { findFirst: async () => null },
       pairingExecutionSuccessor: { findMany: async () => [] },
+      pairing: {
+        findMany: async () => [],
+        updateMany: async () => ({ count: 0 }),
+      },
+      pairingGroup: { deleteMany: async () => ({ count: 0 }) },
       user: { findMany: managers },
       tutee: {
         findUniqueOrThrow: async () => ({

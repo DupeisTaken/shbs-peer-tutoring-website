@@ -12,6 +12,7 @@ import { isImportedProgramRecord } from "~/server/imported-records";
 import {
   executionParticipantId,
   executionSourceIds,
+  releaseDisbandedPairingReservations,
   supersededPairingIds,
 } from "~/server/participant-execution";
 import {
@@ -57,6 +58,10 @@ async function finalizeRemoval(
   await tx.pairingTutee.deleteMany({
     where: { tuteeId, pairingId: { in: links.map((l) => l.pairingId) } },
   });
+  await releaseDisbandedPairingReservations(
+    tx,
+    links.map((l) => l.pairingId),
+  );
   await tx.tuteeRemovalRequest.update({
     where: { id: requestId },
     data: {
