@@ -73,4 +73,25 @@ describe("HeaderMenu", () => {
     expect(trigger.getAttribute("aria-expanded")).toBe("false");
     expect(document.activeElement).toBe(trigger);
   });
+
+  it("renders an optional item description beneath the menu link label", () => {
+    render(
+      <HeaderMenu
+        label="Menu"
+        items={[
+          {
+            href: "/viewer",
+            label: "Follow the Program",
+            description: "For school faculty, parents, college staff, and guests",
+          },
+        ]}
+      />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Menu" }));
+    const link = screen.getByRole("link", { name: /Follow the Program/ });
+    expect(link.getAttribute("href")).toBe("/viewer");
+    expect(link.textContent).toContain(
+      "For school faculty, parents, college staff, and guests",
+    );
+  });
 });

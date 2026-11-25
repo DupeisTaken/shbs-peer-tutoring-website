@@ -252,6 +252,9 @@ it.each(["en", "zh"])(
         .getByRole("link", { name: copy.auth.signupRoutes.viewerLink })
         .getAttribute("href"),
     ).toBe("/viewer");
+    expect(
+      screen.getByText(copy.auth.signupRoutes.viewerHelp, { exact: false }),
+    ).toBeTruthy();
   },
 );
 
@@ -300,11 +303,32 @@ it("provides signup navigation copy in every bundled language", () => {
   )) {
     const messages = JSON.parse(
       readFileSync(resolve(directory, filename), "utf8"),
-    ) as { auth: { signupRoutes: Record<string, string> } };
+    ) as {
+      auth: { signupRoutes: Record<string, string> };
+      accountInvitation: { requestHelp: string };
+      landing: { viewerSignupHelp: string };
+      public: {
+        viewerSignup: {
+          fields: { affiliationPlaceholder: string };
+        };
+      };
+    };
     for (const key of Object.keys(en.auth.signupRoutes)) {
       expect(messages.auth.signupRoutes[key], `${filename}: ${key}`).toMatch(
         /\S/,
       );
     }
+    expect(
+      messages.accountInvitation.requestHelp,
+      `${filename}: accountInvitation.requestHelp`,
+    ).toMatch(/\S/);
+    expect(
+      messages.public.viewerSignup.fields.affiliationPlaceholder,
+      `${filename}: public.viewerSignup.fields.affiliationPlaceholder`,
+    ).toMatch(/\S/);
+    expect(
+      messages.landing.viewerSignupHelp,
+      `${filename}: landing.viewerSignupHelp`,
+    ).toMatch(/\S/);
   }
 });
