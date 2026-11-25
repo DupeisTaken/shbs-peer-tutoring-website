@@ -248,7 +248,7 @@ optional features, and the single **Authorize Refresh** entrance.
 | Change | Result |
 | --- | --- |
 | Advance the period | Pending and active tutees become inactive and must sign up again; past pairings become history |
-| Cross a semester boundary | Continuing active tutors become pending and must confirm availability or opt out |
+| Cross a semester boundary | Continuing active tutors become pending and must confirm availability or opt out; live tutoring and Crew service-hour totals start fresh for the new semester |
 | Graduate senior tutors | Active tutors with confirmed G12 for the graduating year graduate entering Q4 (quarter mode) or at school-year boundary (semester mode) |
 | Cross a school-year boundary | Reported grades stay unchanged; academic profiles require reconfirmation |
 | Preserve evidence | Attendance, service hours, policy acceptances and audit records remain intact |
