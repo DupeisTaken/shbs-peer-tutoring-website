@@ -3947,8 +3947,8 @@ export const participantArticles: HelpArticle[] = [
       {
         title: t("Read addressed announcements", "阅读发给本人的公告"),
         body: t(
-          "Read the announcement cards above your workspace. Pinned posts stay visible even after an earlier acknowledgement; they have no Dismiss button. Use Dismiss on an ordinary post when offered. Addressed posts use the audience captured at publication; another tutor's notice is not yours to acknowledge.",
-          "阅读本人工作区上方的公告卡片。置顶公告即使曾确认仍会保留，也没有收起按钮。普通公告提供收起按钮时可使用。定向公告使用发布时确定的受众，不能代他人确认。",
+          "Read the announcement cards above your workspace. Pinned posts stay visible even after an earlier acknowledgement; they have no Dismiss button. Use Dismiss on an ordinary post when offered; dismissed posts remain readable under Dismissed Announcements. Addressed posts use the audience captured at publication; another tutor's notice is not yours to acknowledge.",
+          "阅读本人工作区上方的公告卡片。置顶公告即使曾确认仍会保留，也没有收起按钮。普通公告提供收起按钮时可使用，关闭后的公告仍可在已关闭的公告中展开查看。定向公告使用发布时确定的受众，不能代他人确认。",
         ),
         screenshot: "tutor-overview",
         focus: t(

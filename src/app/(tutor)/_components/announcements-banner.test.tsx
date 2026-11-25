@@ -107,7 +107,13 @@ it.each([false, true])(
   },
 );
 
-it("preserves pinned-first query order and hides acknowledged ordinary posts", () => {
+function toggleDisclosure(summaryText: string, open: boolean) {
+  const details = screen.getByText(summaryText).closest("details")!;
+  details.open = open;
+  fireEvent(details, new Event("toggle"));
+}
+
+it("preserves pinned-first query order and collapses acknowledged ordinary posts into a disclosure", () => {
   const ordinary = state.announcements[0]!;
   state.announcements = [
     {
@@ -119,19 +125,59 @@ it("preserves pinned-first query order and hides acknowledged ordinary posts", (
     },
     { ...ordinary, id: "pin-new", title: "Unread pinned", pinned: true },
     ordinary,
-    { ...ordinary, id: "dismissed", title: "Dismissed ordinary", acked: true },
+    {
+      ...ordinary,
+      id: "dismissed-new",
+      title: "Dismissed ordinary newer",
+      body: "Still readable when expanded",
+      createdAt: new Date("2026-10-05T00:00:00Z"),
+      acked: true,
+    },
+    {
+      ...ordinary,
+      id: "dismissed-old",
+      title: "Dismissed ordinary older",
+      body: "Older dismissed note",
+      createdAt: new Date("2026-09-20T00:00:00Z"),
+      acked: true,
+    },
   ];
   const { container } = render(element());
-  const titles = Array.from(container.querySelectorAll(".font-semibold"));
-  expect(titles.map((title) => title.textContent)).toEqual([
+  const visibleTitles = Array.from(
+    container.querySelectorAll("section > div.bg-accent-50 .font-semibold"),
+  );
+  expect(visibleTitles.map((title) => title.textContent)).toEqual([
     expect.stringContaining("Earlier pinned"),
     expect.stringContaining("Unread pinned"),
     expect.stringContaining("Important synthetic notice"),
   ]);
-  expect(screen.queryByText(/Dismissed ordinary/)).toBeNull();
+  // Dismissed posts stay collapsed until opened and do not leak into the active list.
+  const summaryLabel = "Dismissed Announcements (2)";
+  expect(screen.getByText(summaryLabel)).toBeTruthy();
+  expect(screen.queryByText(/Dismissed ordinary newer/)).toBeNull();
   expect(
     screen.getAllByRole("button", { name: messages.common.dismiss }),
   ).toHaveLength(1);
+
+  toggleDisclosure(summaryLabel, true);
+  const dismissedTitles = Array.from(
+    container.querySelectorAll("details p.font-semibold"),
+  );
+  expect(dismissedTitles.map((title) => title.textContent)).toEqual([
+    expect.stringContaining("Dismissed ordinary newer"),
+    expect.stringContaining("Dismissed ordinary older"),
+  ]);
+  expect(screen.getByText("Still readable when expanded")).toBeTruthy();
+  expect(screen.getByText("Oct 5, 2026")).toBeTruthy();
+  expect(screen.getByText("Older dismissed note")).toBeTruthy();
+  // Dismissed announcements do not offer another Dismiss button.
+  expect(
+    screen.getAllByRole("button", { name: messages.common.dismiss }),
+  ).toHaveLength(1);
+
+  toggleDisclosure(summaryLabel, false);
+  expect(screen.queryByText(/Dismissed ordinary newer/)).toBeNull();
+
   fireEvent.click(
     screen.getByRole("button", { name: messages.common.dismiss }),
   );
@@ -140,23 +186,44 @@ it("preserves pinned-first query order and hides acknowledged ordinary posts", (
   });
 });
 
-it("hides an ordinary post after acknowledgement and restores it when pinned", () => {
+it("moves an ordinary post into the collapsed menu after acknowledgement and restores it when pinned", () => {
   const view = render(element());
   expect(
     screen.getByRole("button", { name: messages.common.dismiss }),
   ).toBeTruthy();
+  expect(screen.queryByText(/Dismissed Announcements/)).toBeNull();
+
+  // After acknowledgement, the post moves into the collapsed dismissed menu.
   state.announcements[0]!.acked = true;
   view.rerender(element());
-  expect(view.container.textContent).toBe("");
-  state.announcements[0]!.pinned = true;
-  view.rerender(element());
-  expect(screen.getByText(/Important synthetic notice/)).toBeTruthy();
+  expect(screen.queryByText(/Important synthetic notice/)).toBeNull();
+  expect(screen.getByText("Dismissed Announcements (1)")).toBeTruthy();
   expect(
     screen.queryByRole("button", { name: messages.common.dismiss }),
   ).toBeNull();
+
+  // Expanding reveals the dismissed post in EN and ZH without a Dismiss button.
+  toggleDisclosure("Dismissed Announcements (1)", true);
+  expect(screen.getByText(/📣 Important synthetic notice/)).toBeTruthy();
+  expect(screen.getByText("Read before tutoring")).toBeTruthy();
+  view.rerender(element("zh"));
+  expect(screen.getByText("已关闭的公告（1）")).toBeTruthy();
+  expect(screen.getByText("2026年10月1日")).toBeTruthy();
+
+  // Pinning moves the post back to the prominent area and removes the empty menu.
+  state.announcements[0]!.pinned = true;
+  view.rerender(element());
+  expect(screen.getByText(/Important synthetic notice/)).toBeTruthy();
+  expect(screen.queryByText(/Dismissed Announcements/)).toBeNull();
+  expect(
+    screen.queryByRole("button", { name: messages.common.dismiss }),
+  ).toBeNull();
+
+  // Unpinning returns the acknowledged post to the collapsed menu (collapsed by default).
   state.announcements[0]!.pinned = false;
   view.rerender(element());
-  expect(view.container.textContent).toBe("");
+  expect(screen.getByText("Dismissed Announcements (1)")).toBeTruthy();
+  expect(screen.queryByText(/Important synthetic notice/)).toBeNull();
 });
 
 it("retains cached announcements beside read recovery and shows failed acknowledgements", () => {
@@ -186,6 +253,20 @@ it("retains cached announcements beside read recovery and shows failed acknowled
     }).disabled,
   ).toBe(true);
 });
+it("retains cached dismissed announcements beside read recovery when all posts are dismissed", () => {
+  state.announcements[0]!.acked = true;
+  state.failed = true;
+  render(element());
+  expect(screen.getByRole("alert")).toBeTruthy();
+  expect(screen.getByText("Dismissed Announcements (1)")).toBeTruthy();
+  toggleDisclosure("Dismissed Announcements (1)", true);
+  expect(screen.getByText(/Important synthetic notice/)).toBeTruthy();
+  fireEvent.click(
+    screen.getByRole("button", { name: messages.tutor.tasks.retry }),
+  );
+  expect(state.retry).toHaveBeenCalledOnce();
+});
+
 it("distinguishes empty success from loading or a failed initial read", () => {
   state.empty = true;
   const view = render(element());

@@ -123,6 +123,7 @@ describe("UI recovery and persistent field labels", () => {
     "legacySignupDecline.actorChanged",
     "legacySignupDecline.actorDenied",
     "admin.announcements.messageLabel",
+    "tutor.announcements.dismissedTitle",
     "crew.patrol.statusLabel",
     "crew.patrol.noteLabel",
     "crew.patrol.optOut.reasonLabel",
@@ -143,6 +144,9 @@ describe("UI recovery and persistent field labels", () => {
       expect(message, `${locale}: ${path}`).toMatch(/\S/);
       if (path.startsWith("managementRecovery.")) {
         expect(message, `${locale}: contextual section`).toContain("{section}");
+      }
+      if (path === "tutor.announcements.dismissedTitle") {
+        expect(message, `${locale}: dismissed count`).toContain("{count}");
       }
     }
   });

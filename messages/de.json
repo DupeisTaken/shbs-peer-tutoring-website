@@ -2617,7 +2617,8 @@
     },
     "announcements": {
       "label": "Ankündigungen",
-      "pinned": "angeheftet"
+      "pinned": "angeheftet",
+      "dismissedTitle": "Geschlossene Ankündigungen ({count})"
     },
     "settings": {
       "title": "Kontoeinstellungen",

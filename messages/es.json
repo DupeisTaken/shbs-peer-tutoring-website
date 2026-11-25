@@ -2609,7 +2609,8 @@
     },
     "announcements": {
       "label": "Anuncios",
-      "pinned": "fijado"
+      "pinned": "fijado",
+      "dismissedTitle": "Anuncios descartados ({count})"
     },
     "settings": {
       "title": "Configuración de la cuenta",
