@@ -33,12 +33,23 @@ const state = vi.hoisted(() => ({
   split: vi.fn(),
   formalize: vi.fn(),
   retryNotice: vi.fn(),
+  refreshSchedule: vi.fn(),
   previewLocation: vi.fn(),
+  invalidatePairings: vi.fn(),
+  invalidateGroups: vi.fn(),
+  invalidateSchedule: vi.fn(),
 }));
 vi.mock("~/trpc/react", () => ({
   api: {
     useUtils: () => ({
       sessionPlanning: { previewLocation: { fetch: state.previewLocation } },
+      tutor: {
+        myPairings: { invalidate: state.invalidatePairings },
+        schedule: { invalidate: state.invalidateSchedule },
+      },
+      pairingGroups: {
+        mine: { invalidate: state.invalidateGroups },
+      },
     }),
     sessionPlanning: {
       history: {
@@ -70,6 +81,7 @@ vi.mock("~/trpc/react", () => ({
       requestSplit: { useMutation: () => ({ mutateAsync: state.split }) },
       formalizeSplit: { useMutation: () => ({ mutateAsync: state.formalize }) },
       retryNotice: { useMutation: () => ({ mutateAsync: state.retryNotice }) },
+      refreshSchedule: { useMutation: () => ({ mutateAsync: state.refreshSchedule }) },
     },
   },
 }));
@@ -207,8 +219,12 @@ beforeEach(() => {
     state.split,
     state.formalize,
     state.retryNotice,
+    state.refreshSchedule,
   ])
     fn.mockReset().mockResolvedValue({ id: "saved" });
+  state.invalidatePairings.mockReset().mockResolvedValue(undefined);
+  state.invalidateGroups.mockReset().mockResolvedValue(undefined);
+  state.invalidateSchedule.mockReset().mockResolvedValue(undefined);
   state.refetch.mockReset().mockResolvedValue({ data: state.data });
 });
 afterEach(cleanup);
@@ -1714,4 +1730,98 @@ it("keeps ordinary agenda actions usable when optional pause metadata is absent"
   expect(within(card).getByText(/Remaining Learner/)).toBeTruthy();
   expect(within(card).getByRole("button", { name: messages.record })).toBeTruthy();
   expect(within(card).queryByRole("button", { name: messages.arrangeException })).toBeNull();
+});
+
+it.each([
+  ["en", en],
+  ["zh", zh],
+] as const)(
+  "lets active tutors explicitly refresh scheduling and invalidates related queries (%s)",
+  async (locale, catalog) => {
+    show("tutor", locale);
+    const button = screen.getByRole("button", {
+      name: catalog.sessionPlanning.refreshScheduling,
+    });
+    await act(async () => {
+      fireEvent.click(button);
+    });
+    expect(state.refreshSchedule).toHaveBeenCalledTimes(1);
+    expect(state.refetch).toHaveBeenCalledWith({ throwOnError: true });
+    expect(state.invalidatePairings).toHaveBeenCalledTimes(1);
+    expect(state.invalidateGroups).toHaveBeenCalledTimes(1);
+    expect(state.invalidateSchedule).toHaveBeenCalledTimes(1);
+    expect(screen.getByText(catalog.sessionPlanning.refreshed)).toBeTruthy();
+  },
+);
+
+it("hides refresh scheduling for tutees, preview mode, and inactive tutors", () => {
+  show("tutee");
+  expect(
+    screen.queryByRole("button", { name: messages.refreshScheduling }),
+  ).toBeNull();
+  cleanup();
+
+  state.data!.canTutorWrite = false;
+  show("tutor");
+  expect(
+    screen.queryByRole("button", { name: messages.refreshScheduling }),
+  ).toBeNull();
+  cleanup();
+
+  state.data!.canTutorWrite = true;
+  render(
+    <NextIntlClientProvider locale="en" timeZone="Asia/Shanghai" messages={en}>
+      <SessionAgenda role="tutor" preview />
+    </NextIntlClientProvider>,
+  );
+  expect(
+    screen.queryByRole("button", { name: messages.refreshScheduling }),
+  ).toBeNull();
+});
+
+it("deduplicates same-turn refresh scheduling clicks and separates refresh recovery from write replay", async () => {
+  let resolveRefresh!: () => void;
+  state.refreshSchedule.mockImplementationOnce(
+    () =>
+      new Promise<void>((resolve) => {
+        resolveRefresh = resolve;
+      }),
+  );
+  state.refetch.mockRejectedValueOnce(new Error("Temporary network error"));
+  show("tutor");
+  const button = screen.getByRole("button", {
+    name: messages.refreshScheduling,
+  });
+  await act(async () => {
+    fireEvent.click(button);
+    fireEvent.click(button);
+  });
+  expect(state.refreshSchedule).toHaveBeenCalledTimes(1);
+  await act(async () => {
+    resolveRefresh();
+  });
+  expect(screen.getByText(messages.refreshedRefreshFailed)).toBeTruthy();
+  state.refetch.mockResolvedValueOnce({ data: state.data });
+  await act(async () => {
+    fireEvent.click(screen.getByRole("button", { name: messages.retry }));
+  });
+  expect(state.refreshSchedule).toHaveBeenCalledTimes(1);
+  expect(screen.getByText(messages.refreshed)).toBeTruthy();
+});
+
+it("surfaces server errors when refresh scheduling fails", async () => {
+  state.refreshSchedule.mockRejectedValueOnce(
+    new Error("Only this active tutor can file the formal request."),
+  );
+  show("tutor");
+  await act(async () => {
+    fireEvent.click(
+      screen.getByRole("button", { name: messages.refreshScheduling }),
+    );
+  });
+  expect(state.refreshSchedule).toHaveBeenCalledTimes(1);
+  expect(
+    screen.getByText("Only this active tutor can file the formal request."),
+  ).toBeTruthy();
+  expect(screen.queryByText(messages.refreshed)).toBeNull();
 });

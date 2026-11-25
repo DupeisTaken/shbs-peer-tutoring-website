@@ -41,6 +41,8 @@ import { formatWeekday, minToHm } from "~/lib/time";
 import { isRegularTutoringPaused } from "~/lib/tutoring-policy";
 import { focusVisibleContext } from "./focus-visible-context";
 import { AgendaBadge, AgendaEventCard } from "./agenda-event-card";
+import { invalidateAndReport } from "~/lib/invalidate-refresh";
+import { settleRefreshes } from "~/lib/settle-refreshes";
 
 type Agenda = RouterOutputs["sessionPlanning"]["agenda"];
 export type AgendaCohort = Agenda["cohorts"][number];
@@ -196,9 +198,9 @@ export function SessionAgenda({
     null,
   );
   const [attendanceBusy, setAttendanceBusy] = useState(false);
-  const [receipt, setReceipt] = useState<"saved" | "savedRefreshFailed" | null>(
-    null,
-  );
+  const [receipt, setReceipt] = useState<
+    "saved" | "savedRefreshFailed" | "refreshed" | "refreshedRefreshFailed" | null
+  >(null);
   const [cancellationReceipt, setCancellationReceipt] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [working, setWorking] = useState(false);
@@ -210,6 +212,7 @@ export function SessionAgenda({
   } | null>(null);
   const admission = useRef(false);
   const arrivedHash = useRef<string | null>(null);
+  const utils = api.useUtils();
   const propose = api.sessionPlanning.propose.useMutation();
   const proposeCancellation =
     api.sessionPlanning.proposeCancellation.useMutation();
@@ -218,6 +221,7 @@ export function SessionAgenda({
   const split = api.sessionPlanning.requestSplit.useMutation();
   const formalizeSplit = api.sessionPlanning.formalizeSplit.useMutation();
   const retryNotice = api.sessionPlanning.retryNotice.useMutation();
+  const refreshSchedule = api.sessionPlanning.refreshSchedule.useMutation();
   useEffect(() => {
     const tick = () => setNow(new Date());
     const timer = window.setInterval(tick, 30_000);
@@ -289,7 +293,8 @@ export function SessionAgenda({
     !!agenda.error ||
     !agenda.data ||
     working ||
-    receipt === "savedRefreshFailed";
+    receipt === "savedRefreshFailed" ||
+    receipt === "refreshedRefreshFailed";
   function beginDecision(
     request: PlanningRequest,
     decision: "ACCEPT" | "REJECT" | "SPLIT" | "FORMALIZE_SPLIT",
@@ -325,6 +330,64 @@ export function SessionAgenda({
     } catch {
       setReceipt("savedRefreshFailed");
     } finally {
+      setWorking(false);
+    }
+  }
+  async function refreshScheduleQueries() {
+    setWorking(true);
+    try {
+      await settleRefreshes([
+        () => agenda.refetch({ throwOnError: true }).then(() => undefined),
+        ...(onViewChange && view !== "upcoming" && !historyDenied
+          ? [() => history.refetch({ throwOnError: true }).then(() => undefined)]
+          : []),
+        () =>
+          utils?.tutor?.myPairings
+            ? invalidateAndReport(utils.tutor.myPairings)
+            : Promise.resolve(),
+        () =>
+          utils?.pairingGroups?.mine
+            ? invalidateAndReport(utils.pairingGroups.mine)
+            : Promise.resolve(),
+        () =>
+          utils?.tutor?.schedule
+            ? invalidateAndReport(utils.tutor.schedule)
+            : Promise.resolve(),
+      ]);
+      setReceipt("refreshed");
+    } catch {
+      setReceipt("refreshedRefreshFailed");
+    } finally {
+      setWorking(false);
+    }
+  }
+  async function runScheduleRefresh() {
+    if (
+      admission.current ||
+      blocked ||
+      role !== "tutor" ||
+      !agenda.data?.canTutorWrite
+    )
+      return;
+    admission.current = true;
+    setWorking(true);
+    setError(null);
+    setReceipt(null);
+    setCancellationReceipt(false);
+    try {
+      await refreshSchedule.mutateAsync();
+      setReceipt("refreshed");
+      await refreshScheduleQueries();
+    } catch (failure) {
+      setError(
+        failure instanceof Error
+          ? failure.message === SESSION_REFRESH_BOUNDARY_ERROR
+            ? t("refreshBoundary")
+            : failure.message
+          : t("refreshSchedulingFailed"),
+      );
+    } finally {
+      admission.current = false;
       setWorking(false);
     }
   }
@@ -676,7 +739,18 @@ export function SessionAgenda({
               {t("viewSessions")}
             </a>
           ) : (
-            <SessionCalendarSubscription />
+            <div className="flex flex-wrap items-center gap-2">
+              {role === "tutor" && data.canTutorWrite && (
+                <Button
+                  size="compact"
+                  disabled={blocked || agenda.isFetching}
+                  onClick={() => void runScheduleRefresh()}
+                >
+                  {t("refreshScheduling")}
+                </Button>
+              )}
+              <SessionCalendarSubscription />
+            </div>
           )}
         </div>
         {feedback}
@@ -738,13 +812,23 @@ export function SessionAgenda({
           })}
         {receipt && (
           <InlineNotice
-            tone={receipt === "savedRefreshFailed" ? "warning" : "success"}
+            tone={
+              receipt === "savedRefreshFailed" ||
+              receipt === "refreshedRefreshFailed"
+                ? "warning"
+                : "success"
+            }
             announcement="status"
             action={
-              receipt === "savedRefreshFailed" ? (
+              receipt === "savedRefreshFailed" ||
+              receipt === "refreshedRefreshFailed" ? (
                 <Button
                   disabled={working}
-                  onClick={() => void refreshAccepted()}
+                  onClick={() =>
+                    void (receipt === "refreshedRefreshFailed"
+                      ? refreshScheduleQueries()
+                      : refreshAccepted())
+                  }
                 >
                   {t("retry")}
                 </Button>
