@@ -672,7 +672,7 @@
     "sessionExpired": "Your session expired or could not be verified. Please sign in again.",
     "passwordChangedSignIn": "Votre mot de passe a été modifié. Toutes les sessions ont été déconnectées, y compris celle de ce navigateur. Reconnectez-vous avec votre nouveau mot de passe.",
     "signupRoutes": {
-      "viewerHelp": "Vérifiez votre e-mail pour recevoir une invitation. Les nouveaux comptes obtiennent un accès observateur ; les comptes existants se connectent avec le code reçu par e-mail.",
+      "viewerHelp": "Aperçu en lecture seule pour le corps enseignant, les parents, le personnel universitaire et les invités.",
       "viewerLink": "S’inscrire comme observateur",
       "invitationHelp": "Vous avez une invitation par e-mail ou un code d’autorisation de l’équipe ?",
       "invitationLink": "S’inscrire avec un code d’invitation",
@@ -692,6 +692,7 @@
       "landmark": "Navigation du site",
       "signInAndJoin": "Connexion et inscription"
     },
+    "viewerSignupHelp": "Enseignants, parents et personnel universitaire",
     "tagline": "Programme de tutorat par les pairs",
     "heroTitle": "Apprendre ensemble. Progresser ensemble.",
     "intro": "Introduction provisoire — un court paragraphe sur le programme {appTitle} va ici. Décrivez à qui il s'adresse, dans quelles matières les élèves peuvent obtenir de l'aide, et en quoi les tuteurs pairs font la différence. Remplacez ce texte par la présentation réelle du programme.",
@@ -2907,7 +2908,7 @@
       "fields": {
         "name": "Nom",
         "affiliation": "Votre lien",
-        "affiliationPlaceholder": "ex. Parent d'un élève, enseignant de maths, membre de la communauté",
+        "affiliationPlaceholder": "ex. Enseignant, parent, personnel universitaire, invité",
         "email": "E-mail",
         "code": "Code de vérification par e-mail",
         "password": "Mot de passe",
@@ -6186,7 +6187,7 @@
     "pageTitle": "Invitation de compte",
     "pageHelp": "Saisissez votre invitation reçue par email ou demandez-en une avec une clé fournie par l’équipe.",
     "requestTitle": "Demander une invitation de compte",
-    "requestHelp": "Vérifiez votre adresse e-mail pour recevoir un code d’invitation distinct. Un nouveau compte obtient un accès Viewer en lecture seule. Pour un compte existant, le code reçu par e-mail vous connecte sans modifier le mot de passe, l’identité ou les participations. Toute vérification supplémentaire activée reste requise.",
+    "requestHelp": "Aperçu en lecture seule pour le corps enseignant, les parents, le personnel universitaire et les invités. Vérifiez votre e-mail pour continuer.",
     "receiptTitle": "Your invitation is ready",
     "receiptHelp": "Keep this code to continue with your account. Your email is verified.",
     "showCode": "Show invitation code",
