@@ -151,7 +151,7 @@ const openRequestDialog = () => {
 const filter = (name: string, count: number) =>
   screen.getByRole("button", { name: `${name} ${count}` });
 
-it("keeps the Request/Cancel context size while Cancel clears only the local draft and close/reopen retains it", () => {
+it("keeps the Request/Cancel context size while Cancel clears the local draft and closes the dialog, and close/reopen retains it", () => {
   show();
   const opener = screen.getByRole("button", { name: "Request qualification" });
   opener.focus();
@@ -193,23 +193,33 @@ it("keeps the Request/Cancel context size while Cancel clears only the local dra
   fireEvent.click(
     within(reopened).getByRole("button", { name: "Cancel draft" }),
   );
+  expect(screen.queryByRole("dialog")).toBeNull();
+  expect(document.activeElement).toBe(opener);
+  expect(mocks.submit).not.toHaveBeenCalled();
+  expect(mocks.resetSubmit).toHaveBeenCalledOnce();
+  expect(screen.getByText("Science")).toBeTruthy();
+
+  const afterCancel = openRequestDialog();
   expect(
-    within(reopened).getByLabelText<HTMLSelectElement>("Subject and level")
+    within(afterCancel).getByLabelText<HTMLSelectElement>("Subject and level")
       .value,
   ).toBe("");
   expect(
-    within(reopened).getByLabelText<HTMLTextAreaElement>(
+    within(afterCancel).getByLabelText<HTMLTextAreaElement>(
       "Explain your qualifications",
     ).value,
   ).toBe("");
   expect(
-    within(reopened).getByRole<HTMLButtonElement>("button", {
+    within(afterCancel).getByRole<HTMLButtonElement>("button", {
       name: "Request qualification",
     }).disabled,
   ).toBe(true);
-  expect(mocks.submit).not.toHaveBeenCalled();
-  expect(mocks.resetSubmit).toHaveBeenCalledOnce();
-  expect(screen.getByText("Science")).toBeTruthy();
+
+  fireEvent.click(
+    within(afterCancel).getByRole("button", { name: "Cancel draft" }),
+  );
+  expect(screen.queryByRole("dialog")).toBeNull();
+  expect(document.activeElement).toBe(opener);
 });
 
 it("blocks dialog dismissal while a qualification request submission is pending", () => {
@@ -229,6 +239,11 @@ it("blocks dialog dismissal while a qualification request submission is pending"
   expect(
     within(dialog).getByRole<HTMLButtonElement>("button", { name: "Close" })
       .disabled,
+  ).toBe(true);
+  expect(
+    within(dialog).getByRole<HTMLButtonElement>("button", {
+      name: "Cancel draft",
+    }).disabled,
   ).toBe(true);
   fireEvent.keyDown(dialog, { key: "Escape" });
   fireEvent(dialog, new Event("cancel", { cancelable: true }));
