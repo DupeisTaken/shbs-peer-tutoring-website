@@ -128,7 +128,7 @@ it("provides an explicit schema-only entrance without querying unsupported priva
     "schema metadata only",
   );
   expect(mocks.records).not.toHaveBeenCalled();
-  fireEvent.click(screen.getByText("Field access policy"));
+  fireEvent.click(screen.getByText("Field Access Policy"));
   expect(
     screen.getByText("No approved row policy; not retrieved."),
   ).toBeTruthy();
@@ -159,7 +159,7 @@ it("loads only the selected record's bounded relationships and never claims comp
   fireEvent.click(screen.getByRole("button", { name: /Inspect record: User/ }));
   expect(mocks.dependencies).not.toHaveBeenCalled();
   fireEvent.click(
-    screen.getByRole("button", { name: "Recorded recovery relationships" }),
+    screen.getByRole("button", { name: "Recorded Recovery Relationships" }),
   );
   expect(mocks.dependencies).toHaveBeenCalledWith(
     {
@@ -235,7 +235,7 @@ it.each(["related", "affected", "empty"] as const)(
       }),
     );
     fireEvent.click(
-      screen.getByRole("button", { name: "Recorded recovery relationships" }),
+      screen.getByRole("button", { name: "Recorded Recovery Relationships" }),
     );
     if (referenceKind === "empty") {
       expect(
@@ -281,7 +281,7 @@ it("hides cached evidence and original private fields after a denied relationshi
   });
   fireEvent.click(screen.getByRole("button", { name: /Inspect record: User/ }));
   fireEvent.click(
-    screen.getByRole("button", { name: "Recorded recovery relationships" }),
+    screen.getByRole("button", { name: "Recorded Recovery Relationships" }),
   );
   expect(screen.queryByRole("dialog")).toBeNull();
   expect(screen.queryByText(/Stored name/)).toBeNull();

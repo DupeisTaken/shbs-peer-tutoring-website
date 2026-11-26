@@ -215,15 +215,15 @@ See the [tutee policy draft](../../prisma/policies/tutee-policy.en.md) or [中�
 
 ## Tutors
 
-`/dashboard` and `/schedule` open the same tabbed **Tutor Workspace**, starting on **Schedule** with four local tabs (plus **Interview chair** when chairing):
+`/dashboard` and `/schedule` open the same tabbed **Tutor Workspace**, starting on **Schedule** with four local tabs (plus **Interview Chair** when chairing):
 
 | Tab | What it holds |
 | --- | --- |
-| **Schedule** | **My agenda** (dated tutoring, assigned interviews, personal meetings), **Needs attention** summary, and collapsed **Room Schedule** disclosure |
-| **Interview chair** *(when chairing)* | Chair **Interviews to Conduct** (scheduling times, reviewing panel votes, manual **Refresh**, final decisions, links back to **Schedule** to cast your own vote, and collapsed **Completed interviews**) |
+| **Schedule** | **My Agenda** (dated tutoring, assigned interviews, personal meetings), **Needs Attention** summary, and collapsed **Room Schedule** disclosure |
+| **Interview Chair** *(when chairing)* | Chair **Interviews to Conduct** (scheduling times, reviewing panel votes, manual **Refresh**, final decisions, links back to **Schedule** to cast your own vote, and collapsed **Completed interviews**) |
 | **Pairings** | **My Pairings** recurring assignment cards, schedule setup, tutee **Details**, and **Combine groups** / **Split this group** |
 | **Preferences** | Entrance cards (**Edit availability ↗**, **Edit willingness ↗**, **Request qualification ↗**) opening modal editors that retain drafts across close/reopen |
-| **History & hours** | **Service Hours** period totals and breakdowns, **Crew Hours** (separate if applicable), **Meeting history**, and past records |
+| **History & Hours** | **Service Hours** period totals and breakdowns, **Crew Hours** (separate if applicable), **Meeting History**, and past records |
 
 Pending tutors must confirm whether to participate before tutoring actions appear. Inactive tutors retain read-only records and can still recall a pending student-removal relay.
 
@@ -242,10 +242,10 @@ Pending tutors must confirm whether to participate before tutoring actions appea
   - **Other Time Slots**: non-conflicting slots not selected by everyone.
   - **Unavailable**: disabled slots overlapping another independent teaching block (overrides shared availability; back-to-back slots are allowed).
 
-**Interviews (Schedule tab, Interview chair tab & Tutor Applications):**
+**Interviews (Schedule tab, Interview Chair tab & Tutor Applications):**
 
-- Every assigned panelist—including the chair—casts and updates their own vote from the interview event in **Schedule** (or via **Interviews & history** for unscheduled or past interviews).
-- Chairs manage scheduling, panel-vote review (with a manual **Refresh** button), and final decisions in the separate **Interview chair** tab (expanded by default, earliest/overdue first, with a collapsed **Completed interviews** section and links back to **Schedule** to vote; drafts survive tab switches and refreshes).
+- Every assigned panelist—including the chair—casts and updates their own vote from the interview event in **Schedule** (or via **Interviews & History** for unscheduled or past interviews).
+- Chairs manage scheduling, panel-vote review (with a manual **Refresh** button), and final decisions in the separate **Interview Chair** tab (expanded by default, earliest/overdue first, with a collapsed **Completed interviews** section and links back to **Schedule** to vote; drafts survive tab switches and refreshes).
 - Panels require **3–8** active distinct tutors (at least one qualified in a requested subject) and an **Admin** or **Head** chair (Coordinators may vote but cannot chair). Collapsed and expanded application cards display `{accepts} accept · {rejects} reject` once votes exist.
 - Every panelist must vote before a final decision; majority decides, with the chair breaking ties.
 - **Approving an initial application** does not restore tutoring access previously revoked by management—Admin/Head must restore access in **Users & Roles** first. Ordinary archived tutors without a restriction can return normally.
@@ -268,7 +268,7 @@ In **Tutor Applications**, open an initial request (pending or interview stage, 
 
 ### Record a session
 
-1. In **Schedule**, open an ended lesson under **Needs attendance** (yellow **Needs Action**) and click **Record attendance** (requires current tutor-policy acceptance).
+1. In **Schedule**, open an ended lesson under **Needs Attendance** (yellow **Needs Action**) and click **Record attendance** (requires current tutor-policy acceptance).
 2. Confirm actual start/end time (planned lessons are 45 minutes), room or online status, your attendance, each tutee's attendance, comments, absence reasons, ratings, and any requested disciplinary cards.
 3. Read any room-conflict warning (truthful historical reports are allowed and alert management without reserving future rooms).
 4. Submit once and verify the saved receipt. An identical retry will not duplicate credit; ask management for historical corrections with the date, record, and reason.
@@ -277,7 +277,7 @@ Combined pairings count shared time and each distinct student once. Extra and re
 
 ### Plan and reschedule a dated session
 
-**Schedule → My agenda** covers the current and next Monday–Sunday week in the program timezone, keeping ended sessions missing attendance and past open interviews visible until resolved. Left-edge colors indicate status: **yellow** (needs your action), **green** (completed or **Excused for Absence**), **gray** (upcoming, waiting, or **Vote recorded / Awaiting decision**).
+**Schedule → My Agenda** covers the current and next Monday–Sunday week in the program timezone, keeping ended sessions missing attendance and past open interviews visible until resolved. Left-edge colors indicate status: **yellow** (needs your action), **green** (completed or **Excused for Absence**), **gray** (upcoming, waiting, or **Vote recorded / Awaiting decision**).
 
 - Start with **Message to coordinate** to agree informally (messages never modify schedules).
 - Tutees can suggest times; tutors click **Reschedule Session** or **Add Extra Session** (include all tutees or one tutee), choose **In person — room assigned automatically** or **Online**, and review the assigned room before sending. Planned duration stays 45 minutes.
@@ -311,7 +311,7 @@ Every pairing renders as a bordered card in **Pairings**. Active tutors can comb
 ### Conflicts, meetings and interviews
 
 - **Schedule conflict:** submit a reasoned rejection from the tutee's **Details** card; the assignment continues until staff approve.
-- **Tutor meetings:** submit or cancel your own meeting excuse at least **45 minutes** before start; excuse/cancel controls hide automatically after the 45-minute cutoff. The first **3** unexcused absences per semester have no automatic deduction; each additional unexcused absence deducts **0.25 hours** (excused absences do not consume the allowance). Past periods appear under **History & hours → Meeting history**; missing attendance means unrecorded, not absent.
+- **Tutor meetings:** submit or cancel your own meeting excuse at least **45 minutes** before start; excuse/cancel controls hide automatically after the 45-minute cutoff. The first **3** unexcused absences per semester have no automatic deduction; each additional unexcused absence deducts **0.25 hours** (excused absences do not consume the allowance). Past periods appear under **History & Hours → Meeting History**; missing attendance means unrecorded, not absent.
 - **Announcements:** addressed announcements appear at the top of your workspace. Pinned notices (`📌`) cannot be dismissed; ordinary notices offer **Dismiss**.
 
 See the [tutor policy draft](../../prisma/policies/tutor-policy.en.md) or [中文辅导伙伴政策草案](../../prisma/policies/tutor-policy.zh.md); follow the school's published version when participating.

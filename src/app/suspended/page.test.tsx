@@ -56,8 +56,19 @@ vi.mock("next-intl/server", () => ({
       ),
 }));
 vi.mock("~/app/_components/public-header", () => ({
-  PublicHeader: ({ navigation }: { navigation: React.ReactNode }) => (
+  PublicHeader: ({
+    href = "/",
+    linkTitle,
+    navigation,
+  }: {
+    href?: string;
+    linkTitle?: string;
+    navigation?: React.ReactNode;
+  }) => (
     <header>
+      <a href={href} title={linkTitle}>
+        Logo
+      </a>
       <select aria-label="Language">
         <option>English</option>
         <option>中文</option>
@@ -86,10 +97,11 @@ it("uses one public heading and in-flow recovery navigation while preserving app
   expect(screen.getAllByRole("heading", { level: 1 })).toHaveLength(1);
   expect(screen.getByRole("combobox", { name: "Language" })).toBeTruthy();
   expect(
-    screen
-      .getByRole("link", { name: en.common.backToMain })
-      .getAttribute("href"),
-  ).toBe("/");
+    screen.queryByRole("link", { name: en.common.backToMain }),
+  ).toBeNull();
+  const logoLink = screen.getByRole("link", { name: "Logo" });
+  expect(logoLink.getAttribute("href")).toBe("/");
+  expect(logoLink.getAttribute("title")).toBe(en.common.backToMain);
   expect(screen.getByRole("textbox")).toBeTruthy();
   expect(screen.getByRole("button", { name: "Sign out" })).toBeTruthy();
 });

@@ -153,7 +153,7 @@ it("filters forbidden articles before serializing catalogue props or audience sh
   ).toBeNull();
   // Visitors can jump to and download only the public PDF handbook, never private ones.
   expect(
-    screen.getByRole("link", { name: "PDF handbooks" }).getAttribute("href"),
+    screen.getByRole("link", { name: "PDF Handbooks" }).getAttribute("href"),
   ).toBe("#handbooks");
   expect(
     screen

@@ -1,4 +1,9 @@
-import { executionAssignments, executionSourceIds, supersededPairingIds } from "~/server/participant-execution";
+import {
+  activePairingRosterWhere,
+  executionAssignments,
+  executionSourceIds,
+  supersededPairingIds,
+} from "~/server/participant-execution";
 import {
   sessionAttendanceContext,
   markSessionCohortRecorded,
@@ -170,8 +175,14 @@ export const tutorRouter = createTRPCRouter({
     ),
   /** The signed-in tutor's *current* pairings (active program period), with tutees/room/term. */
   myPairings: tutorProcedure.query(async ({ ctx }) => {
+    const superseded = await supersededPairingIds(ctx.db);
     return ctx.db.pairing.findMany({
-      where: { id: { notIn: await supersededPairingIds(ctx.db) }, tutorId: ctx.session.tutorId, term: { active: true } },
+      where: {
+        id: { notIn: superseded },
+        tutorId: ctx.session.tutorId,
+        term: { active: true },
+        ...activePairingRosterWhere(superseded),
+      },
       orderBy: [{ dayOfWeek: "asc" }, { startMin: "asc" }],
       include: {
         room: true,
@@ -1618,6 +1629,7 @@ export const tutorRouter = createTRPCRouter({
    * non-sensitive scheduling data (no tutee PII), shown so tutors can see room assignments.
    */
   schedule: tutorProcedure.query(async ({ ctx }) => {
+    const superseded = await supersededPairingIds(ctx.db);
     const [rooms, slots, pairings, blocks] = await Promise.all([
       ctx.db.room.findMany({
         orderBy: [...programRoomOrder],
@@ -1635,7 +1647,12 @@ export const tutorRouter = createTRPCRouter({
         },
       }),
       ctx.db.pairing.findMany({
-        where: { term: { active: true }, scheduleConfirmed: true },
+        where: {
+          id: { notIn: superseded },
+          term: { active: true },
+          scheduleConfirmed: true,
+          ...activePairingRosterWhere(superseded),
+        },
         select: {
           id: true,
           groupId: true,
@@ -1668,9 +1685,7 @@ export const tutorRouter = createTRPCRouter({
         },
       }),
     ]);
-    // Retained predecessors are attendance evidence, not additional occupied slots.
-    const superseded = new Set(await supersededPairingIds(ctx.db, pairings.map((row) => row.id)));
-    return { rooms, slots, pairings: pairings.filter((row) => !superseded.has(row.id)), blocks, myTutorId: ctx.session.tutorId };
+    return { rooms, slots, pairings, blocks, myTutorId: ctx.session.tutorId };
   }),
 
   // --------------------------------------------------------------------------

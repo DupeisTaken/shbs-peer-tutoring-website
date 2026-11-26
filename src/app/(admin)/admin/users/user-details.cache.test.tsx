@@ -192,7 +192,7 @@ it("rechecks membership, suspension, identity and linked archives immediately af
   await screen.findByText("Updated profile");
   expect(remote.load).toHaveBeenCalledTimes(2);
   const memberships = screen.getByRole("region", {
-    name: "Permissions and memberships",
+    name: "Permissions and Memberships",
   });
   expect(within(memberships).queryByText("Admin")).toBeNull();
   expect(within(memberships).queryByText("Tutor")).toBeNull();

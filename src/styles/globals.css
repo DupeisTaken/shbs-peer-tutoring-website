@@ -142,6 +142,11 @@
 }
 
 @layer base {
+  /* Reserve a stable vertical scrollbar gutter so centered headers/logos never shift 7-8px
+     between tall scrolling workspaces (Tutor/Tutee) and pane-scrolled or short routes (Management/Translations). */
+  html {
+    scrollbar-gutter: stable;
+  }
   body {
     @apply bg-slate-50 text-slate-900 antialiased;
   }
@@ -221,7 +226,7 @@
     @apply border-accent-500 bg-accent-50 text-accent-800;
   }
   .section-tab {
-    @apply focus-visible:ring-accent-500 -mb-px border-b-2 border-transparent text-sm font-medium text-slate-600 focus-visible:ring-2 focus-visible:outline-hidden;
+    @apply focus-visible:ring-accent-500 -mb-px border-b-2 border-transparent text-sm font-medium text-slate-600 transition-colors hover:text-slate-900 focus-visible:ring-2 focus-visible:outline-hidden;
   }
   .section-tab[aria-selected="true"],
   .section-tab[aria-current="page"] {
@@ -315,6 +320,22 @@
   /* Shared floating menu/popover card surface (header menus, pickers, notifications). */
   .popover-surface {
     @apply rounded-xl border border-slate-200/90 bg-white shadow-xl shadow-slate-900/10 ring-1 ring-slate-900/5;
+  }
+  /* Semantic amber warning frame (border only, keeping the standard white
+     surface and inner UI unchanged, matching the legacy Program Refresh box). */
+  .warning-surface {
+    @apply border-amber-200;
+  }
+  /* Over darkened modal backdrops, step the frame to a harmonious warm amber
+     with a soft, diffused outer halo ("faze") so the warning edge reads
+     clearly while keeping the dialog interior pure white. */
+  dialog.warning-surface {
+    @apply border-amber-300/90;
+    box-shadow:
+      0 0 0 1px color-mix(in srgb, var(--color-amber-300) 45%, transparent),
+      0 0 18px 2px color-mix(in srgb, var(--color-amber-400) 32%, transparent),
+      0 20px 25px -5px rgb(15 23 42 / 0.2),
+      0 8px 10px -6px rgb(15 23 42 / 0.14);
   }
   .page-title {
     @apply text-2xl font-bold tracking-tight text-slate-900;

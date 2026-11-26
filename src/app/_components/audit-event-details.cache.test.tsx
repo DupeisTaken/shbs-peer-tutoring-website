@@ -187,11 +187,11 @@ it("removes summary and retained expanded evidence together when the real cache 
   open();
   await screen.findByText("Value changes: 1 changed · 0 added · 0 removed");
   const evidenceToggle = screen.getByRole("button", {
-    name: /^Full recorded evidence/,
+    name: /^Full Recorded Evidence/,
   });
   expect(evidenceToggle.getAttribute("aria-expanded")).toBe("false");
   fireEvent.click(evidenceToggle);
-  const raw = screen.getByText("View stored JSON").closest("details")!;
+  const raw = screen.getByText("View Stored JSON").closest("details")!;
   raw.open = true;
   fireEvent(raw, new Event("toggle"));
   expect(raw.querySelector("pre")!.textContent).toContain("Private after");
@@ -202,7 +202,7 @@ it("removes summary and retained expanded evidence together when the real cache 
   });
   await screen.findByText("Event details access denied");
   expect(screen.queryByRole("region", { name: "Recorded Changes" })).toBeNull();
-  expect(screen.queryByText("View stored JSON")).toBeNull();
+  expect(screen.queryByText("View Stored JSON")).toBeNull();
   expect(document.body.textContent).not.toContain("Private before");
   expect(document.body.textContent).not.toContain("Private after");
   expect(client.getQueryData(key())).toBeUndefined();

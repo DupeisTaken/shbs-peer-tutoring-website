@@ -114,6 +114,31 @@ describe("resolveWorkspaceNavigation", () => {
       labels,
     });
     expect(onHome.items.map((i) => i.id)).toEqual(["tutor", "tutee", "help"]);
+    expect(onHelp.items.find((i) => i.id === "home")?.href).toBe("/");
+  });
+
+  it("keeps signup forms out of the workspace switcher selection even when currentArea is null", () => {
+    const res = resolveWorkspaceNavigation({
+      account: {
+        role: "HEAD",
+        crewStatus: "ACTIVE",
+        canTranslate: true,
+        tutor: { status: "ACTIVE" },
+      },
+      crewEnabled: true,
+      currentArea: null,
+      labels,
+    });
+    expect(res.items.map((i) => i.id)).toEqual([
+      "management",
+      "tutor",
+      "tutee",
+      "crew",
+      "translations",
+      "home",
+      "help",
+    ]);
+    expect(res.items.some((i) => i.href.includes("signup"))).toBe(false);
   });
 
   it("gates Crew on the CREW feature flag and hides archived/revoked tutor links", () => {

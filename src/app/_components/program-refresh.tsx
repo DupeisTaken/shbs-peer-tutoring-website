@@ -131,7 +131,11 @@ export function ProgramRefresh(props: Props) {
     );
     if (!props.nextOpenings) return panel;
     return (
-      <section className="card space-y-5 p-5" aria-labelledby={headingId}>
+      <section
+        data-tone="warning"
+        className="card warning-surface space-y-5 p-5"
+        aria-labelledby={headingId}
+      >
         <h2 id={headingId} className="section-title">
           {programT("refreshHeading")}
         </h2>
@@ -380,6 +384,7 @@ export function UnifiedProgramRefreshEditor({
         ? t(cancelling ? "cancelSchedule" : "save")
         : approvals("requestHead"),
       confirmVariant: cancelling ? "danger" : "primary",
+      tone: "warning",
       successMessage: t(cancelling ? "cancelled" : "saved"),
       details: cancelling ? (
         <p>{t("cancelEffect")}</p>
@@ -578,7 +583,8 @@ export function UnifiedProgramRefreshEditor({
 
   return (
     <section
-      className="card space-y-5 p-5"
+      data-tone="warning"
+      className="card warning-surface space-y-5 p-5"
       aria-labelledby={`${id}-title`}
     >
       {/* Unified header: transition + live schedule badge */}

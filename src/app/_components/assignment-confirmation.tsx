@@ -151,6 +151,7 @@ function ConfirmationInstance({
   const { remaining, expired } = clock;
   const pending = busy || submission.admitted;
   const warning = !!result?.mismatches.length;
+  const hasWarning = warning || Boolean(workloadReview?.warning);
   const status = pending
     ? t("working")
     : expired
@@ -163,6 +164,7 @@ function ConfirmationInstance({
   return (
     <Modal
       busy={pending}
+      tone={hasWarning ? "warning" : "default"}
       onClose={onCancel}
       title={
         warning

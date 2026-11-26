@@ -45,6 +45,8 @@ it("shows a request receipt without claiming the eventual change was applied", a
   ).getByRole<HTMLButtonElement>("button", {
     name: messages.tutor.settings.optOutBtn,
   });
+  expect(screen.getByRole("dialog").getAttribute("data-tone")).toBe("warning");
+  expect(screen.getByRole("dialog").className).toContain("warning-surface");
   expect(confirm.disabled).toBe(true);
   expect(confirm.className).toContain("btn-danger");
   act(() => {
@@ -66,7 +68,7 @@ it("conceals revoked example evidence and permits a fresh review after restored 
     </NextIntlClientProvider>,
   );
   const opener = screen.getByRole("button", {
-    name: "Open access revocation example",
+    name: "Open Access Revocation Example",
   });
   opener.focus();
   fireEvent.click(opener);
@@ -82,14 +84,14 @@ it("conceals revoked example evidence and permits a fresh review after restored 
   );
   expect(
     screen.getByRole<HTMLButtonElement>("button", {
-      name: "Open access revocation example",
+      name: "Open Access Revocation Example",
     }).disabled,
   ).toBe(true);
   fireEvent.click(
     screen.getByRole("button", { name: "Restore example access" }),
   );
   fireEvent.click(
-    screen.getByRole("button", { name: "Open access revocation example" }),
+    screen.getByRole("button", { name: "Open Access Revocation Example" }),
   );
   expect(
     within(screen.getByRole("dialog")).getByText(

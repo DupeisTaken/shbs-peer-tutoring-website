@@ -189,7 +189,7 @@ it("retains selected identities through a cached candidate refetch failure", asy
   expect(
     screen.getByLabelText<HTMLSelectElement>("Duplicate login to retire").value,
   ).toBe("retire");
-  expect(screen.getByText("Retained login")).toBeTruthy();
+  expect(screen.getByText("Retained Login")).toBeTruthy();
   expect(fixture.mutate).not.toHaveBeenCalled();
 });
 
@@ -209,7 +209,7 @@ it("offers only displayed real logins and clears a reviewed pair hidden by a fil
     },
   ];
   view.rerender(component());
-  expect(screen.queryByText("Retained login")).toBeNull();
+  expect(screen.queryByText("Retained Login")).toBeNull();
   expect(screen.queryByLabelText("Your account password")).toBeNull();
   const choices = screen.getByLabelText<HTMLSelectElement>(
     "Duplicate login to retire",
@@ -246,7 +246,7 @@ it("discards a delayed preview response after search hides one selected login", 
   await act(async () => {
     finish(response);
   });
-  expect(screen.queryByText("Retained login")).toBeNull();
+  expect(screen.queryByText("Retained Login")).toBeNull();
   expect(screen.queryByLabelText("Your account password")).toBeNull();
   expect(fixture.mutate).not.toHaveBeenCalled();
 });
@@ -287,7 +287,7 @@ async function selectAndPreview() {
     target: { value: "retire" },
   });
   fireEvent.click(screen.getByRole("button", { name: "Preview combine" }));
-  await screen.findByText("Retained login");
+  await screen.findByText("Retained Login");
 }
 it("requires preview, identity acknowledgement and Head password before confirmation", async () => {
   mount();
@@ -318,7 +318,7 @@ it("discards the preview and secret when selection changes", async () => {
   fireEvent.change(screen.getByLabelText("Duplicate login to retire"), {
     target: { value: "" },
   });
-  expect(screen.queryByText("Retained login")).toBeNull();
+  expect(screen.queryByText("Retained Login")).toBeNull();
   expect(screen.queryByLabelText("Your account password")).toBeNull();
   expect(fixture.mutate).not.toHaveBeenCalled();
 });

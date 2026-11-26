@@ -50,9 +50,10 @@ it.each(["en", "zh", "fr", "custom"])(
     expect(within(article).getAllByRole("heading", { level: 2 })).toHaveLength(
       10,
     );
+    expect(screen.queryByRole("link", { name: "backToMain" })).toBeNull();
     expect(
-      screen.getByRole("link", { name: "backToMain" }).getAttribute("href"),
-    ).toBe("/");
+      document.querySelector("header a[href='/']")?.getAttribute("title"),
+    ).toBe("backToMain");
     expect(await generateMetadata()).toMatchObject({
       title: `${policy.title} | Example tutoring`,
     });

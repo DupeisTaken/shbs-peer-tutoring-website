@@ -171,7 +171,7 @@ it.each(["STUDENT", "TUTOR", "CREW"])(
 );
 
 it.each(["HEAD", "ADMIN", "COORDINATOR"])(
-  "preserves management review admission for live %s without Translator",
+  "preserves management review admission for live %s without Translator in the dedicated sidebar-free workspace",
   async (role) => {
     fixture.account.mockResolvedValue({
       role,
@@ -181,11 +181,17 @@ it.each(["HEAD", "ADMIN", "COORDINATOR"])(
     render(await LocalizationLayout({ children: <PrivateEditor /> }));
     expect(screen.getByText("Private destination editor")).toBeTruthy();
     expect(
-      screen.getByRole("navigation", { name: "Management sidebar" }),
-    ).toBeTruthy();
+      screen.queryByRole("navigation", { name: "Management sidebar" }),
+    ).toBeNull();
     expect(
-      screen.getByRole("navigation", { name: "Mobile management navigation" }),
-    ).toBeTruthy();
+      screen.queryByRole("navigation", { name: "Mobile management navigation" }),
+    ).toBeNull();
+    expect(
+      screen.getByRole("link", { name: "workflows.messages" }).getAttribute("href"),
+    ).toBe("/admin/messages");
+    expect(
+      screen.getByRole("link", { name: "workflows.support" }).getAttribute("href"),
+    ).toBe("/admin/student-support");
     expect(fixture.recovery).not.toHaveBeenCalled();
   },
 );

@@ -25,6 +25,8 @@ type ConfirmOpts = {
   cancelLabel: string;
   /** Style the confirm action as destructive (uses .btn-danger). */
   danger?: boolean;
+  /** Wrap the dialog in the semantic amber warning surface (defaults to warning when danger is set). */
+  tone?: "default" | "warning";
   /** An opt-in local reading pause, independent of domain/server cooldowns. */
   confirmDelayMs?: number;
 };
@@ -118,6 +120,7 @@ function DialogView({
     <Modal
       title={state.title}
       description={state.message}
+      tone={state.tone ?? (state.danger ? "warning" : "default")}
       onClose={onCancel}
       footer={
         <>

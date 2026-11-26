@@ -12,21 +12,20 @@ export const metadata = {
 /** This email capability is checked on the server by every read/write. The page
  * never looks up requests by contact email or exposes their submitted answers. */
 export default async function SignupAppealPage() {
-  const [t, survey] = await Promise.all([
-    getTranslations("signupAppeal"),
-    getTranslations("survey"),
-  ]);
+  const t = await getTranslations();
+  const headerTitle = t("components.workspaceTitles.signupForms");
   const signedInHeader = await getSignedInWorkspaceHeader({
-    href: "/tutee",
-    title: t("title"),
+    href: "/",
+    title: headerTitle,
   });
   return (
     <PublicFormPage
-      title={t("title")}
-      description={t("help")}
-      backLabel={survey("back")}
-      backHref="/tutee"
+      headerTitle={headerTitle}
       header={signedInHeader ?? undefined}
+      title={t("signupAppeal.title")}
+      description={t("signupAppeal.help")}
+      backLabel={t("survey.back")}
+      backHref="/tutee"
     >
       <SignupAppeal />
     </PublicFormPage>

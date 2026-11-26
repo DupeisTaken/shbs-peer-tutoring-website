@@ -398,3 +398,17 @@ it.each([false, true])(
     expect(mocks.confirm).not.toHaveBeenCalled();
   },
 );
+
+it("applies the amber warning surface to destructive and assignment dialogs but keeps POLICY neutral", async () => {
+  const view = render(element(false, false, { action: "ASSIGN" }));
+  await flush();
+  const assignDialog = screen.getByRole("dialog");
+  expect(assignDialog.getAttribute("data-tone")).toBe("warning");
+  expect(assignDialog.className).toContain("warning-surface");
+
+  view.rerender(element(false, false, { action: "POLICY" }));
+  await flush();
+  const policyDialog = screen.getByRole("dialog");
+  expect(policyDialog.getAttribute("data-tone")).toBeNull();
+  expect(policyDialog.className).not.toContain("warning-surface");
+});

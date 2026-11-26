@@ -250,6 +250,7 @@ function AccountDeletionReview({
             if (!isAdmitted() && !pending) onClose();
           }}
           wide
+          tone="warning"
           footer={
             <>
               <Button

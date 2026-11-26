@@ -32,6 +32,7 @@ export function CreationRiskDialog({
     <Modal
       title={t(`${kind}.title`)}
       description={t("warning")}
+      tone="warning"
       onClose={cancel}
       footer={
         <>

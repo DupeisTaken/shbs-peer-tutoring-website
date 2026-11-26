@@ -14,20 +14,22 @@ export async function generateMetadata() {
 export default async function TutorSignupPage() {
   const [t, session] = await Promise.all([getTranslations(), auth()]);
   const signedIn = Boolean(session?.user);
+  const headerTitle = t("components.workspaceTitles.signupForms");
   const signedInHeader = signedIn
     ? await getSignedInWorkspaceHeader({
-        href: "/tutor-signup",
-        title: t("public.tutorSignup.title"),
+        href: "/",
+        title: headerTitle,
         session,
       })
     : null;
   return (
     <PublicFormPage
       wide
+      headerTitle={headerTitle}
+      header={signedInHeader ?? undefined}
       title={t("public.tutorSignup.title")}
       description={t("public.tutorSignup.intro")}
       backLabel={t("common.backToMain")}
-      header={signedInHeader ?? undefined}
     >
       <ol
         aria-label={t("public.tutorSignup.journey.title")}

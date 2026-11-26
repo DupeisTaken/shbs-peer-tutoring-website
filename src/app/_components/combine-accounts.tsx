@@ -144,7 +144,11 @@ export function CombineAccounts({
     }
   }
   return (
-    <section className="card overflow-hidden" aria-labelledby="combine-title">
+    <section
+      data-tone="warning"
+      className="card warning-surface overflow-hidden"
+      aria-labelledby="combine-title"
+    >
       <div className="flex flex-wrap items-center justify-between gap-3 p-4">
         <div>
           <h2 id="combine-title" className="font-semibold">

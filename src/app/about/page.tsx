@@ -56,7 +56,6 @@ export default async function AboutPage({
   const signedInHeader = await getSignedInWorkspaceHeader({
     href: "/about",
     title: headerTitle,
-    containerClassName: "mx-auto max-w-5xl",
   });
 
   if (custom) {
@@ -64,6 +63,8 @@ export default async function AboutPage({
       <div className="flex min-h-screen flex-col">
         {signedInHeader ?? (
           <PublicHeader
+            href="/"
+            linkTitle={t("backToMain")}
             sticky={false}
             title={headerTitle}
             skipLabel={t("skipToContent")}
@@ -123,6 +124,8 @@ export default async function AboutPage({
     <div className="flex min-h-screen flex-col">
       {signedInHeader ?? (
         <PublicHeader
+          href="/"
+          linkTitle={t("backToMain")}
           sticky={false}
           title={headerTitle}
           skipLabel={t("skipToContent")}

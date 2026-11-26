@@ -130,6 +130,9 @@ changes per the [UI verification matrix](verification.md#ui-verification-matrix)
 
 Use **tutor** and **tutee** for the two participant roles in English interface copy,
 notifications and documentation (and English fallback text in other catalogs).
+Follow standard English Title Case for all UI titles, headings, tabs, panels,
+navigation items and dialog titles per [Writing UI copy](design.md#writing-ui-copy)
+(for example, **History & Hours**, not **History & hours**).
 Display wording never renames message keys, identifiers or role enums, and repo
 edits do not rewrite stored content or acceptance evidence.
 

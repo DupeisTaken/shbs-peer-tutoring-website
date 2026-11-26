@@ -24,19 +24,21 @@ export default async function ViewerSignupPage() {
 
   const [t, session] = await Promise.all([getTranslations(), auth()]);
   const signedIn = Boolean(session?.user);
+  const headerTitle = t("components.workspaceTitles.signupForms");
   const signedInHeader = signedIn
     ? await getSignedInWorkspaceHeader({
-        href: "/viewer-signup",
-        title: t("accountInvitation.requestTitle"),
+        href: "/",
+        title: headerTitle,
         session,
       })
     : null;
   return (
     <PublicFormPage
+      headerTitle={headerTitle}
+      header={signedInHeader ?? undefined}
       title={t("accountInvitation.requestTitle")}
       description={t("accountInvitation.requestHelp")}
       backLabel={t("common.backToMain")}
-      header={signedInHeader ?? undefined}
       footer={
         <div className="space-y-4">
           <PublicFormRoute

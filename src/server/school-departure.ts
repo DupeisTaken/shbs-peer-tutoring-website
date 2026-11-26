@@ -9,6 +9,7 @@ import { preserveHistoricalAcademics } from "./historical-academic-snapshot";
 import { withRecoveryDeliverySource } from "./recovery/delivery-effects";
 import { requireParticipantSourceParticipation } from "./participant-source-restrictions";
 import { accountHistoryReaderId } from "./account-history";
+import { releaseDisbandedPairingReservations } from "./participant-execution";
 
 /** Shared by intake, restoration and assignment paths, including approval replay. */
 export async function requireSchoolParticipation(db: DomainDb, userId: string) {
@@ -107,11 +108,15 @@ export async function changeSchoolDeparture(
         });
         const links = await tx.pairingTutee.findMany({
           where: { pairing: { tutorId: user.tutorId, term: { active: true } } },
-          select: { tuteeId: true },
+          select: { pairingId: true, tuteeId: true },
         });
         await tx.pairingTutee.deleteMany({
           where: { pairing: { tutorId: user.tutorId, term: { active: true } } },
         });
+        await releaseDisbandedPairingReservations(
+          tx,
+          links.map((l) => l.pairingId),
+        );
         await tx.tutee.updateMany({
           where: { id: { in: links.map((l) => l.tuteeId) }, status: "ACTIVE" },
           data: { status: "PENDING" },
@@ -128,9 +133,17 @@ export async function changeSchoolDeparture(
       }
       const ids = await ownedStudentIds(tx, user.id);
       // Only current-term membership changes. Old pairing rows remain usable as history.
+      const studentLinks = await tx.pairingTutee.findMany({
+        where: { tuteeId: { in: ids }, pairing: { term: { active: true } } },
+        select: { pairingId: true },
+      });
       await tx.pairingTutee.deleteMany({
         where: { tuteeId: { in: ids }, pairing: { term: { active: true } } },
       });
+      await releaseDisbandedPairingReservations(
+        tx,
+        studentLinks.map((l) => l.pairingId),
+      );
       await tx.tutee.updateMany({
         where: { id: { in: ids }, status: { in: ["ACTIVE", "PENDING"] } },
         data: { status: "INACTIVE" },

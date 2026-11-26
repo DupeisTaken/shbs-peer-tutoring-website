@@ -12,7 +12,7 @@ in `Session` and may have a different duration. Implementation:
 **Contents:** [Tutor Schedule workspace](#tutor-schedule-workspace) · [Tutoring pauses and affirmative exceptions](#tutoring-pauses-and-affirmative-exceptions) · [Request profiling and comparison contract](#request-profiling-and-comparison-contract)
 
 Tutors use one workspace at `/dashboard` and the compatible `/schedule` entry.
-Schedule, Pairings, Preferences and History & hours are local panels. Each panel
+Schedule, Pairings, Preferences and History & Hours are local panels. Each panel
 mounts on first access and stays mounted while hidden, retaining independent drafts
 and read recovery. Existing fragments select the owning panel; local links between
 these two routes do not discard live editors. An open native dialog retains focus.

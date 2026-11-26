@@ -2950,6 +2950,9 @@
       "enterTutor": "Tutor-Seite öffnen",
       "enterAdmin": "Admin-Bereich betreten",
       "enterTutee": "Tutee-Seite öffnen",
+      "enterCrew": "Crew-Seite öffnen",
+      "enterOverview": "Programmübersicht öffnen",
+      "enterTranslations": "Übersetzungen öffnen",
       "backToManagement": "Zurück zur Verwaltung",
       "groups": {
         "workspaces": "Arbeitsbereiche",
@@ -2975,7 +2978,8 @@
       "tutee": "Lernende",
       "patrol": "Crew",
       "translations": "Übersetzungen",
-      "programHome": "Startseite"
+      "programHome": "Startseite",
+      "signupForms": "Anmeldeformulare"
     },
     "workspaceSwitcher": {
       "label": "Bereich wechseln",

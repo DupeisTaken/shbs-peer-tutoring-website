@@ -336,8 +336,8 @@ const cases = [
 it("keeps full application/request evidence readable before a decision, including for read-only viewers", () => {
   show(true);
   for (const [kind, name, text] of [
-    ["application", "Synthetic applicant", "Full application evidence."],
-    ["request", "Synthetic requester", "Full request evidence."],
+    ["Application", "Synthetic applicant", "Full application evidence."],
+    ["Request", "Synthetic requester", "Full request evidence."],
   ] as const) {
     fireEvent.click(
       screen.getByRole("button", {

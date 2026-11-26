@@ -2,25 +2,27 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 import { PublicHeader } from "./public-header";
 
-/** Public forms and personal history share one in-flow responsive public header. */
+/** Public forms and personal history share one in-flow responsive public header.
+ * Clicking the PT logo returns to `backHref` (default `/`); no extra banner link is shown. */
 export function PublicPageNavigation({
   backLabel,
   backHref = "/",
   skipLabel,
+  headerTitle,
 }: {
-  backLabel: string;
+  backLabel?: string;
   backHref?: string;
   skipLabel?: string;
+  /** Optional header wordmark beside the PT logo (defaults to configured APP_TITLE). */
+  headerTitle?: string;
 }) {
   return (
     <PublicHeader
+      href={backHref}
+      title={headerTitle}
+      linkTitle={backLabel}
       sticky={false}
       skipLabel={skipLabel}
-      navigation={
-        <Link href={backHref} className="public-form-link text-sm">
-          {backLabel}
-        </Link>
-      }
     />
   );
 }
@@ -32,8 +34,9 @@ export function PublicFormPage({
   description,
   backLabel,
   backHref,
-  skipLabel,
+  headerTitle,
   header,
+  skipLabel,
   children,
   footer,
   notice,
@@ -41,12 +44,14 @@ export function PublicFormPage({
 }: {
   title: string;
   description?: ReactNode;
-  backLabel: string;
-  /** The owning form selects its return route; ordinary public forms return home. */
+  backLabel?: string;
+  /** The owning form selects its return route on the brand logo; ordinary public forms return home. */
   backHref?: string;
-  skipLabel?: string;
+  /** Optional header wordmark beside the PT logo when using the public header. */
+  headerTitle?: string;
   /** Optional signed-in WorkspaceHeader replacement when an authenticated user visits a shared form. */
   header?: ReactNode;
+  skipLabel?: string;
   children: ReactNode;
   footer?: ReactNode;
   notice?: ReactNode;
@@ -58,6 +63,7 @@ export function PublicFormPage({
         <PublicPageNavigation
           backLabel={backLabel}
           backHref={backHref}
+          headerTitle={headerTitle}
           skipLabel={skipLabel}
         />
       )}

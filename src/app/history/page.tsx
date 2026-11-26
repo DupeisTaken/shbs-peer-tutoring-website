@@ -24,7 +24,6 @@ export default async function HistoryPage() {
   const signedInHeader = await getSignedInWorkspaceHeader({
     href: "/history",
     title: t("myHistory"),
-    containerClassName: "mx-auto max-w-5xl",
     session,
   });
   return (

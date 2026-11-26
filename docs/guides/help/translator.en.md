@@ -1,4 +1,4 @@
-# Translate the website
+# Translate the Website
 
 Generated from the website help catalogue. Edit the content records, then run `npm run help:export`.
 
@@ -24,11 +24,11 @@ Open: `/localization`
 
 1. **Choose text type and language** Open Translations and select Interface text or Website text. Choose the target language and exact destination/group. Search interface strings and expand their group before editing; preserve variables and intended meaning.
 
-   Look for: Interface text, Website text, Draft review and language selector
+   Look for: Interface text, Website text, Draft Review and language selector
 
 2. **Submit using the correct control** A changed interface field submits when focus leaves it. Website text uses its explicit submission button. Check each saved/pending/error state before leaving. Open language/destination drafts remain independent during the visit.
 
-3. **Follow Draft review** Use Pending, Published, Rejected or All filters to read review status. Ordinary translators and Coordinator edits create private drafts; only Admin/Head approve/publish or reject. A Coordinator may Request Admin/Head approval, leaving the draft pending.
+3. **Follow Draft Review** Use Pending, Published, Rejected or All filters to read review status. Ordinary translators and Coordinator edits create private drafts; only Admin/Head approve/publish or reject. A Coordinator may Request Admin/Head approval, leaving the draft pending.
 
 4. **Add a language carefully** Use Languages to add a language with English fallback. New languages start hidden until management reviews and enables them. Only the permitted management controls change public visibility, order or deletion; built-in catalogues cannot be deleted.
 

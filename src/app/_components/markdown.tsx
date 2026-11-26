@@ -2,13 +2,23 @@
 
 import ReactMarkdown from "react-markdown";
 import { shortSignupHref } from "~/lib/public-signup-links";
+import {
+  resolveSignedInLink,
+  type SignedInLinkMap,
+} from "~/lib/signed-in-landing-links";
 
 /**
  * Render trusted markdown (the admin-edited policy documents) with the app's typography.
  * Pages own their H1; embedded document titles start at H2.
  * CommonMark only — no raw HTML is rendered, so it's safe even though the source is editable.
  */
-export function Markdown({ children }: { children: string }) {
+export function Markdown({
+  children,
+  signedInLinks,
+}: {
+  children: string;
+  signedInLinks?: SignedInLinkMap;
+}) {
   return (
     <ReactMarkdown
       components={{
@@ -50,15 +60,29 @@ export function Markdown({ children }: { children: string }) {
         ),
         hr: () => <hr className="my-4 border-slate-200" />,
         // Present legacy CMS links consistently without altering stored document evidence.
-        a: ({ node: _n, href, ...p }) => (
-          <a
-            className="link"
-            target="_blank"
-            rel="noopener noreferrer"
-            {...p}
-            href={href ? shortSignupHref(href) : href}
-          />
-        ),
+        a: ({ node: _n, href, children: linkChildren, ...p }) => {
+          const replacement = href
+            ? resolveSignedInLink(href, signedInLinks)
+            : null;
+          if (replacement) {
+            return (
+              <a className="link" {...p} href={replacement.href}>
+                {replacement.label}
+              </a>
+            );
+          }
+          return (
+            <a
+              className="link"
+              target="_blank"
+              rel="noopener noreferrer"
+              {...p}
+              href={href ? shortSignupHref(href) : href}
+            >
+              {linkChildren}
+            </a>
+          );
+        },
         // Inserted images (e.g. uploaded landing-page art at /api/images/<id>). Constrained,
         // rounded, and lazy so a large image never blows out the column.
         img: ({ node: _n, alt, ...p }) => (

@@ -1202,7 +1202,7 @@ it("preserves a pending source action after its card closes and recovers accepte
 
   fireEvent.click(
     within(screen.getByRole("article", { name: "Math" })).getByRole("button", {
-      name: /Request withdrawal/,
+      name: /Request Withdrawal/,
     }),
   );
   const dialog = screen.getByRole("dialog");

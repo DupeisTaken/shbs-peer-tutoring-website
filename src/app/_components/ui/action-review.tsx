@@ -15,6 +15,8 @@ export type ReviewedAction = {
   confirmLabel: string;
   /** Non-destructive reviews may use the primary accent; destructive stays default. */
   confirmVariant?: "primary" | "danger";
+  /** Optional dialog surface tone; destructive reviews default to the amber warning wrap. */
+  tone?: "default" | "warning";
   /** Optional local reading pause; does not replace a server confirmation ticket. */
   confirmDelayMs?: number;
   /** Optional feature-owned summary of a completed write, separate from read recovery. */
@@ -222,11 +224,15 @@ function ActionReview({
     else onClose();
   };
   if (closed) return result;
+  const tone =
+    action.tone ??
+    ((action.confirmVariant ?? "danger") === "danger" ? "warning" : "default");
   return (
     <Modal
       title={action.title}
       description={action.description}
       busy={busy}
+      tone={tone}
       returnFocusFallback={action.returnFocusFallback}
       onClose={() => {
         if (!busy) close();

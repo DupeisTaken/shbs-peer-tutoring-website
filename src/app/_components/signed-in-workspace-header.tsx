@@ -12,73 +12,84 @@ import {
   workspaceSwitcherLabels,
   type WorkspaceArea,
 } from "~/lib/workspace-navigation";
+import {
+  resolveSignedInLandingLinks,
+  signedInLandingLinkLabels,
+  type SignedInLinkMap,
+} from "~/lib/signed-in-landing-links";
 import { UserAvatar } from "./user-avatar";
 import { WorkspaceHeader } from "./workspace-header";
 
+export const SIGNED_IN_HEADER_ACCOUNT_SELECT = {
+  name: true,
+  email: true,
+  username: true,
+  role: true,
+  crewStatus: true,
+  tuteeMember: true,
+  studentId: true,
+  tutorAccessRevoked: true,
+  canTranslate: true,
+  suspendedAt: true,
+  mergedIntoId: true,
+  schoolDeparture: true,
+  tutor: { select: { username: true, status: true } },
+} as const;
+
+export type SignedInHeaderAccount = {
+  name: string | null;
+  email: string;
+  username: string | null;
+  role: string;
+  crewStatus: string | null;
+  tuteeMember: boolean;
+  studentId: string | null;
+  tutorAccessRevoked: boolean;
+  canTranslate: boolean;
+  suspendedAt: Date | null;
+  mergedIntoId: string | null;
+  schoolDeparture: {
+    reason: string | null;
+    observerRevoked: boolean;
+    tutorDerived: boolean;
+  } | null;
+  tutor: { username: string | null; status: string } | null;
+};
+
 /**
- * Resolves the unified signed-in WorkspaceHeader for shared/public routes (invitation
- * entry, personal history, program pages, privacy, signup forms). Returns null for
- * signed-out, suspended, or merged accounts so callers fall back cleanly to PublicHeader.
+ * Pure builder for the unified signed-in `WorkspaceHeader` across Program Home,
+ * signup forms, and shared public routes.
  */
-export async function getSignedInWorkspaceHeader({
+export function renderSignedInWorkspaceHeader({
+  account,
+  crewEnabled,
+  t,
   href,
   title,
   currentArea = null,
-  containerClassName = "mx-auto max-w-5xl",
-  session,
+  containerClassName = "mx-auto w-full max-w-7xl",
 }: {
+  account: SignedInHeaderAccount;
+  crewEnabled: boolean;
+  t: (key: string) => string;
   href: string;
   title: string;
   currentArea?: WorkspaceArea | null;
   containerClassName?: string;
-  /** Optional already-resolved session so callers avoid a second auth() read. */
-  session?: Session | null;
-}): Promise<ReactNode | null> {
-  let activeSession = session;
-  if (activeSession === undefined) {
-    try {
-      activeSession = await auth();
-    } catch {
-      return null;
-    }
-  }
-  if (!activeSession?.user?.id) return null;
-  if (typeof db?.user?.findUnique !== "function") return null;
-
-  const me = await db.user.findUnique({
-    where: { id: activeSession.user.id },
-    select: {
-      name: true,
-      email: true,
-      username: true,
-      role: true,
-      crewStatus: true,
-      tuteeMember: true,
-      studentId: true,
-      tutorAccessRevoked: true,
-      canTranslate: true,
-      suspendedAt: true,
-      mergedIntoId: true,
-      schoolDeparture: true,
-      tutor: { select: { username: true, status: true } },
-    },
-  });
-  if (!me || me.suspendedAt || me.mergedIntoId) return null;
-
-  const [t, features] = await Promise.all([getTranslations(), getFeatures(db)]);
-  const access = portalAccess(me);
-  const staff = ["HEAD", "ADMIN", "COORDINATOR"].includes(me.role);
-  const elevated = staff || me.role === "VIEWER";
+}): ReactNode {
+  const access = portalAccess(account);
+  const staff = ["HEAD", "ADMIN", "COORDINATOR"].includes(account.role);
+  const elevated = staff || account.role === "VIEWER";
   const canTutor =
-    !me.tutorAccessRevoked &&
-    !!me.tutor &&
-    (!elevated || me.tutor.status !== "ARCHIVED");
+    !account.tutorAccessRevoked &&
+    !!account.tutor &&
+    (!elevated || account.tutor.status !== "ARCHIVED");
   const canTutee =
-    me.role !== "VIEWER" && (access.canParticipate || access.departed);
+    account.role !== "VIEWER" && (access.canParticipate || access.departed);
 
   const nav = resolveWorkspaceNavigation({
-    account: me,
-    crewEnabled: features.CREW,
+    account,
+    crewEnabled,
     currentArea,
     labels: workspaceNavLabels(t),
   });
@@ -105,7 +116,7 @@ export async function getSignedInWorkspaceHeader({
             group: "tools" as const,
           },
         ]
-      : me.role === "VIEWER"
+      : account.role === "VIEWER"
         ? [
             {
               href: "/student-support",
@@ -130,8 +141,8 @@ export async function getSignedInWorkspaceHeader({
     },
   ];
 
-  const displayName = me.name ?? me.username ?? me.email;
-  const username = me.username ?? me.tutor?.username;
+  const displayName = account.name ?? account.username ?? account.email;
+  const username = account.username ?? account.tutor?.username;
 
   return (
     <WorkspaceHeader
@@ -145,12 +156,95 @@ export async function getSignedInWorkspaceHeader({
         <UserAvatar
           name={displayName}
           username={username}
-          email={me.email}
-          role={me.role}
+          email={account.email}
+          role={account.role}
           items={accountItems}
           compactAtDesktop
         />
       }
     />
   );
+}
+
+/**
+ * Resolves the unified signed-in WorkspaceHeader for shared/public routes (invitation
+ * entry, personal history, program pages, privacy, signup forms). Returns null for
+ * signed-out, suspended, or merged accounts so callers fall back cleanly to PublicHeader.
+ */
+export async function getSignedInWorkspaceHeader({
+  href,
+  title,
+  currentArea = null,
+  containerClassName = "mx-auto w-full max-w-7xl",
+  session,
+}: {
+  href: string;
+  title: string;
+  currentArea?: WorkspaceArea | null;
+  containerClassName?: string;
+  /** Optional already-resolved session so callers avoid a second auth() read. */
+  session?: Session | null;
+}): Promise<ReactNode | null> {
+  let activeSession = session;
+  if (activeSession === undefined) {
+    try {
+      activeSession = await auth();
+    } catch {
+      return null;
+    }
+  }
+  if (!activeSession?.user?.id) return null;
+  if (typeof db?.user?.findUnique !== "function") return null;
+
+  const me = await db.user.findUnique({
+    where: { id: activeSession.user.id },
+    select: SIGNED_IN_HEADER_ACCOUNT_SELECT,
+  });
+  if (!me || me.suspendedAt || me.mergedIntoId) return null;
+
+  const [t, features] = await Promise.all([getTranslations(), getFeatures(db)]);
+  return renderSignedInWorkspaceHeader({
+    account: me,
+    crewEnabled: features.CREW,
+    t,
+    href,
+    title,
+    currentArea,
+    containerClassName,
+  });
+}
+
+/**
+ * Resolves role-aware public link replacements for the current session on published
+ * public pages (such as `/p/[slug]`). Returns `undefined` for signed-out, suspended,
+ * or merged visitors without querying private account records when signed out.
+ */
+export async function getSignedInLandingLinks({
+  session,
+}: {
+  session?: Session | null;
+} = {}): Promise<SignedInLinkMap | undefined> {
+  let activeSession = session;
+  if (activeSession === undefined) {
+    try {
+      activeSession = await auth();
+    } catch {
+      return undefined;
+    }
+  }
+  if (!activeSession?.user?.id) return undefined;
+  if (typeof db?.user?.findUnique !== "function") return undefined;
+
+  const me = await db.user.findUnique({
+    where: { id: activeSession.user.id },
+    select: SIGNED_IN_HEADER_ACCOUNT_SELECT,
+  });
+  if (!me || me.suspendedAt || me.mergedIntoId) return undefined;
+
+  const [t, features] = await Promise.all([getTranslations(), getFeatures(db)]);
+  return resolveSignedInLandingLinks({
+    account: me,
+    crewEnabled: features.CREW,
+    labels: signedInLandingLinkLabels(t),
+  });
 }
