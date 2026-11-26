@@ -3465,10 +3465,12 @@ function PageCard({
                   confirmLabel: t("common.delete"),
                   commit: () => del.mutateAsync({ id: page.id }),
                   refresh: () =>
-                    settleRefreshes([
-                      () => invalidateAndReport(utils.home.pages),
-                      () => invalidateAndReport(utils.home.aboutMode),
-                    ]),
+                    isAboutAlternative
+                      ? settleRefreshes([
+                          () => invalidateAndReport(utils.home.pages),
+                          () => invalidateAndReport(utils.home.aboutMode),
+                        ])
+                      : invalidateAndReport(utils.home.pages),
                   approvalId: queuedApprovalId,
                 })
               }
