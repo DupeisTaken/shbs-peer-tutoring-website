@@ -142,9 +142,6 @@ vi.mock("~/app/_components/acceptance-records", () => ({
 vi.mock("~/app/_components/patrol-corrections", () => ({
   PatrolCorrections: () => null,
 }));
-vi.mock("~/app/_components/acceptance-records", () => ({
-  AcceptanceRecords: () => null,
-}));
 vi.mock("~/trpc/react", async () => ({
   api: {
     account: { me: { useQuery: () => ({ data: { role: state.callerRole } }) } },

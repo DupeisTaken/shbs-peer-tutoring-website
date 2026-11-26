@@ -57,9 +57,6 @@ vi.mock("~/app/_components/language-switcher", () => ({
 vi.mock("~/app/_components/theme-switcher", () => ({
   ThemeSwitcher: () => null,
 }));
-vi.mock("~/app/_components/signed-in-workspace-header", () => ({
-  getSignedInWorkspaceHeader: async () => null,
-}));
 vi.mock("./register-flow", () => ({
   RegisterFlow: (props: unknown) => {
     state.registerProps(props);
