@@ -31,7 +31,7 @@ Use this guide with the website address supplied by your program. Page names mat
 
 ## Before you start
 
-Read the **Privacy policy** from the homepage information menu, footer, or `/privacy` without signing in (it stays readable during policy renewal). English and Chinese are provided; other locales show English.
+Read the **About** page (`/about`) and **Privacy policy** (`/privacy`) from the homepage information menu or footer without signing in (both stay readable during policy renewal). English and Chinese are provided; other locales show English. The About page introduces the student-run program, shows live cumulative session and minute totals, lists the current Program Head contact, and explains each role—including that **Viewers** are read-only spectators who do not participate in program operations.
 
 Operators must configure email delivery and publish the school's current policies before opening intake. Repository [policy drafts](policies/README.md) are templates for adaptation; editing a draft does not publish a live policy.
 

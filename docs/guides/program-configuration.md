@@ -67,7 +67,7 @@ See [approval-policy.ts](../../src/lib/approval-policy.ts).
 | Get support | Tutee Support tab, feedback, card appeals, private messages | **Tutees → Tutee Support** (`/admin/student-support`); **Users & Roles → User details** holds policy acceptance history |
 | Observe the program | `/viewer-signup` (`/viewer` redirects) → mailbox code → receipt popup → `/register-account` | Exclusive **Viewer** sees permitted summaries with private fields masked; existing accounts keep credentials/access on login |
 | Patrol rooms | `/crew-signup` (`/crew` redirects); active Crew → `/patrol` | **Scheduling & Records → Crew** (applications, membership, patrol room order, patrols, corrections) |
-| Publish content & policies | Homepage, Info menu, custom pages | **Administration → Landing Page**, **Policy Documents**; top-bar switcher → **Translations** (`/localization`) |
+| Publish content & policies | Homepage, Info menu, `/about`, custom pages | **Administration → Landing Page** (including toggling `/about` between the built-in page and an editor-built custom alternative under **Pages**), **Policy Documents**; top-bar switcher → **Translations** (`/localization`) |
 | Report, audit & recover | **Overview → Reports** (`/admin/history`) | Period summaries, CSV/print, **Data & Recovery → Program Records**, **Academic Corrections**, **Audit Log**, **Admission Recovery**, **Database records** |
 
 ### Invitation and verification codes

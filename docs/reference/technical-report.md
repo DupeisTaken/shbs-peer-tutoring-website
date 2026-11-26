@@ -5,6 +5,7 @@ Use this reference to locate the code behind current behavior and check the inva
 ## Contents
 
 - [Architecture](#architecture)
+- [Program context and design rationale](#program-context-and-design-rationale)
 - [Universal account invitation contract](#universal-account-invitation-contract)
 - [Public signup URL convention](#public-signup-url-convention)
 - [Program refresh and recruitment transitions](#program-refresh-and-recruitment-transitions)
@@ -38,7 +39,7 @@ The application runs as a persistent Next.js 16 / React 19 Node server with tRPC
 | Dated session planning and delivery | [Session planning](session-planning.md), [essential mail and calendars](session-planning-delivery.md), [delivery engine](../../src/server/session-planning-delivery.ts) |
 | Hours, school reports, and corrections | [Hour calculator](../../src/lib/service-hours.ts), [meeting hours](../../src/server/meeting-hours.ts), [school reports](../../src/server/school-hours.ts), [school reporting contract](school-hours.md), [corrections](../../src/server/api/routers/corrections.ts) |
 | Crew and discipline | [Patrol credit](../../src/server/crew/patrol-credit.ts), [crew flags](../../src/server/crew/flags.ts), [discipline standing](../../src/lib/discipline.ts), [removal sync](../../src/server/discipline/removal.ts) |
-| Published content, policies, and translations | [Slug allocation](../../src/server/home/slugs.ts), [translation checks](../../src/server/translation-destination.ts), [policy acceptance](../../src/server/policy-acceptance.ts) |
+| Published content, policies, and translations | [About page](../../src/app/about/page.tsx), [About content](../../src/lib/about-content.ts), [About loader](../../src/server/home/about.ts), [Slug allocation](../../src/server/home/slugs.ts), [translation checks](../../src/server/translation-destination.ts), [policy acceptance](../../src/server/policy-acceptance.ts) |
 | Time, periods, and refresh | [Program time](../../src/lib/program-time.ts), [period display](../../src/lib/period.ts), [refresh](../../src/server/program/refresh.ts), [scheduled refresh](../../src/server/program/scheduled-refresh.ts) |
 | Email, notifications, and workers | [Email sender](../../src/server/email/sender.ts), [instrumentation](../../src/instrumentation.ts), [deadline worker](../../src/server/student-deadline-worker.ts), [event inventory](notification-events.md) |
 | Causal recovery and archives | [Recovery contract](recovery.md), [CSV transfer](../../src/server/record-transfer.ts), [record catalog](../../src/server/recovery/record-catalog.ts) |
@@ -108,6 +109,23 @@ There is no generic action registry or schema-driven form engine. `ReviewedActio
 | `POLICY`, `SIGNUP_EDIT`, `SIGNUP_UNASSIGN`, `SIGNUP_APPEAL` | 5 s | 30 min | Policy consent (plus bottom-scroll check), signup edits, releases, and appeals |
 
 `prepareStudentAction` and `prepareAssignmentOverride` return `readyAt`, `expiresAt`, and `serverNow`, anchored to `performance.now()` on receipt so readiness ignores client clock skew and expiry subtracts observed RTT. Zero never auto-submits; a ref blocks same-turn duplicate admission until rejection; server transactions enforce `readyAt <= now < expiresAt`, matching actor/action/target, and single use atomically.
+
+## Program context and design rationale
+
+SHBS Peer Tutoring began in 2024 at Shanghai Hongrun Boyuan School (SHBS) as a 100% student-run mutual-help organization operating independently of school faculty intervention. Several core architecture choices across this codebase follow directly from how the organization works:
+
+- **Student self-governance & read-only Viewers:** Because the program is entirely student-run and independent of faculty intervention, **Viewers** (such as college admissions officers, parents, faculty, and external observers) receive strictly read-only summaries with personal contact details masked and have no operational write authority. Student governance itself separates **Coordinators** (daily proposals), **Admins** (direct non-refresh actions and proposal review), and a single **Head** (root authority transferred transactionally in one step) so peer leadership stays accountable across school years.
+- **Equal peer roles & dual participation:** Tutors and tutees are fellow students collaborating as equals rather than a teacher–student hierarchy. Role and participation therefore remain orthogonal: any active non-Viewer account can hold tutee, tutor, Crew, and management responsibilities independently without conflating permissions.
+- **Honors & AP curriculum extensibility:** The program covers nearly every course in SHBS's Honors and Advanced Placement (AP) curriculum and adds new subjects as offerings evolve. `CourseGroup`, `SubjectLevel`, and `Subject` keep catalogue ordering, AP-score metadata, and point-in-time qualification snapshots flexible without rewriting historical records.
+- **After-school small-group sessions & peer accountability:** Typical sessions pair one tutor with 1–4 tutees for 45 minutes in an after-school classroom, with agreed dated rescheduling when regular timetables conflict. Tutors enter through self-application plus a student-run panel interview and training session, while **Crew** patrols and `SessionFlag` reviews preserve trustworthy attendance and service-hour records without faculty policing.
+
+### Dedicated About page and custom alternative contract
+
+[`src/app/about/page.tsx`](../../src/app/about/page.tsx) is a public, repository-owned bilingual (EN/ZH) overview reachable without signing in or accepting a policy (`src/server/auth/config.ts`, `src/app/_components/student-policy-gate.tsx`), linked from the homepage information menu and footer. Legacy `/p/about` links redirect to `/about`.
+
+- **Counting-only live statistics ([`src/server/home/about.ts`](../../src/server/home/about.ts)):** `getAboutLiveStats` aggregates only two program-wide totals—**total sessions held** and **total minutes tutored**—filtering `tutorStatus !== "TUTOR_ABSENT"` and `shFactor >= 2`. Because combined multi-subject blocks store shared clock time on their primary `Session` row (`shFactor = 1 + present >= 2`) and `0` on merged siblings, combined blocks count once and tutor-absent or zero-present-tutee rows are excluded. No individual data or breakdowns are exposed.
+- **Current Program Head contact:** `getCurrentHeadEmail` reads the active, non-merged, non-suspended `HEAD` user's login email so the Management Team contact automatically follows leadership transfers (falling back to `SUPPORT_EMAIL` or neutral contact guidance if none exists yet).
+- **Editor-authored alternative toggle (`home.setAboutMode`):** Controlled in **Management → Administration → Landing Page → Pages** (Admin/Head apply directly; Coordinators propose; stored under reserved `HomeContent` key `about.useCustom` excluded from `HOME_FIELDS`). Enabling it atomically creates a starter bilingual `CustomPage` (`slug: "about"`) and `PageLayout` if none exists; disabling restores the built-in `/about` page while retaining the custom draft. Unpublished or deleted custom pages always fall back safely to the built-in page for visitors, while authorized editors can preview via `/about?preview=custom`.
 
 ## Universal account invitation contract
 

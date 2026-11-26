@@ -10,6 +10,7 @@ import { getLandingSections } from "~/server/home/sections";
 import { getLandingLayout, type Block } from "~/server/home/blocks";
 import { getNavPages } from "~/server/home/pages";
 import { APP_TITLE, SUPPORT_EMAIL } from "~/lib/branding";
+import { getAboutContent } from "~/lib/about-content";
 import { getPrivacyPolicy } from "~/lib/privacy-policy";
 import {
   resolveSignedInLink,
@@ -74,10 +75,12 @@ export async function LandingView({
   const heroImageId = overrides.heroImageId;
   const draftLabel = t("preview.draftBadge");
   const help = await getTranslations("helpNav");
+  const about = getAboutContent(locale);
   const informationItems = [
+    { href: "/about", label: about.navTitle, lang: about.lang },
     { href: "/privacy", label: getPrivacyPolicy(locale).title },
     ...navPages
-      .filter((page) => page.slug !== "faq")
+      .filter((page) => page.slug !== "faq" && page.slug !== "about")
       .map((page) => ({
         href: `/p/${page.slug}`,
         label: page.label,
@@ -348,8 +351,18 @@ export async function LandingView({
 
       <footer className="border-t border-slate-200 py-6">
         <p className="muted text-center text-sm">{text("footer")}</p>
-        {/* Keep Help Center and privacy notice discoverable even when editors remove landing blocks. */}
+        {/* Keep About, Help Center and privacy notice discoverable even when editors remove landing blocks. */}
         <div className="mt-2 flex flex-wrap items-center justify-center gap-x-2 gap-y-1 text-sm">
+          <Link
+            href="/about"
+            lang={about.lang}
+            className="link inline-flex min-h-11 items-center px-3"
+          >
+            {about.navTitle}
+          </Link>
+          <span aria-hidden="true" className="text-slate-300">
+            ·
+          </span>
           <Link
             href="/help"
             className="link inline-flex min-h-11 items-center px-3"

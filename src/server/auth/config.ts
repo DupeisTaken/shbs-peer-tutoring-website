@@ -66,6 +66,7 @@ export const authConfig = {
       const { pathname } = request.nextUrl;
       const PUBLIC = [
         "/",
+        "/about",
         "/privacy",
         "/help",
         "/signin",

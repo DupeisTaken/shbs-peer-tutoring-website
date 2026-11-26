@@ -2373,7 +2373,20 @@
         "showInNav": "Mostrar en el menú superior",
         "inNav": "En el menú",
         "editContent": "Editar contenido",
-        "confirmDelete": "¿Eliminar esta página permanentemente?"
+        "confirmDelete": "¿Eliminar esta página permanentemente?",
+        "about": {
+          "title": "Página Acerca de",
+          "help": "De forma predeterminada, /about muestra la página integrada con estadísticas totales en vivo y el contacto de la dirección actual. Activa la alternativa para crear y publicar una versión personalizada en el editor.",
+          "statusBuiltIn": "Página integrada",
+          "statusCustom": "Alternativa personalizada activa",
+          "statusCustomHidden": "Alternativa personalizada oculta",
+          "toggleLabel": "Usar la página Acerca de personalizada",
+          "createAndToggleLabel": "Crear y usar una página Acerca de personalizada",
+          "viewLive": "Ver /about",
+          "previewCustom": "Vista previa de la alternativa",
+          "hiddenFallbackNote": "La página Acerca de personalizada está oculta, por lo que los visitantes siguen viendo la página integrada hasta que se publique.",
+          "pageBadge": "Alternativa de Acerca de"
+        }
       },
       "tabDesc": {
         "layout": "Organiza los bloques que forman la página de inicio.",
@@ -4063,7 +4076,8 @@
         "schoolHours_save": "Cambiar la programación de informes de horas para la escuela",
         "student_setCalendarHoliday": "Añadir un intervalo de vacaciones escolares",
         "student_updateCalendarHoliday": "Editar un intervalo de vacaciones escolares",
-        "student_resetCalendarHoliday": "Restablecer un intervalo de vacaciones escolares"
+        "student_resetCalendarHoliday": "Restablecer un intervalo de vacaciones escolares",
+        "home_setAboutMode": "Cambiar el modo de la página Acerca de"
       },
       "decisionRequestHelp": "Aprobar y aplicar ejecuta la acción solicitada, incluso cuando esta consiste en rechazar una solicitud. Rechazar con comentarios descarta esta propuesta sin aplicar cambios. Añada una nota para explicar su decisión.",
       "confirmPassword": "Confirma la contraseña de tu cuenta",

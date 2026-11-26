@@ -173,6 +173,7 @@ export const approvalSummaryContexts: Record<string, readonly string[]> = {
   "home.updatePage": ["id"],
   "home.reorderPages": [],
   "home.deletePage": ["id"],
+  "home.setAboutMode": [],
 };
 
 const object = (value: unknown): ReviewRecord | undefined =>

@@ -11,10 +11,17 @@ import {
   adminProcedure,
 } from "~/server/api/trpc";
 import {
+  GLOBAL_LOCALE,
   HOME_FIELDS,
   isHomeFieldKey,
   storageLocale,
 } from "~/server/home/content";
+import { getAboutPageMode } from "~/server/home/about";
+import {
+  ABOUT_CUSTOM_MODE_KEY,
+  ABOUT_PAGE_SLUG,
+  buildStarterAboutBlocks,
+} from "~/lib/about-content";
 import { landingDefault } from "~/server/home/defaults";
 import {
   getLandingLayout,
@@ -650,11 +657,25 @@ export const homeRouter = createTRPCRouter({
         if (input.published !== undefined) data.published = input.published;
         if (input.showInNav !== undefined) data.showInNav = input.showInNav;
         if (input.navOrder !== undefined) data.navOrder = input.navOrder;
+        const current = await tx.customPage.findUnique({
+          where: { id: input.id },
+          select: { slug: true },
+        });
+        if (!current) throw new TRPCError({ code: "NOT_FOUND" });
         if (input.slug)
           data.slug = await uniquePageSlug(tx, input.slug, {
             pageId: input.id,
           });
         await tx.customPage.update({ where: { id: input.id }, data });
+        if (
+          current.slug === ABOUT_PAGE_SLUG &&
+          data.slug &&
+          data.slug !== ABOUT_PAGE_SLUG
+        ) {
+          await tx.homeContent.deleteMany({
+            where: { key: ABOUT_CUSTOM_MODE_KEY, locale: GLOBAL_LOCALE },
+          });
+        }
         return { ok: true };
       }),
     ),
@@ -707,15 +728,107 @@ export const homeRouter = createTRPCRouter({
       return { ok: true };
     }),
 
+  // ---- Dedicated About page alternative mode --------------------------------
+
+  /** Current About page mode (built-in dedicated page vs. custom editor alternative). */
+  aboutMode: translatorProcedure.query(({ ctx }) => getAboutPageMode(ctx.db)),
+
+  /**
+   * Toggle whether /about renders the custom editor-authored page (slug "about") instead of
+   * the built-in dedicated About page. Enabling creates a starter bilingual custom page if
+   * none exists yet; disabling restores the built-in page while preserving the custom draft.
+   */
+  setAboutMode: adminProcedure
+    .input(z.object({ useCustom: z.boolean() }))
+    .mutation(({ ctx, input }) =>
+      inTransaction(ctx.db, async (tx) => {
+        if (!input.useCustom) {
+          await tx.homeContent.deleteMany({
+            where: { key: ABOUT_CUSTOM_MODE_KEY, locale: GLOBAL_LOCALE },
+          });
+          return {
+            ok: true,
+            useCustom: false,
+            pageId: null as string | null,
+            created: false,
+          };
+        }
+
+        await lockEntity(tx, "home:page-slugs");
+        let page = await tx.customPage.findUnique({
+          where: { slug: ABOUT_PAGE_SLUG },
+          select: { id: true },
+        });
+        let created = false;
+        if (!page) {
+          const conflictingSection = await tx.landingSection.findFirst({
+            where: { slug: ABOUT_PAGE_SLUG },
+            select: { id: true },
+          });
+          if (conflictingSection) {
+            throw new TRPCError({
+              code: "CONFLICT",
+              message:
+                'A landing section already uses the "about" page address. Rename that section address first.',
+            });
+          }
+          page = await tx.customPage.create({
+            data: {
+              slug: ABOUT_PAGE_SLUG,
+              title: {
+                en: "About SHBS Peer Tutoring",
+                zh: "关于宏润博源同伴辅导",
+              },
+              published: true,
+              showInNav: false,
+              navOrder: 0,
+              createdByName: ctx.session.user.name,
+            },
+            select: { id: true },
+          });
+          await tx.pageLayout.create({
+            data: {
+              ownerKey: pageOwnerKey(page.id),
+              blocks: buildStarterAboutBlocks(),
+              updatedByName: ctx.session.user.name,
+            },
+          });
+          created = true;
+        }
+        await tx.homeContent.upsert({
+          where: {
+            key_locale: { key: ABOUT_CUSTOM_MODE_KEY, locale: GLOBAL_LOCALE },
+          },
+          update: { value: "true", updatedByName: ctx.session.user.name },
+          create: {
+            key: ABOUT_CUSTOM_MODE_KEY,
+            locale: GLOBAL_LOCALE,
+            value: "true",
+            updatedByName: ctx.session.user.name,
+          },
+        });
+        return { ok: true, useCustom: true, pageId: page.id, created };
+      }),
+    ),
+
   /** Delete a page and its block layout. */
   deletePage: adminProcedure
     .input(z.object({ id: z.string() }))
     .mutation(({ ctx, input }) =>
       withTranslationWrite(ctx.db, async (tx) => {
+        const page = await tx.customPage.findUnique({
+          where: { id: input.id },
+          select: { slug: true },
+        });
         await tx.pageLayout.deleteMany({
           where: { ownerKey: pageOwnerKey(input.id) },
         });
         await tx.customPage.delete({ where: { id: input.id } });
+        if (page?.slug === ABOUT_PAGE_SLUG) {
+          await tx.homeContent.deleteMany({
+            where: { key: ABOUT_CUSTOM_MODE_KEY, locale: GLOBAL_LOCALE },
+          });
+        }
         return { ok: true };
       }),
     ),

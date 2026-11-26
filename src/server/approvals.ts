@@ -1188,7 +1188,12 @@ export async function proposalTargets(
   // Content editors identify rows by compound keys; include missing rows as empty evidence.
   if (primary === "HomeContent")
     targets.content = await client.homeContent.findMany({
-      where: { key: z.string().parse(fields.key) },
+      where: {
+        key:
+          operation === "home.setAboutMode"
+            ? "about.useCustom"
+            : z.string().parse(fields.key),
+      },
       orderBy: { locale: "asc" },
     });
   if (primary === "MessageOverride")

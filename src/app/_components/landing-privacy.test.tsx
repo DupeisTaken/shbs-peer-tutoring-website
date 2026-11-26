@@ -96,26 +96,34 @@ it("carries each custom page label's language into the unified landing menu", as
 });
 
 it.each([
-  ["en", "Privacy policy"],
-  ["zh", "隐私政策"],
-  ["fr", "Privacy policy"],
+  ["en", "About the Program", "Privacy policy"],
+  ["zh", "关于项目", "隐私政策"],
+  ["fr", "About the Program", "Privacy policy"],
 ])(
-  "keeps the %s privacy links when landing content is empty",
-  async (locale, label) => {
+  "keeps the %s about and privacy links when landing content is empty without duplicating an about custom page",
+  async (locale, aboutLabel, privacyLabel) => {
     mocks.locale = locale!;
+    mocks.navPages = [
+      { slug: "about", label: "Duplicate seed about", labelLocale: "en" },
+    ];
     render(await LandingView({}));
+    const footer = within(screen.getByRole("contentinfo"));
+    expect(footer.getByRole("link", { name: aboutLabel }).getAttribute("href")).toBe(
+      "/about",
+    );
     expect(
-      within(screen.getByRole("contentinfo"))
-        .getByRole("link", { name: label })
-        .getAttribute("href"),
+      footer.getByRole("link", { name: privacyLabel }).getAttribute("href"),
     ).toBe("/privacy");
     const menu = "nav.signInAndJoin";
     fireEvent.click(screen.getByRole("button", { name: menu }));
+    const dialog = within(screen.getByRole("dialog", { name: menu }));
+    expect(dialog.getByRole("link", { name: aboutLabel }).getAttribute("href")).toBe(
+      "/about",
+    );
     expect(
-      within(screen.getByRole("dialog", { name: menu }))
-        .getByRole("link", { name: label })
-        .getAttribute("href"),
+      dialog.getByRole("link", { name: privacyLabel }).getAttribute("href"),
     ).toBe("/privacy");
+    expect(dialog.queryByRole("link", { name: "Duplicate seed about" })).toBeNull();
   },
 );
 

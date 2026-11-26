@@ -29,8 +29,9 @@ export default async function SlugPage({
   params: Promise<{ slug: string }>;
 }) {
   const { slug } = await params;
-  // Preserve existing FAQ bookmarks while the maintained catalogue owns help.
+  // Preserve existing FAQ and About bookmarks while dedicated routes own them.
   if (slug === "faq") redirect("/help");
+  if (slug === "about") redirect("/about");
   const locale = await getLocale();
 
   const page = await getCustomPageBySlug(db, slug, locale);

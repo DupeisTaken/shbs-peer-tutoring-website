@@ -28,6 +28,7 @@ import { DisclosureIcon } from "~/app/_components/icons";
 import { useReadOnly } from "~/app/_components/read-only";
 import { useActionReview } from "~/app/_components/ui/action-review";
 import { invalidateAndReport } from "~/lib/invalidate-refresh";
+import { settleRefreshes } from "~/lib/settle-refreshes";
 import { queuedApprovalId } from "~/lib/approval-outcome";
 import { TranslationIntentRecovery } from "~/app/_components/translation-intent-recovery";
 import { useTranslationIntent } from "~/app/_components/use-translation-intent";
@@ -45,6 +46,7 @@ import {
   SYSTEM_BLOCK_TYPES,
   isSystemBlock,
 } from "~/lib/page-blocks";
+import { ABOUT_PAGE_SLUG } from "~/lib/about-content";
 
 /**
  * Editor for the public landing page (/). Three tabs: the fixed text slots (hero, CTAs, feature
@@ -3142,12 +3144,16 @@ function PagesManager({
   readOnly: boolean;
 }) {
   const t = useTranslations();
+  const aboutToggleId = useId();
+  const aboutHelpId = useId();
   const pages = api.home.pages.useQuery();
-  const denied = useSessionAccessDenied(pages);
+  const aboutMode = api.home.aboutMode.useQuery();
+  const denied = useSessionAccessDenied(pages, aboutMode);
   useLandingScene("pages", { ready: !!pages.data, denied, scope: "" });
   const utils = api.useUtils();
   const refresh = () => {
     void utils.home.pages.invalidate();
+    void utils.home.aboutMode.invalidate();
   };
   const [title, setTitle] = useState("");
   const create = api.home.createPage.useMutation({
@@ -3156,9 +3162,16 @@ function PagesManager({
       refresh();
     },
   });
+  const setAboutMode = api.home.setAboutMode.useMutation({
+    onSuccess: refresh,
+  });
   const reorder = api.home.reorderPages.useMutation({ onSuccess: refresh });
 
   const list = pages.data ?? [];
+  const useCustomAbout = aboutMode.data?.useCustom ?? false;
+  const customAboutPage = aboutMode.data?.customPage ?? null;
+  const customAboutActive = useCustomAbout && !!customAboutPage?.published;
+  const customAboutHidden = useCustomAbout && !!customAboutPage && !customAboutPage.published;
   const move = (id: string, dir: "up" | "down") => {
     const ids = list.map((p) => p.id);
     const i = ids.indexOf(id);
@@ -3173,6 +3186,96 @@ function PagesManager({
   if (denied) return <p role="alert">{t("uiPatterns.loadFailed")}</p>;
   return (
     <div className="space-y-5">
+      <section className="card space-y-3 p-5">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div className="space-y-1">
+            <div className="flex flex-wrap items-center gap-2">
+              <h2 className="section-title">
+                {t("admin.landing.pages.about.title")}
+              </h2>
+              <span className="muted text-xs">/about</span>
+              <span
+                className={
+                  customAboutActive
+                    ? "badge-green"
+                    : customAboutHidden
+                      ? "badge-amber"
+                      : "badge-slate"
+                }
+              >
+                {customAboutActive
+                  ? t("admin.landing.pages.about.statusCustom")
+                  : customAboutHidden
+                    ? t("admin.landing.pages.about.statusCustomHidden")
+                    : t("admin.landing.pages.about.statusBuiltIn")}
+              </span>
+            </div>
+            <p id={aboutHelpId} className="muted text-sm">
+              {t("admin.landing.pages.about.help")}
+            </p>
+          </div>
+          <div className="flex flex-wrap items-center gap-3">
+            <a
+              href="/about"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="link inline-flex min-h-11 items-center text-xs lg:min-h-8"
+            >
+              {t("admin.landing.pages.about.viewLive")} ↗
+            </a>
+            {customAboutPage && !customAboutActive && (
+              <a
+                href="/about?preview=custom"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="link inline-flex min-h-11 items-center text-xs lg:min-h-8"
+              >
+                {t("admin.landing.pages.about.previewCustom")} ↗
+              </a>
+            )}
+          </div>
+        </div>
+        {!readOnly && (
+          <div className="border-t border-slate-100 pt-3">
+            <label
+              htmlFor={aboutToggleId}
+              className="inline-flex min-h-11 cursor-pointer items-center gap-2.5 text-sm font-medium text-slate-800 lg:min-h-9"
+            >
+              <input
+                id={aboutToggleId}
+                type="checkbox"
+                checked={useCustomAbout}
+                disabled={setAboutMode.isPending || aboutMode.isLoading}
+                aria-describedby={aboutHelpId}
+                onChange={(e) =>
+                  setAboutMode.mutate({ useCustom: e.target.checked })
+                }
+              />
+              <span>
+                {customAboutPage
+                  ? t("admin.landing.pages.about.toggleLabel")
+                  : t("admin.landing.pages.about.createAndToggleLabel")}
+              </span>
+            </label>
+          </div>
+        )}
+        {customAboutHidden && (
+          <InlineNotice tone="warning" announcement="status">
+            {t("admin.landing.pages.about.hiddenFallbackNote")}
+          </InlineNotice>
+        )}
+        {setAboutMode.error?.data?.approvalId && (
+          <InlineNotice tone="warning" announcement="status">
+            {t("approvals.queuedBody")}
+          </InlineNotice>
+        )}
+        {setAboutMode.error && !setAboutMode.error.data?.approvalId && (
+          <p role="alert" className="text-sm text-red-600">
+            {setAboutMode.error.message}
+          </p>
+        )}
+      </section>
+
       {!readOnly && (
         <section className="card space-y-3 p-5">
           <h2 className="section-title">
@@ -3215,6 +3318,7 @@ function PagesManager({
         <PageCard
           key={p.id}
           page={{ ...p, title: (p.title ?? {}) as Record<string, string> }}
+          aboutCustomActive={p.slug === ABOUT_PAGE_SLUG && customAboutActive}
           images={images}
           readOnly={readOnly}
           readSlug={async (id) => {
@@ -3238,6 +3342,7 @@ function PagesManager({
 
 function PageCard({
   page,
+  aboutCustomActive,
   images,
   readOnly,
   readSlug,
@@ -3248,6 +3353,7 @@ function PageCard({
   moving,
 }: {
   page: PageRow;
+  aboutCustomActive: boolean;
   images: ImageInfo[];
   readOnly: boolean;
   readSlug: (id: string) => Promise<string>;
@@ -3274,19 +3380,33 @@ function PageCard({
     Object.values(page.title)[0] ??
     t("admin.landing.pages.untitled");
 
+  const isAboutAlternative = page.slug === ABOUT_PAGE_SLUG;
+  const viewHref = isAboutAlternative
+    ? aboutCustomActive
+      ? "/about"
+      : "/about?preview=custom"
+    : `/p/${page.slug}`;
+
   return (
     <section className="card space-y-3 p-5">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="flex flex-wrap items-center gap-2">
           <h3 className="text-base font-semibold text-slate-900">{heading}</h3>
-          <span className="muted text-xs">/p/{page.slug}</span>
+          <span className="muted text-xs">
+            {isAboutAlternative ? "/about" : `/p/${page.slug}`}
+          </span>
+          {isAboutAlternative && (
+            <span className="badge-slate">
+              {t("admin.landing.pages.about.pageBadge")}
+            </span>
+          )}
           <span className={page.published ? "badge-green" : "badge-slate"}>
             {page.published
               ? t("admin.landing.sections.statusVisible")
               : t("admin.landing.sections.statusHidden")}
           </span>
           {/* Match public navigation; hidden pages retain their saved preference. */}
-          {page.published && page.showInNav && (
+          {page.published && page.showInNav && !isAboutAlternative && (
             <span className="badge-slate">
               {t("admin.landing.pages.inNav")}
             </span>
@@ -3295,7 +3415,7 @@ function PageCard({
         {!readOnly && (
           <div className="flex flex-wrap items-center gap-2">
             <a
-              href={`/p/${page.slug}`}
+              href={viewHref}
               target="_blank"
               rel="noopener noreferrer"
               className="link text-xs"
@@ -3344,7 +3464,13 @@ function PageCard({
                   details: <p>{heading}</p>,
                   confirmLabel: t("common.delete"),
                   commit: () => del.mutateAsync({ id: page.id }),
-                  refresh: () => invalidateAndReport(utils.home.pages),
+                  refresh: () =>
+                    isAboutAlternative
+                      ? settleRefreshes([
+                          () => invalidateAndReport(utils.home.pages),
+                          () => invalidateAndReport(utils.home.aboutMode),
+                        ])
+                      : invalidateAndReport(utils.home.pages),
                   approvalId: queuedApprovalId,
                 })
               }

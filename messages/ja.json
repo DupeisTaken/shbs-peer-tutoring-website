@@ -2373,7 +2373,20 @@
         "showInNav": "上部ナビに表示",
         "inNav": "ナビに表示中",
         "editContent": "内容を編集",
-        "confirmDelete": "このページを完全に削除しますか？"
+        "confirmDelete": "このページを完全に削除しますか？",
+        "about": {
+          "title": "プログラム紹介ページ",
+          "help": "既定では /about に累計セッション数と現在の代表者連絡先を含む組み込みページが表示されます。カスタム版を有効にすると、下のエディターで代替ページを作成・公開できます。",
+          "statusBuiltIn": "組み込みページ",
+          "statusCustom": "カスタム版が有効",
+          "statusCustomHidden": "カスタム版は非表示",
+          "toggleLabel": "エディターで作成したカスタム紹介ページを使う",
+          "createAndToggleLabel": "カスタム紹介ページを作成して有効にする",
+          "viewLive": "/about を表示",
+          "previewCustom": "代替版をプレビュー",
+          "hiddenFallbackNote": "カスタム紹介ページは現在非表示のため、公開されるまで組み込みページが表示されます。",
+          "pageBadge": "カスタム紹介ページ"
+        }
       },
       "tabDesc": {
         "layout": "トップページを構成するブロックを並べ替えます。",
@@ -4063,7 +4076,8 @@
         "schoolHours_save": "学校向け奉仕時間報告のスケジュールを変更",
         "student_setCalendarHoliday": "学校の休暇期間を追加",
         "student_updateCalendarHoliday": "学校の休暇期間を編集",
-        "student_resetCalendarHoliday": "学校の休暇期間を通常に戻す"
+        "student_resetCalendarHoliday": "学校の休暇期間を通常に戻す",
+        "home_setAboutMode": "紹介ページの表示モードを切り替え"
       },
       "decisionRequestHelp": "「承認して適用」は、元の申請を却下する操作も含め、提案された操作を実行します。「フィードバックを付けて却下」は、この提案を却下し、変更を行いません。どちらの場合も判断の理由を備考に記入してください。",
       "confirmPassword": "アカウントのパスワードを確認",

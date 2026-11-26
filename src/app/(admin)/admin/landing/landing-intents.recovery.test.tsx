@@ -98,6 +98,7 @@ vi.mock("~/trpc/react", async () => {
       if (name === "news") return fixture.news;
       if (name === "sections") return fixture.sections;
       if (name === "pages") return fixture.pages;
+      if (name === "aboutMode") return { useCustom: false, customPage: null };
       if (name === "images")
         return [
           {
