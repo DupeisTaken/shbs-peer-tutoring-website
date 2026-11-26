@@ -143,9 +143,9 @@ const show = (active = true) =>
 
 const openRequestDialog = () => {
   fireEvent.click(
-    screen.getByRole("button", { name: "Request qualification" }),
+    screen.getByRole("button", { name: "Request Qualification" }),
   );
-  return screen.getByRole("dialog", { name: "Request qualification" });
+  return screen.getByRole("dialog", { name: "Request Qualification" });
 };
 
 const filter = (name: string, count: number) =>
@@ -153,11 +153,11 @@ const filter = (name: string, count: number) =>
 
 it("keeps the Request/Cancel context size while Cancel clears the local draft and closes the dialog, and close/reopen retains it", () => {
   show();
-  const opener = screen.getByRole("button", { name: "Request qualification" });
+  const opener = screen.getByRole("button", { name: "Request Qualification" });
   opener.focus();
   const dialog = openRequestDialog();
   const request = within(dialog).getByRole<HTMLButtonElement>("button", {
-    name: "Request qualification",
+    name: "Request Qualification",
   });
   const cancel = within(dialog).getByRole<HTMLButtonElement>("button", {
     name: "Cancel draft",
@@ -211,7 +211,7 @@ it("keeps the Request/Cancel context size while Cancel clears the local draft an
   ).toBe("");
   expect(
     within(afterCancel).getByRole<HTMLButtonElement>("button", {
-      name: "Request qualification",
+      name: "Request Qualification",
     }).disabled,
   ).toBe(true);
 
@@ -254,7 +254,7 @@ it("submits one chosen subject and evidence without any caller-supplied tutor id
   show();
   const dialog = openRequestDialog();
   const button = within(dialog).getByRole<HTMLButtonElement>("button", {
-    name: "Request qualification",
+    name: "Request Qualification",
   });
   expect(button.disabled).toBe(true);
   fireEvent.change(within(dialog).getByLabelText("Subject and level"), {
@@ -282,7 +282,7 @@ it("retains history and approved subjects while inactive without exposing submis
   fireEvent.click(filter("Rejected", 1));
   expect(screen.getByRole("listitem").textContent).toContain("Rejected");
   expect(
-    screen.queryByRole("button", { name: "Request qualification" }),
+    screen.queryByRole("button", { name: "Request Qualification" }),
   ).toBeNull();
 });
 it("shows a loading state and a retry for a failed query", () => {
@@ -452,7 +452,7 @@ it("collapses only history, preserves its filter, and keeps mutation feedback vi
   ).toBeNull();
   expect(screen.queryByRole("listitem")).toBeNull();
   expect(
-    screen.getByRole("button", { name: "Request qualification" }),
+    screen.getByRole("button", { name: "Request Qualification" }),
   ).toBeTruthy();
   expect(screen.getByText("Science")).toBeTruthy();
   expect(screen.getByText(/Request recalled/)).toBeTruthy();

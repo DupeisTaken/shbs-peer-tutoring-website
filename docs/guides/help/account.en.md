@@ -1,4 +1,4 @@
-# Your account
+# Your Account
 
 Generated from the website help catalogue. Edit the content records, then run `npm run help:export`.
 

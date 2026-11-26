@@ -482,13 +482,13 @@ it("places the old and requested values together and keeps unchanged fields out 
     { Room: [{ record: { id: "room", name: "Science room", active: true } }] },
   );
   const requested = within(
-    screen.getByRole("region", { name: "What is requested" }),
+    screen.getByRole("region", { name: "What Is Requested" }),
   );
   expect(requested.getByText("At submission")).toBeTruthy();
   expect(requested.getByText("Science room")).toBeTruthy();
   expect(requested.getByText("Quiet study")).toBeTruthy();
   expect(requested.queryByText("Active")).toBeNull();
-  expect(screen.getAllByText("Unchanged submitted values (1)")).toBeTruthy();
+  expect(screen.getAllByText("Unchanged Submitted Values (1)")).toBeTruthy();
 });
 
 it.each(["en", "zh"])("uses the membership capability label for a standalone Translator grant (%s)", (locale) => {
@@ -822,7 +822,7 @@ it("makes deletion explicit even when the payload contains only an ID", () => {
     ),
   ).toBeTruthy();
   expect(
-    within(screen.getByRole("region", { name: "What is requested" })).getByText(
+    within(screen.getByRole("region", { name: "What Is Requested" })).getByText(
       "Science room",
     ),
   ).toBeTruthy();
@@ -853,7 +853,7 @@ it("keeps room block times human-readable and shows the saved room", () => {
     },
   );
   const requested = within(
-    screen.getByRole("region", { name: "What is requested" }),
+    screen.getByRole("region", { name: "What Is Requested" }),
   );
   expect(requested.getByText("Science room")).toBeTruthy();
   expect(requested.getByText("12:00–13:00")).toBeTruthy();
@@ -869,7 +869,7 @@ it("formats nested membership choices, dates and known enum values without JSON 
     { User: [{ record: { id: "account", name: "Alex" } }] },
   );
   const requested = within(
-    screen.getByRole("region", { name: "What is requested" }),
+    screen.getByRole("region", { name: "What Is Requested" }),
   );
   expect(requested.getByText("Coordinator")).toBeTruthy();
   expect(requested.getByText("Yes")).toBeTruthy();

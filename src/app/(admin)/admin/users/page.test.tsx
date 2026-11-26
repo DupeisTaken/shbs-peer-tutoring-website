@@ -1467,7 +1467,7 @@ it("keeps full academic details out of the compact account table", () => {
     screen.getByRole("columnheader", { name: /Login setup/ }),
   ).toBeTruthy();
   expect(
-    screen.getByRole("columnheader", { name: /Roles & participation/ }),
+    screen.getByRole("columnheader", { name: /Roles & Participation/ }),
   ).toBeTruthy();
   expect(
     screen.queryByRole("columnheader", { name: messages.academics.title }),
@@ -1581,7 +1581,7 @@ it("reveals past tutors, preserves account filters, persists and clears back to 
       name: messages.admin.tutors.account.sendSetup,
     }).disabled,
   ).toBe(true);
-  fireEvent.click(within(row).getByRole("button", { name: "Edit profile" }));
+  fireEvent.click(within(row).getByRole("button", { name: "Edit Profile" }));
   expect(screen.getByRole("dialog").textContent).toBe("Editing tutor archived");
   fireEvent.click(
     screen.getByRole("button", { name: messages.userMultiFilters.clear }),

@@ -214,7 +214,7 @@ it("groups details and edit actions at the right of a concise academic row", () 
   expect(within(row).getByText("Grade 12")).toBeTruthy();
   expect(within(row).getByText("Expected graduation: 2027")).toBeTruthy();
   expect(within(row).queryByText("School year 26-27")).toBeNull();
-  fireEvent.click(actions.getByRole("button", { name: "Edit profile" }));
+  fireEvent.click(actions.getByRole("button", { name: "Edit Profile" }));
   expect(screen.getByRole("dialog").textContent).toBe("Editing tutor-1");
 });
 

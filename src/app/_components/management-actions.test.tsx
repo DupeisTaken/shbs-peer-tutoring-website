@@ -799,7 +799,7 @@ it("shows coordinator history and proposed/affected records without privileged r
     ).getAllByText("Original room"),
   ).toBeTruthy();
   expect(
-    within(screen.getByRole("region", { name: "What is requested" })).getByText(
+    within(screen.getByRole("region", { name: "What Is Requested" })).getByText(
       "Original room",
     ),
   ).toBeTruthy();

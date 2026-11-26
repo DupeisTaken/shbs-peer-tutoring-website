@@ -188,13 +188,13 @@ it("mounts detail reads on demand and separates all four dimensions with both me
   );
   for (const title of [
     "Login",
-    "Permissions and memberships",
-    "Attached participant profiles",
-    "Historical records",
+    "Permissions and Memberships",
+    "Attached Participant Profiles",
+    "Historical Records",
   ])
     expect(screen.getByRole("heading", { name: title })).toBeTruthy();
   const roles = screen.getByRole("region", {
-    name: "Permissions and memberships",
+    name: "Permissions and Memberships",
   });
   for (const badge of [
     "Admin",

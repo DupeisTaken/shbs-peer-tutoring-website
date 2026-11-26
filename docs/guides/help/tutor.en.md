@@ -1,4 +1,4 @@
-# Tutor workspace
+# Tutor Workspace
 
 Generated from the website help catalogue. Edit the content records, then run `npm run help:export`.
 
@@ -35,11 +35,11 @@ Open: `/dashboard`
 
 1. **Check activation and policy notices** Open Enter Tutor Page. If Pending, confirm whether you will participate using the displayed choice and review. Read and accept any current tutor policy before participation actions.
 
-   Look for: Participation notice, Needs attention and workspace panels
+   Look for: Participation notice, Needs Attention and workspace panels
 
-2. **Use the four task panels** Schedule holds dated tutoring, interviews and meetings. Pairings holds recurring assignments. Preferences holds availability, workload and subject choices. History & hours holds retained evidence. Switching these local panels retains visited editors during the visit.
+2. **Use the four task panels** Schedule holds dated tutoring, interviews and meetings. Pairings holds recurring assignments. Preferences holds availability, workload and subject choices. History & Hours holds retained evidence. Switching these local panels retains visited editors during the visit.
 
-3. **Follow Needs attention** Open the task for an unconfirmed schedule, missing attendance, interview vote or meeting. Needs Action requires your work; Vote recorded / Awaiting decision means your vote is saved while the interview is still open.
+3. **Follow Needs Attention** Open the task for an unconfirmed schedule, missing attendance, interview vote or meeting. Needs Action requires your work; Vote recorded / Awaiting decision means your vote is saved while the interview is still open.
 
 ### What happens next
 
@@ -303,13 +303,13 @@ Open: `/dashboard#sessions`
 
 ### Walkthrough
 
-1. **Open Interview work** In Schedule open your assigned interview event (or Interviews & history) to inspect the requested subjects, qualification explanation and panel votes. Chairs handle scheduling and final decisions in the separate Interview chair tab; completed records are in its collapsed history section.
+1. **Open Interview work** In Schedule open your assigned interview event (or Interviews & History) to inspect the requested subjects, qualification explanation and panel votes. Chairs handle scheduling and final decisions in the separate Interview Chair tab; completed records are in its collapsed history section.
 
    Look for: Interview card, vote status and action
 
 2. **Submit your own vote** Every assigned panelist, including the chair, submits their own vote from the interview event in Schedule. Check Vote recorded / Awaiting decision. Every panelist must vote before the final decision; opening or scheduling earns no hours.
 
-3. **Chair: schedule and decide** In the Interview chair tab, an authorized chair schedules the interview and records the outcome after all votes, following the majority and resolving a tie. On approval enter actual completion time, minutes and attending panelists, then review Approve & award hours.
+3. **Chair: schedule and decide** In the Interview Chair tab, an authorized chair schedules the interview and records the outcome after all votes, following the majority and resolving a tie. On approval enter actual completion time, minutes and attending panelists, then review Approve & award hours.
 
 4. **Check completion follow-up** Read the saved decision and completion separately. Acceptance, interview credit and initial invitation setup can apply together; additional qualifications grant subjects without a new registration code. Ask management to correct completion/hours through Interview Records.
 
@@ -343,7 +343,7 @@ Open: `/dashboard#sessions`
 
 2. **Submit or cancel your excuse** Use the excuse action, supply the requested reason and confirm at least 45 minutes before the meeting starts. You may cancel your own eligible excuse before that same deadline; excuse controls hide automatically once the 45-minute cutoff passes. Staff-recorded statuses require staff correction.
 
-3. **Read Meeting history** Open Meeting history, then a school-year/quarter group for recorded attendance. Semester mode groups both constituent quarters. Period not recorded remains explicit; future meetings recorded under other periods appear separately.
+3. **Read Meeting History** Open Meeting History, then a school-year/quarter group for recorded attendance. Semester mode groups both constituent quarters. Period not recorded remains explicit; future meetings recorded under other periods appear separately.
 
 ### What happens next
 
@@ -377,7 +377,7 @@ Open: `/settings`
 
 3. **Relay only an eligible student's request** For a non-survey enrolled student use the relay action in pairing Details, add an optional reason and review. It processes after a seven-day recall window unless recalled or cancelled. Survey students request whole-period withdrawal in their own workspace; schedule conflicts use their own review.
 
-4. **Inspect History & hours** Read the reporting period, earned tutoring hours, extras and deductions. Review sessions, interviews, meeting deductions and manual adjustments. Crew Hours is separate and is not included in the tutoring total.
+4. **Inspect History & Hours** Read the reporting period, earned tutoring hours, extras and deductions. Review sessions, interviews, meeting deductions and manual adjustments. Crew Hours is separate and is not included in the tutoring total.
 
    Look for: Selected period and earned/extras/deductions
 

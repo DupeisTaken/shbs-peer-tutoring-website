@@ -1,4 +1,4 @@
-# Head responsibilities
+# Head Responsibilities
 
 Generated from the website help catalogue. Edit the content records, then run `npm run help:export`.
 

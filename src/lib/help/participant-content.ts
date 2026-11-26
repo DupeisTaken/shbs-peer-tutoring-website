@@ -47,7 +47,7 @@ export const participantArticles: HelpArticle[] = [
           "下载离线 PDF 手册",
         ),
         body: t(
-          "Sign in to reveal current account, participation and assigned-role guides. Select PDF handbooks in Help Center to download English or Chinese handbooks for every collection available to you, stamped with the download date and time. Staff can also open Administration → PDF handbooks to distribute training editions. Old FAQ links continue to this catalogue.",
+          "Sign in to reveal current account, participation and assigned-role guides. Select PDF Handbooks in Help Center to download English or Chinese handbooks for every collection available to you, stamped with the download date and time. Staff can also open Administration → PDF Handbooks to distribute training editions. Old FAQ links continue to this catalogue.",
           "登录后显示当前账号、参与资格及分工对应指南。在帮助中心选择PDF操作手册，可下载本人可用指南集的中英文PDF，并附带下载日期与时间。工作人员也可在系统管理→PDF操作手册分发培训版本。旧常见问题链接会继续进入本目录。",
         ),
       },
@@ -2515,19 +2515,19 @@ export const participantArticles: HelpArticle[] = [
         ),
         screenshot: "tutor-overview",
         focus: t(
-          "Participation notice, Needs attention and workspace panels",
+          "Participation notice, Needs Attention and workspace panels",
           "参与提示、待处理任务和工作区页签",
         ),
       },
       {
         title: t("Use the four task panels", "使用四个任务页签"),
         body: t(
-          "Schedule holds dated tutoring, interviews and meetings. Pairings holds recurring assignments. Preferences holds availability, workload and subject choices. History & hours holds retained evidence. Switching these local panels retains visited editors during the visit.",
+          "Schedule holds dated tutoring, interviews and meetings. Pairings holds recurring assignments. Preferences holds availability, workload and subject choices. History & Hours holds retained evidence. Switching these local panels retains visited editors during the visit.",
           "课表包含日期辅导、面试和会议；配对包含每周分配；偏好包含可用时间、期望课次数和科目选择；历史与时数包含保留证据。在本次访问中切换这些本地页签会保留已打开编辑器。",
         ),
       },
       {
-        title: t("Follow Needs attention", "跟进待处理任务"),
+        title: t("Follow Needs Attention", "跟进待处理任务"),
         body: t(
           "Open the task for an unconfirmed schedule, missing attendance, interview vote or meeting. Needs Action requires your work; Vote recorded / Awaiting decision means your vote is saved while the interview is still open.",
           "打开待确认排课、缺少出勤、面试投票或会议任务。需要处理表示等待本人操作；已投票／等待决定表示投票已保存，但面试仍未结束。",
@@ -3332,7 +3332,7 @@ export const participantArticles: HelpArticle[] = [
       {
         title: t("Open Interview work", "打开面试工作"),
         body: t(
-          "In Schedule open your assigned interview event (or Interviews & history) to inspect the requested subjects, qualification explanation and panel votes. Chairs handle scheduling and final decisions in the separate Interview chair tab; completed records are in its collapsed history section.",
+          "In Schedule open your assigned interview event (or Interviews & History) to inspect the requested subjects, qualification explanation and panel votes. Chairs handle scheduling and final decisions in the separate Interview Chair tab; completed records are in its collapsed history section.",
           "在日程中打开分配的面试事件（或“面试与历史”），查看申请科目、资质说明与评审投票。组长排期和最终决定位于独立的“面试组长”标签页；已完成记录位于折叠历史区域。",
         ),
         screenshot: "tutor-schedule",
@@ -3351,7 +3351,7 @@ export const participantArticles: HelpArticle[] = [
       {
         title: t("Chair: schedule and decide", "主席：排期并决定"),
         body: t(
-          "In the Interview chair tab, an authorized chair schedules the interview and records the outcome after all votes, following the majority and resolving a tie. On approval enter actual completion time, minutes and attending panelists, then review Approve & award hours.",
+          "In the Interview Chair tab, an authorized chair schedules the interview and records the outcome after all votes, following the majority and resolving a tie. On approval enter actual completion time, minutes and attending panelists, then review Approve & award hours.",
           "获授权组长在“面试组长”标签页安排面试，并在全部投票后依据多数意见记录结果，平票时作出决定。批准时填写实际完成时间、分钟数及出席委员，再检查批准并授予时数。",
         ),
       },
@@ -3432,9 +3432,9 @@ export const participantArticles: HelpArticle[] = [
         ),
       },
       {
-        title: t("Read Meeting history", "查看会议历史"),
+        title: t("Read Meeting History", "查看会议历史"),
         body: t(
-          "Open Meeting history, then a school-year/quarter group for recorded attendance. Semester mode groups both constituent quarters. Period not recorded remains explicit; future meetings recorded under other periods appear separately.",
+          "Open Meeting History, then a school-year/quarter group for recorded attendance. Semester mode groups both constituent quarters. Period not recorded remains explicit; future meetings recorded under other periods appear separately.",
           "打开会议历史，再选择学年／学季组查看已记录出勤。学期模式合并该学期两个学季。未记录时期会明确标示；记录于其他时期的未来会议单独呈现。",
         ),
       },
@@ -3527,7 +3527,7 @@ export const participantArticles: HelpArticle[] = [
         ),
       },
       {
-        title: t("Inspect History & hours", "检查历史与时数"),
+        title: t("Inspect History & Hours", "检查历史与时数"),
         body: t(
           "Read the reporting period, earned tutoring hours, extras and deductions. Review sessions, interviews, meeting deductions and manual adjustments. Crew Hours is separate and is not included in the tutoring total.",
           "查看报告时期、辅导获得时数、额外时数和扣除。检查课次、面试、会议扣时及手动调整。巡查时数单独计算，不包含在辅导总时数内。",
@@ -3857,7 +3857,7 @@ export const participantArticles: HelpArticle[] = [
         ),
         screenshot: "localization",
         focus: t(
-          "Interface text, Website text, Draft review and language selector",
+          "Interface text, Website text, Draft Review and language selector",
           "界面文字、网站文字、草稿审核及语言选择",
         ),
       },
@@ -3869,7 +3869,7 @@ export const participantArticles: HelpArticle[] = [
         ),
       },
       {
-        title: t("Follow Draft review", "跟进草稿审核"),
+        title: t("Follow Draft Review", "跟进草稿审核"),
         body: t(
           "Use Pending, Published, Rejected or All filters to read review status. Ordinary translators and Coordinator edits create private drafts; only Admin/Head approve/publish or reject. A Coordinator may Request Admin/Head approval, leaving the draft pending.",
           "使用待处理、已发布、已拒绝或全部筛选查看审核状态。普通翻译人员及协调员编辑产生私密草稿；仅管理员／负责人能批准发布或拒绝。协调员可申请管理员／负责人批准，草稿仍保持待审。",

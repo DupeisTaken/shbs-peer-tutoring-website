@@ -1,4 +1,4 @@
-# Review & administer
+# Review & Administer
 
 Generated from the website help catalogue. Edit the content records, then run `npm run help:export`.
 
@@ -225,7 +225,7 @@ Grouping does not silently union roles, transfer assignments, restore restrictio
 
 ### Troubleshooting
 
-- **A new review still lists records from an earlier combination** In Selected records, remove each unrelated source before opening Review combination. Compare the names and original record IDs in Reviewed source records before confirming.
+- **A new review still lists records from an earlier combination** In Selected Records, remove each unrelated source before opening Review combination. Compare the names and original record IDs in Reviewed source records before confirming.
 
 - **The review changed or the response was interrupted** Get a fresh preview after changed evidence. If submission may have succeeded, inspect its receipt first and use read-only refresh. Do not submit a different grouping intent to recover an uncertain prior result.
 
@@ -343,7 +343,7 @@ Open: `/admin/database`
 
 ### Walkthrough
 
-1. **Select an approved table** Under Data & Recovery, open Database records and choose Database table. Read its primary-key fields and Field access policy. Metadata only means rows are not queried under the current policy.
+1. **Select an approved table** Under Data & Recovery, open Database Records and choose Database table. Read its primary-key fields and Field Access Policy. Metadata only means rows are not queried under the current policy.
 
    Look for: Choose Database table and optionally apply an exact JSON primary key.
 
@@ -479,7 +479,7 @@ Open: `/localization?view=review`
 
 ### Walkthrough
 
-1. **Inspect the draft card** Open Localization → Draft review and use its status filter to find pending or historical drafts. Inspect the language, key and destination shown on the intended draft card, then compare the original and proposed wording.
+1. **Inspect the draft card** Open Localization → Draft Review and use its status filter to find pending or historical drafts. Inspect the language, key and destination shown on the intended draft card, then compare the original and proposed wording.
 
    Look for: Open translation review and select the language and destination being reviewed.
 

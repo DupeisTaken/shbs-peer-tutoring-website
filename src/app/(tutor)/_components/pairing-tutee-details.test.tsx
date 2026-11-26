@@ -285,7 +285,7 @@ it("retains separate relay and schedule drafts across Close, nested Cancel and o
   );
   await act(async () => undefined);
   const review = screen.getByRole("dialog", {
-    name: /schedule conflict.*Learner One/,
+    name: /Schedule Conflict.*Learner One/,
   });
   fireEvent.change(within(review).getByRole("textbox"), {
     target: { value: "Conflict draft" },
@@ -316,7 +316,7 @@ it("retains separate relay and schedule drafts across Close, nested Cancel and o
   fireEvent.click(scheduleTrigger);
   await act(async () => undefined);
   const resumed = screen.getByRole("dialog", {
-    name: /schedule conflict.*Learner One/,
+    name: /Schedule Conflict.*Learner One/,
   });
   expect(within(resumed).getByRole<HTMLTextAreaElement>("textbox").value).toBe(
     "Conflict draft",
@@ -342,7 +342,7 @@ it("preserves the nested schedule ticket payload and blocks parent dismissal/sib
     target: "pairing:tutee",
   });
   const review = screen.getByRole("dialog", {
-    name: /schedule conflict.*Learner One/,
+    name: /Schedule Conflict.*Learner One/,
   });
   fireEvent.change(within(review).getByRole("textbox"), {
     target: { value: "Existing schedule reason" },

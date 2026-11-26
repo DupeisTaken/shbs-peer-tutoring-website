@@ -409,14 +409,14 @@ function result(
   return { data, error, isFetching, refetch: mocks.refetch };
 }
 /** Exact evidence is a deliberate second layer beneath the readable summary. */
-function fullEvidence(label = "Full recorded evidence") {
+function fullEvidence(label = "Full Recorded Evidence") {
   const toggle = screen.getByRole("button", { name: new RegExp(`^${label}`) });
   if (toggle.getAttribute("aria-expanded") === "false") fireEvent.click(toggle);
   return within(
     document.getElementById(toggle.getAttribute("aria-controls")!)!,
   );
 }
-function technicalDetails(label = "Technical details") {
+function technicalDetails(label = "Technical Details") {
   const toggle = screen.getByRole("button", { name: new RegExp(`^${label}`) });
   if (toggle.getAttribute("aria-expanded") === "false") fireEvent.click(toggle);
   return within(
@@ -561,7 +561,7 @@ it("shows exact stored identifiers, milliseconds, undo time and a linked approva
     expect(screen.getByText(text)).toBeTruthy();
   expect(technical.getByText("Undone")).toBeTruthy();
   expect(
-    within(screen.getByRole("region", { name: "Recorded event" })).getByText(
+    within(screen.getByRole("region", { name: "Recorded Event" })).getByText(
       "Undone",
     ),
   ).toBeTruthy();
@@ -692,7 +692,7 @@ it("renders legacy missing evidence explicitly without inventing a before value"
     screen.getByText("No detailed evidence was recorded for this event."),
   ).toBeTruthy();
   expect(
-    within(screen.getByRole("region", { name: "Recorded event" })).getAllByText(
+    within(screen.getByRole("region", { name: "Recorded Event" })).getAllByText(
       "Not recorded",
     ),
   ).toHaveLength(2);
@@ -859,7 +859,7 @@ it.each(["FORBIDDEN", "UNAUTHORIZED"])(
     expect(screen.queryByText("Recorded Alex")).toBeNull();
     expect(screen.queryByText("event-1")).toBeNull();
     expect(screen.queryByRole("link")).toBeNull();
-    expect(screen.queryByText("View stored JSON")).toBeNull();
+    expect(screen.queryByText("View Stored JSON")).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: "Retry" }));
     expect(mocks.refetch).toHaveBeenCalledTimes(1);
   },
@@ -899,7 +899,7 @@ it("lazily exposes faithful JSON types and escaped text while excluding internal
   };
   mocks.query.mockReturnValue(result({ ...event, details }));
   const view = render(<AuditEventDetails id="event-1" />, { wrapper });
-  const summary = screen.getByText("View stored JSON");
+  const summary = screen.getByText("View Stored JSON");
   expect(summary.tagName).toBe("SUMMARY");
   expect(view.container.querySelector("pre")).toBeNull();
   const disclosure = summary.closest("details")!;
@@ -921,9 +921,9 @@ it.each([
     locale: "en",
     messages: en,
     title: "Recorded Changes",
-    full: "Full recorded evidence",
+    full: "Full Recorded Evidence",
     position: "Recorded position 70",
-    raw: "View stored JSON",
+    raw: "View Stored JSON",
     counts: "Value changes: 69 changed · 0 added · 0 removed",
   },
   {
@@ -1037,7 +1037,7 @@ it("keeps an unknown batch faithful and excludes nested undo instructions from a
   expect(screen.queryByRole("region", { name: "Recorded Changes" })).toBeNull();
   const exact = fullEvidence();
   expect(exact.getByText("Unknown original context")).toBeTruthy();
-  const raw = exact.getByText("View stored JSON").closest("details")!;
+  const raw = exact.getByText("View Stored JSON").closest("details")!;
   raw.open = true;
   fireEvent(raw, new Event("toggle"));
   expect(raw.querySelector("pre")!.textContent).not.toMatch(

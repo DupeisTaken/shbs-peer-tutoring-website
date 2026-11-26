@@ -70,9 +70,9 @@ it("compares an edit with its original period and preserves a midnight endpoint"
 
 it("identifies the snapshotted period being removed without requiring payload times", () => {
   show("admin.deleteRoomUnavailability", { id: "block" }, targets);
-  expect(screen.getByText("Period to remove")).toBeTruthy();
+  expect(screen.getByText("Period to Remove")).toBeTruthy();
   expect(screen.getByText("12:00–13:00")).toBeTruthy();
-  expect(screen.queryByText("Proposed period")).toBeNull();
+  expect(screen.queryByText("Proposed Period")).toBeNull();
 });
 
 it("explains missing legacy room evidence while retaining available period evidence", () => {

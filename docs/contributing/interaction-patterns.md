@@ -115,7 +115,7 @@ see [name-field reference](../reference/name-fields.md).
   holds program settings, signup forms, landing/policies/translations, codes,
   approvals, users and PDF handbook distribution; **Data & Recovery** groups archival,
   audit and recovery tools (**Program Records**, **Academic Corrections**, **Audit Log**,
-  **Admission Recovery**, **Database records**). **Help Center** (`/help`) lives in the
+  **Admission Recovery**, **Database Records**). **Help Center** (`/help`) lives in the
   top bar (workspace switcher and `?` icon) and landing footer rather than the Overview
   sidebar. Grouping never changes route permissions or approval policy.
 - **Program Settings tabs:** **Recruitment and Refresh**, **Account Settings**,
