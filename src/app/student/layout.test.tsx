@@ -276,14 +276,19 @@ it.each(["HEAD", "ADMIN", "COORDINATOR"])(
   },
 );
 it.each(["HEAD", "ADMIN", "COORDINATOR"])(
-  "keeps mobile management navigation in %s translation workspaces",
+  "keeps %s translation workspaces dedicated and free of management sidebar chrome",
   async (role) => {
     mocks.auth.mockResolvedValue({ user: { id: "account" }, role });
     mocks.user.mockResolvedValue({ role, canTranslate: true });
     render(await LocalizationLayout({ children: null }));
     expect(
-      screen.getByRole("navigation", { name: "Mobile management navigation" }),
-    ).toBeTruthy();
+      screen.queryByRole("navigation", { name: "Mobile management navigation" }),
+    ).toBeNull();
+    expect(
+      screen
+        .getByRole("link", { name: "components.workspaceTitles.management" })
+        .getAttribute("href"),
+    ).toBe("/admin");
     expect(screen.getByText(`admin.users.roles.${role}`)).toBeTruthy();
   },
 );
@@ -296,8 +301,8 @@ it.each(["HEAD", "ADMIN", "COORDINATOR"])(
     render(await LocalizationLayout({ children: <p>Translation review</p> }));
     expect(screen.getByText("Translation review")).toBeTruthy();
     expect(
-      screen.getByRole("navigation", { name: "Mobile management navigation" }),
-    ).toBeTruthy();
+      screen.queryByRole("navigation", { name: "Mobile management navigation" }),
+    ).toBeNull();
     expect(screen.getByText(`admin.users.roles.${role}`)).toBeTruthy();
   },
 );
@@ -714,9 +719,6 @@ it.each([
     mocks.pastAcceptance.mockResolvedValue({ revision: "retained-policy" });
     render(await TuteeLayout({ children: <PrivateStudentContent /> }));
     expect(screen.getByText("Private tutee content")).toBeTruthy();
-    expect(
-      screen.getByRole("navigation", { name: "Tutee navigation" }),
-    ).toBeTruthy();
     expect(
       screen.queryByRole("region", { name: "Own account controls" }),
     ).toBeNull();

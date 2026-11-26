@@ -232,9 +232,6 @@ export function StudentSupport({ viewScope = "" }: { viewScope?: string }) {
                 >
                   {t("qualified")}
                 </Link>
-                <Link href="/localization?view=review" className="link">
-                  {t("reviewDrafts")}
-                </Link>
               </nav>
             </section>
           )}

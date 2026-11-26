@@ -19,12 +19,7 @@ export function TuteePersonalView({ fallback }: { fallback: ReactNode }) {
     return fallback;
   return (
     <>
-      <div>
-        <p className="muted text-xs font-semibold tracking-wider uppercase">
-          {t("title")}
-        </p>
-        <h1 className="page-title mt-1">{t(view)}</h1>
-      </div>
+      <h1 className="page-title">{t(view)}</h1>
       {view === "account" ? <AccountSettings embedded /> : <MessageInbox />}
     </>
   );

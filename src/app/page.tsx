@@ -48,7 +48,6 @@ export default async function Home() {
             href: "/",
             title: APP_TITLE,
             currentArea: "home",
-            containerClassName: "mx-auto max-w-5xl",
           })}
           signedInLinks={signedInLinks}
         />

@@ -74,123 +74,145 @@ export function TranslationEditor({
   const stringsConcealed = concealed || !access.edit;
   const languagesConcealed = concealed || !canOpenLanguages;
   return (
-    <div key={identity} className="space-y-6">
+    <div key={identity} className="min-w-0">
       {/* Receipt checks contain no translation payload and remain available to
           the original verified actor after their editing assignment is lost. */}
-      <TranslationIntentRecovery
-        actorId={!denied && !me.error && me.isSuccess ? me.data?.id : null}
-        refreshAuthority={async () => {
-          await me.refetch({ throwOnError: true });
-        }}
-      />
-      {me.isLoading && !me.data && <p role="status">{t("loading")}</p>}
-      {(denied || (!me.data && !me.isLoading)) && (
-        <StatePanel
-          kind={denied ? "denied" : "error"}
-          title={
-            denied
-              ? t("noAccess")
-              : (readError?.message ?? t("identityReadFailed"))
-          }
-          action={
-            <Button disabled={retrying} onClick={() => void retryIdentity()}>
-              {common("retry")}
-            </Button>
-          }
+      <div className="mx-auto max-w-6xl space-y-4 px-4 py-5 empty:hidden lg:px-6">
+        <TranslationIntentRecovery
+          actorId={!denied && !me.error && me.isSuccess ? me.data?.id : null}
+          refreshAuthority={async () => {
+            await me.refetch({ throwOnError: true });
+          }}
         />
-      )}
-      {!denied && me.data && !access.enter && (
-        <p role="alert">{t("noAccess")}</p>
-      )}
-      <div hidden={concealed} className="space-y-6">
-        <header className="space-y-2 border-b border-slate-200 pb-5">
-          <p className="text-accent-700 text-xs font-semibold tracking-widest uppercase">
-            {t("workspace")}
-          </p>
-          <h1 className="page-title">{t("title")}</h1>
-          <p className="muted max-w-2xl">
-            {t(
-              access.edit
-                ? access.publish
-                  ? "publisherHelp"
-                  : "editorHelp"
-                : "reviewerHelp",
-            )}
-          </p>
-        </header>
-        {!concealed && readError && (
-          <InlineNotice
-            tone="error"
-            announcement="alert"
+        {me.isLoading && !me.data && <p role="status">{t("loading")}</p>}
+        {(denied || (!me.data && !me.isLoading)) && (
+          <StatePanel
+            kind={denied ? "denied" : "error"}
+            title={
+              denied
+                ? t("noAccess")
+                : (readError?.message ?? t("identityReadFailed"))
+            }
             action={
               <Button disabled={retrying} onClick={() => void retryIdentity()}>
                 {common("retry")}
               </Button>
             }
-          >
-            {readError.message}
-          </InlineNotice>
+          />
         )}
-        <fieldset disabled={!!readError} className="min-w-0">
-          <SectionTabs<View>
-            label={t("title")}
-            items={(
-              [
-                ...(access.edit ? (["strings", "website"] as const) : []),
-                "review",
-                ...(canOpenLanguages ? (["languages"] as const) : []),
-              ] as View[]
-            ).map((tab) => ({ value: tab, label: viewLabel(tab) }))}
-            value={view}
-            onChange={(next) => {
-              if (concealed || readError) return;
-              setVisited((previous) => [...new Set([...previous, view, next])]);
-              setSelected(next);
-            }}
-          >
-            {/* Concealment renders owners even for hidden tabs, removing private
-            DOM while their admitted writes and accepted receipts stay alive. */}
-            {visited.includes("strings") && (
-              <Activity
-                mode={
-                  stringsConcealed || view === "strings" ? "visible" : "hidden"
+        {!denied && me.data && !access.enter && (
+          <p role="alert">{t("noAccess")}</p>
+        )}
+      </div>
+      <div hidden={concealed} className="min-w-0">
+        <SectionTabs<View>
+          label={t("title")}
+          items={(
+            [
+              ...(access.edit ? (["strings", "website"] as const) : []),
+              "review",
+              ...(canOpenLanguages ? (["languages"] as const) : []),
+            ] as View[]
+          ).map((tab) => ({ value: tab, label: viewLabel(tab) }))}
+          value={view}
+          flush
+          renderLayout={({ tablist, tabpanel }) => (
+            <>
+              {/* Non-sticky Tier-2 masthead (never <header> so print styles retain the page H1). */}
+              <div className="border-b border-slate-200 bg-slate-50">
+                <div className="mx-auto max-w-6xl px-4 pt-5 sm:pt-6 lg:px-6">
+                  <div className="space-y-1.5 pb-4 sm:pb-5">
+                    <h1 className="page-title">{t("title")}</h1>
+                    <p className="muted max-w-2xl text-sm">
+                      {t(
+                        access.edit
+                          ? access.publish
+                            ? "publisherHelp"
+                            : "editorHelp"
+                          : "reviewerHelp",
+                      )}
+                    </p>
+                  </div>
+                  {tablist}
+                </div>
+              </div>
+              <div className="mx-auto max-w-6xl px-4 py-5 sm:py-6 lg:px-6">
+                {tabpanel}
+              </div>
+            </>
+          )}
+          onChange={(next) => {
+            if (concealed || readError) return;
+            setVisited((previous) => [...new Set([...previous, view, next])]);
+            setSelected(next);
+          }}
+        >
+          <div className="space-y-5">
+            {!concealed && readError && (
+              <InlineNotice
+                tone="error"
+                announcement="alert"
+                action={
+                  <Button
+                    disabled={retrying}
+                    onClick={() => void retryIdentity()}
+                  >
+                    {common("retry")}
+                  </Button>
                 }
               >
-                <TranslationStrings concealed={stringsConcealed} />
-              </Activity>
+                {readError.message}
+              </InlineNotice>
             )}
-            {visited.includes("website") && (
-              <Activity
-                mode={
-                  stringsConcealed || view === "website" ? "visible" : "hidden"
-                }
-              >
-                <TranslationComposer concealed={stringsConcealed} />
-              </Activity>
-            )}
-            {visited.includes("review") && (
-              <Activity
-                mode={concealed || view === "review" ? "visible" : "hidden"}
-              >
-                <TranslationReview concealed={concealed} />
-              </Activity>
-            )}
-            {visited.includes("languages") && (
-              <Activity
-                mode={
-                  languagesConcealed || view === "languages"
-                    ? "visible"
-                    : "hidden"
-                }
-              >
-                <LanguagesPanel
-                  canAdd={access.edit}
-                  concealed={languagesConcealed}
-                />
-              </Activity>
-            )}
-          </SectionTabs>
-        </fieldset>
+            <fieldset disabled={!!readError} className="min-w-0">
+              {/* Concealment renders owners even for hidden tabs, removing private
+              DOM while their admitted writes and accepted receipts stay alive. */}
+              {visited.includes("strings") && (
+                <Activity
+                  mode={
+                    stringsConcealed || view === "strings"
+                      ? "visible"
+                      : "hidden"
+                  }
+                >
+                  <TranslationStrings concealed={stringsConcealed} />
+                </Activity>
+              )}
+              {visited.includes("website") && (
+                <Activity
+                  mode={
+                    stringsConcealed || view === "website"
+                      ? "visible"
+                      : "hidden"
+                  }
+                >
+                  <TranslationComposer concealed={stringsConcealed} />
+                </Activity>
+              )}
+              {visited.includes("review") && (
+                <Activity
+                  mode={concealed || view === "review" ? "visible" : "hidden"}
+                >
+                  <TranslationReview concealed={concealed} />
+                </Activity>
+              )}
+              {visited.includes("languages") && (
+                <Activity
+                  mode={
+                    languagesConcealed || view === "languages"
+                      ? "visible"
+                      : "hidden"
+                  }
+                >
+                  <LanguagesPanel
+                    canAdd={access.edit}
+                    concealed={languagesConcealed}
+                  />
+                </Activity>
+              )}
+            </fieldset>
+          </div>
+        </SectionTabs>
       </div>
     </div>
   );

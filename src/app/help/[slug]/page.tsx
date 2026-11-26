@@ -45,7 +45,7 @@ export default async function HelpArticlePage({
     <main
       id="main-content"
       lang={locale}
-      className="mx-auto max-w-6xl px-4 py-6 sm:py-10"
+      className="mx-auto max-w-6xl px-4 py-6 sm:py-10 lg:px-6"
     >
       <Link
         href="/help"

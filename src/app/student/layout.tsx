@@ -15,7 +15,6 @@ import { NextIntlClientProvider } from "next-intl";
 import { auth } from "~/server/auth";
 import { db } from "~/server/db";
 import { UserAvatar } from "~/app/_components/user-avatar";
-import { TuteeNavigation } from "./navigation";
 import { getFeatures } from "~/server/program/features";
 import { tuteePeriodMessages } from "./period-messages";
 import { TuteePersonalView } from "./personal-view";
@@ -112,7 +111,6 @@ export default async function TuteeLayout({
         switcherItems={nav.items}
         switcherLabels={workspaceSwitcherLabels(t)}
         skipLabel={t("common.skipToContent")}
-        containerClassName="mx-auto max-w-6xl"
         account={
           <UserAvatar
             name={me.name ?? me.username ?? me.email}
@@ -124,20 +122,16 @@ export default async function TuteeLayout({
           />
         }
       />
-      <main
-        id="main-content"
-        className="mx-auto max-w-6xl space-y-6 px-4 py-5 sm:py-8"
-      >
-        <DepartureBanner />
+      <main id="main-content" className="min-w-0">
         {hasAccess ? (
-          <>
-            <TuteeNavigation />
-            {children}
-          </>
+          children
         ) : (
-          <Suspense fallback={participationNotice}>
-            <TuteePersonalView fallback={participationNotice} />
-          </Suspense>
+          <div className="mx-auto max-w-6xl space-y-5 px-4 py-5 sm:py-6 lg:px-6">
+            <DepartureBanner />
+            <Suspense fallback={participationNotice}>
+              <TuteePersonalView fallback={participationNotice} />
+            </Suspense>
+          </div>
         )}
       </main>
     </div>

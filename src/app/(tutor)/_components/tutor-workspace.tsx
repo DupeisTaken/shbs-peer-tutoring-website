@@ -42,6 +42,8 @@ const targets: Record<Panel, string> = {
 /** Both legacy routes render this owner. Panels mount on first access and stay
  * mounted while hidden, so switching context never discards a feature's draft. */
 export function TutorWorkspace({
+  header,
+  notices,
   schedule,
   pairings,
   preferences,
@@ -49,6 +51,10 @@ export function TutorWorkspace({
   chair,
   attention,
 }: Omit<Record<Panel, ReactNode>, "chair"> & {
+  /** Optional Tier-2 workspace masthead title/summary block anchored above the flush tab bar. */
+  header?: ReactNode;
+  /** Optional workspace-wide alerts/consent notices kept visible across tabs inside the tabpanel. */
+  notices?: ReactNode;
   chair?: ReactNode;
   attention?: ReactNode;
 }) {
@@ -87,7 +93,14 @@ export function TutorWorkspace({
     };
   }, [hasChair]);
   const panelContent: Record<Panel, ReactNode> = {
-    schedule,
+    schedule: attention ? (
+      <div className="space-y-4">
+        {attention}
+        {schedule}
+      </div>
+    ) : (
+      schedule
+    ),
     pairings,
     preferences,
     history,
@@ -95,7 +108,7 @@ export function TutorWorkspace({
   };
   return (
     <div
-      className="space-y-4"
+      className={header ? "min-w-0" : "space-y-4"}
       onClickCapture={(event) => {
         if (
           event.button !== 0 ||
@@ -136,24 +149,45 @@ export function TutorWorkspace({
         window.dispatchEvent(new HashChangeEvent("hashchange"));
       }}
     >
-      {attention}
       <SectionTabs
         label={t("label")}
         items={visiblePanels.map((value) => ({ value, label: t(value) }))}
         value={activePanel}
+        flush={Boolean(header)}
+        renderLayout={
+          header
+            ? ({ tablist, tabpanel }) => (
+                <>
+                  {/* Non-sticky Tier-2 masthead (never <header> so print styles retain page H1/hours). */}
+                  <div className="border-b border-slate-200 bg-slate-50">
+                    <div className="mx-auto max-w-6xl px-4 pt-5 sm:pt-6 lg:px-6">
+                      {header}
+                      {tablist}
+                    </div>
+                  </div>
+                  <div className="mx-auto max-w-6xl px-4 py-5 sm:py-6 lg:px-6">
+                    {tabpanel}
+                  </div>
+                </>
+              )
+            : undefined
+        }
         onChange={(value) => {
           setSelected(value);
           // Keep native Back/Forward and existing notification fragments meaningful.
           window.history.pushState(null, "", `#${targets[value]}`);
         }}
       >
-        {visiblePanels.map((panel) => (
-          <div key={panel} hidden={panel !== activePanel}>
-            {visited.includes(panel) || activePanel === panel
-              ? panelContent[panel]
-              : null}
-          </div>
-        ))}
+        <div className="space-y-5">
+          {notices ? <div className="space-y-4 empty:hidden">{notices}</div> : null}
+          {visiblePanels.map((panel) => (
+            <div key={panel} hidden={panel !== activePanel}>
+              {visited.includes(panel) || activePanel === panel
+                ? panelContent[panel]
+                : null}
+            </div>
+          ))}
+        </div>
       </SectionTabs>
     </div>
   );

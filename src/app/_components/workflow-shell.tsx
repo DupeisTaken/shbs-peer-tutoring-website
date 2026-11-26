@@ -83,7 +83,6 @@ export async function WorkflowShell({
         switcherItems={nav.items}
         switcherLabels={workspaceSwitcherLabels(rootT)}
         skipLabel={common("skipToContent")}
-        containerClassName="mx-auto max-w-5xl"
         account={await UserAvatar({
           name: user.name ?? user.username ?? user.email,
           username: user.username,
@@ -95,10 +94,12 @@ export async function WorkflowShell({
       />
       <main
         id="main-content"
-        className="mx-auto max-w-5xl space-y-6 px-4 py-6"
+        className="mx-auto max-w-5xl space-y-6 px-4 py-6 lg:px-6"
       >
-        <SectionLinks label={title} items={taskItems} />
-        <h1 className="page-title">{title}</h1>
+        <div className="space-y-3">
+          <h1 className="page-title">{title}</h1>
+          <SectionLinks label={title} items={taskItems} />
+        </div>
         {children}
       </main>
     </div>

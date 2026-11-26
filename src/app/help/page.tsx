@@ -71,7 +71,7 @@ export default async function HelpPage() {
     <main
       id="main-content"
       lang={locale}
-      className="mx-auto max-w-6xl space-y-6 px-4 py-6 sm:py-10"
+      className="mx-auto max-w-6xl space-y-6 px-4 py-6 sm:py-10 lg:px-6"
     >
       <section className="card border-accent-200 p-5 sm:p-7">
         <p className="text-accent-700 text-sm font-semibold">{copy.subtitle}</p>

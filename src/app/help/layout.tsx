@@ -118,7 +118,6 @@ export default async function HelpLayout({
           switcherItems={nav.items}
           switcherLabels={workspaceSwitcherLabels(t)}
           skipLabel={t("common.skipToContent")}
-          containerClassName="mx-auto max-w-6xl"
           account={
             <UserAvatar
               name={displayName}
