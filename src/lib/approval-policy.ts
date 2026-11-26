@@ -222,6 +222,7 @@ export const APPROVAL_OPERATIONS: Record<string, string> = {
   "home.updatePage": "CustomPage",
   "home.reorderPages": "CustomPage",
   "home.deletePage": "CustomPage",
+  "home.setAboutMode": "HomeContent",
 };
 
 export const COORDINATOR_DIRECT_OPERATIONS = new Set([

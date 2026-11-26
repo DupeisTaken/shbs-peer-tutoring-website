@@ -29,6 +29,9 @@ vi.mock("next/navigation", () => ({
   notFound: () => {
     throw new Error("not-found");
   },
+  redirect: (target: string) => {
+    throw new Error(`redirect:${target}`);
+  },
 }));
 vi.mock("next-intl/server", () => ({
   getLocale: async () => state.locale,
@@ -175,4 +178,10 @@ it("keeps an unresolved slug at 404", async () => {
   await expect(renderDetail()).rejects.toThrow("not-found");
   expect(state.authorize).not.toHaveBeenCalled();
   expect(state.layout).not.toHaveBeenCalled();
+});
+
+it("redirects legacy /p/about bookmarks to the dedicated /about page", async () => {
+  await expect(
+    SlugPage({ params: Promise.resolve({ slug: "about" }) }),
+  ).rejects.toThrow("redirect:/about");
 });

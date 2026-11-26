@@ -2373,7 +2373,20 @@
         "showInNav": "显示在顶部导航",
         "inNav": "导航中",
         "editContent": "编辑内容",
-        "confirmDelete": "永久删除此页面？"
+        "confirmDelete": "永久删除此页面？",
+        "about": {
+          "title": "关于页面",
+          "help": "默认情况下，/about 显示内置关于页面，包含实时辅导累计数据与现任负责人联系邮箱。开启自定义版本后，可在下方页面编辑器中创建并发布替代页面。",
+          "statusBuiltIn": "内置页面",
+          "statusCustom": "已启用自定义版本",
+          "statusCustomHidden": "自定义版本已隐藏",
+          "toggleLabel": "使用编辑器中的自定义关于页面",
+          "createAndToggleLabel": "创建并启用自定义关于页面",
+          "viewLive": "查看 /about",
+          "previewCustom": "预览自定义版本",
+          "hiddenFallbackNote": "当前自定义关于页面处于隐藏状态，发布前访客仍会看到内置关于页面。",
+          "pageBadge": "自定义关于页面"
+        }
       },
       "tabDesc": {
         "layout": "排列组成首页的区块。",
@@ -4059,7 +4072,8 @@
         "schoolHours_save": "更改学校服务时数报告计划",
         "student_setCalendarHoliday": "添加学校假期日期范围",
         "student_updateCalendarHoliday": "编辑学校假期日期范围",
-        "student_resetCalendarHoliday": "恢复学校假期日期范围的常规安排"
+        "student_resetCalendarHoliday": "恢复学校假期日期范围的常规安排",
+        "home_setAboutMode": "切换关于页面版本"
       },
       "decisionRequestHelp": "“批准并执行”会按上方提案生效；“驳回”则不作任何更改。请填写简短说明。",
       "confirmPassword": "确认你的账号密码",

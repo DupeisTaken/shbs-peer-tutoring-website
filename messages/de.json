@@ -2373,7 +2373,20 @@
         "showInNav": "Im oberen Menü anzeigen",
         "inNav": "Im Menü",
         "editContent": "Inhalt bearbeiten",
-        "confirmDelete": "Diese Seite dauerhaft löschen?"
+        "confirmDelete": "Diese Seite dauerhaft löschen?",
+        "about": {
+          "title": "Über-uns-Seite",
+          "help": "Standardmäßig zeigt /about die integrierte Über-uns-Seite mit aktuellen Gesamtzahlen und dem Kontakt der Projektleitung. Aktiviere die Alternative, um im Editor unten eine eigene Version zu erstellen.",
+          "statusBuiltIn": "Integrierte Seite",
+          "statusCustom": "Eigene Alternative aktiv",
+          "statusCustomHidden": "Eigene Alternative ausgeblendet",
+          "toggleLabel": "Eigene Alternative für die Über-uns-Seite verwenden",
+          "createAndToggleLabel": "Eigene Alternative für die Über-uns-Seite erstellen und verwenden",
+          "viewLive": "/about ansehen",
+          "previewCustom": "Alternative ansehen",
+          "hiddenFallbackNote": "Die eigene Über-uns-Seite ist derzeit ausgeblendet. Bis sie sichtbar ist, sehen Besucher weiterhin die integrierte Seite.",
+          "pageBadge": "Alternative Über-uns-Seite"
+        }
       },
       "tabDesc": {
         "layout": "Ordnen Sie die Blöcke der Startseite an.",
@@ -4059,7 +4072,8 @@
         "schoolHours_save": "Zeitplan der Schulstundenberichte ändern",
         "student_setCalendarHoliday": "Einen Schulferienzeitraum hinzufügen",
         "student_updateCalendarHoliday": "Einen Schulferienzeitraum bearbeiten",
-        "student_resetCalendarHoliday": "Einen Schulferienzeitraum zurücksetzen"
+        "student_resetCalendarHoliday": "Einen Schulferienzeitraum zurücksetzen",
+        "home_setAboutMode": "Modus der Über-uns-Seite umschalten"
       },
       "decisionRequestHelp": "„Genehmigen und anwenden“ führt die beantragte Aktion aus, auch eine beantragte Ablehnung. „Mit Rückmeldung ablehnen“ lehnt diesen Antrag ohne Änderungen ab. Begründen Sie beide Entscheidungen mit einer Notiz.",
       "confirmPassword": "Passwort Ihres Kontos bestätigen",

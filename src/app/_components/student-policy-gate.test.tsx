@@ -129,7 +129,7 @@ afterEach(() => {
   vi.useRealTimers();
 });
 
-it.each(["/privacy", "/unsubscribe", "/request-appeal"])(
+it.each(["/about", "/privacy", "/unsubscribe", "/request-appeal"])(
   "leaves %s usable despite outstanding agreements or errors",
   async (path) => {
     mocks.path = path;

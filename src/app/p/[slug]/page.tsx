@@ -13,6 +13,7 @@ import {
 import { getLayout } from "~/server/home/blocks";
 import { authorizeHomeEditor } from "~/server/home/images";
 import { APP_TITLE } from "~/lib/branding";
+import { getAboutContent } from "~/lib/about-content";
 import type { LandingEditorView } from "~/lib/landing-editor-view";
 import { Markdown } from "~/app/_components/markdown";
 import { PageBlocks } from "~/app/_components/page-blocks";
@@ -31,8 +32,9 @@ export default async function SlugPage({
   params: Promise<{ slug: string }>;
 }) {
   const { slug } = await params;
-  // Preserve existing FAQ bookmarks while the maintained catalogue owns help.
+  // Preserve existing FAQ and About bookmarks while dedicated routes own them.
   if (slug === "faq") redirect("/help");
+  if (slug === "about") redirect("/about");
   const locale = await getLocale();
   const navPages = await getNavPages(db, locale);
 
@@ -94,7 +96,8 @@ async function Shell({
   nav: { slug: string; label: string; labelLocale: string | undefined }[];
   children: ReactNode;
 }) {
-  const [t, tc, help, signedInHeader] = await Promise.all([
+  const [locale, t, tc, help, signedInHeader] = await Promise.all([
+    getLocale(),
     getTranslations("landing"),
     getTranslations("common"),
     getTranslations("helpNav"),
@@ -104,13 +107,17 @@ async function Shell({
       containerClassName: "mx-auto max-w-5xl",
     }),
   ]);
-  const navItems = nav
-    .filter((page) => page.slug !== "faq")
-    .map((page) => ({
-      href: `/p/${page.slug}`,
-      label: page.label,
-      lang: page.labelLocale,
-    }));
+  const about = getAboutContent(locale);
+  const navItems = [
+    { href: "/about", label: about.navTitle, lang: about.lang },
+    ...nav
+      .filter((page) => page.slug !== "faq" && page.slug !== "about")
+      .map((page) => ({
+        href: `/p/${page.slug}`,
+        label: page.label,
+        lang: page.labelLocale,
+      })),
+  ];
   return (
     <div className="flex min-h-screen flex-col">
       {signedInHeader ?? (

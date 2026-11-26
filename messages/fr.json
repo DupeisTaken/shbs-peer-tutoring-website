@@ -2373,7 +2373,20 @@
         "showInNav": "Afficher dans le menu du haut",
         "inNav": "Dans le menu",
         "editContent": "Modifier le contenu",
-        "confirmDelete": "Supprimer définitivement cette page ?"
+        "confirmDelete": "Supprimer définitivement cette page ?",
+        "about": {
+          "title": "Page À propos",
+          "help": "Par défaut, /about affiche la page À propos intégrée avec les totaux en direct et le contact de la direction actuelle. Activez l’alternative pour créer et publier une version personnalisée dans l’éditeur.",
+          "statusBuiltIn": "Page intégrée",
+          "statusCustom": "Version personnalisée active",
+          "statusCustomHidden": "Version personnalisée masquée",
+          "toggleLabel": "Utiliser la page À propos personnalisée",
+          "createAndToggleLabel": "Créer et utiliser une page À propos personnalisée",
+          "viewLive": "Voir /about",
+          "previewCustom": "Aperçu de l’alternative",
+          "hiddenFallbackNote": "La page À propos personnalisée est masquée ; les visiteurs voient toujours la page intégrée jusqu’à sa publication.",
+          "pageBadge": "Page À propos alternative"
+        }
       },
       "tabDesc": {
         "layout": "Organisez les blocs qui composent la page d’accueil.",
@@ -4059,7 +4072,8 @@
         "schoolHours_save": "Modifier la planification des rapports d’heures pour l’école",
         "student_setCalendarHoliday": "Ajouter une période de vacances scolaires",
         "student_updateCalendarHoliday": "Modifier une période de vacances scolaires",
-        "student_resetCalendarHoliday": "Réinitialiser une période de vacances scolaires"
+        "student_resetCalendarHoliday": "Réinitialiser une période de vacances scolaires",
+        "home_setAboutMode": "Changer le mode de la page À propos"
       },
       "decisionRequestHelp": "Approuver et appliquer exécute l’action demandée, y compris un rejet demandé. Rejeter avec un commentaire refuse cette proposition sans rien modifier. Ajoutez une note pour expliquer votre décision.",
       "confirmPassword": "Confirmez le mot de passe de votre compte",

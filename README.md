@@ -1,6 +1,8 @@
 # SHBS Peer Tutoring
 
-A school peer-tutoring website for student intake, matching, attendance, service hours, interviews and private support. Management changes proposed by coordinators require ADMIN or HEAD approval.
+Founded in 2024 at Shanghai Hongrun Boyuan School (SHBS), SHBS Peer Tutoring is a 100% student-run mutual-help organization operating independently of school faculty intervention. Across the school's Honors and Advanced Placement (AP) curriculum—with new subjects added as needs grow—fellow students meet as equals in 45-minute after-school classroom sessions (typically 1 tutor with 1–4 tutees) to support coursework and build lasting campus connections.
+
+This website coordinates student intake, subject matching, rescheduling, attendance, service hours, panel interviews, Crew patrols, and private support. Management changes proposed by Coordinators require ADMIN or HEAD approval; Viewers may follow read-only summaries without a say in program operations. Public visitors can read the bilingual program overview at `/about`.
 
 ## Documentation
 

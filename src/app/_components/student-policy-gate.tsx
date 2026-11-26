@@ -23,7 +23,8 @@ export function StudentPolicyGate() {
   // Credential setup and recovery must stay usable before policy participation.
   const skipPolicyGate =
     [
-      // A privacy notice must stay readable even when participation consent is due.
+      // Public overview and privacy notices must stay readable even when participation consent is due.
+      "/about",
       "/privacy",
       // Reading/claiming old records does not enroll someone in the current program.
       "/history",

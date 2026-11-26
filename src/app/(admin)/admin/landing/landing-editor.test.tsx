@@ -34,6 +34,17 @@ const state = vi.hoisted(() => ({
   }>,
   mutate: vi.fn<(payload: LayoutPayload, callbacks: LayoutCallbacks) => void>(),
   updateNews: vi.fn(),
+  aboutMode: {
+    useCustom: false,
+    customPage: null as null | {
+      id: string;
+      slug: string;
+      title: Record<string, string>;
+      published: boolean;
+      updatedAt: Date;
+    },
+  },
+  setAboutMode: vi.fn(),
 }));
 vi.mock("~/trpc/react", async () => {
   const { useQuery } = await import("@tanstack/react-query");
@@ -63,6 +74,8 @@ vi.mock("~/trpc/react", async () => {
         home: {
           layout: { invalidate: vi.fn() },
           news: { invalidate: vi.fn() },
+          pages: { invalidate: vi.fn() },
+          aboutMode: { invalidate: vi.fn() },
         },
         translationIntent: { get: { fetch: vi.fn() } },
         client: { translationIntent: { get: { query: vi.fn() } } },
@@ -97,6 +110,34 @@ vi.mock("~/trpc/react", async () => {
         removeNewsTranslation: {
           useMutation: () => ({ mutateAsync: vi.fn(), isPending: false }),
         },
+        pages: {
+          useQuery: () => ({
+            data: [],
+            isLoading: false,
+            isSuccess: true,
+            refetch: vi.fn(),
+          }),
+        },
+        createPage: {
+          useMutation: () => ({ mutate: vi.fn(), isPending: false }),
+        },
+        reorderPages: {
+          useMutation: () => ({ mutate: vi.fn(), isPending: false }),
+        },
+        aboutMode: {
+          useQuery: () => ({
+            data: state.aboutMode,
+            isLoading: false,
+            isSuccess: true,
+          }),
+        },
+        setAboutMode: {
+          useMutation: () => ({
+            mutate: state.setAboutMode,
+            isPending: false,
+            error: null,
+          }),
+        },
       },
     },
   };
@@ -112,8 +153,10 @@ afterEach(() => {
   queryClient.clear();
   state.mutate.mockReset();
   state.updateNews.mockReset();
+  state.setAboutMode.mockReset();
   state.blocks = [];
   state.news = [];
+  state.aboutMode = { useCustom: false, customPage: null };
 });
 it("shares admission and exact dirty snapshot between both layout save actions", () => {
   render(
@@ -232,3 +275,21 @@ it.each([
     });
   },
 );
+
+it("toggles between the built-in About page and a custom editor alternative in the Pages tab", () => {
+  render(
+    <QueryClientProvider client={queryClient}>
+      <NextIntlClientProvider locale="en" timeZone="Asia/Shanghai" messages={en}>
+        <LandingAdminPage initialView="pages" />
+      </NextIntlClientProvider>
+    </QueryClientProvider>,
+  );
+
+  const toggle = screen.getByRole<HTMLInputElement>("checkbox", {
+    name: en.admin.landing.pages.about.createAndToggleLabel,
+  });
+  expect(toggle.checked).toBe(false);
+  expect(screen.getByText(en.admin.landing.pages.about.statusBuiltIn)).toBeTruthy();
+  fireEvent.click(toggle);
+  expect(state.setAboutMode).toHaveBeenCalledWith({ useCustom: true });
+});

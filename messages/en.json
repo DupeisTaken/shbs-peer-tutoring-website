@@ -2373,7 +2373,20 @@
         "showInNav": "Show in top nav",
         "inNav": "In nav",
         "editContent": "Edit content",
-        "confirmDelete": "Delete this page permanently?"
+        "confirmDelete": "Delete this page permanently?",
+        "about": {
+          "title": "About Page",
+          "help": "By default, /about shows the built-in About page with live session totals and the current Head contact. Turn on the alternative to build and publish a custom version in the page editor below.",
+          "statusBuiltIn": "Built-in page",
+          "statusCustom": "Custom alternative active",
+          "statusCustomHidden": "Custom alternative hidden",
+          "toggleLabel": "Use custom alternative About page",
+          "createAndToggleLabel": "Create and use custom alternative About page",
+          "viewLive": "View /about",
+          "previewCustom": "Preview alternative",
+          "hiddenFallbackNote": "The custom About page is currently hidden, so visitors still see the built-in About page until you show it.",
+          "pageBadge": "Alternative About page"
+        }
       },
       "tabDesc": {
         "layout": "Arrange the blocks that make up the landing page.",
@@ -4059,7 +4072,8 @@
         "schoolHours_save": "Change school hours report schedule",
         "student_setCalendarHoliday": "Add a school holiday date range",
         "student_updateCalendarHoliday": "Edit a school holiday date range",
-        "student_resetCalendarHoliday": "Reset a school holiday date range"
+        "student_resetCalendarHoliday": "Reset a school holiday date range",
+        "home_setAboutMode": "Switch About page mode"
       },
       "decisionRequestHelp": "Approve runs the proposed action above. Decline cancels this proposal without changing anything. A short note is required.",
       "confirmPassword": "Confirm your account password",

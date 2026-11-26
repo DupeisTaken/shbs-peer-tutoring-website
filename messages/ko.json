@@ -2373,7 +2373,20 @@
         "showInNav": "상단 메뉴에 표시",
         "inNav": "메뉴에 표시됨",
         "editContent": "내용 편집",
-        "confirmDelete": "이 페이지를 영구적으로 삭제하시겠습니까?"
+        "confirmDelete": "이 페이지를 영구적으로 삭제하시겠습니까?",
+        "about": {
+          "title": "프로그램 소개 페이지",
+          "help": "기본적으로 /about 에는 실시간 누적 통계와 현재 대표 연락처가 포함된 기본 소개 페이지가 표시됩니다. 대체 버전을 켜면 아래 편집기에서 사용자 지정 페이지를 만들고 게시할 수 있습니다.",
+          "statusBuiltIn": "기본 페이지",
+          "statusCustom": "사용자 지정 버전 활성",
+          "statusCustomHidden": "사용자 지정 버전 숨김",
+          "toggleLabel": "편집기의 사용자 지정 소개 페이지 사용",
+          "createAndToggleLabel": "사용자 지정 소개 페이지 만들기 및 사용",
+          "viewLive": "/about 보기",
+          "previewCustom": "대체 버전 미리보기",
+          "hiddenFallbackNote": "사용자 지정 소개 페이지가 현재 숨김 상태이므로 공개하기 전까지 기본 소개 페이지가 표시됩니다.",
+          "pageBadge": "대체 소개 페이지"
+        }
       },
       "tabDesc": {
         "layout": "홈페이지를 구성하는 블록을 정렬합니다.",
@@ -4059,7 +4072,8 @@
         "schoolHours_save": "학교 봉사시간 보고서 일정 변경",
         "student_setCalendarHoliday": "학교 휴일 날짜 범위 추가",
         "student_updateCalendarHoliday": "학교 휴일 날짜 범위 수정",
-        "student_resetCalendarHoliday": "학교 휴일 날짜 범위 초기화"
+        "student_resetCalendarHoliday": "학교 휴일 날짜 범위 초기화",
+        "home_setAboutMode": "소개 페이지 모드 전환"
       },
       "decisionRequestHelp": "'승인 및 적용'은 원래 신청을 거부하는 작업을 포함하여 제안된 작업을 실행합니다. '피드백과 함께 거부'는 이 제안을 거부하고 변경하지 않습니다. 어느 쪽이든 결정 사유를 메모에 작성하세요.",
       "confirmPassword": "계정 비밀번호 확인",

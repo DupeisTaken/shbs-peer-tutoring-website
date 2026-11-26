@@ -37,7 +37,7 @@ vi.mock("~/trpc/react", async () => {
   const accountProcedure = { _def: () => ({ path: ["account", "me"] }) };
   const home = new Proxy({}, { get: (_target, name) => ({
     _def: () => ({ path: ["home", String(name)] }),
-    useQuery: () => ({ data: name === "news" ? state.news : state.records[String(name)] ?? [], error: name === "news" ? state.error : null,
+    useQuery: () => ({ data: name === "news" ? state.news : name === "aboutMode" ? { useCustom: false, customPage: null } : state.records[String(name)] ?? [], error: name === "news" ? state.error : null,
       isLoading: name === "news" && !state.news, isSuccess: name !== "news" || !!state.news && !state.error, isFetching: false, refetch: () => state.read(String(name)) }),
     useMutation: () => ({ mutate: state.mutate, mutateAsync: (input: unknown) => { state.mutate(input); return state.write(String(name), input); }, isPending: false, error: name === state.mutationError?.procedure ? state.mutationError : null }), invalidate: vi.fn(),
   }) });
