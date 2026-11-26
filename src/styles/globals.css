@@ -142,11 +142,6 @@
 }
 
 @layer base {
-  /* Reserve a stable vertical scrollbar gutter so centered headers/logos never shift 7-8px
-     between tall scrolling workspaces (Tutor/Tutee) and pane-scrolled or short routes (Management/Translations). */
-  html {
-    scrollbar-gutter: stable;
-  }
   body {
     @apply bg-slate-50 text-slate-900 antialiased;
   }

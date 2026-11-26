@@ -91,7 +91,7 @@ export function PublicHeaderFrame({
   return (
     <header
       data-sticky-header={sticky || undefined}
-      className={`${sticky ? "sticky top-0 z-20" : ""} border-t-[2.5px] border-t-[color:var(--action-background)] border-b border-slate-200 bg-white/95 shadow-[0_1px_3px_rgba(15,23,42,0.06)] backdrop-blur-xs`}
+      className={`${sticky ? "sticky top-0 z-20" : ""} w-full border-t-[2.5px] border-t-[color:var(--action-background)] border-b border-slate-200 bg-white/95 shadow-[0_1px_3px_rgba(15,23,42,0.06)] backdrop-blur-xs`}
     >
       {skipLabel ? (
         <a href={`#${skipToId}`} className="skip-link">

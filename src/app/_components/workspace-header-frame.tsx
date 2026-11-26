@@ -180,7 +180,7 @@ export function WorkspaceHeaderFrame({ children }: { children: ReactNode }) {
     <header
       ref={ref}
       data-sticky-header
-      className="sticky top-0 z-20 shrink-0 border-t-[2.5px] border-t-[color:var(--action-background)] border-b border-slate-200 bg-white/95 shadow-[0_1px_3px_rgba(15,23,42,0.06)] backdrop-blur-xs"
+      className="sticky top-0 z-20 w-full shrink-0 border-t-[2.5px] border-t-[color:var(--action-background)] border-b border-slate-200 bg-white/95 shadow-[0_1px_3px_rgba(15,23,42,0.06)] backdrop-blur-xs"
     >
       {children}
     </header>
