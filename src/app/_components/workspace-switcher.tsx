@@ -185,12 +185,15 @@ export function WorkspaceSwitcher({
   ];
 
   return (
-    <details className="group relative max-w-full min-w-0">
+    /* Keep desktop optical offset (`lg:-ml-1`) on `<details>`, never `<summary>`: a negative
+       margin on `<summary>` shrinks `<details>`'s flex max-content box by 4px while `max-w-full`
+       clamps `<summary>` to that narrower box, clipping workspace titles (e.g. "Tutor" -> "Tut…"). */
+    <details className="group relative max-w-full min-w-0 lg:-ml-1">
       <DetailsAutoClose />
       <summary
         aria-label={hideTitle ? `${title} — ${menuLabel}` : `${title} — ${menuLabel}`}
         title={menuLabel}
-        className={`focus-visible:ring-accent-500 group-open:bg-accent-50 group-open:text-accent-800 group-open:ring-accent-200/80 flex min-h-11 max-w-full min-w-0 cursor-pointer list-none items-center rounded-lg text-xl font-bold tracking-tight text-slate-900 transition hover:bg-slate-100/90 group-open:ring-1 focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-hidden lg:-ml-1 lg:min-h-8 lg:shrink-0 lg:text-lg [&::-webkit-details-marker]:hidden ${
+        className={`focus-visible:ring-accent-500 group-open:bg-accent-50 group-open:text-accent-800 group-open:ring-accent-200/80 flex min-h-11 max-w-full min-w-0 cursor-pointer list-none items-center rounded-lg text-xl font-bold tracking-tight text-slate-900 transition hover:bg-slate-100/90 group-open:ring-1 focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-hidden lg:min-h-8 lg:text-lg [&::-webkit-details-marker]:hidden ${
           hideTitle
             ? "gap-1.5 py-1 pr-2 pl-1"
             : "gap-2 py-1 pr-2.5 pl-1 lg:gap-2.5"

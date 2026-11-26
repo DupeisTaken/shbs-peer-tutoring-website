@@ -100,8 +100,13 @@ it.each([true, false])(
     // Mobile Row 1 centers the (Logo) Title switcher and its dropdown; when the 44px
     // management drawer trigger is present, symmetric 2.75rem grid tracks keep it dead-center.
     const switcher = container.querySelector("details")!;
+    const summary = switcher.querySelector("summary")!;
     const switcherWrap = switcher.parentElement!;
     const brandRow = switcherWrap.parentElement!;
+    // Optical left offset must live on <details>, not <summary>, so shrink-to-fit sizing
+    // never clips the workspace title text by 4px on desktop.
+    expect(switcher.className).toContain("lg:-ml-1");
+    expect(summary.className).not.toMatch(/\b-ml-|\blg:-ml-/);
     expect(switcherWrap.className).toContain("justify-center");
     expect(switcherWrap.className).toContain("lg:contents");
     if (withNavigation) {
@@ -167,6 +172,7 @@ it("compiles responsive flex, mobile centering, supervising Tier-1 chrome, and d
     ...row.classList,
     ...brandRow.classList,
     ...switcherWrap.classList,
+    ...switcher.classList,
     ...summary.classList,
     ...popover.classList,
     ...group.classList,
@@ -179,6 +185,9 @@ it("compiles responsive flex, mobile centering, supervising Tier-1 chrome, and d
   const theme = readFileSync(require.resolve("tailwindcss/theme.css"), "utf8");
   const compiler = await compile(`${theme}\n@tailwind utilities;`);
   const output = parse(compiler.build(classes));
+  expect(declarationsFor(output, ".w-full")).toMatchObject({
+    width: "100%",
+  });
   expect(declarationsFor(output, ".border-t-\\[2\\.5px\\]")).toMatchObject({
     "border-top-width": "2.5px",
   });
@@ -245,4 +254,13 @@ it("compiles responsive flex, mobile centering, supervising Tier-1 chrome, and d
   expect(declarationsFor(output, ".ml-auto")).toMatchObject({
     "margin-left": "auto",
   });
+
+  // Avoid reserving a root scrollbar gutter on <html>: on Windows/classic-scrollbar browsers
+  // it leaves a blank vertical gap past the right edge of full-bleed sticky banners on
+  // pane-scrolled (Management) and short routes.
+  const globalsCss = readFileSync(
+    require.resolve("../../styles/globals.css"),
+    "utf8",
+  );
+  expect(globalsCss).not.toMatch(/scrollbar-gutter\s*:/);
 });
