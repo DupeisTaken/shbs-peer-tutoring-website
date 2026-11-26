@@ -4,12 +4,14 @@ import { useFormatter, useTranslations } from "next-intl";
 
 import { api } from "~/trpc/react";
 import { Button } from "~/app/_components/ui/button";
+import { DisclosureSection } from "~/app/_components/ui/disclosure-section";
 import { InlineNotice, StatePanel } from "~/app/_components/ui/patterns";
 import { formatClientError } from "~/lib/client-error-message";
 
 /**
- * Team announcements share one prominent card. Pinned posts stay visible regardless
- * of earlier acknowledgements; only ordinary posts can be dismissed from the dashboard.
+ * Team announcements share one prominent area. Pinned posts stay visible regardless
+ * of earlier acknowledgements; dismissed ordinary posts collapse into a disclosure
+ * below active announcements so tutors can still revisit them.
  */
 export function AnnouncementsBanner() {
   const programFormat = useFormatter();
@@ -23,8 +25,15 @@ export function AnnouncementsBanner() {
   const list = announcements.data ?? [];
   // Preserve the server's pinned-first order, including previously dismissed pins.
   const visible = list.filter((a) => a.pinned || !a.acked);
+  // Dismissed ordinary posts stay accessible in newest-first server order.
+  const dismissed = list.filter((a) => !a.pinned && a.acked);
 
-  if (visible.length === 0 && !announcements.error && !announcements.isLoading)
+  if (
+    visible.length === 0 &&
+    dismissed.length === 0 &&
+    !announcements.error &&
+    !announcements.isLoading
+  )
     return null;
 
   return (
@@ -90,6 +99,32 @@ export function AnnouncementsBanner() {
           </p>
         </InlineNotice>
       ))}
+      {dismissed.length > 0 && (
+        <div className="rounded-lg bg-white">
+          <DisclosureSection
+            title={t("tutor.announcements.dismissedTitle", {
+              count: dismissed.length,
+            })}
+            lifetime="lazy"
+          >
+            <div className="space-y-3">
+              {dismissed.map((a) => (
+                <InlineNotice key={a.id} tone="info">
+                  <p className="font-semibold text-slate-900">📣 {a.title}</p>
+                  <p className="mt-1 text-sm whitespace-pre-line text-slate-700">
+                    {a.body}
+                  </p>
+                  <p className="mt-1 text-xs text-slate-600">
+                    {programFormat.dateTime(new Date(a.createdAt), {
+                      dateStyle: "medium",
+                    })}
+                  </p>
+                </InlineNotice>
+              ))}
+            </div>
+          </DisclosureSection>
+        </div>
+      )}
     </section>
   );
 }

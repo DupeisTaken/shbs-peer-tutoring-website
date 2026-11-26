@@ -2617,7 +2617,8 @@
     },
     "announcements": {
       "label": "Annonces",
-      "pinned": "épinglée"
+      "pinned": "épinglée",
+      "dismissedTitle": "Annonces fermées ({count})"
     },
     "settings": {
       "title": "Paramètres du compte",

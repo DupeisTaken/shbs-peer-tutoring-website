@@ -405,7 +405,7 @@ Open: `/dashboard`
 
 ### Walkthrough
 
-1. **Read addressed announcements** Read the announcement cards above your workspace. Pinned posts stay visible even after an earlier acknowledgement; they have no Dismiss button. Use Dismiss on an ordinary post when offered. Addressed posts use the audience captured at publication; another tutor's notice is not yours to acknowledge.
+1. **Read addressed announcements** Read the announcement cards above your workspace. Pinned posts stay visible even after an earlier acknowledgement; they have no Dismiss button. Use Dismiss on an ordinary post when offered; dismissed posts remain readable under Dismissed Announcements. Addressed posts use the audience captured at publication; another tutor's notice is not yours to acknowledge.
 
    Look for: Announcements above the tutor workspace
 

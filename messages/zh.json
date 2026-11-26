@@ -2609,7 +2609,8 @@
     },
     "announcements": {
       "label": "公告",
-      "pinned": "置顶"
+      "pinned": "置顶",
+      "dismissedTitle": "已关闭的公告（{count}）"
     },
     "settings": {
       "title": "账号设置",

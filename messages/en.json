@@ -2617,7 +2617,8 @@
     },
     "announcements": {
       "label": "Announcements",
-      "pinned": "pinned"
+      "pinned": "pinned",
+      "dismissedTitle": "Dismissed Announcements ({count})"
     },
     "settings": {
       "title": "Account Settings",

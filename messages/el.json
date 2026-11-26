@@ -2617,7 +2617,8 @@
     },
     "announcements": {
       "label": "Ανακοινώσεις",
-      "pinned": "καρφιτσωμένη"
+      "pinned": "καρφιτσωμένη",
+      "dismissedTitle": "Κλειστές ανακοινώσεις ({count})"
     },
     "settings": {
       "title": "Ρυθμίσεις λογαριασμού",

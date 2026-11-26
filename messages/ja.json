@@ -2617,7 +2617,8 @@
     },
     "announcements": {
       "label": "お知らせ",
-      "pinned": "ピン留め"
+      "pinned": "ピン留め",
+      "dismissedTitle": "閉じたお知らせ（{count}）"
     },
     "settings": {
       "title": "アカウント設定",

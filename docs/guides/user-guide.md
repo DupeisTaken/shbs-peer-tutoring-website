@@ -312,7 +312,7 @@ Every pairing renders as a bordered card in **Pairings**. Active tutors can comb
 
 - **Schedule conflict:** submit a reasoned rejection from the tutee's **Details** card; the assignment continues until staff approve.
 - **Tutor meetings:** submit or cancel your own meeting excuse at least **45 minutes** before start; excuse/cancel controls hide automatically after the 45-minute cutoff. The first **3** unexcused absences per semester have no automatic deduction; each additional unexcused absence deducts **0.25 hours** (excused absences do not consume the allowance). Past periods appear under **History & Hours → Meeting History**; missing attendance means unrecorded, not absent.
-- **Announcements:** addressed announcements appear at the top of your workspace. Pinned notices (`📌`) cannot be dismissed; ordinary notices offer **Dismiss**.
+- **Announcements:** addressed announcements appear at the top of your workspace. Pinned notices (`📌`) cannot be dismissed; ordinary notices offer **Dismiss**, and dismissed notices remain readable in the collapsed **Dismissed Announcements** section.
 
 See the [tutor policy draft](../../prisma/policies/tutor-policy.en.md) or [中文辅导伙伴政策草案](../../prisma/policies/tutor-policy.zh.md); follow the school's published version when participating.
 

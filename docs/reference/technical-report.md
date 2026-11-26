@@ -351,7 +351,7 @@ Tutor and Crew membership requests lock the member and recheck current state bef
 
 - **Notifications & bell:** [`notification-details.ts`](../../src/lib/notification-details.ts) renders captured bilingual details ahead of generic event copy; email copies only allowlisted factual snapshots (never private message bodies, review reasons, or secrets). Full emitter/audience/copy contract: [notification event inventory](notification-events.md).
 - **Private messaging & supervision:** [`messaging-permissions.ts`](../../src/server/messaging-permissions.ts) evaluates role contact unions and user overrides consistently across search, send, and reply; sends commit separate deliveries, retry receipts, and notifications atomically under a sender lock. Supervision requires recorded disclosure (older participant-only messages stay excluded). [`message-inbox.tsx`](../../src/app/_components/message-inbox.tsx) and [`student-support.tsx`](../../src/app/_components/student-support.tsx) latch authoritative denials until fresh authorized reads succeed.
-- **Announcements:** freeze tutor recipient IDs at publication/approval; tutor workspace displays pinned-first (`📌`, non-dismissible) then unacknowledged ordinary posts.
+- **Announcements:** freeze tutor recipient IDs at publication/approval; tutor workspace displays pinned-first (`📌`, non-dismissible) then unacknowledged ordinary posts, with acknowledged ordinary posts tucked into a collapsed `DisclosureSection` so tutors can still revisit them.
 
 ### Account emails and delivery
 

@@ -2617,7 +2617,8 @@
     },
     "announcements": {
       "label": "공지사항",
-      "pinned": "고정됨"
+      "pinned": "고정됨",
+      "dismissedTitle": "닫은 공지사항 ({count})"
     },
     "settings": {
       "title": "계정 설정",
