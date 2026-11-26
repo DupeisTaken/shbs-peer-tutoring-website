@@ -110,7 +110,7 @@ it("combines visible audience shortcuts with task filters and resets an empty re
       .getAttribute("aria-pressed"),
   ).toBe("true");
   expect(screen.getByRole("status").textContent).toBe("1 of 3 guides found");
-  fireEvent.click(screen.getByRole("button", { name: "Join the program" }));
+  fireEvent.click(screen.getByRole("button", { name: "Join the Program" }));
   expect(
     screen.getByRole("heading", { name: "No guides match these filters" }),
   ).toBeTruthy();
@@ -194,10 +194,10 @@ it("finds a staff publishing task under Settings & publishing independently of i
   fireEvent.click(screen.getByRole("button", { name: "Program staff" }));
   expect(screen.getByRole("status").textContent).toBe("2 of 3 guides found");
   fireEvent.click(
-    screen.getByRole("button", { name: "Settings & publishing" }),
+    screen.getByRole("button", { name: "Settings & Publishing" }),
   );
   expect(
-    screen.getByRole("heading", { name: "Settings & publishing" }),
+    screen.getByRole("heading", { name: "Settings & Publishing" }),
   ).toBeTruthy();
   expect(
     screen.getByRole("link", { name: "Publish an announcement" }),
@@ -213,7 +213,7 @@ it("finds a staff publishing task under Settings & publishing independently of i
   expect(screen.getByRole("status").textContent).toBe("1 of 3 guides found");
 
   fireEvent.click(screen.getByRole("button", { name: "Clear filters" }));
-  fireEvent.click(screen.getByRole("button", { name: "Daily coordination" }));
+  fireEvent.click(screen.getByRole("button", { name: "Daily Coordination" }));
   expect(screen.getByRole("link", { name: "Review a request" })).toBeTruthy();
   expect(
     screen.queryByRole("link", { name: "Publish an announcement" }),

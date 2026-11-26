@@ -1,4 +1,4 @@
-# Manage the program
+# Manage the Program
 
 Generated from the website help catalogue. Edit the content records, then run `npm run help:export`.
 
@@ -642,9 +642,9 @@ Open: `/admin/meetings`
 
 ### Walkthrough
 
-1. **Choose the period and meeting** Meetings starts in the current program period, including meetings already held. Open Meeting history and a labelled period for earlier records; Show past tutors changes people, not meeting periods.
+1. **Choose the period and meeting** Meetings starts in the current program period, including meetings already held. Open Meeting History and a labelled period for earlier records; Show past tutors changes people, not meeting periods.
 
-   Look for: Open a meeting for attendance; use Meeting history for previous periods.
+   Look for: Open a meeting for attendance; use Meeting History for previous periods.
 
 2. **Create a meeting or review deletion** In the current period, enter Meeting title, Date and Time, check the date and program timezone, then choose Create. Use a meeting's Delete action for its separate named confirmation; Cancel returns without deleting it.
 
@@ -1254,7 +1254,7 @@ Open: `/admin/recovery`
 
 ### Walkthrough
 
-1. **Identify the target** Under Data & Recovery, open Recovery and select the captured initial admission from recorded evidence. Use exact actor/record references from Audit Log or Database records rather than a similar name.
+1. **Identify the target** Under Data & Recovery, open Recovery and select the captured initial admission from recorded evidence. Use exact actor/record references from Audit Log or Database Records rather than a similar name.
 
    Look for: Choose the exact captured admission and inspect the complete recovery plan.
 
@@ -1462,7 +1462,7 @@ Open: `/admin/help`
 
 ### Walkthrough
 
-1. **Open handbook downloads** Open Help Center from the top bar and select PDF handbooks (or open /admin/help directly). Visitors and participants can download handbooks for their own authorized collections; staff can distribute participant training handbooks, while Admin and Head editions follow current authority.
+1. **Open handbook downloads** Open Help Center from the top bar and select PDF Handbooks (or open /admin/help directly). Visitors and participants can download handbooks for their own authorized collections; staff can distribute participant training handbooks, while Admin and Head editions follow current authority.
 
    Look for: Choose a permitted handbook audience and its English or Chinese PDF download.
 
@@ -1482,7 +1482,7 @@ The website, GitHub manual and PDFs derive from the same maintained article reco
 
 ### Troubleshooting
 
-- **A handbook is unavailable or download is denied** Return to PDF handbooks and check the editions allowed by your current authority. Retry a temporary download failure. If it continues, ask the operator to check the documented asset and font workflow; do not rename another role's file to imply it is the missing edition.
+- **A handbook is unavailable or download is denied** Return to PDF Handbooks and check the editions allowed by your current authority. Retry a temporary download failure. If it continues, ask the operator to check the documented asset and font workflow; do not rename another role's file to imply it is the missing edition.
 
 ## Review and change the program timezone
 

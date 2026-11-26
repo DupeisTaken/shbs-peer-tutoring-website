@@ -1,4 +1,4 @@
-# Get started
+# Get Started
 
 Generated from the website help catalogue. Edit the content records, then run `npm run help:export`.
 
@@ -38,7 +38,7 @@ Open: `/help`
 
 3. **Enlarge and identify a screenshot** Select the screenshot to enlarge it. Open Capture details for the original image, route, date and source revision. About these screenshots identifies the development baseline and server. Screens use synthetic demonstration accounts.
 
-4. **Download an offline PDF handbook** Sign in to reveal current account, participation and assigned-role guides. Select PDF handbooks in Help Center to download English or Chinese handbooks for every collection available to you, stamped with the download date and time. Staff can also open Administration → PDF handbooks to distribute training editions. Old FAQ links continue to this catalogue.
+4. **Download an offline PDF handbook** Sign in to reveal current account, participation and assigned-role guides. Select PDF Handbooks in Help Center to download English or Chinese handbooks for every collection available to you, stamped with the download date and time. Staff can also open Administration → PDF Handbooks to distribute training editions. Old FAQ links continue to this catalogue.
 
 ### What happens next
 

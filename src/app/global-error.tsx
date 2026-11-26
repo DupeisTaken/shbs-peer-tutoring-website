@@ -35,7 +35,7 @@ export default function GlobalError({
           }}
         >
           <h1 style={{ margin: "0 0 8px", fontSize: "20px", fontWeight: 700 }}>
-            Something went wrong
+            Something Went Wrong
           </h1>
           <p style={{ margin: "0 0 16px", fontSize: "14px", color: "#475569" }}>
             We could not load this page. Try again or return to the home page.

@@ -63,7 +63,7 @@ export async function GET(
     });
   } catch {
     return new Response(
-      "Handbook temporarily unavailable. Return to PDF handbooks and try again.",
+      "Handbook temporarily unavailable. Return to PDF Handbooks and try again.",
       {
         status: 503,
         headers: helpPrivateHeaders,

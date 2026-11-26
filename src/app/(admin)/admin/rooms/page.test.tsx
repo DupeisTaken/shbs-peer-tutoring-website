@@ -224,7 +224,7 @@ const expand = () =>
 it("names the room in shared deletion review and cancellation sends no write", async () => {
   show();
   expand();
-  screen.getByText("Room settings").closest("details")!.open = true;
+  screen.getByText("Room Settings").closest("details")!.open = true;
   fireEvent.click(screen.getByRole("button", { name: "Delete Room" }));
   expect(screen.getByRole("dialog").textContent).toContain("Science room");
   expect(screen.getByRole("dialog").textContent).toContain(
@@ -253,7 +253,7 @@ it("reports coordinator room deletion as a queued request without changing live 
   };
   show();
   expand();
-  screen.getByText("Room settings").closest("details")!.open = true;
+  screen.getByText("Room Settings").closest("details")!.open = true;
   fireEvent.click(
     screen.getByRole("button", { name: "Request room deletion" }),
   );
@@ -277,7 +277,7 @@ it("makes block controls discoverable and exposes accessible expanded state", ()
   ).toBeTruthy();
   expect(screen.getByText("Weekly maintenance")).toBeTruthy();
   expect(
-    screen.getByRole("button", { name: "Edit period: Monday 23:00" }),
+    screen.getByRole("button", { name: "Edit Period: Monday 23:00" }),
   ).toBeTruthy();
 });
 
@@ -285,7 +285,7 @@ it("edits an existing midnight-ending block without losing fields", async () => 
   show();
   expand();
   fireEvent.click(
-    screen.getByRole("button", { name: "Edit period: Monday 23:00" }),
+    screen.getByRole("button", { name: "Edit Period: Monday 23:00" }),
   );
   expect(screen.getByRole("combobox", { name: "Day" })).toBeTruthy();
   expect(screen.getByLabelText<HTMLInputElement>("End time").value).toBe(
@@ -315,7 +315,7 @@ it("edits an existing midnight-ending block without losing fields", async () => 
     },
   ]);
   expect(mocks.invalidate).toHaveBeenCalledOnce();
-  expect(screen.queryByRole("form", { name: "Edit period" })).toBeNull();
+  expect(screen.queryByRole("form", { name: "Edit Period" })).toBeNull();
 });
 
 it("retains an invalid or conflicting draft and only sends a valid corrected range", () => {
@@ -324,7 +324,7 @@ it("retains an invalid or conflicting draft and only sends a valid corrected ran
   };
   show();
   expand();
-  fireEvent.click(screen.getByRole("button", { name: "Add blocked period" }));
+  fireEvent.click(screen.getByRole("button", { name: "Add Blocked Period" }));
   fireEvent.change(screen.getByLabelText("End time"), {
     target: { value: "11:00" },
   });
@@ -433,12 +433,12 @@ it("shows loading and retry feedback and disables writes while a mutation is pen
   expand();
   expect(
     screen
-      .getByRole("button", { name: "Add blocked period" })
+      .getByRole("button", { name: "Add Blocked Period" })
       .hasAttribute("disabled"),
   ).toBe(true);
   expect(
     screen
-      .getByRole("button", { name: "Edit period: Monday 23:00" })
+      .getByRole("button", { name: "Edit Period: Monday 23:00" })
       .hasAttribute("disabled"),
   ).toBe(true);
 });

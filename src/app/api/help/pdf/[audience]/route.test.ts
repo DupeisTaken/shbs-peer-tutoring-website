@@ -239,7 +239,7 @@ it("returns private actionable 503 guidance without leaking renderer paths or pa
   expectPrivate(response);
   expect(response.headers.get("Content-Disposition")).toBeNull();
   const message = await response.text();
-  expect(message).toContain("Return to PDF handbooks");
+  expect(message).toContain("Return to PDF Handbooks");
   expect(message).not.toContain("private-server");
   expect(message).not.toContain("%PDF");
 });

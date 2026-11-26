@@ -1495,14 +1495,14 @@ export const managementArticles: HelpArticle[] = [
     route: "/admin/meetings",
     screenshot: "admin-meetings",
     focus: t(
-      "Open a meeting for attendance; use Meeting history for previous periods.",
+      "Open a meeting for attendance; use Meeting History for previous periods.",
       "打开会议填写出席，使用会议历史查看先前学期。",
     ),
     steps: [
       [
         t("Choose the period and meeting", "选择学期及会议"),
         t(
-          "Meetings starts in the current program period, including meetings already held. Open Meeting history and a labelled period for earlier records; Show past tutors changes people, not meeting periods.",
+          "Meetings starts in the current program period, including meetings already held. Open Meeting History and a labelled period for earlier records; Show past tutors changes people, not meeting periods.",
           "会议默认显示当前项目学期，包括已经举行的会议。较早记录请打开会议历史并选择具体学期；显示过往辅导伙伴只改变人员，不改变会议学期。",
         ),
       ],
@@ -3091,7 +3091,7 @@ export const managementArticles: HelpArticle[] = [
           "新审阅仍列出上一次合并的记录",
         ),
         solution: t(
-          "In Selected records, remove each unrelated source before opening Review combination. Compare the names and original record IDs in Reviewed source records before confirming.",
+          "In Selected Records, remove each unrelated source before opening Review combination. Compare the names and original record IDs in Reviewed source records before confirming.",
           "打开审阅合并前，在已选记录中移除每条无关来源。确认前对照审阅来源记录中的姓名和原记录编号。",
         ),
       },
@@ -3644,7 +3644,7 @@ export const managementArticles: HelpArticle[] = [
       [
         t("Identify the target", "识别目标"),
         t(
-          "Under Data & Recovery, open Recovery and select the captured initial admission from recorded evidence. Use exact actor/record references from Audit Log or Database records rather than a similar name.",
+          "Under Data & Recovery, open Recovery and select the captured initial admission from recorded evidence. Use exact actor/record references from Audit Log or Database Records rather than a similar name.",
           "在“数据与恢复”下打开恢复并从已记录证据选择捕获初始准入。使用审计日志或数据库记录中的准确操作人、记录参考，不要按相似姓名选择。",
         ),
       ],
@@ -3730,7 +3730,7 @@ export const managementArticles: HelpArticle[] = [
       [
         t("Select an approved table", "选择获准表"),
         t(
-          "Under Data & Recovery, open Database records and choose Database table. Read its primary-key fields and Field access policy. Metadata only means rows are not queried under the current policy.",
+          "Under Data & Recovery, open Database Records and choose Database table. Read its primary-key fields and Field Access Policy. Metadata only means rows are not queried under the current policy.",
           "在“数据与恢复”下打开数据库记录并选择数据库表。阅读其主键字段及字段访问政策。仅元数据表示当前政策下不会查询行。",
         ),
       ],
@@ -4603,7 +4603,7 @@ export const managementArticles: HelpArticle[] = [
       [
         t("Open handbook downloads", "打开手册下载"),
         t(
-          "Open Help Center from the top bar and select PDF handbooks (or open /admin/help directly). Visitors and participants can download handbooks for their own authorized collections; staff can distribute participant training handbooks, while Admin and Head editions follow current authority.",
+          "Open Help Center from the top bar and select PDF Handbooks (or open /admin/help directly). Visitors and participants can download handbooks for their own authorized collections; staff can distribute participant training handbooks, while Admin and Head editions follow current authority.",
           "从顶部栏打开帮助中心并选择PDF操作手册（或直接访问 /admin/help）。访客与参与者可下载本人有权查看的指南集手册；工作人员可分发参与者培训手册，管理员与负责人手册按当前权限提供。",
         ),
       ],
@@ -4646,7 +4646,7 @@ export const managementArticles: HelpArticle[] = [
           "手册不可用或下载被拒",
         ),
         solution: t(
-          "Return to PDF handbooks and check the editions allowed by your current authority. Retry a temporary download failure. If it continues, ask the operator to check the documented asset and font workflow; do not rename another role's file to imply it is the missing edition.",
+          "Return to PDF Handbooks and check the editions allowed by your current authority. Retry a temporary download failure. If it continues, ask the operator to check the documented asset and font workflow; do not rename another role's file to imply it is the missing edition.",
           "返回PDF手册，检查当前权限允许的版本。临时下载失败时重试；若持续失败，请操作员检查文档中的截图及字体维护流程。不要给其他角色文件改名来冒充缺失版本。",
         ),
       },
@@ -4863,7 +4863,7 @@ export const managementArticles: HelpArticle[] = [
       [
         t("Inspect the draft card", "检查草稿卡"),
         t(
-          "Open Localization → Draft review and use its status filter to find pending or historical drafts. Inspect the language, key and destination shown on the intended draft card, then compare the original and proposed wording.",
+          "Open Localization → Draft Review and use its status filter to find pending or historical drafts. Inspect the language, key and destination shown on the intended draft card, then compare the original and proposed wording.",
           "打开本地化→草稿审核，使用状态筛选查找待审或历史草稿。检查预期草稿卡上显示的语言、键及目标，再比较原始与拟修改文字。",
         ),
       ],

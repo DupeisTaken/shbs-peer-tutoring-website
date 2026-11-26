@@ -377,28 +377,127 @@ describe("English heading and navigation capitalization", () => {
       "survey.savedTitle",
       "survey.reviewTitle",
     ]);
-    // Some rendered h1–h3 labels use action or section keys instead of Title/Heading.
+    // Some rendered h1–h4, tab, panel, nav, dialog and disclosure labels use
+    // domain keys instead of *Title/*Heading.
     const sectionHeadings = new Set([
       "admin.tutees.addTutee",
       "nextRecruitment.tutor",
       "nextRecruitment.tutee",
       "courseGroups.import",
+      "courseGroups.groups",
+      "courseGroups.levels",
       "qualificationRequests.approved",
       "qualificationRequests.history",
+      "qualificationRequests.submit",
       "workflow.current",
       "workflow.assignments",
       "workflow.participation",
+      "workflow.navigation",
+      "workflow.boardGuide",
+      "workflow.reviewHistory",
+      "workflow.sourceGuide",
       "tuteePortal.needHelp",
+      "tuteePortal.navigation",
+      "tuteePortal.weeklyArrangements",
       "messaging.rolePermissions",
       "messaging.userOverrides",
       "messaging.inbox",
       "messaging.supervision",
+      "messaging.auditHistory",
+      "messaging.privacyDetails",
       "workflows.send",
       "workflows.policy",
       "workflows.calendar",
       "workflows.support",
       "workflows.schedule",
+      "workflows.interviewRecords",
       "corrections.patrolHistory",
+      "tutor.workspace.label",
+      "tutor.workspace.schedule",
+      "tutor.workspace.pairings",
+      "tutor.workspace.preferences",
+      "tutor.workspace.history",
+      "tutor.workspace.chair",
+      "tutor.tasks.attention",
+      "tutor.tasks.today",
+      "tutor.schedulePage.preferences",
+      "tutor.schedulePage.rooms",
+      "tutor.schedulePage.interviews",
+      "unifiedSchedule.agenda",
+      "unifiedSchedule.interviewWork",
+      "unifiedSchedule.meetingWork",
+      "admin.crew.panels.review",
+      "admin.crew.panels.roster",
+      "admin.crew.panels.patrol",
+      "admin.crew.originalApplication",
+      "admin.crew.originalRequest",
+      "admin.program.panels.period",
+      "admin.program.panels.people",
+      "admin.program.panels.communication",
+      "admin.program.panels.access",
+      "admin.program.features.name.CREW",
+      "admin.program.features.name.DISCIPLINE",
+      "admin.program.features.name.MEETINGS",
+      "admin.program.features.name.INTERVIEWS",
+      "admin.program.features.name.SERVICE_HOURS",
+      "admin.program.features.name.QUARTER_SYSTEM",
+      "admin.program.features.name.VIEWER_SIGNUP",
+      "admin.program.features.name.EMAIL_2FA",
+      "admin.program.features.name.AUTO_ASSIGN_ROOMS",
+      "recordInspector.nav",
+      "recordInspector.omitted",
+      "recordInspector.persisted",
+      "recordInspector.recordedEvidence",
+      "recordInspector.reference",
+      "recordInspector.schema",
+      "notificationLocks.deliveryTab",
+      "notificationLocks.requiredTab",
+      "public.crewSignup.newApplication",
+      "public.crewSignup.checkApplication",
+      "roomSchedule.combined",
+      "roomSchedule.individual",
+      "sessionPlanning.week",
+      "sessionPlanning.needsAttendance",
+      "sessionPlanning.essentialNotices",
+      "sessionPlanning.requests",
+      "sessionPlanning.scheduleUnavailable",
+      "sessionPlanning.suggestions",
+      "sessionPlanning.arrangeException",
+      "sessionPlanning.calendarSubscription",
+      "sessionPlanning.review",
+      "helpNav.downloads",
+      "signupFields.form",
+      "signupFields.requirementsHelp",
+      "accountInvitation.addAccess",
+      "accountProfile.editProfile",
+      "meetingPeriods.outside",
+      "meetingPeriods.history",
+      "monthlyHours.deliveryHistory",
+      "monthlyHours.history",
+      "monthlyHours.recipients",
+      "monthlyHours.settings",
+      "schoolHours.history",
+      "schoolHours.recipients",
+      "schoolHours.settings",
+      "recovery.preview",
+      "recovery.receipt",
+      "recovery.blockers",
+      "recovery.effects",
+      "recovery.technicalDetails",
+      "recruitment.preview",
+      "translationEditor.review",
+      "tuteeHistory.tuteeHistory",
+      "tuteeHistory.tutorHistory",
+      "tuteeHistory.amendments",
+      "tuteeHistory.meetings",
+      "tuteeHistory.createAccount",
+      "tutorDetails.subjects",
+      "usersDirectory.attached",
+      "usersDirectory.combinedPerson",
+      "usersDirectory.historical",
+      "usersDirectory.memberships",
+      "usersDirectory.rolesParticipation",
+      "usersDirectory.pathways",
     ]);
 
     // Audit all heading/title keys and navigation groups; prose and locale-specific
@@ -416,22 +515,27 @@ describe("English heading and navigation capitalization", () => {
           !(
             /(^|\.)(?:title|heading|[^.]+(?:Title|Heading))$/.test(path) ||
             path.includes(".nav.") ||
+            /\.(?:tabs|panels)\.[^.]+$/.test(path) ||
             sectionHeadings.has(path)
           )
         )
           continue;
 
         // ICU arguments are data, not words to capitalize in the message text.
+        // Keep a placeholder token so minor words before trailing {args} are not misread as last words.
+        const withPlaceholders = value.replace(/\{[^}]*\}/g, "PLACEHOLDER");
         const words = [
-          ...value
-            .replace(/\{[^}]*\}/g, "")
-            .matchAll(/[A-Za-z]+(?:['’][A-Za-z]+)?/g),
+          ...withPlaceholders.matchAll(
+            /(?:PLACEHOLDER(?:['’]s)?|[A-Za-z]+(?:['’][A-Za-z]+)?)/g,
+          ),
         ].map(([word]) => word);
         if (
           words.some(
             (word, index) =>
-              index > 0 &&
-              !minorWords.has(word.toLowerCase()) &&
+              !word.startsWith("PLACEHOLDER") &&
+              (index === 0 ||
+                index === words.length - 1 ||
+                !minorWords.has(word.toLowerCase())) &&
               /^[a-z]/.test(word),
           )
         )
@@ -443,6 +547,10 @@ describe("English heading and navigation capitalization", () => {
     expect(errors).toEqual([]);
     expect(en.messaging.supervision).toBe("Message Supervision");
     expect(en.signupFields.title).toBe("Signup Forms");
+    expect(en.tutor.workspace.history).toBe("History & Hours");
+    expect(en.tutor.workspace.chair).toBe("Interview Chair");
+    expect(en.admin.crew.panels.patrol).toBe("Patrol Settings");
+    expect(en.recordInspector.nav).toBe("Database Records");
   });
 });
 

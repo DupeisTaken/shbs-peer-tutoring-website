@@ -216,11 +216,11 @@ it("retains independent application and lookup drafts when switching modes", () 
   render(view());
   fillDraft();
   fireEvent.click(
-    screen.getByRole("tab", { name: "Check existing application" }),
+    screen.getByRole("tab", { name: "Check Existing Application" }),
   );
   expect(document.querySelector('[name="firstName"]')).toBeNull();
   input("#crew-email", "other@example.test");
-  fireEvent.click(screen.getByRole("tab", { name: "New application" }));
+  fireEvent.click(screen.getByRole("tab", { name: "New Application" }));
   expect(
     document.querySelector<HTMLInputElement>('[name="alternativeNames"]')!
       .value,
@@ -232,7 +232,7 @@ it("retains independent application and lookup drafts when switching modes", () 
     "Crew@Example.Test",
   );
   fireEvent.click(
-    screen.getByRole("tab", { name: "Check existing application" }),
+    screen.getByRole("tab", { name: "Check Existing Application" }),
   );
   expect(document.querySelector<HTMLInputElement>("#crew-email")!.value).toBe(
     "other@example.test",
@@ -242,7 +242,7 @@ it("retains independent application and lookup drafts when switching modes", () 
 it("requires mailbox verification for an existing application using the status CAPTCHA action", async () => {
   render(view());
   fireEvent.click(
-    screen.getByRole("tab", { name: "Check existing application" }),
+    screen.getByRole("tab", { name: "Check Existing Application" }),
   );
   input("#crew-email", "Crew@Example.Test");
   expect(state.captchaAction).toBe("crew.status");
@@ -442,7 +442,7 @@ it("prevents same-tick duplicate submission and freezes drafts while a write is 
   );
   expect(
     screen
-      .getByRole("tab", { name: "Check existing application" })
+      .getByRole("tab", { name: "Check Existing Application" })
       .matches(":disabled"),
   ).toBe(true);
   await act(async () => resolve({ ok: true }));

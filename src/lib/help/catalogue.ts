@@ -16,16 +16,16 @@ export const helpAudiences: HelpAudience[] = [
   "translator",
 ];
 export const helpAudienceTitles = {
-  public: t("Get started", "开始使用"),
-  account: t("Your account", "我的账号"),
-  student: t("Get tutoring", "接受辅导"),
-  tutor: t("Tutor workspace", "辅导伙伴工作台"),
-  crew: t("Crew & patrols", "巡查队与巡查"),
-  observer: t("Observe the program", "查看项目"),
-  staff: t("Manage the program", "管理项目"),
-  admin: t("Review & administer", "审核与管理"),
-  head: t("Head responsibilities", "负责人职责"),
-  translator: t("Translate the website", "翻译网站"),
+  public: t("Get Started", "开始使用"),
+  account: t("Your Account", "我的账号"),
+  student: t("Get Tutoring", "接受辅导"),
+  tutor: t("Tutor Workspace", "辅导伙伴工作台"),
+  crew: t("Crew & Patrols", "巡查队与巡查"),
+  observer: t("Observe the Program", "查看项目"),
+  staff: t("Manage the Program", "管理项目"),
+  admin: t("Review & Administer", "审核与管理"),
+  head: t("Head Responsibilities", "负责人职责"),
+  translator: t("Translate the Website", "翻译网站"),
 } satisfies Record<HelpAudience, { en: string; zh: string }>;
 
 // A frame belongs to one numbered instruction, not merely its feature's landing
