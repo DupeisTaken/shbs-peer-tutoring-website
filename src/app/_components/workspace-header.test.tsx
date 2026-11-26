@@ -46,7 +46,7 @@ function renderHeader(withNavigation = true, hideTitle = false) {
 }
 
 it.each([true, false])(
-  "renders the (Logo) Title switcher and desktop order Account -> Bell -> ? -> Theme -> Language while preserving mobile flex ordering (navigation=%s)",
+  "renders the (Logo) Title switcher and unified Bell -> ? -> Theme -> Language -> Account order across desktop and mobile (navigation=%s)",
   (withNavigation) => {
     const { container } = renderHeader(withNavigation);
     expect(
@@ -67,33 +67,30 @@ it.each([true, false])(
         "header button, header a, header select",
       ),
     ];
-    const accountBtn = screen.getByRole("button", { name: "Account" });
     const bellBtn = screen.getByRole("button", { name: "Notifications" });
     const helpLink = screen.getByRole("link", { name: "Help Center" });
     const themeBtn = screen.getByRole("button", { name: "Theme" });
     const languageSelect = screen.getByRole("combobox", { name: "Language" });
+    const accountBtn = screen.getByRole("button", { name: "Account" });
 
-    const accountIndex = controls.indexOf(accountBtn);
     const bellIndex = controls.indexOf(bellBtn);
     const helpIndex = controls.indexOf(helpLink);
     const themeIndex = controls.indexOf(themeBtn);
     const languageIndex = controls.indexOf(languageSelect);
+    const accountIndex = controls.indexOf(accountBtn);
 
-    // Desktop DOM & Tab order puts Account to the left of the utility icons.
-    expect(accountIndex).toBeGreaterThan(-1);
-    expect(bellIndex).toBeGreaterThan(accountIndex);
+    // Unified DOM & visual order puts Bell -> ? -> Theme -> Language -> Account on both desktop and mobile.
+    expect(bellIndex).toBeGreaterThan(-1);
     expect(helpIndex).toBeGreaterThan(bellIndex);
     expect(themeIndex).toBeGreaterThan(helpIndex);
     expect(languageIndex).toBeGreaterThan(themeIndex);
+    expect(accountIndex).toBeGreaterThan(languageIndex);
 
-    // Mobile Row 2 preserves legacy visual order: Bell ? Theme (order-1) ... Language (order-2 ml-auto) Avatar (order-3).
-    expect(bellBtn.parentElement!.parentElement!.className).toContain("order-1");
-    expect(bellBtn.parentElement!.parentElement!.className).toContain("lg:order-none");
-    expect(languageSelect.parentElement!.className).toContain("order-2");
+    // Mobile Row 2 pushes Language + Account to the right without CSS order overrides.
+    expect(bellBtn.parentElement!.parentElement!.className).not.toContain("order-");
     expect(languageSelect.parentElement!.className).toContain("ml-auto");
-    expect(languageSelect.parentElement!.className).toContain("lg:order-none");
-    expect(accountBtn.parentElement!.parentElement!.className).toContain("order-3");
-    expect(accountBtn.parentElement!.parentElement!.className).toContain("lg:order-none");
+    expect(languageSelect.parentElement!.className).toContain("lg:ml-2");
+    expect(accountBtn.parentElement!.parentElement!.className).toContain("lg:-mr-2");
 
     expect(themeBtn.dataset.compact).toBe("true");
     expect(languageSelect.getAttribute("data-compact")).toBe("true");
@@ -149,11 +146,13 @@ function declarationsFor(output: Root, selector: string) {
   return values;
 }
 
-it("compiles responsive flex, mobile centering, mobile ordering, and desktop spacing utilities against Tailwind", async () => {
+it("compiles responsive flex, mobile centering, supervising Tier-1 chrome, and desktop spacing utilities against Tailwind", async () => {
   const { container } = renderHeader();
+  const header = container.querySelector("header")!;
   const row = container.querySelector("header > div")!;
   const brandRow = row.children[0]!;
   const switcher = container.querySelector("details")!;
+  const summary = switcher.querySelector("summary")!;
   const switcherWrap = switcher.parentElement!;
   const popover = container.querySelector("details > nav")!;
   const iconsGroup = screen.getByRole("button", { name: "Theme" }).parentElement!
@@ -164,9 +163,11 @@ it("compiles responsive flex, mobile centering, mobile ordering, and desktop spa
   const accountWrap = screen.getByRole("button", { name: "Account" }).parentElement!
     .parentElement!;
   const classes = [
+    ...header.classList,
     ...row.classList,
     ...brandRow.classList,
     ...switcherWrap.classList,
+    ...summary.classList,
     ...popover.classList,
     ...group.classList,
     ...divider.classList,
@@ -178,6 +179,17 @@ it("compiles responsive flex, mobile centering, mobile ordering, and desktop spa
   const theme = readFileSync(require.resolve("tailwindcss/theme.css"), "utf8");
   const compiler = await compile(`${theme}\n@tailwind utilities;`);
   const output = parse(compiler.build(classes));
+  expect(declarationsFor(output, ".border-t-\\[2\\.5px\\]")).toMatchObject({
+    "border-top-width": "2.5px",
+  });
+  expect(
+    declarationsFor(output, ".border-t-\\[color\\:var\\(--action-background\\)\\]"),
+  ).toMatchObject({
+    "border-top-color": "var(--action-background)",
+  });
+  expect(declarationsFor(output, ".max-w-7xl")).toMatchObject({
+    "max-width": "var(--container-7xl)",
+  });
   expect(declarationsFor(output, ".flex")).toMatchObject({ display: "flex" });
   expect(declarationsFor(output, ".grid")).toMatchObject({ display: "grid" });
   expect(
@@ -218,11 +230,17 @@ it("compiles responsive flex, mobile centering, mobile ordering, and desktop spa
   expect(declarationsFor(output, ".lg\\:ml-2")).toMatchObject({
     "margin-left": "calc(var(--spacing) * 2)",
   });
-  expect(declarationsFor(output, ".order-1")).toMatchObject({ order: "1" });
-  expect(declarationsFor(output, ".order-2")).toMatchObject({ order: "2" });
-  expect(declarationsFor(output, ".order-3")).toMatchObject({ order: "3" });
-  expect(declarationsFor(output, ".lg\\:order-none")).toMatchObject({
-    order: "0",
+  expect(declarationsFor(output, ".lg\\:ml-3\\.5")).toMatchObject({
+    "margin-left": "calc(var(--spacing) * 3.5)",
+  });
+  expect(declarationsFor(output, ".lg\\:mr-1\\.5")).toMatchObject({
+    "margin-right": "calc(var(--spacing) * 1.5)",
+  });
+  expect(declarationsFor(output, ".lg\\:-ml-1")).toMatchObject({
+    "margin-left": "calc(var(--spacing) * -1)",
+  });
+  expect(declarationsFor(output, ".lg\\:-mr-2")).toMatchObject({
+    "margin-right": "calc(var(--spacing) * -2)",
   });
   expect(declarationsFor(output, ".ml-auto")).toMatchObject({
     "margin-left": "auto",

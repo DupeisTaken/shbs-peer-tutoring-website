@@ -1,14 +1,17 @@
+import { Suspense } from "react";
 import { pageMetadata } from "~/server/branding-metadata";
 import { auth } from "~/server/auth";
 import { randomUUID } from "node:crypto";
 import { accountPortalAccess } from "~/server/portal-access";
 import Link from "next/link";
+import { DepartureBanner } from "~/app/_components/school-departure";
 import { MessageInbox } from "~/app/_components/message-inbox";
 import { AccountSettings } from "~/app/_components/account-settings";
 import { getTranslations } from "next-intl/server";
 import { StudentPortal } from "~/app/_components/student-portal";
 import { LegacyParticipation } from "./legacy-participation";
 import { LegacyContinuation } from "./legacy-continuation";
+import { TuteeNavigation } from "./navigation";
 import { StudentWorkspace } from "./student-workspace";
 import { TuteeOverview } from "./tutee-overview";
 import { resolveTuteeView } from "./views";
@@ -83,65 +86,79 @@ export default async function StudentPage({
       {view === "account" && (
         <SessionPagePosition id="student-account-v1" scope={viewScope} ready />
       )}
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <p className="muted text-xs font-semibold tracking-wider uppercase">
-            {t("title")}
-          </p>
-          <h1 className="page-title mt-1">{t(view)}</h1>
-          {view !== "account" && period && (
-            <p className="badge-slate mt-2">
-              {signup(period.kind, { period: period.label })}
-            </p>
-          )}
+      {/* Non-sticky Tier-2 masthead mirroring Tutor: title + period + action above flush tabs. */}
+      <div className="border-b border-slate-200 bg-slate-50">
+        <div className="mx-auto max-w-6xl px-4 pt-5 sm:pt-6 lg:px-6">
+          <div className="flex flex-wrap items-end justify-between gap-3 pb-4 sm:pb-5">
+            <div className="min-w-0 space-y-1.5">
+              <h1 className="page-title">
+                {session?.user?.name
+                  ? t("welcome", { name: session.user.name })
+                  : t("title")}
+              </h1>
+              {period && (
+                <p className="badge-slate">
+                  {signup(period.kind, { period: period.label })}
+                </p>
+              )}
+            </div>
+            {view !== "account" && (
+              <StudentSignupAction
+                initiallyBlocked={restriction?.blocked ?? false}
+                departed={access?.departed ?? false}
+              />
+            )}
+          </div>
+          <Suspense
+            fallback={<div className="h-11 lg:h-8" aria-hidden="true" />}
+          >
+            <TuteeNavigation flush />
+          </Suspense>
         </div>
-        {view !== "account" && (
-          <StudentSignupAction
-            initiallyBlocked={restriction?.blocked ?? false}
-            departed={access?.departed ?? false}
-          />
+      </div>
+      <div className="mx-auto max-w-6xl space-y-5 px-4 py-5 sm:py-6 lg:px-6">
+        <DepartureBanner />
+        <StudentSignupRestrictionFeedback />
+        {(view === "dashboard" || view === "requests") && !access?.departed && (
+          <LegacyContinuation key={viewScope} />
+        )}
+        {view === "dashboard" && <TuteeOverview viewScope={viewScope} />}
+        {view === "messages" && <MessageInbox viewScope={viewScope} />}
+        {view === "account" && <AccountSettings embedded />}
+        {view === "requests" && (
+          <>
+            <StudentWorkspace
+              viewScope={viewScope}
+              quarterBlocked={restriction?.blocked ?? false}
+            />
+            <LegacyParticipation />
+          </>
+        )}
+        {view === "support" && (
+          <section className="card space-y-3 p-5">
+            <p className="muted text-sm">{t("supportHelp")}</p>
+            <div className="flex flex-wrap items-center gap-3">
+              <Link href="/student?view=messages" className="btn-secondary">
+                {t("messages")}
+              </Link>
+              <Link
+                href={
+                  session &&
+                  ["HEAD", "ADMIN", "COORDINATOR"].includes(session.role)
+                    ? "/admin/student-support"
+                    : "/student-support"
+                }
+                className="btn-secondary"
+              >
+                {workflows("feedback")}
+              </Link>
+            </div>
+          </section>
+        )}
+        {(view === "schedule" || view === "attendance" || view === "support") && (
+          <StudentPortal key={view} view={view} viewScope={viewScope} />
         )}
       </div>
-      <StudentSignupRestrictionFeedback />
-      {(view === "dashboard" || view === "requests") && !access?.departed && (
-        <LegacyContinuation key={viewScope} />
-      )}
-      {view === "dashboard" && <TuteeOverview viewScope={viewScope} />}
-      {view === "messages" && <MessageInbox viewScope={viewScope} />}
-      {view === "account" && <AccountSettings embedded />}
-      {view === "requests" && (
-        <>
-          <StudentWorkspace
-            viewScope={viewScope}
-            quarterBlocked={restriction?.blocked ?? false}
-          />
-          <LegacyParticipation />
-        </>
-      )}
-      {view === "support" && (
-        <section className="card space-y-3 p-5">
-          <p className="muted text-sm">{t("supportHelp")}</p>
-          <div className="flex flex-wrap items-center gap-3">
-            <Link href="/student?view=messages" className="btn-secondary">
-              {t("messages")}
-            </Link>
-            <Link
-              href={
-                session &&
-                ["HEAD", "ADMIN", "COORDINATOR"].includes(session.role)
-                  ? "/admin/student-support"
-                  : "/student-support"
-              }
-              className="btn-secondary"
-            >
-              {workflows("feedback")}
-            </Link>
-          </div>
-        </section>
-      )}
-      {(view === "schedule" || view === "attendance" || view === "support") && (
-        <StudentPortal key={view} view={view} viewScope={viewScope} />
-      )}
     </StudentSignupRestrictionProvider>
   );
 }

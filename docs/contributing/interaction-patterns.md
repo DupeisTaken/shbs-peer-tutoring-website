@@ -112,12 +112,13 @@ see [name-field reference](../reference/name-fields.md).
 ## Keep settings and navigation predictable
 
 - **Management sidebar:** **Overview** holds daily queues/rosters; **Administration**
-  holds program settings, signup forms, landing/policies/translations, codes,
-  approvals, users and PDF handbook distribution; **Data & Recovery** groups archival,
+  holds program settings, signup forms, landing/policies, codes,
+  approvals and users; **Data & Recovery** groups archival,
   audit and recovery tools (**Program Records**, **Academic Corrections**, **Audit Log**,
-  **Admission Recovery**, **Database Records**). **Help Center** (`/help`) lives in the
-  top bar (workspace switcher and `?` icon) and landing footer rather than the Overview
-  sidebar. Grouping never changes route permissions or approval policy.
+  **Admission Recovery**, **Database Records**). **Translations** (`/localization`, a
+  dedicated sidebar-free workspace) and **Help Center** (`/help`) live in the top bar
+  (workspace switcher and `?` icon) rather than the management sidebar. Grouping never
+  changes route permissions or approval policy.
 - **Program Settings tabs:** **Recruitment and Refresh**, **Account Settings**,
   **Deployment Configurations**, and **Optional Features**. Grouping never combines
   independent save operations or broadens authorization.

@@ -65,10 +65,18 @@ export function TuteeOverview({ viewScope = "" }: { viewScope?: string }) {
       <div className="grid gap-4 sm:grid-cols-2">
         <Link
           href="/student?view=schedule"
-          className="card hover:border-accent-300 block p-5 transition"
+          className="card group hover:border-accent-300 focus-visible:ring-accent-500 flex flex-col p-4 transition hover:shadow-xs focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-hidden sm:p-5"
         >
-          <h2 className="section-title">{t("schedule")}</h2>
-          <p className="mt-3 text-3xl font-bold">
+          <div className="flex items-center justify-between gap-2">
+            <h2 className="section-title">{t("schedule")}</h2>
+            <span
+              aria-hidden="true"
+              className="group-hover:text-accent-600 text-slate-400 transition group-hover:translate-x-0.5"
+            >
+              →
+            </span>
+          </div>
+          <p className="mt-3 text-3xl font-bold text-slate-900 tabular-nums">
             {!personal.data || personal.error
               ? "—"
               : personal.data.schedule.filter(
@@ -77,8 +85,8 @@ export function TuteeOverview({ viewScope = "" }: { viewScope?: string }) {
           </p>
           <p className="muted mt-1 text-sm">{t("scheduledSubjects")}</p>
           {/* A short recurring preview uses agreed weekly times, never a next-session date. */}
-          {!personal.error && personal.data && (
-            <ul className="mt-3 space-y-2 text-sm">
+          {!personal.error && personal.data && personal.data.schedule.length > 0 && (
+            <ul className="mt-4 space-y-2 border-t border-slate-100 pt-3 text-sm">
               {personal.data.schedule.slice(0, 3).map((pairing) => (
                 <li key={pairing.id} className="[overflow-wrap:anywhere]">
                   <span className="font-medium">{pairing.subject}</span>
@@ -96,10 +104,18 @@ export function TuteeOverview({ viewScope = "" }: { viewScope?: string }) {
         </Link>
         <Link
           href="/student?view=requests"
-          className="card hover:border-accent-300 block p-5 transition"
+          className="card group hover:border-accent-300 focus-visible:ring-accent-500 flex flex-col p-4 transition hover:shadow-xs focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-hidden sm:p-5"
         >
-          <h2 className="section-title">{t("requests")}</h2>
-          <p className="mt-3 text-3xl font-bold">
+          <div className="flex items-center justify-between gap-2">
+            <h2 className="section-title">{t("requests")}</h2>
+            <span
+              aria-hidden="true"
+              className="group-hover:text-accent-600 text-slate-400 transition group-hover:translate-x-0.5"
+            >
+              →
+            </span>
+          </div>
+          <p className="mt-3 text-3xl font-bold text-slate-900 tabular-nums">
             {!requests.data || requests.error ? "—" : open?.length}
           </p>
           <p className="muted mt-1 text-sm">{t("openRequests")}</p>
@@ -114,9 +130,19 @@ export function TuteeOverview({ viewScope = "" }: { viewScope?: string }) {
                 ? "/student?view=account"
                 : `/student?view=${view}`
             }
-            className="card block space-y-2 p-5"
+            className="card group hover:border-accent-300 focus-visible:ring-accent-500 flex flex-col space-y-2 p-4 transition hover:shadow-xs focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-hidden sm:p-5"
           >
-            <h2 className="font-semibold">{t(view)}</h2>
+            <div className="flex items-center justify-between gap-2">
+              <h2 className="text-base font-semibold text-slate-900">
+                {t(view)}
+              </h2>
+              <span
+                aria-hidden="true"
+                className="group-hover:text-accent-600 text-slate-400 transition group-hover:translate-x-0.5"
+              >
+                →
+              </span>
+            </div>
             <p className="muted text-sm">{t(`${view}Help`)}</p>
           </Link>
         ))}

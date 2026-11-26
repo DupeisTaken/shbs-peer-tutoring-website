@@ -165,7 +165,7 @@ export function WorkspaceSwitcher({
         href={href}
         title={title}
         aria-label={hideTitle ? title : undefined}
-        className="focus-visible:ring-accent-500 flex min-h-11 max-w-full min-w-0 items-center gap-2 rounded-lg px-1.5 text-xl font-bold tracking-tight text-slate-900 transition hover:bg-slate-100/80 hover:text-slate-800 focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-hidden lg:min-h-8 lg:shrink-0 lg:gap-2.5 lg:text-lg"
+        className="focus-visible:ring-accent-500 flex min-h-11 max-w-full min-w-0 items-center gap-2 rounded-lg py-1 pr-2 pl-1 text-xl font-bold tracking-tight text-slate-900 transition hover:bg-slate-100/80 hover:text-slate-800 focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-hidden lg:-ml-1 lg:min-h-8 lg:shrink-0 lg:gap-2.5 lg:text-lg"
       >
         <BrandMark className="h-8 w-8" />
         {!hideTitle ? <span className="min-w-0 truncate">{title}</span> : null}
@@ -190,7 +190,7 @@ export function WorkspaceSwitcher({
       <summary
         aria-label={hideTitle ? `${title} — ${menuLabel}` : `${title} — ${menuLabel}`}
         title={menuLabel}
-        className={`focus-visible:ring-accent-500 group-open:bg-accent-50 group-open:text-accent-800 group-open:ring-accent-200/80 flex min-h-11 max-w-full min-w-0 cursor-pointer list-none items-center rounded-lg text-xl font-bold tracking-tight text-slate-900 transition hover:bg-slate-100/90 group-open:ring-1 focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-hidden lg:min-h-8 lg:shrink-0 lg:text-lg [&::-webkit-details-marker]:hidden ${
+        className={`focus-visible:ring-accent-500 group-open:bg-accent-50 group-open:text-accent-800 group-open:ring-accent-200/80 flex min-h-11 max-w-full min-w-0 cursor-pointer list-none items-center rounded-lg text-xl font-bold tracking-tight text-slate-900 transition hover:bg-slate-100/90 group-open:ring-1 focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-hidden lg:-ml-1 lg:min-h-8 lg:shrink-0 lg:text-lg [&::-webkit-details-marker]:hidden ${
           hideTitle
             ? "gap-1.5 py-1 pr-2 pl-1"
             : "gap-2 py-1 pr-2.5 pl-1 lg:gap-2.5"

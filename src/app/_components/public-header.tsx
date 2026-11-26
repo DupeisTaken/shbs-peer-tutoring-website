@@ -91,7 +91,7 @@ export function PublicHeaderFrame({
   return (
     <header
       data-sticky-header={sticky || undefined}
-      className={`${sticky ? "sticky top-0 z-20" : ""} border-b border-slate-200/80 bg-white/95 backdrop-blur-xs`}
+      className={`${sticky ? "sticky top-0 z-20" : ""} border-t-[2.5px] border-t-[color:var(--action-background)] border-b border-slate-200 bg-white/95 shadow-[0_1px_3px_rgba(15,23,42,0.06)] backdrop-blur-xs`}
     >
       {skipLabel ? (
         <a href={`#${skipToId}`} className="skip-link">
@@ -99,13 +99,13 @@ export function PublicHeaderFrame({
         </a>
       ) : null}
 
-      <div className="mx-auto flex max-w-5xl min-w-0 flex-col gap-1.5 px-3 py-2 sm:px-4 lg:flex-row lg:items-center lg:gap-1.5 lg:py-2.5">
+      <div className="mx-auto flex w-full max-w-7xl min-w-0 flex-col gap-1.5 px-3 py-2 sm:px-4 lg:flex-row lg:items-center lg:gap-1.5 lg:px-6 lg:py-2.5">
         <div className="flex min-w-0 items-center justify-center lg:contents">
           <Link
             href={href}
             title={linkTitle ?? title}
             aria-label={hideTitle ? title : undefined}
-            className="focus-visible:ring-accent-500 flex min-h-11 max-w-full min-w-0 items-center gap-2.5 rounded-md text-xl font-bold tracking-tight text-slate-900 transition hover:text-slate-700 focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-hidden lg:min-h-8 lg:shrink-0 lg:text-lg"
+            className="focus-visible:ring-accent-500 flex min-h-11 max-w-full min-w-0 items-center gap-2.5 rounded-lg py-1 pr-2 pl-1 text-xl font-bold tracking-tight text-slate-900 transition hover:bg-slate-100/80 hover:text-slate-800 focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-hidden lg:-ml-1 lg:min-h-8 lg:shrink-0 lg:text-lg"
           >
             <BrandMark className="h-8 w-8" />
             {!hideTitle ? (

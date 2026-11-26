@@ -67,7 +67,7 @@ export function renderSignedInWorkspaceHeader({
   href,
   title,
   currentArea = null,
-  containerClassName = "mx-auto max-w-5xl",
+  containerClassName = "mx-auto w-full max-w-7xl",
 }: {
   account: SignedInHeaderAccount;
   crewEnabled: boolean;
@@ -175,7 +175,7 @@ export async function getSignedInWorkspaceHeader({
   href,
   title,
   currentArea = null,
-  containerClassName = "mx-auto max-w-5xl",
+  containerClassName = "mx-auto w-full max-w-7xl",
   session,
 }: {
   href: string;

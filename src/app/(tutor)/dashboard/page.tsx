@@ -66,95 +66,93 @@ export default async function TutorDashboard() {
       })) > 0);
 
   return (
-    <main
-      id="main-content"
-      className="mx-auto max-w-6xl space-y-4 px-4 py-5 sm:py-6"
-    >
+    <main id="main-content" className="min-w-0">
       <SessionPagePosition
         id="tutor-dashboard-v1"
         scope={`${me.status}:${total.periodLabel ?? ""}`}
         ready
       />
-      {/* Header + monthly service-hour earnings */}
-      <section className="border-accent-100 bg-accent-50/45 rounded-xl border p-4 sm:p-5">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div className="min-w-0">
-            <h1 className="page-title">
-              {t("dashboard.greeting", { name: session?.user?.name ?? "" })}
-            </h1>
-            <p className="muted mt-1">{t("dashboard.subtitle")}</p>
-          </div>
-          {features.SERVICE_HOURS && (
-            <section
-              aria-label={t("dashboard.hours.title")}
-              className="w-full min-w-0 rounded-lg border border-slate-200 bg-white p-4 text-right sm:w-72 sm:max-w-full"
-            >
-              <div className="space-y-1 text-xs leading-4 text-slate-600">
-                <h2 className="font-medium tracking-wide uppercase">
-                  {t("dashboard.hours.title")}
-                </h2>
-                {total.periodLabel && (
-                  <p className="break-words">{total.periodLabel}</p>
-                )}
-              </div>
-              <p className="mt-2 text-4xl leading-none font-bold tracking-tight text-slate-900 tabular-nums">
-                {total.total.toFixed(1)} <span>h</span>
-              </p>
-              {/* Separate terms wrap independently without changing the server's total. */}
-              <ul className="mt-3 flex flex-wrap justify-end gap-x-4 gap-y-1 border-t border-slate-100 pt-2 text-sm leading-5 text-slate-600 tabular-nums">
-                <li>
-                  {t("tutor.dashboard.hours.earned", {
-                    earned: total.earned.toFixed(1),
-                  })}
-                </li>
-                {total.extras > 0 && (
-                  <li>
-                    {t("tutor.dashboard.hours.extra", {
-                      extra: total.extras.toFixed(1),
-                    })}
-                  </li>
-                )}
-                {total.punishments > 0 && (
-                  <li>
-                    {t("tutor.dashboard.hours.penalty", {
-                      penalty: total.punishments.toFixed(1),
-                    })}
-                  </li>
-                )}
-              </ul>
-            </section>
-          )}
-        </div>
-      </section>
-
-      {/* Pinned announcements persist; ordinary announcements can be dismissed. */}
-      <AnnouncementsBanner />
-      <PolicyConsent slug="tutor-policy" />
-
-      <DepartureBanner />
-      {pending && (
-        <div id="tutor-activation" tabIndex={-1} className="scroll-mt-6">
-          <TutorActivation />
-        </div>
-      )}
-
-      {inactive && !pending && (
-        <InlineNotice
-          tone="warning"
-          title={t("tutor.dashboard.inactive.title")}
-        >
-          <p className="mt-1">
-            {t("tutor.dashboard.inactive.body", {
-              status: t(`tutor.status.${me.status}`),
-            })}
-          </p>
-          {me.status === "OPTED_OUT" && (
-            <p className="mt-2">{t("tutor.dashboard.inactive.reentryHint")}</p>
-          )}
-        </InlineNotice>
-      )}
-
       <TutorWorkspace
+        header={
+          <div className="flex flex-col gap-4 pb-4 sm:flex-row sm:items-end sm:justify-between sm:pb-5">
+            <div className="min-w-0">
+              <h1 className="page-title">
+                {t("dashboard.greeting", { name: session?.user?.name ?? "" })}
+              </h1>
+              <p className="muted mt-1 text-sm">{t("dashboard.subtitle")}</p>
+            </div>
+            {features.SERVICE_HOURS && (
+              <section
+                aria-label={t("dashboard.hours.title")}
+                className="w-full min-w-0 rounded-xl border border-slate-200 bg-white px-4 py-3 text-right shadow-2xs sm:w-72 sm:max-w-full"
+              >
+                <div className="space-y-0.5 text-xs leading-4 text-slate-600">
+                  <h2 className="font-medium tracking-wide uppercase">
+                    {t("dashboard.hours.title")}
+                  </h2>
+                  {total.periodLabel && (
+                    <p className="break-words">{total.periodLabel}</p>
+                  )}
+                </div>
+                <p className="mt-1.5 text-4xl leading-none font-bold tracking-tight text-slate-900 tabular-nums">
+                  {total.total.toFixed(1)} <span>h</span>
+                </p>
+                {/* Separate terms wrap independently without changing the server's total. */}
+                <ul className="mt-2.5 flex flex-wrap justify-end gap-x-4 gap-y-1 border-t border-slate-100 pt-2 text-sm leading-5 text-slate-600 tabular-nums">
+                  <li>
+                    {t("tutor.dashboard.hours.earned", {
+                      earned: total.earned.toFixed(1),
+                    })}
+                  </li>
+                  {total.extras > 0 && (
+                    <li>
+                      {t("tutor.dashboard.hours.extra", {
+                        extra: total.extras.toFixed(1),
+                      })}
+                    </li>
+                  )}
+                  {total.punishments > 0 && (
+                    <li>
+                      {t("tutor.dashboard.hours.penalty", {
+                        penalty: total.punishments.toFixed(1),
+                      })}
+                    </li>
+                  )}
+                </ul>
+              </section>
+            )}
+          </div>
+        }
+        notices={
+          <>
+            {/* Pinned announcements persist; ordinary announcements can be dismissed. */}
+            <AnnouncementsBanner />
+            <PolicyConsent slug="tutor-policy" />
+            <DepartureBanner />
+            {pending && (
+              <div id="tutor-activation" tabIndex={-1} className="scroll-mt-6">
+                <TutorActivation />
+              </div>
+            )}
+            {inactive && !pending && (
+              <InlineNotice
+                tone="warning"
+                title={t("tutor.dashboard.inactive.title")}
+              >
+                <p className="mt-1">
+                  {t("tutor.dashboard.inactive.body", {
+                    status: t(`tutor.status.${me.status}`),
+                  })}
+                </p>
+                {me.status === "OPTED_OUT" && (
+                  <p className="mt-2">
+                    {t("tutor.dashboard.inactive.reentryHint")}
+                  </p>
+                )}
+              </InlineNotice>
+            )}
+          </>
+        }
         attention={
           <DashboardTasks
             status={me.status}

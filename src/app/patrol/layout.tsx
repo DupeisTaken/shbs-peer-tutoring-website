@@ -111,7 +111,6 @@ export default async function PatrolLayout({
         switcherItems={nav.items}
         switcherLabels={workspaceSwitcherLabels(t)}
         skipLabel={t("common.skipToContent")}
-        containerClassName="mx-auto max-w-5xl"
         account={
           <UserAvatar
             name={displayName}
@@ -125,7 +124,10 @@ export default async function PatrolLayout({
         }
       />
 
-      <main id="main-content" className="mx-auto max-w-5xl px-4 py-5 sm:py-6">
+      <main
+        id="main-content"
+        className="mx-auto max-w-5xl px-4 py-5 sm:py-6 lg:px-6"
+      >
         {children}
       </main>
     </div>

@@ -23,7 +23,6 @@ export default async function PrivacyPage() {
   const signedInHeader = await getSignedInWorkspaceHeader({
     href: "/privacy",
     title: policy.title,
-    containerClassName: "mx-auto max-w-5xl",
   });
 
   return (

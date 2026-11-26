@@ -31,8 +31,16 @@ vi.mock("~/server/program/features", () => ({
   getFeatures: async () => ({ QUARTER_SYSTEM: state.quarters }),
 }));
 vi.mock("next-intl/server", () => ({
-  getTranslations: async () => (key: string, values?: { period: string }) =>
-    values ? key + " " + values.period : key,
+  getTranslations: async () => (key: string, values?: Record<string, string>) =>
+    values ? `${key} ${Object.values(values).join(" ")}` : key,
+}));
+vi.mock("~/app/_components/school-departure", () => ({
+  DepartureBanner: () => null,
+}));
+vi.mock("./navigation", () => ({
+  TuteeNavigation: ({ flush }: { flush?: boolean }) => (
+    <nav aria-label="Tutee navigation" data-flush={String(Boolean(flush))} />
+  ),
 }));
 vi.mock("./tutee-overview", () => ({ TuteeOverview: () => null }));
 vi.mock("./legacy-participation", () => ({ LegacyParticipation: () => null }));
@@ -87,6 +95,11 @@ it.each([true, false])(
       quarters ? "quarter 2026–27 Q3" : "semester 2026–27 S2",
     );
     expect(html).toContain('href="/tutee"');
+    const headingIdx = html.indexOf("<h1");
+    const navIdx = html.indexOf('aria-label="Tutee navigation"');
+    expect(headingIdx).toBeGreaterThan(-1);
+    expect(navIdx).toBeGreaterThan(headingIdx);
+    expect(html).toContain('data-flush="true"');
   },
 );
 it.each([false, true])(

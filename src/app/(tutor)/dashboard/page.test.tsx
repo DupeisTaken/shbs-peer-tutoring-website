@@ -88,6 +88,8 @@ vi.mock("~/app/(tutor)/_components/dashboard-tasks", () => ({
 }));
 vi.mock("~/app/(tutor)/_components/tutor-workspace", () => ({
   TutorWorkspace: ({
+    header,
+    notices,
     attention,
     schedule,
     chair,
@@ -96,6 +98,8 @@ vi.mock("~/app/(tutor)/_components/tutor-workspace", () => ({
     history,
   }: Record<string, ReactNode>) => (
     <>
+      {header}
+      {notices}
       {attention}
       <div data-testid="schedule-panel">{schedule}</div>
       {chair !== undefined && <div data-testid="chair-panel">{chair}</div>}

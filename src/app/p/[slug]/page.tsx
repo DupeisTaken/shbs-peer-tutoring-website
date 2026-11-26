@@ -44,7 +44,6 @@ export default async function SlugPage({
         : getSignedInWorkspaceHeader({
             href: "/",
             title: APP_TITLE,
-            containerClassName: "mx-auto max-w-5xl",
           }),
     ]);
     return (
@@ -73,7 +72,6 @@ export default async function SlugPage({
           getSignedInWorkspaceHeader({
             href: "/",
             title: APP_TITLE,
-            containerClassName: "mx-auto max-w-5xl",
           }),
         ]);
     return (

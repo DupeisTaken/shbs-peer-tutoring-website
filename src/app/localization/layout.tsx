@@ -6,7 +6,6 @@ import { db } from "~/server/db";
 import { getFeatures } from "~/server/program/features";
 import { WorkspaceHeader } from "~/app/_components/workspace-header";
 import { UserAvatar } from "~/app/_components/user-avatar";
-import { NavSidebar, NavMobileRow } from "~/app/_components/admin-nav";
 import { portalAccess } from "~/lib/portal-access";
 import { translationAccess } from "~/lib/translation-access";
 import {
@@ -53,7 +52,13 @@ export default async function LocalizationLayout({
   // Losing editor access must not strand this account's metadata-only receipts.
   // The private page never mounts in this branch; GET/Stop retain their own live
   // session and original-actor authorization on the server.
-  const content = access.enter ? children : <TranslationIntentRecoveryEntry />;
+  const content = access.enter ? (
+    children
+  ) : (
+    <div className="mx-auto max-w-6xl px-4 py-6 lg:px-6">
+      <TranslationIntentRecoveryEntry />
+    </div>
+  );
   const elevated = access.publish || access.request;
   const elevatedOrViewer = elevated || me.role === "VIEWER";
   const portal = portalAccess(me);
@@ -79,20 +84,33 @@ export default async function LocalizationLayout({
         ? "/student?view=account"
         : "/my-account";
   const accountItems = [
-    ...(!elevated
+    {
+      href: elevated ? "/admin/messages" : "/messages",
+      label: t("workflows.messages"),
+      group: "tools" as const,
+    },
+    ...(elevated
       ? [
           {
-            href: "/messages",
-            label: t("workflows.messages"),
+            href: "/admin/student-support",
+            label: t("workflows.support"),
             group: "tools" as const,
           },
         ]
-      : []),
-    ...(me.role === "VIEWER"
+      : me.role === "VIEWER"
+        ? [
+            {
+              href: "/student-support",
+              label: t("workflows.support"),
+              group: "tools" as const,
+            },
+          ]
+        : []),
+    ...(canTutor
       ? [
           {
-            href: "/student-support",
-            label: t("workflows.support"),
+            href: "/handbook",
+            label: t("tutor.nav.handbook"),
             group: "tools" as const,
           },
         ]
@@ -109,23 +127,13 @@ export default async function LocalizationLayout({
   const username = me.username ?? me.tutor?.username;
 
   return (
-    <div
-      className={
-        elevated
-          ? "admin-shell min-h-dvh lg:flex lg:h-dvh lg:flex-col lg:overflow-hidden"
-          : "min-h-screen"
-      }
-    >
+    <div className="min-h-screen">
       <WorkspaceHeader
         href="/localization"
         title={t("components.workspaceTitles.translations")}
         switcherItems={nav.items}
         switcherLabels={workspaceSwitcherLabels(t)}
         skipLabel={t("common.skipToContent")}
-        skipToId={elevated ? "admin-content" : "main-content"}
-        navigation={
-          elevated ? <NavMobileRow role={me.role} embedded /> : undefined
-        }
         account={
           <UserAvatar
             name={displayName}
@@ -138,23 +146,10 @@ export default async function LocalizationLayout({
         }
       />
 
-      {/* Staff get the full admin sidebar; tutor-translators get a focused, sidebar-free page. */}
-      {elevated ? (
-        <div className="admin-workspace mx-auto flex w-full max-w-7xl gap-6 px-4 py-5 sm:py-6 lg:min-h-0 lg:flex-1 lg:overflow-hidden lg:px-6">
-          <NavSidebar role={me.role} />
-          <main
-            id="admin-content"
-            tabIndex={0}
-            className="min-w-0 flex-1 focus-visible:outline-2 focus-visible:outline-offset-2 lg:overflow-y-auto lg:overscroll-contain lg:pr-3"
-          >
-            {content}
-          </main>
-        </div>
-      ) : (
-        <main id="main-content" className="mx-auto max-w-5xl px-4 py-6 lg:px-6">
-          {content}
-        </main>
-      )}
+      {/* Dedicated sidebar-free Translations workspace for every authorized editor and reviewer. */}
+      <main id="main-content" className="min-w-0">
+        {content}
+      </main>
     </div>
   );
 }

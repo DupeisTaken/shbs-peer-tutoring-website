@@ -9,10 +9,12 @@ import { WorkspaceHeaderFrame } from "./workspace-header-frame";
 import { WorkspaceSwitcher } from "./workspace-switcher";
 
 /**
- * One balanced, calm header for all signed-in workspaces and signed-in Program Home.
+ * One balanced, top-tier supervising header for all signed-in workspaces and signed-in Program Home.
  *
- * Desktop (`lg+`, single 56px row):
- *   `[(PT Logo) Title ⌄]   ...   [Account Text ⌄]  |  [Bell] [?] [Theme]  [Language]`
+ * Desktop (`lg+`, single 56px row spanning `max-w-7xl` so Tier-1 chrome keeps calm outer side
+ * margins on wide screens, aligns flush with Management, and cleanly supervises `max-w-6xl` and
+ * `max-w-5xl` workspaces beneath it without jumping across routes):
+ *   `[(PT Logo) Title ⌄]   ...   [Bell] [?] [Theme]  [Language]  |  [Account Text ⌄]`
  *
  * Mobile (`<lg`, compact 2 rows with full 44px touch targets & centered brand lockup):
  *   Row 1: `[☰?]   [(PT Logo) Title ⌄]   [   ]` (symmetric 44px tracks keep the brand centered)
@@ -29,7 +31,7 @@ export function WorkspaceHeader({
   navigation,
   skipLabel,
   skipToId = "main-content",
-  containerClassName = "mx-auto max-w-7xl",
+  containerClassName = "mx-auto w-full max-w-7xl",
 }: {
   href: string;
   /** Short current-area title shown beside the PT logo (e.g. "Management", "Program Overview", "Tutor"). */
@@ -49,7 +51,7 @@ export function WorkspaceHeader({
   navigation?: ReactNode;
   skipLabel?: string;
   skipToId?: string;
-  /** Align desktop header edges with the host workspace frame (7xl admin, 6xl participant, etc.). */
+  /** Supervising Tier-1 desktop rail (defaults to `max-w-7xl` across all workspaces). */
   containerClassName?: string;
 }) {
   const labels = switcherLabels ?? {
@@ -105,23 +107,11 @@ export function WorkspaceHeader({
         {/* Desktop flexible spacer */}
         <div aria-hidden="true" className="hidden lg:block lg:flex-1" />
 
-        {/* Right controls: desktop DOM & visual order puts text-only Account left of | Bell ? Theme Language
-            with symmetric 14px visual clearance around the divider and uniform 8px spacing across utilities;
-            mobile flex order retains legacy Row 2: Bell ? Theme (left) ... Language Avatar (right). */}
+        {/* Right controls: unified DOM & visual order across desktop and mobile puts
+            Bell ? Theme (left on mobile) ... Language | Account (far right). Symmetric 14px
+            visual clearance flanks the desktop divider against UserAvatar's lg:px-2 padding. */}
         <div className="flex min-w-0 flex-wrap items-center gap-2 lg:contents">
-          <div className="order-3 flex shrink-0 items-center gap-2 lg:order-none">
-            {identity ? (
-              <div className="hidden shrink-0 lg:block">{identity}</div>
-            ) : null}
-            <div className="shrink-0">{account}</div>
-          </div>
-
-          <span
-            aria-hidden="true"
-            className="hidden h-5 w-px shrink-0 bg-slate-200 lg:mr-3.5 lg:ml-1.5 lg:block"
-          />
-
-          <div className="order-1 flex shrink-0 items-center gap-1 lg:order-none lg:gap-2">
+          <div className="flex shrink-0 items-center gap-1 lg:gap-2">
             <div className="shrink-0">
               <NotificationBell />
             </div>
@@ -133,8 +123,20 @@ export function WorkspaceHeader({
             </div>
           </div>
 
-          <div className="order-2 ml-auto shrink-0 lg:order-none lg:ml-2">
+          <div className="ml-auto shrink-0 lg:ml-2">
             <LanguageSwitcher compactAtDesktop />
+          </div>
+
+          <span
+            aria-hidden="true"
+            className="hidden h-5 w-px shrink-0 bg-slate-200 lg:mr-1.5 lg:ml-3.5 lg:block"
+          />
+
+          <div className="flex shrink-0 items-center gap-2 lg:-mr-2">
+            {identity ? (
+              <div className="hidden shrink-0 lg:block">{identity}</div>
+            ) : null}
+            <div className="shrink-0">{account}</div>
           </div>
         </div>
       </div>

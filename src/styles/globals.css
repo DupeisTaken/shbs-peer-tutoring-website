@@ -142,6 +142,11 @@
 }
 
 @layer base {
+  /* Reserve a stable vertical scrollbar gutter so centered headers/logos never shift 7-8px
+     between tall scrolling workspaces (Tutor/Tutee) and pane-scrolled or short routes (Management/Translations). */
+  html {
+    scrollbar-gutter: stable;
+  }
   body {
     @apply bg-slate-50 text-slate-900 antialiased;
   }
@@ -221,7 +226,7 @@
     @apply border-accent-500 bg-accent-50 text-accent-800;
   }
   .section-tab {
-    @apply focus-visible:ring-accent-500 -mb-px border-b-2 border-transparent text-sm font-medium text-slate-600 focus-visible:ring-2 focus-visible:outline-hidden;
+    @apply focus-visible:ring-accent-500 -mb-px border-b-2 border-transparent text-sm font-medium text-slate-600 transition-colors hover:text-slate-900 focus-visible:ring-2 focus-visible:outline-hidden;
   }
   .section-tab[aria-selected="true"],
   .section-tab[aria-current="page"] {

@@ -22,7 +22,7 @@ export type NavItem = {
   feature?: FeatureKey;
 };
 
-/** The shared admin navigation, used by the /admin shell and the standalone /localization shell. */
+/** The shared admin navigation, used by the /admin shell. */
 export const NAV_SECTIONS: { titleKey: string; items: NavItem[] }[] = [
   {
     titleKey: "admin.nav.sections.overview",

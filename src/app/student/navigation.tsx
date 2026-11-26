@@ -10,7 +10,7 @@ import {
 } from "~/app/_components/session-view-state";
 import { viewEnum } from "~/lib/session-view-state";
 
-export function TuteeNavigation() {
+export function TuteeNavigation({ flush = false }: { flush?: boolean }) {
   const t = useTranslations("tuteePortal");
   const params = useSearchParams();
   const router = useRouter();
@@ -35,6 +35,7 @@ export function TuteeNavigation() {
     <SectionLinks
       label={t("navigation")}
       currentHref={`/student?view=${selected}`}
+      flush={flush}
       items={tuteeViews.map((view) => ({
         href: `/student?view=${view}`,
         label: t(view),
