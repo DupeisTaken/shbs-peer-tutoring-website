@@ -1501,7 +1501,8 @@
         "show": "Show summary",
         "hide": "Hide summary",
         "tutor": "Tutor",
-        "noMeetings": "No meetings yet."
+        "noMeetings": "No meetings yet.",
+        "title": "Attendance Matrix"
       },
       "stats": {
         "title": "Tutor Attendance",
@@ -1510,7 +1511,22 @@
         "empty": "No attendance recorded yet."
       },
       "correctAttendance": "Submit attendance correction",
-      "refreshFailed": "Attendance was saved, but the meeting list could not be refreshed. Retry refresh; do not submit attendance again."
+      "refreshFailed": "Attendance was saved, but the meeting list could not be refreshed. Retry refresh; do not submit attendance again.",
+      "subtitle": "Add meetings by date to sort them into the right quarter automatically, and track tutor attendance.",
+      "addHeading": "Add Meeting",
+      "autoSortTarget": "Sorted into {period}",
+      "autoSortHint": "Meetings are automatically placed into the matching quarter by date.",
+      "createdInPeriod": "Added “{title}” to {period}.",
+      "createdNotice": "Added “{title}”.",
+      "listTitle": "Meetings",
+      "countBadge": "{count, plural, one {# meeting} other {# meetings}}",
+      "upcomingBadge": "Upcoming",
+      "completedBadge": "Completed",
+      "noAttendanceYet": "No attendance recorded",
+      "exemptNoAccount": "No account at meeting",
+      "exemptInactive": "Inactive",
+      "markAllPresent": "Mark all unmarked Present",
+      "periodCurrentBadge": "Current: {period}"
     },
     "timeslots": {
       "title": "Time Slots",

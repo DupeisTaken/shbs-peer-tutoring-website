@@ -412,3 +412,57 @@ it("does not rewrite or delete imported meeting evidence through native manageme
     await db.tutorMeeting.findUnique({ where: { id: meeting.id } }),
   ).not.toBeNull();
 });
+
+it("auto-sorts created meetings into the matching quarter by date and exposes account timestamps", async () => {
+  await db.term.update({
+    where: { id: "old" },
+    data: {
+      startDate: new Date("2025-09-01T00:00:00Z"),
+      endDate: new Date("2025-10-31T00:00:00Z"),
+      createdAt: new Date("2025-09-01T00:00:00Z"),
+    },
+  });
+  await db.term.update({
+    where: { id: "q1" },
+    data: {
+      startDate: new Date("2026-09-01T00:00:00Z"),
+      endDate: new Date("2026-10-31T00:00:00Z"),
+      createdAt: new Date("2026-09-01T00:00:00Z"),
+    },
+  });
+  await db.term.update({
+    where: { id: "q2" },
+    data: {
+      startDate: new Date("2026-11-01T00:00:00Z"),
+      endDate: new Date("2027-01-15T00:00:00Z"),
+      createdAt: new Date("2026-11-01T00:00:00Z"),
+    },
+  });
+
+  const q1Meeting = await caller().admin.createMeeting({
+    title: "Backfilled Q1 briefing",
+    date: new Date("2026-09-20T04:00:00Z"),
+  });
+  expect(q1Meeting.termId).toBe("q1");
+
+  const oldMeeting = await caller().admin.createMeeting({
+    title: "Last year briefing",
+    date: new Date("2025-10-05T04:00:00Z"),
+  });
+  expect(oldMeeting.termId).toBe("old");
+
+  const futureMeeting = await caller().admin.createMeeting({
+    title: "Future Q2 briefing",
+    date: new Date("2027-03-01T04:00:00Z"),
+  });
+  expect(futureMeeting.termId).toBe("q2");
+
+  const catalog = await caller("VIEWER").admin.meetingPeriods();
+  expect(catalog.terms?.map((term) => term.id)).toContain("q1");
+
+  const tutors = await caller("VIEWER").admin.tutors();
+  const mine = tutors.find((tutor) => tutor.id === "mine");
+  const other = tutors.find((tutor) => tutor.id === "other");
+  expect(mine?.user?.createdAt).toBeInstanceOf(Date);
+  expect(other?.user).toBeNull();
+});

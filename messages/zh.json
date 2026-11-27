@@ -1409,7 +1409,8 @@
         "show": "显示汇总表",
         "hide": "隐藏汇总表",
         "tutor": "辅导伙伴",
-        "noMeetings": "暂无会议。"
+        "noMeetings": "暂无会议。",
+        "title": "出勤汇总表"
       },
       "stats": {
         "title": "辅导伙伴出勤",
@@ -1418,7 +1419,22 @@
         "empty": "暂无出勤记录。"
       },
       "correctAttendance": "提交出席更正",
-      "refreshFailed": "出勤记录已保存，但会议列表未能刷新。请重试刷新，无需再次提交出勤记录。"
+      "refreshFailed": "出勤记录已保存，但会议列表未能刷新。请重试刷新，无需再次提交出勤记录。",
+      "subtitle": "按日期添加会议即可自动归入对应学季，并记录辅导伙伴出勤情况。",
+      "addHeading": "添加会议",
+      "autoSortTarget": "将归入 {period}",
+      "autoSortHint": "会议将按日期自动归入对应的学季。",
+      "createdInPeriod": "已将“{title}”添加到 {period}。",
+      "createdNotice": "已添加“{title}”。",
+      "listTitle": "会议列表",
+      "countBadge": "{count} 场会议",
+      "upcomingBadge": "即将举行",
+      "completedBadge": "已结束",
+      "noAttendanceYet": "尚未记录出勤",
+      "exemptNoAccount": "会议时无账号",
+      "exemptInactive": "非参与中",
+      "markAllPresent": "未记录者全部标为出席",
+      "periodCurrentBadge": "当前：{period}"
     },
     "timeslots": {
       "title": "时间段",

@@ -1501,7 +1501,8 @@
         "show": "Afficher le résumé",
         "hide": "Masquer le résumé",
         "tutor": "Tuteur",
-        "noMeetings": "Aucune réunion pour l'instant."
+        "noMeetings": "Aucune réunion pour l'instant.",
+        "title": "Matrice des présences"
       },
       "stats": {
         "title": "Présence des tuteurs",
@@ -1510,7 +1511,22 @@
         "empty": "Aucune présence enregistrée pour l'instant."
       },
       "correctAttendance": "Submit attendance correction",
-      "refreshFailed": "La présence a été enregistrée, mais la liste des réunions n’a pas pu être actualisée. Réessayez l’actualisation sans soumettre à nouveau la présence."
+      "refreshFailed": "La présence a été enregistrée, mais la liste des réunions n’a pas pu être actualisée. Réessayez l’actualisation sans soumettre à nouveau la présence.",
+      "subtitle": "Ajoutez des réunions par date pour les classer automatiquement dans le bon trimestre et suivre la présence des tuteurs.",
+      "addHeading": "Ajouter une réunion",
+      "autoSortTarget": "Classée dans {period}",
+      "autoSortHint": "Les réunions sont automatiquement classées dans le trimestre correspondant selon leur date.",
+      "createdInPeriod": "« {title} » a été ajoutée à {period}.",
+      "createdNotice": "« {title} » a été ajoutée.",
+      "listTitle": "Réunions",
+      "countBadge": "{count, plural, one {# réunion} other {# réunions}}",
+      "upcomingBadge": "À venir",
+      "completedBadge": "Terminée",
+      "noAttendanceYet": "Aucune présence enregistrée",
+      "exemptNoAccount": "Aucun compte lors de la réunion",
+      "exemptInactive": "Inactif",
+      "markAllPresent": "Marquer les non enregistrés présents",
+      "periodCurrentBadge": "Actuel : {period}"
     },
     "timeslots": {
       "title": "Créneaux horaires",
