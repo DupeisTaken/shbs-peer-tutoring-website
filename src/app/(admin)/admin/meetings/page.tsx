@@ -263,7 +263,7 @@ function CreateMeetingCard({
       </div>
 
       <form
-        className="grid min-w-0 grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-[minmax(0,1fr)_10.5rem_8.5rem_auto] lg:items-end"
+        className="grid min-w-0 grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-[minmax(0,1fr)_auto_auto_auto] lg:items-end"
         onSubmit={(e) => {
           e.preventDefault();
           if (title.trim()) {
@@ -285,7 +285,12 @@ function CreateMeetingCard({
           }
         }}
       >
-        <label htmlFor={`${fieldId}-title`} className="min-w-0 sm:col-span-2 lg:col-span-1">
+        {/* Preferred widths shrink to the form width at enlarged text sizes;
+            fixed rem minimums would override the controls' max-width. */}
+        <label
+          htmlFor={`${fieldId}-title`}
+          className="min-w-0 max-w-full sm:col-span-2 lg:col-span-1"
+        >
           <span className="label">{t("admin.meetings.titlePlaceholder")}</span>
           <input
             id={`${fieldId}-title`}
@@ -296,10 +301,10 @@ function CreateMeetingCard({
             }}
             placeholder={t("admin.meetings.titlePlaceholder")}
             aria-label={t("admin.meetings.titlePlaceholder")}
-            className="input w-full"
+            className="input field-auto-bounded [--field-min-width:12rem] !w-full"
           />
         </label>
-        <label htmlFor={`${fieldId}-date`} className="min-w-0">
+        <label htmlFor={`${fieldId}-date`} className="min-w-0 max-w-full">
           <span className="label">{t("uiPatterns.meetingDate")}</span>
           <input
             id={`${fieldId}-date`}
@@ -307,10 +312,10 @@ function CreateMeetingCard({
             type="date"
             value={date}
             onChange={(e) => setDate(e.target.value)}
-            className="input w-full"
+            className="input field-auto-bounded [--field-min-width:9rem] !w-full lg:!w-auto"
           />
         </label>
-        <label htmlFor={`${fieldId}-time`} className="min-w-0">
+        <label htmlFor={`${fieldId}-time`} className="min-w-0 max-w-full">
           <span className="label">{t("admin.meetings.timeLabel")}</span>
           <input
             id={`${fieldId}-time`}
@@ -318,7 +323,7 @@ function CreateMeetingCard({
             value={time}
             onChange={(e) => setTime(e.target.value)}
             aria-label={t("admin.meetings.timeLabel")}
-            className="input w-full"
+            className="input field-auto-bounded [--field-min-width:7rem] !w-full lg:!w-auto"
           />
         </label>
         <Button
