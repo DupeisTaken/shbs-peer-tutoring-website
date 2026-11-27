@@ -1501,7 +1501,8 @@
         "show": "Zusammenfassung anzeigen",
         "hide": "Zusammenfassung ausblenden",
         "tutor": "Tutor",
-        "noMeetings": "Noch keine Treffen."
+        "noMeetings": "Noch keine Treffen.",
+        "title": "Teilnahmematrix"
       },
       "stats": {
         "title": "Tutor-Anwesenheit",
@@ -1510,7 +1511,22 @@
         "empty": "Noch keine Anwesenheit erfasst."
       },
       "correctAttendance": "Submit attendance correction",
-      "refreshFailed": "Die Anwesenheit wurde gespeichert, aber die Besprechungsliste konnte nicht aktualisiert werden. Versuche die Aktualisierung erneut, ohne die Anwesenheit nochmals abzusenden."
+      "refreshFailed": "Die Anwesenheit wurde gespeichert, aber die Besprechungsliste konnte nicht aktualisiert werden. Versuche die Aktualisierung erneut, ohne die Anwesenheit nochmals abzusenden.",
+      "subtitle": "Fügen Sie Treffen nach Datum hinzu, um sie automatisch dem passenden Quartal zuzuordnen, und verfolgen Sie die Teilnahme.",
+      "addHeading": "Treffen hinzufügen",
+      "autoSortTarget": "Einsortiert in {period}",
+      "autoSortHint": "Treffen werden anhand des Datums automatisch dem passenden Quartal zugeordnet.",
+      "createdInPeriod": "„{title}“ wurde zu {period} hinzugefügt.",
+      "createdNotice": "„{title}“ wurde hinzugefügt.",
+      "listTitle": "Treffen",
+      "countBadge": "{count, plural, one {# Treffen} other {# Treffen}}",
+      "upcomingBadge": "Bevorstehend",
+      "completedBadge": "Abgeschlossen",
+      "noAttendanceYet": "Keine Teilnahme erfasst",
+      "exemptNoAccount": "Kein Konto beim Treffen",
+      "exemptInactive": "Inaktiv",
+      "markAllPresent": "Alle offenen als anwesend markieren",
+      "periodCurrentBadge": "Aktuell: {period}"
     },
     "timeslots": {
       "title": "Zeitfenster",

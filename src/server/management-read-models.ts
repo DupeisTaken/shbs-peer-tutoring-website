@@ -53,7 +53,7 @@ const academic = summary(
   "rawGrade",
 );
 const account = summary(
-  "id name username alternativeNames profileVersion tutorAccessRevoked suspendedAt emailVerifiedAt mustChangePassword",
+  "id name username alternativeNames profileVersion tutorAccessRevoked suspendedAt emailVerifiedAt mustChangePassword createdAt",
   { academicProfile: academic.nullish() },
   "email",
 );
@@ -269,6 +269,9 @@ export const managementReadModels = {
   "admin.meetingPeriods": summary("outsideUpcoming quarters", {
     current: summary("key label").nullable(),
     history: list(summary("key label count")),
+    terms: list(
+      summary("id schoolYear quarter name active startDate endDate createdAt"),
+    ).optional(),
   }),
   "admin.meetings": list(
     summary("id title date createdAt termId", {

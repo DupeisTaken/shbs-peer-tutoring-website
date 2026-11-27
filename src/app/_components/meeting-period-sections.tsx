@@ -40,6 +40,7 @@ export function useMeetingPeriodBusy(busy: boolean) {
 export function MeetingPeriodSections({
   catalog: latestCatalog,
   renderPeriod,
+  beforeSections,
   onReload = () => window.location.reload(),
 }: {
   catalog: Catalog;
@@ -48,6 +49,8 @@ export function MeetingPeriodSections({
     history: boolean,
     outsideCurrent?: string | null,
   ) => ReactNode;
+  /** Optional top-level content (e.g. meeting creation) sharing period-busy and regroup state. */
+  beforeSections?: (state: { previousGrouping: boolean }) => ReactNode;
   /** Host-owned navigation; normal callers reload the authoritative page. */
   onReload?: () => void;
 }) {
@@ -208,6 +211,7 @@ export function MeetingPeriodSections({
             {busy && <p>{t("reloadBusy")}</p>}
           </InlineNotice>
         )}
+        {beforeSections?.({ previousGrouping })}
         {sections}
       </div>
     </PeriodWork.Provider>

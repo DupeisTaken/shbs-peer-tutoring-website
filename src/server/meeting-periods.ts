@@ -1,5 +1,8 @@
+import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import type { Prisma, PrismaClient } from "../../generated/prisma";
+import { DEFAULT_TIME_ZONE } from "~/i18n/config";
+import { resolveTermForMeetingDate } from "~/lib/meeting-quarter";
 import {
   getPeriodDisplay,
   quarterSemester,
@@ -166,4 +169,48 @@ export async function meetingPeriods(db: Db, tutorId?: string) {
             : b.key.localeCompare(a.key),
       ),
   };
+}
+
+const MEETING_TERM_SELECT = {
+  id: true,
+  schoolYear: true,
+  quarter: true,
+  name: true,
+  active: true,
+  startDate: true,
+  endDate: true,
+  createdAt: true,
+} as const;
+
+/** Management meeting catalog includes term date windows so the UI can preview
+ * which quarter a new meeting date will be auto-sorted into. */
+export async function adminMeetingPeriods(db: Db) {
+  const [catalog, terms] = await Promise.all([
+    meetingPeriods(db),
+    db.term.findMany({
+      select: MEETING_TERM_SELECT,
+      orderBy: [{ schoolYear: "asc" }, { quarter: "asc" }],
+    }),
+  ]);
+  return { ...catalog, terms };
+}
+
+/** Auto-sort a newly created meeting into its matching program quarter by date. */
+export async function resolveMeetingTermId(
+  db: Pick<PrismaClient, "term">,
+  date: Date,
+  timeZone = DEFAULT_TIME_ZONE,
+): Promise<string> {
+  const terms = await db.term.findMany({
+    select: MEETING_TERM_SELECT,
+    orderBy: [{ schoolYear: "asc" }, { quarter: "asc" }],
+  });
+  const matched = resolveTermForMeetingDate(date, terms, { timeZone });
+  if (!matched) {
+    throw new TRPCError({
+      code: "PRECONDITION_FAILED",
+      message: "No active program period. Create or seed one first.",
+    });
+  }
+  return matched.id;
 }

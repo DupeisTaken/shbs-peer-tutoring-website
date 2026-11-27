@@ -1409,7 +1409,8 @@
         "show": "Mostrar resumen",
         "hide": "Ocultar resumen",
         "tutor": "Tutor",
-        "noMeetings": "Aún no hay reuniones."
+        "noMeetings": "Aún no hay reuniones.",
+        "title": "Matriz de asistencia"
       },
       "stats": {
         "title": "Asistencia de tutores",
@@ -1418,7 +1419,22 @@
         "empty": "Aún no hay asistencia registrada."
       },
       "correctAttendance": "Submit attendance correction",
-      "refreshFailed": "La asistencia se guardó, pero no se pudo actualizar la lista de reuniones. Vuelve a intentar la actualización sin enviar de nuevo la asistencia."
+      "refreshFailed": "La asistencia se guardó, pero no se pudo actualizar la lista de reuniones. Vuelve a intentar la actualización sin enviar de nuevo la asistencia.",
+      "subtitle": "Agrega reuniones por fecha para clasificarlas automáticamente en el trimestre correspondiente y registrar la asistencia.",
+      "addHeading": "Agregar reunión",
+      "autoSortTarget": "Clasificada en {period}",
+      "autoSortHint": "Las reuniones se asignan automáticamente al trimestre correspondiente según la fecha.",
+      "createdInPeriod": "Se agregó “{title}” a {period}.",
+      "createdNotice": "Se agregó “{title}”.",
+      "listTitle": "Reuniones",
+      "countBadge": "{count, plural, one {# reunión} other {# reuniones}}",
+      "upcomingBadge": "Próxima",
+      "completedBadge": "Finalizada",
+      "noAttendanceYet": "Sin asistencia registrada",
+      "exemptNoAccount": "Sin cuenta en la reunión",
+      "exemptInactive": "Inactivo",
+      "markAllPresent": "Marcar sin registro como presente",
+      "periodCurrentBadge": "Actual: {period}"
     },
     "timeslots": {
       "title": "Horarios",

@@ -1501,7 +1501,8 @@
         "show": "サマリーを表示",
         "hide": "サマリーを非表示",
         "tutor": "チューター",
-        "noMeetings": "ミーティングはまだありません。"
+        "noMeetings": "ミーティングはまだありません。",
+        "title": "出席一覧表"
       },
       "stats": {
         "title": "チューター出席",
@@ -1510,7 +1511,22 @@
         "empty": "出席記録はまだありません。"
       },
       "correctAttendance": "Submit attendance correction",
-      "refreshFailed": "出欠記録は保存されましたが、会議一覧を更新できませんでした。出欠記録を再送信せず、更新を再試行してください。"
+      "refreshFailed": "出欠記録は保存されましたが、会議一覧を更新できませんでした。出欠記録を再送信せず、更新を再試行してください。",
+      "subtitle": "日付でミーティングを追加すると該当するクォーターへ自動的に振り分けられ、チューターの出席を管理できます。",
+      "addHeading": "ミーティングを追加",
+      "autoSortTarget": "{period} に振り分け",
+      "autoSortHint": "ミーティングは日付に応じて該当するクォーターへ自動的に分類されます。",
+      "createdInPeriod": "「{title}」を {period} に追加しました。",
+      "createdNotice": "「{title}」を追加しました。",
+      "listTitle": "ミーティング一覧",
+      "countBadge": "{count} 件のミーティング",
+      "upcomingBadge": "予定",
+      "completedBadge": "終了",
+      "noAttendanceYet": "出席未記録",
+      "exemptNoAccount": "開催時にアカウントなし",
+      "exemptInactive": "非アクティブ",
+      "markAllPresent": "未記録をすべて出席にする",
+      "periodCurrentBadge": "現在：{period}"
     },
     "timeslots": {
       "title": "タイムスロット",

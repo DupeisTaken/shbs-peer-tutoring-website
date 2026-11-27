@@ -34,9 +34,10 @@ import {
   bulkRoomAllocationInput,
 } from "~/server/bulk-room-allocation";
 import {
+  adminMeetingPeriods,
   meetingPeriodInput,
-  meetingPeriods,
   meetingScope,
+  resolveMeetingTermId,
 } from "~/server/meeting-periods";
 import { roomReference } from "~/lib/room-reference";
 import {
@@ -553,6 +554,7 @@ export const adminRouter = createTRPCRouter({
               email: true,
               emailVerifiedAt: true,
               mustChangePassword: true,
+              createdAt: true,
             },
           },
         },
@@ -3773,7 +3775,9 @@ export const adminRouter = createTRPCRouter({
   // --------------------------------------------------------------------------
   // Tutor meetings + attendance (P / EA / UA / X)
   // --------------------------------------------------------------------------
-  meetingPeriods: viewerProcedure.query(({ ctx }) => meetingPeriods(ctx.db)),
+  meetingPeriods: viewerProcedure.query(({ ctx }) =>
+    adminMeetingPeriods(ctx.db),
+  ),
 
   // The optional scope preserves existing all-record readers; the workspace
   // always supplies a recorded period and loads older groups on demand.
@@ -3808,9 +3812,28 @@ export const adminRouter = createTRPCRouter({
     )
     .mutation(async ({ ctx, input }) => {
       await assertFeatureEnabled(ctx.db, "MEETINGS");
-      const period = await getActivePeriod(ctx.db);
-      return ctx.db.tutorMeeting.create({
-        data: { ...input, termId: input.termId ?? period.termId },
+      return inTransaction(ctx.db, async (tx) => {
+        await lockEntity(tx, "program:period");
+        await assertFeatureEnabled(tx, "MEETINGS");
+        const resolvedTermId =
+          input.termId ?? (await resolveMeetingTermId(tx, input.date));
+        return tx.tutorMeeting.create({
+          data: {
+            title: input.title,
+            date: input.date,
+            termId: resolvedTermId,
+          },
+          include: {
+            term: {
+              select: {
+                id: true,
+                schoolYear: true,
+                quarter: true,
+                name: true,
+              },
+            },
+          },
+        });
       });
     }),
 

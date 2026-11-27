@@ -33,7 +33,35 @@ const state = vi.hoisted(() => ({
     reason: string | null;
     tutor: { englishName: string };
   }[],
-  extraTutors: [] as { id: string; englishName: string; status: string }[],
+  extraTutors: [] as {
+    id: string;
+    englishName: string;
+    status: string;
+    user?: { createdAt?: Date | string | null } | null;
+  }[],
+  terms: [
+    {
+      id: "term-q4",
+      schoolYear: "25-26",
+      quarter: "Q4",
+      name: "25-26 Q4",
+      active: false,
+      startDate: new Date("2026-04-01T00:00:00Z"),
+      endDate: new Date("2026-06-30T00:00:00Z"),
+      createdAt: new Date("2026-04-01T00:00:00Z"),
+    },
+    {
+      id: "term-q1",
+      schoolYear: "26-27",
+      quarter: "Q1",
+      name: "26-27 Q1",
+      active: true,
+      startDate: new Date("2026-09-01T00:00:00Z"),
+      endDate: new Date("2026-11-30T00:00:00Z"),
+      createdAt: new Date("2026-09-01T00:00:00Z"),
+    },
+  ],
+  createMeeting: vi.fn(),
   longName: "AlexandraMontgomeryWellingtonSyntheticTutor",
   refresh: vi.fn<() => Promise<void>>(),
   completion: undefined as undefined | (() => Promise<void>),
@@ -58,6 +86,7 @@ vi.mock("~/trpc/react", () => ({
             history: state.history
               ? [{ key: "25-26:Q4", label: "2025–26 Q4", count: 2 }]
               : [],
+            terms: state.terms,
           },
         }),
       },
@@ -106,7 +135,7 @@ vi.mock("~/trpc/react", () => ({
           ],
         }),
       },
-      createMeeting: { useMutation: () => ({ mutate: vi.fn() }) },
+      createMeeting: { useMutation: () => ({ mutate: state.createMeeting }) },
       deleteMeeting: { useMutation: () => ({ mutate: vi.fn() }) },
       recordMeetingAttendance: {
         useMutation: (options: { onSuccess: () => Promise<void> }) => ({
@@ -767,4 +796,105 @@ it("omits unchanged read-only self-excused tutors when saving attendance for ano
     meetingId: "meeting",
     entries: [{ tutorId: "active", status: "PRESENT" }],
   });
+});
+
+it("previews the auto-sorted quarter from the top-level Add Meeting form when the date changes", () => {
+  render(sessionMeetingPage());
+  const dateInput = screen.getByLabelText<HTMLInputElement>(
+    messages.uiPatterns.meetingDate,
+  );
+  fireEvent.change(dateInput, { target: { value: "2026-05-15" } });
+  expect(screen.getByText("Sorted into 2025–26 Q4")).toBeTruthy();
+
+  fireEvent.change(dateInput, { target: { value: "2026-10-10" } });
+  expect(screen.getByText("Sorted into 2026–27 Q1")).toBeTruthy();
+
+  fireEvent.change(
+    screen.getByLabelText(messages.admin.meetings.titlePlaceholder),
+    { target: { value: "Q1 Check-in" } },
+  );
+  fireEvent.click(
+    screen.getByRole("button", { name: messages.admin.meetings.create }),
+  );
+  expect(state.createMeeting).toHaveBeenCalledOnce();
+  const payload = state.createMeeting.mock.calls[0]?.[0] as
+    | { title: string; date: Date }
+    | undefined;
+  expect(payload?.title).toBe("Q1 Check-in");
+  expect(payload?.date).toBeInstanceOf(Date);
+});
+
+it("auto-marks tutors without an account at the meeting date as read-only Exempt and persists EXEMPT on save", () => {
+  state.extraTutors = [
+    {
+      id: "no-account",
+      englishName: "No Account Tutor",
+      status: "ACTIVE",
+      user: null,
+    },
+    {
+      id: "joined-later",
+      englishName: "Joined Later Tutor",
+      status: "ACTIVE",
+      user: { createdAt: new Date("2026-10-15T00:00:00Z") },
+    },
+    {
+      id: "recorded-no-account",
+      englishName: "Recorded No Account",
+      status: "ACTIVE",
+      user: null,
+    },
+  ];
+  state.attendances = [
+    {
+      tutorId: "recorded-no-account",
+      status: "PRESENT",
+      excusedAt: null,
+      reason: null,
+      tutor: { englishName: "Recorded No Account" },
+    },
+  ];
+  mount();
+
+  // Both accountless-at-meeting tutors are read-only Exempt (no Present/UA choice group).
+  expect(
+    screen.queryByRole("group", { name: "Attendance for No Account Tutor" }),
+  ).toBeNull();
+  expect(
+    screen.queryByRole("group", { name: "Attendance for Joined Later Tutor" }),
+  ).toBeNull();
+  // Recorded attendance takes precedence over automatic exemption.
+  expect(
+    screen.getByRole("group", { name: "Attendance for Recorded No Account" }),
+  ).toBeTruthy();
+  expect(
+    screen.getAllByText(messages.admin.meetings.exemptNoAccount),
+  ).toHaveLength(2);
+
+  // Mark all unmarked Present only marks eligible active tutors (not auto-exempt ones).
+  fireEvent.click(
+    screen.getByRole("button", { name: messages.admin.meetings.markAllPresent }),
+  );
+  fireEvent.click(
+    screen.getByRole("button", { name: messages.admin.meetings.saveAttendance }),
+  );
+  expect(state.save).toHaveBeenCalledWith({
+    meetingId: "meeting",
+    entries: [
+      { tutorId: "active", status: "PRESENT" },
+      { tutorId: "no-account", status: "EXEMPT" },
+      { tutorId: "joined-later", status: "EXEMPT" },
+      { tutorId: "recorded-no-account", status: "PRESENT" },
+    ],
+  });
+
+  // Attendance Matrix also displays X for tutors without accounts at the meeting date.
+  fireEvent.click(
+    screen.getByRole("button", { name: messages.admin.meetings.summary.show }),
+  );
+  const matrix = screen.getByRole("table", {
+    name: messages.admin.meetings.summary.show,
+  });
+  const noAccountRow = within(matrix).getByText("No Account Tutor").closest("tr")!;
+  expect(within(noAccountRow).getAllByText("X")).toHaveLength(2);
 });
